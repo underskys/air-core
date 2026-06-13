@@ -6,7 +6,7 @@
 - [Release Plan v0.44](V0_44_RELEASE_PLAN.md)
 - [Public Alpha Packaging RFC](rfcs/v0.44-public-alpha-packaging.md)
 - [Publish Checklist](public_release/PUBLISH_CHECKLIST.md)
-- [Release Notes v0.43.0-alpha.1](public_release/RELEASE_NOTES_v0_43_alpha_1.md)
+- [Release Notes v0.44.0](public_release/RELEASE_NOTES_v0_44_0.md)
 - [npm Tarball Smoke v0.43.0-alpha.1](public_release/NPM_TARBALL_SMOKE_v0_43_alpha_1.md)
 - [Public Install Check](public_release/PUBLIC_INSTALL_CHECK.md)
 - [Conformance Public Check](public_release/CONFORMANCE_PUBLIC_CHECK.md)

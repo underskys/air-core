@@ -3,7 +3,7 @@
 AIR is a verifier-enforced intermediate representation for small deterministic
 logic modules, especially modules authored or modified with AI assistance.
 
-AIR is the project name. `air-verifier` is the npm package. `airc` is the CLI.
+AIR is the project name. `air-core` is the npm package. `airc` is the CLI.
 
 AIR is not a general-purpose language and not a host runtime. AIR modules run
 inside a host-owned application boundary. The host owns platform authority; AIR
@@ -77,7 +77,7 @@ review artifacts. Those artifacts are for review workflow, not source of truth.
 After the public alpha is published, install the package with:
 
 ```sh
-npm install -g air-verifier@0.43.0-alpha.1
+npm install -g air-core@alpha
 airc version --json
 ```
 
@@ -132,12 +132,12 @@ shipped as public Core package authority.
 
 | Product/package | Milestone | AIR ABI | Host ABI | Spec | Conformance | Notes |
 | --- | --- | --- | --- | --- | --- | --- |
-| `0.43.0-alpha.1` | `v0.44 active` | `0.10` | `0.11` latest, `0.10` baseline | `0.10` family | repo test/conformance suite | Public-alpha packaging and release-smoke checkpoint. Host ABI `0.11` is limited to bounded `output.emit`. |
+| `0.44.0` | `v0.44 active` | `0.10` | `0.11` latest, `0.10` baseline | `0.10` family | repo test/conformance suite | Public-alpha packaging and release-smoke checkpoint. Host ABI `0.11` is limited to bounded `output.emit`. |
 
 Current active milestone:
 
 - Project milestone: `v0.44 active`
-- Package/product version: `0.43.0-alpha.1`
+- Package/product version: `0.44.0`
 - Active roadmap: [docs/V0_44_RELEASE_PLAN.md](docs/V0_44_RELEASE_PLAN.md)
 - Feature status: [docs/FEATURE_STATUS_v0.44.md](docs/FEATURE_STATUS_v0.44.md)
 

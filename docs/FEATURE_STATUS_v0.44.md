@@ -16,7 +16,7 @@ Related documents:
 - [AIR v0.44 Release Plan](V0_44_RELEASE_PLAN.md)
 - [Public Alpha Packaging RFC](rfcs/v0.44-public-alpha-packaging.md)
 - [Publish Checklist](public_release/PUBLISH_CHECKLIST.md)
-- [Release Notes v0.43.0-alpha.1](public_release/RELEASE_NOTES_v0_43_alpha_1.md)
+- [Release Notes v0.44.0](public_release/RELEASE_NOTES_v0_44_0.md)
 - [npm Package Files Plan](public_release/NPM_PACKAGE_FILES_PLAN.md)
 - [npm Pack Dry-Run Summary](public_release/NPM_PACK_DRY_RUN_SUMMARY.md)
 - [Public Install Check](public_release/PUBLIC_INSTALL_CHECK.md)
