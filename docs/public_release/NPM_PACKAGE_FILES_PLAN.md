@@ -7,7 +7,7 @@ AIR's public npm package should expose Core/spec/CLI/conformance surfaces and
 small launch-safe examples only. Consumer evidence and demos remain repository
 pressure/intake unless explicitly allowlisted later.
 
-AIR is the project name. `air-verifier` is the npm package. `airc` is the CLI.
+AIR is the project name. `air-core` is the npm package. `airc` is the CLI.
 
 ## Include
 
@@ -83,7 +83,7 @@ The dry-run output must be reviewed for:
 Current dry-run result:
 
 - [npm Pack Dry-Run Summary](NPM_PACK_DRY_RUN_SUMMARY.md)
-- `air-verifier@0.43.0-alpha.1`
+- `air-core@0.44.0`
 - 139 package files
 - `bin/airc.js` included
 - `data/host_profiles/` included for packaged profile-aware CLI checks

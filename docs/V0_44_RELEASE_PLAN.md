@@ -32,8 +32,8 @@ post-publish verification plan.
 | Local install from tarball | Document local install/global install smoke path and cleanup. |
 | `bin/airc.js` smoke | Verify `airc version`, `airc check` on a public example, `airc package-check` on a public package example, `airc evidence report`, and `airc run-proof` when a public-clean proof fixture is available. |
 | Public repository visibility checklist | Confirm public docs, license metadata, versioning, conformance status, request ledger, and package surface are launch-safe. |
-| Release notes | Create public alpha release notes for `0.43.0-alpha.1`. |
-| Git tag plan | Define tag `v0.43.0-alpha.1` and pre-tag verification requirements. |
+| Release notes | Create public alpha release notes for `0.44.0`. |
+| Git tag plan | Define tag `v0.44.0` and pre-tag verification requirements. |
 | npm publish checklist | Manual publish only; no token in repo, Codex, logs, prompts, review bundles, or CI output. |
 | Post-publish verification plan | Define `npm view`, clean install, `npx` or local smoke, and package file re-check after publication. |
 
@@ -74,7 +74,7 @@ v0.44 is complete when:
 - local tarball smoke is recorded;
 - install and `bin/airc.js` smoke commands are recorded;
 - public repo visibility checklist is complete;
-- release notes for `0.43.0-alpha.1` exist;
+- release notes for `0.44.0` exist;
 - tag and publish checklists exist;
 - post-publish verification plan exists;
 - `node scripts/check_markdown_links.js` passes;

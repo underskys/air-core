@@ -1,160 +1,144 @@
-# AIR Core v0.44.0 Manual Publish Checklist
+# AIR Public Alpha Publish Checklist
 
-Status: human-maintainer checklist for `air-core@0.44.0` public alpha publish.
+Status: implemented/P0 for v0.44; human-maintainer checklist for manual npm
+publish.
 
-This checklist is operational documentation only. Codex must not publish to npm,
-must not receive npm credentials, must not create tags, and must not run the
-manual GitLab publish job.
+This checklist is for a human maintainer. Codex must not receive npm tokens,
+must not receive npm credentials in prompts or files, and must not publish. The
+manual publish command below is listed only so the human maintainer can run it
+outside Codex after v0.44 is merged and the final checks pass.
 
 Target package: `air-core@0.44.0`
-
-CLI binary: `airc`
 
 Planned git tag: `v0.44.0`
 
 Planned npm dist-tag: `alpha`
 
-## Before Manual Publish
+## Pre-Publish Repository Checks
 
-Confirm the checkout is exactly on the release tag:
+- [ ] Current branch is clean `main` at the intended release commit.
+- [ ] Checkout is clean.
+- [ ] `git status --short --branch` shows no dirty files and no unexpected
+  ahead/behind state.
+- [ ] Planned tag `v0.44.0` does not already point to a different
+  commit.
+- [ ] The release commit has been reviewed and pushed.
+- [ ] `package.json` version is `0.44.0`.
+- [ ] `package.json` license is `Apache-2.0`.
+- [ ] `package.json` has no `private: true`.
+- [ ] `LICENSE`, `NOTICE`, and `AUTHORS` exist.
+- [ ] `README.md`, `VERSIONING.md`, `CHANGELOG.md`, `SECURITY.md`,
+  `THREAT_MODEL.md`, and `CONFORMANCE.md` are launch-safe.
+- [ ] `CONFORMANCE.md` does not claim independent `air-tests 74/74` unless the
+  public repository reproduces it.
+- [ ] `REVIEW_RESULTS/RED_FLAGS.md` has no active red flags.
+- [ ] `docs/PROMISE_DEBT.md` exists and request ledger validation passes.
+- [ ] `docs/public_release/RELEASE_NOTES_v0_44_0.md` is ready for public
+  release notes.
+- [ ] `README.md` install instructions are correct for the publish state.
 
-```sh
-git status --short --branch
-git describe --tags --exact-match
-```
-
-Expected tag: `v0.44.0`.
-
-Confirm package identity:
-
-```sh
-node -e "const p=require('./package.json'); console.log(p.name,p.version,p.license,p.bin)"
-```
-
-Expected:
-
-- package name: `air-core`
-- package version: `0.44.0`
-- license: `Apache-2.0`
-- CLI binary: `airc` mapped to `./bin/airc.js`
-
-Confirm the GitLab tag pipeline is green:
-
-- `test`: pass
-- `pack:smoke`: pass
-- `publish:npm:alpha`: present as a manual job
-
-Do not publish if the tag pipeline failed or if the manual publish job is not
-clearly associated with tag `v0.44.0`.
-
-## Local Pack And Install Smoke
-
-Run from a clean checkout:
+## Required Checks
 
 ```sh
-npm ci
 npm test
+npm run test:bundle
+npm run check:consumer-evidence
+npm run consumer-evidence:bundle
+npm run check:request-ledger
 npm run check:public-package-surface
-npm run check:public-claims
+bash scripts/run_rc_checks.sh
+node scripts/check_markdown_links.js
+node scripts/check_abi_requests.js
+node scripts/check_request_ledger.js
+node scripts/check_public_package_surface.js
+node test/layer_guard.test.js
+git diff --check
+```
+
+## Tarball Smoke
+
+```sh
 npm pack --dry-run --json
 npm pack
+mkdir -p build/public-smoke
+tar -tf air-core-0.44.0.tgz | sort > build/public-smoke/npm-pack-files.txt
+node ./bin/airc.js version --json
+node ./bin/airc.js check examples/public/safe_policy/module.air
+node ./bin/airc.js package-check examples/public/evidence_report --source-only --json
+node ./bin/airc.js evidence report examples/public/evidence_report --format markdown -o build/public-smoke/evidence_report.md
 ```
 
-Install the produced tarball into a temporary project:
+If a public-clean `run-proof` fixture is available in the package surface:
 
 ```sh
-mkdir -p /tmp/air-core-local-smoke
-cd /tmp/air-core-local-smoke
-npm init -y
-npm install /path/to/air-core-0.44.0.tgz
-./node_modules/.bin/airc version --json
-./node_modules/.bin/airc --help
+node ./bin/airc.js run-proof <package-dir> --fixture <fixture.json> --policy <policy.json> --json
 ```
 
-Return to the repository and remove the generated tarball:
+If not, record `run-proof` as repository-only or not applicable for the npm
+package smoke.
+
+## Local Install Smoke
+
+Preferred:
 
 ```sh
-cd /path/to/air-core
+npm install -g ./air-core-0.44.0.tgz
+airc version --json
+airc check examples/public/safe_policy/module.air
+npm uninstall -g air-core
+```
+
+If global install is unsafe, use a temporary npm prefix and record the
+limitation.
+
+Clean up before commit:
+
+```sh
 rm -f air-core-0.44.0.tgz
+rm -rf build/public-smoke
 ```
 
 Do not commit generated tarballs.
 
-## npm Package Availability
+## Forbidden Publish Inputs
 
-Before first publish, check the package name state:
+- [ ] No npm token in repository.
+- [ ] No npm token in Codex prompt/context.
+- [ ] No npm token in review bundle.
+- [ ] No API keys or provider credentials.
+- [ ] No private paths, raw prompts, raw review bundles, snapshots, demos,
+  consumer evidence, hosts, kits, or build outputs in npm package surface.
+
+## Manual Publish
+
+Codex must not run this step and must not receive the npm token.
+
+Human maintainer command:
 
 ```sh
-npm view air-core name version || true
+npm publish --access public --tag alpha ./air-core-0.44.0.tgz
 ```
 
-If the package already exists and is not controlled by the maintainer, stop and
-do not publish.
-
-## Manual npm Publish
-
-Run this only as the human maintainer, after the tag pipeline and local smoke
-checks pass:
-
-```sh
-npm whoami
-npm publish --access public --tag alpha
-```
-
-Do not paste npm tokens into repository files, prompts, docs, logs, or review
-bundles.
-
-## GitLab Manual Publish Option
-
-If using the GitLab manual publish job instead of local npm publish:
-
-- Store `NPM_TOKEN` only in protected and masked GitLab CI/CD variables.
-- Do not paste the token into the repository, issue text, merge request text,
-  docs, prompts, or Codex context.
-- Press the manual `publish:npm:alpha` job only after the tag pipeline
-  `test` and `pack:smoke` jobs pass.
-- Verify the npm package afterward.
+Use npm account 2FA and the intended package visibility. Confirm the package
+name and dist-tag before publishing.
 
 ## Post-Publish Verification
 
-After npm publish:
+Run this only after the human maintainer completes npm publish.
 
 ```sh
-npm view air-core@alpha name version license bin
+npm view air-core@0.44.0 name
+npm view air-core@0.44.0 version
+npm view air-core@0.44.0 license
+npm view air-core@0.44.0 bin
 npm install -g air-core@alpha
 airc version --json
 airc --help
 npm uninstall -g air-core
 ```
 
-Expected:
+After publish, update public release notes if the final tag, package metadata,
+or install behavior differs from this checklist.
 
-- package name: `air-core`
-- package version: `0.44.0`
-- license: `Apache-2.0`
-- CLI binary: `airc`
-- AIR ABI in `airc version --json`: `0.10`
-
-## Compatibility And Claims
-
-- AIR Core v0.44.0 is a public alpha, not a 1.0 compatibility promise.
-- AIR ABI remains `0.10`.
-- Host ABI remains unchanged; latest documented Host ABI is `0.11`, limited to
-  bounded `output.emit`.
-- Public `air-tests 74/74` reproduction is pending unless that exact suite is
-  included and reproduced from the public repository.
-- Do not claim stronger guarantees than AIR's documented verifier model,
-  complete sandbox coverage, or business-policy correctness.
-
-## Stop Conditions
-
-Do not publish if any of these are true:
-
-- checkout is not exactly on tag `v0.44.0`;
-- `package.json` is not `air-core@0.44.0`;
-- tag pipeline failed;
-- local tarball smoke failed;
-- package surface includes private artifacts, review bundles, prompts, demos,
-  hosts, kits, generated archives, or secrets;
-- release notes or README overclaim the security/conformance model;
-- npm account/package ownership is unclear.
+If post-publish verification fails, do not publish another version until the
+failure is documented and triaged.

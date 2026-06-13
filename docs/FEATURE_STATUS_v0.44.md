@@ -2,7 +2,7 @@
 
 Status: active packaging/release-smoke status milestone
 
-Version target: v0.44 planning over package `0.43.0-alpha.1`
+Version target: v0.44 planning over package `0.44.0`
 
 v0.44 covers Public Alpha Packaging & Release Smoke. It is not a language,
 runtime, compiler-semantics, AIR ABI, or Host ABI milestone.
@@ -52,8 +52,8 @@ Related documents:
 | Local install from tarball | package/release checklist | Implemented/P0 using a temp project local install. |
 | `bin/airc.js` smoke commands | CLI/release checklist | Implemented/P0 for `version`, `check`, `package-check --source-only`, and `evidence report`; `run-proof` is not in the public npm package surface. |
 | Public repository visibility checklist | release checklist | Implemented/P0. |
-| Release notes for `0.43.0-alpha.1` | public release docs | Implemented/P0; release candidate for manual npm alpha publish after v0.44 merge. |
-| Git tag plan `v0.43.0-alpha.1` | release checklist | Implemented/P0. |
+| Release notes for `0.44.0` | public release docs | Implemented/P0; release candidate for manual npm publish after v0.44 merge. |
+| Git tag plan `v0.44.0` | release checklist | Implemented/P0. |
 | npm publish checklist | release checklist | Implemented/P0; manual publish only by the human maintainer. |
 | Post-publish verification plan | release checklist | Implemented/P0. |
 
@@ -85,8 +85,8 @@ Related documents:
 ## Version Semantics
 
 - Project milestone: `v0.44`.
-- Package intended for smoke: `0.43.0-alpha.1`.
-- Planned git tag: `v0.43.0-alpha.1`.
+- Package intended for smoke: `0.44.0`.
+- Planned git tag: `v0.44.0`.
 - AIR ABI latest: remains `0.10`.
 - Host ABI latest: remains `0.11`.
 - Host ABI default/baseline: remains `0.10`.

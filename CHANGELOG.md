@@ -19,9 +19,9 @@ compact format:
 ### Changed
 
 - README now uses strict anti-overclaim language for public alpha.
-- Package version set to `0.43.0-alpha.1` for current milestone alpha
+- Package version set to `0.44.0` for current milestone alpha
   preparation.
-- Public npm package identity changed to `air-verifier`; AIR remains the
+- Public npm package identity changed to `air-core`; AIR remains the
   project name and `airc` remains the CLI.
 - Public-alpha governance docs now cover installability, conformance,
   package files, promise debt, and request ledger validation.

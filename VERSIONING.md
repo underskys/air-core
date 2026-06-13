@@ -8,11 +8,11 @@ thing.
 The product/package version identifies an AIR release artifact such as the npm
 package metadata in `package.json`.
 
-AIR is the project name. `air-verifier` is the npm package. `airc` is the CLI.
+AIR is the project name. `air-core` is the npm package. `airc` is the CLI.
 
 Current public alpha package version:
 
-- `air-verifier@0.43.0-alpha.1`
+- `air-core@0.44.0`
 
 Alpha releases may change behavior. Breaking semantic changes require a
 migration note. Publishing is a separate release action and is not implied by a
@@ -65,7 +65,7 @@ commit and commands used to reproduce them.
 
 | Product version | Milestone | AIR ABI | Host ABI | Spec | Conformance | Notes |
 | --- | --- | --- | --- | --- | --- | --- |
-| `air-verifier@0.43.0-alpha.1` | `v0.44 active` | `0.10` | `0.11` latest, `0.10` baseline | `0.10` family | repository tests and fixtures | Public-alpha packaging and release-smoke checkpoint. Host ABI `0.11` is limited to bounded `output.emit`. |
+| `air-core@0.44.0` | `v0.44 active` | `0.10` | `0.11` latest, `0.10` baseline | `0.10` family | repository tests and fixtures | Public-alpha packaging and release-smoke checkpoint. Host ABI `0.11` is limited to bounded `output.emit`. |
 
 ## Policy
 
