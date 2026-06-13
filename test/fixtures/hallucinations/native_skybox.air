@@ -1,0 +1,9 @@
+module hallucinated_native_skybox
+capabilities { gfx }
+extern gfx.skybox_world(asset: i32, tint: i32, intensity: i32, yaw: i32, pitch: i32, roll: i32) -> void
+
+export func run() -> void {
+entry:
+  @gfx.skybox_world(1, 16777215, 1000, 0, 0, 0)
+  return
+}

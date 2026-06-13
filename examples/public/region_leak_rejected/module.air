@@ -1,0 +1,12 @@
+module public_region_leak_rejected
+capabilities { }
+requires export run
+
+export func run() -> i32 {
+entry:
+  %bytes:i32 = 4
+  %ptr:ptr = alloc_region %bytes
+  %zero:i32 = 0
+  return %zero
+}
+

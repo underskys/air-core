@@ -1,0 +1,14 @@
+{
+  "schemaVersion": "0.29",
+  "kind": "air.benchmark",
+  "benchmarkName": "E2E lan observer readonly basic",
+  "benchmarkId": "e2e_lan_observer_readonly_basic",
+  "packageDir": "../../examples/lan_observer_readonly_package",
+  "profile": "cli",
+  "trace": "../../examples/lan_observer_readonly_package/traces/pass.json",
+  "e2eProof": {
+    "fixture": "../../examples/lan_observer_readonly_package/traces/pass.json",
+    "policy": "../../examples/lan_observer_readonly_package/host_policies/lan_observer_readonly.policy.json"
+  },
+  "repeat": 1
+}

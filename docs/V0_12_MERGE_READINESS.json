@@ -1,0 +1,78 @@
+{
+  "branch": "air-v0.12-package-profile-core-ergonomics",
+  "commit": "MR_HEAD",
+  "dirty": false,
+  "recommendation": "READY TO OPEN MR",
+  "blockers": [],
+  "coreBlockers": [],
+  "gates": [
+    {
+      "name": "npm test",
+      "status": "PASS",
+      "command": "npm test"
+    },
+    {
+      "name": "layer guard",
+      "status": "PASS",
+      "command": "node test/layer_guard.test.js"
+    },
+    {
+      "name": "package manifest tests",
+      "status": "PASS",
+      "command": "node test/package_manifest.test.js"
+    },
+    {
+      "name": "host profile tests",
+      "status": "PASS",
+      "command": "node test/host_profiles.test.js"
+    },
+    {
+      "name": "module graph tests",
+      "status": "PASS",
+      "command": "node test/module_graph.test.js"
+    },
+    {
+      "name": "report tests",
+      "status": "PASS",
+      "command": "node test/report.test.js"
+    },
+    {
+      "name": "markdown links",
+      "status": "PASS",
+      "command": "node scripts/check_markdown_links.js"
+    },
+    {
+      "name": "ABI request validation",
+      "status": "PASS",
+      "command": "node scripts/check_abi_requests.js"
+    },
+    {
+      "name": "review bundle fixtures",
+      "status": "PASS",
+      "command": "node scripts/check_review_bundle.js --keep",
+      "note": "Bundle includes test/fixtures/**/*.air and tiny review-safe package/asset media fixtures."
+    },
+    {
+      "name": "package-check source-only fixture",
+      "status": "PASS",
+      "command": "node bin/airc.js package-check examples/package_manifest --profile browser-webgpu --source-only --json",
+      "note": "Command exits 0 with status warn due explicit placeholder fixture assets."
+    },
+    {
+      "name": "Contra source-only diagnostics",
+      "status": "PASS",
+      "command": "node bin/airc.js package-check demo/contra-platformer --profile browser-webgpu --source-only --json",
+      "note": "Contra source-only package-check passes; demo runtime polish remains demo-local pressure work."
+    },
+    {
+      "name": "audio negative capability",
+      "status": "PASS",
+      "command": "node demo/contra-platformer/scripts/check_audio_capability_negative.mjs"
+    },
+    {
+      "name": "git diff whitespace",
+      "status": "PASS",
+      "command": "git diff --check"
+    }
+  ]
+}

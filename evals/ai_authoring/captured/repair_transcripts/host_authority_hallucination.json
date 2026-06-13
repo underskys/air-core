@@ -1,0 +1,28 @@
+{
+  "schemaVersion": "0.32",
+  "kind": "air.aiAuthoringRepairTranscript",
+  "caseId": "host_authority_hallucination",
+  "attempts": [
+    {
+      "iteration": 1,
+      "summary": "switches from host.fetch to chrome.storage but keeps raw host authority",
+      "verify": {
+        "status": "failed",
+        "diagnostics": [
+          {
+            "code": "air.api_gate.raw_host_authority_rejected",
+            "severity": "fail",
+            "message": "raw host authority is rejected"
+          }
+        ]
+      },
+      "packageCheck": {
+        "status": "failed",
+        "diagnostics": []
+      },
+      "hallucinationCategories": [
+        "raw_host_authority"
+      ]
+    }
+  ]
+}

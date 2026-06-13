@@ -1,0 +1,34 @@
+{
+  "schemaVersion": "0.38",
+  "kind": "air.aiAuthoringEvalCapture",
+  "captureId": "valid_import_capture",
+  "cases": [
+    {
+      "id": "valid_small_import",
+      "prompt": "prompt_ids/valid_small_module",
+      "modelOutput": "model_outputs/valid_small_import.json",
+      "repairTranscript": "repair_transcripts/valid_small_import.json",
+      "expected": {
+        "firstPassVerify": "passed",
+        "firstPassPackageCheck": "passed",
+        "requiredDiagnosticCodes": [],
+        "repairSuccessIteration": 0
+      }
+    },
+    {
+      "id": "runtime_json_import",
+      "prompt": "prompt_ids/runtime_json",
+      "modelOutput": "model_outputs/runtime_json_import.json",
+      "repairTranscript": "repair_transcripts/runtime_json_import.json",
+      "expected": {
+        "firstPassVerify": "passed",
+        "firstPassPackageCheck": "failed",
+        "requiredDiagnosticCodes": [
+          "air.structured_io.runtime_json_rejected"
+        ],
+        "repairSuccessIteration": 1,
+        "forbiddenSurfaceCategory": "runtime_json"
+      }
+    }
+  ]
+}

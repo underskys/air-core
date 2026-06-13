@@ -1,0 +1,15 @@
+module plugin_metric
+capabilities { debug }
+effects { debug.metric <= 1 }
+requires capability debug
+requires export run
+
+extern debug.metric(id: i32, value: i32) -> void
+
+export func run() -> void {
+entry:
+  %id:i32 = 1
+  %value:i32 = 42
+  @debug.metric(%id, %value)
+  return
+}

@@ -1,0 +1,20 @@
+{
+  "schemaVersion": "0.32",
+  "kind": "air.aiAuthoringRepairTranscript",
+  "caseId": "repairable_invalid_module",
+  "attempts": [
+    {
+      "iteration": 1,
+      "summary": "replace string field with scalar i32 handle and privacy classification",
+      "verify": {
+        "status": "passed",
+        "diagnostics": []
+      },
+      "packageCheck": {
+        "status": "passed",
+        "diagnostics": []
+      },
+      "hallucinationCategories": []
+    }
+  ]
+}

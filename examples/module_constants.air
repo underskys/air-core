@@ -1,0 +1,16 @@
+module module_constants
+const BASE_SCORE:i32 = 40
+const BONUS_ENABLED:bool = true
+const METRIC_ID:i32 = 10
+capabilities { debug }
+effects { debug.metric <= 1 }
+
+extern debug.metric(id: i32, value: i32) -> void
+
+export func run() -> i32 {
+entry:
+  %bonus:i32 = select.i32 BONUS_ENABLED, 2, 0
+  %score:i32 = add BASE_SCORE, %bonus
+  @debug.metric(METRIC_ID, %score)
+  return %score
+}

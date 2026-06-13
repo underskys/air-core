@@ -1,0 +1,9 @@
+module hallucinated_sprite_transform
+capabilities { gfx }
+extern gfx.draw_sprite_transform(sprite: i32, x: i32, y: i32, rotation: i32, scale: i32, alpha: i32, flags: i32) -> void
+
+export func run() -> void {
+entry:
+  @gfx.draw_sprite_transform(1, 0, 0, 0, 1000, 255, 0)
+  return
+}

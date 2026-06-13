@@ -1,0 +1,32 @@
+{
+  "id": "native-wgpu",
+  "name": "Native wgpu Host",
+  "hostAbi": "0.10",
+  "supports": {
+    "capabilities": ["debug", "gfx", "input"],
+    "hostImports": [
+      "debug.metric",
+      "gfx.begin_frame",
+      "gfx.camera_look_at",
+      "gfx.draw_cube",
+      "gfx.draw_primitive",
+      "gfx.end_frame",
+      "gfx.skybox_world",
+      "input.axis",
+      "input.button"
+    ],
+    "assetKinds": ["shader", "model", "material"],
+    "manifestKinds": ["gfx", "assets"]
+  },
+  "limits": {
+    "maxAssets": 128,
+    "maxTextureSize": 4096,
+    "maxAudioFiles": 0
+  },
+  "diagnostics": {
+    "ciSafe": false,
+    "manualOnly": true,
+    "requiredReports": ["package-check --profile", "headless gfx-stream probe", "manual window diagnostics"],
+    "unsupportedFeatureBehavior": "fail-with-diagnostic"
+  }
+}

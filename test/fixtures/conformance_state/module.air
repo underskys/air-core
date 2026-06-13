@@ -1,0 +1,22 @@
+module fixed_state_conformance
+state board:i32[4] = fill 0
+capabilities { }
+
+export func write_cell(index: i32, value: i32) -> i32 {
+entry:
+  state.set board, %index, %value
+  return %value
+}
+
+export func board_cell(index: i32) -> i32 {
+entry:
+  %value:i32 = state.get board, %index
+  return %value
+}
+
+export func unsafe_digest_helper(index: i32) -> i32 {
+entry:
+  state.set board, %index, 7
+  %value:i32 = state.get board, %index
+  return %value
+}

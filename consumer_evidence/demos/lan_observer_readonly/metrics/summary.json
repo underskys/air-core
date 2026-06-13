@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "kind": "air.consumerEvidenceSummary",
+  "demoId": "lan_observer_readonly",
+  "status": "passed",
+  "airAbi": "0.10",
+  "hostAbi": "0.10",
+  "capabilityBoundary": {
+    "allowedCapabilities": [
+      "bounded structured IO metadata",
+      "bounded output intent"
+    ],
+    "deniedAuthorities": [
+      "real network access",
+      "host writes",
+      "secrets"
+    ]
+  },
+  "proofTypes": [
+    "package-check",
+    "evidence-report",
+    "replay",
+    "benchmark",
+    "ai-eval"
+  ],
+  "privacy": {
+    "containsSecrets": false,
+    "containsRawPrivateData": false,
+    "containsAbsolutePaths": false,
+    "containsLargeLogs": false
+  },
+  "routing": [
+    {
+      "pressure": "Read-only consumer proof with sanitized host-shaped facts.",
+      "route": "Core",
+      "status": "accepted"
+    }
+  ]
+}

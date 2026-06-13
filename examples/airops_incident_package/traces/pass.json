@@ -1,0 +1,67 @@
+{
+  "schemaVersion": "0.20",
+  "kind": "air.conformance.batchFixture",
+  "id": "airops-incident-canonical-pass",
+  "package": "airops-incident-canonical-example",
+  "profile": "cli",
+  "rowsets": [
+    {
+      "name": "incident_observation",
+      "schema": "facts/incident_observation.rowset.schema.json",
+      "rows": [
+        {
+          "incident_id": 701,
+          "service_id": 12,
+          "severity_id": 4,
+          "signal_count": 9,
+          "age_minutes": 18,
+          "flags": 3
+        },
+        {
+          "incident_id": 702,
+          "service_id": 12,
+          "severity_id": 1,
+          "signal_count": 2,
+          "age_minutes": 5,
+          "flags": 0
+        }
+      ]
+    }
+  ],
+  "observedOutputs": [
+    {
+      "id": 2001,
+      "name": "incident_policy_decision_recorded",
+      "channel": "pipeline",
+      "args": [701, 102, 204, 100],
+      "flags": 0
+    }
+  ],
+  "expectedOutputs": [
+    {
+      "id": 2001,
+      "name": "incident_policy_decision_recorded",
+      "channel": "pipeline",
+      "args": [701, 102, 204, 100],
+      "flags": 0
+    }
+  ],
+  "observedCommands": [
+    {
+      "output_id": 2001,
+      "arg0": 701,
+      "arg1": 102,
+      "arg2": 204,
+      "arg3": 100
+    }
+  ],
+  "expectedCommands": [
+    {
+      "output_id": 2001,
+      "arg0": 701,
+      "arg1": 102,
+      "arg2": 204,
+      "arg3": 100
+    }
+  ]
+}

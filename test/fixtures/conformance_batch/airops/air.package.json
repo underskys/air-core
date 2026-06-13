@@ -1,0 +1,12 @@
+{
+  "name": "airops-batch-conformance-fixture",
+  "version": "0.1.0",
+  "airAbi": "0.10",
+  "hostAbi": "0.10",
+  "entry": "module.air",
+  "capabilities": [],
+  "targetProfiles": ["cli"],
+  "factSchemas": ["facts/incident_observation.rowset.schema.json"],
+  "outputContracts": ["outputs/incident_policy.output.json"],
+  "commandBuffers": ["outputs/incident_policy.commands.json"]
+}

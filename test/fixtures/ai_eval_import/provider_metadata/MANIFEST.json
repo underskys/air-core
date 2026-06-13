@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "0.38",
+  "kind": "air.aiAuthoringEvalCapture",
+  "captureId": "provider_metadata_capture",
+  "providerRequestId": "req_1234567890",
+  "cases": [
+    {
+      "id": "provider_case",
+      "prompt": "prompt_ids/provider_case",
+      "modelOutput": "model_outputs/provider_case.json"
+    }
+  ]
+}

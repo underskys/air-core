@@ -1,0 +1,28 @@
+{
+  "shaders": {
+    "stdlib_unlit_mesh": {
+      "path": "shaders/unlit_mesh.wgsl",
+      "vertex": "vs_main",
+      "fragment": "fs_main"
+    },
+    "stdlib_sprite_atlas": {
+      "path": "shaders/sprite_atlas.wgsl",
+      "vertex": "vs_main",
+      "fragment": "fs_main"
+    },
+    "stdlib_post_tonemap": {
+      "path": "shaders/post_tonemap.wgsl",
+      "vertex": "vs_main",
+      "fragment": "fs_main"
+    }
+  },
+  "pipelines": {
+    "stdlib_unlit_mesh": { "shader": "stdlib_unlit_mesh", "depth": true, "vertexCount": 3 },
+    "stdlib_sprite_atlas": { "shader": "stdlib_sprite_atlas", "blend": "alpha", "vertexCount": 6 },
+    "stdlib_post_tonemap": { "shader": "stdlib_post_tonemap", "depth": false, "vertexCount": 3 }
+  },
+  "materials": {
+    "stdlib_unlit": { "pipeline": "stdlib_unlit_mesh", "model": "unlit", "baseColor": [0.08, 0.62, 1, 1] },
+    "stdlib_sprite": { "pipeline": "stdlib_sprite_atlas", "model": "sprite-unlit", "baseColor": [1, 1, 1, 1] }
+  }
+}

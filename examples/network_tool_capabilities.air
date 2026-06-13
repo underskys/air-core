@@ -1,0 +1,27 @@
+module network_tool_capabilities
+capabilities { }
+effects { cpu.instructions <= 32 }
+
+func score(has_ping: bool, has_arp: bool, has_dns: bool, has_traceroute: bool, os_family: i32) -> i32 {
+entry:
+  %ping:i32 = select.i32 %has_ping, 1, 0
+  %arp:i32 = select.i32 %has_arp, 2, 0
+  %dns:i32 = select.i32 %has_dns, 4, 0
+  %trace:i32 = select.i32 %has_traceroute, 8, 0
+  %base0:i32 = i32.or %ping, %arp
+  %base1:i32 = i32.or %dns, %trace
+  %base:i32 = i32.or %base0, %base1
+  %linux:bool = i32.eq %os_family, 1
+  %native_bonus:i32 = select.i32 %linux, 16, 0
+  %out:i32 = i32.or %base, %native_bonus
+  return %out
+}
+
+export func run() -> i32 {
+entry:
+  %yes:bool = true
+  %no:bool = false
+  %linux:i32 = 1
+  %out:i32 = @score(%yes, %yes, %yes, %no, %linux)
+  return %out
+}

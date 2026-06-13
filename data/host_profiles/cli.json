@@ -1,0 +1,36 @@
+{
+  "id": "cli",
+  "name": "CLI Utility Host",
+  "hostAbi": "0.10",
+  "supports": {
+    "capabilities": ["debug", "time", "random", "fs", "io"],
+    "hostImports": [
+      "debug.metric",
+      "fs.exists",
+      "fs.read_file",
+      "fs.read_file_async",
+      "fs.write_file",
+      "fs.write_file_async",
+      "io.cancel",
+      "io.poll",
+      "io.result_len",
+      "random.f32",
+      "random.u32",
+      "time.monotonic_ms",
+      "time.now_ms"
+    ],
+    "assetKinds": [],
+    "manifestKinds": []
+  },
+  "limits": {
+    "maxAssets": 0,
+    "maxTextureSize": 0,
+    "maxAudioFiles": 0
+  },
+  "diagnostics": {
+    "ciSafe": true,
+    "manualOnly": false,
+    "requiredReports": ["package-check --profile", "CLI JSON report"],
+    "unsupportedFeatureBehavior": "fail-with-diagnostic"
+  }
+}

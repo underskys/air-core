@@ -1,0 +1,70 @@
+{
+  "schemaVersion": "0.32",
+  "kind": "air.aiAuthoringRepairTranscript",
+  "caseId": "hallucination_negative_case",
+  "attempts": [
+    {
+      "iteration": 1,
+      "summary": "removes output.event but keeps host object handle",
+      "verify": {
+        "status": "failed",
+        "diagnostics": [
+          {
+            "code": "air.verify.host_object_handle_rejected",
+            "severity": "fail",
+            "message": "host object handles are rejected"
+          }
+        ]
+      },
+      "packageCheck": {
+        "status": "failed",
+        "diagnostics": []
+      },
+      "hallucinationCategories": [
+        "host_object_handle"
+      ]
+    },
+    {
+      "iteration": 2,
+      "summary": "removes handle but keeps runtime JSON",
+      "verify": {
+        "status": "passed",
+        "diagnostics": []
+      },
+      "packageCheck": {
+        "status": "failed",
+        "diagnostics": [
+          {
+            "code": "air.structured_io.runtime_json_rejected",
+            "severity": "fail",
+            "message": "runtime JSON is rejected"
+          }
+        ]
+      },
+      "hallucinationCategories": [
+        "runtime_json"
+      ]
+    },
+    {
+      "iteration": 3,
+      "summary": "keeps raw host authority after repair",
+      "verify": {
+        "status": "failed",
+        "diagnostics": [
+          {
+            "code": "air.api_gate.raw_host_authority_rejected",
+            "severity": "fail",
+            "message": "raw host authority is rejected"
+          }
+        ]
+      },
+      "packageCheck": {
+        "status": "failed",
+        "diagnostics": []
+      },
+      "hallucinationCategories": [
+        "raw_host_authority"
+      ]
+    }
+  ]
+}

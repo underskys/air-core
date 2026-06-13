@@ -1,0 +1,8 @@
+module hallucinated_host_object_handle
+capabilities { gfx }
+extern gfx.use_device(device: WebGPUDevice) -> void
+
+export func run() -> void {
+entry:
+  return
+}

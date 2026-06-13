@@ -1,0 +1,7 @@
+# Generated file. Do not edit manually.
+# Generator: repo:bin/airc.js
+# Source: air.package.json
+# Source: assets/manifest.json
+# Manifest fingerprint: 2430cd6fd843e8bc
+module sprite_handles
+capabilities { }

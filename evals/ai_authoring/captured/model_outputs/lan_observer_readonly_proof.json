@@ -1,0 +1,33 @@
+{
+  "schemaVersion": "0.32",
+  "kind": "air.aiAuthoringCapturedOutput",
+  "caseId": "lan_observer_readonly_proof",
+  "candidateSummary": "candidate tries raw host access and runtime JSON before repair",
+  "forbiddenSurface": true,
+  "hallucinationCategories": [
+    "raw_host_authority",
+    "runtime_json"
+  ],
+  "firstPass": {
+    "verify": {
+      "status": "failed",
+      "diagnostics": [
+        {
+          "code": "air.api_gate.raw_host_authority_rejected",
+          "severity": "fail",
+          "message": "host.fetch and device mutation are rejected in AIR"
+        }
+      ]
+    },
+    "packageCheck": {
+      "status": "failed",
+      "diagnostics": [
+        {
+          "code": "air.structured_io.runtime_json_rejected",
+          "severity": "fail",
+          "message": "runtime JSON payloads are rejected"
+        }
+      ]
+    }
+  }
+}

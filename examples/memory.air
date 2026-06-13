@@ -1,0 +1,14 @@
+module memory_demo
+capabilities { }
+
+func main(args: slice) -> i32 {
+entry:
+  %bytes:i32 = 4
+  %ptr:ptr = alloc_region %bytes
+  %off:i32 = 0
+  %value:i32 = 42
+  store.i32 %ptr, %off, %value
+  %loaded:i32 = load.i32 %ptr, %off
+  free_region %ptr
+  return %loaded
+}

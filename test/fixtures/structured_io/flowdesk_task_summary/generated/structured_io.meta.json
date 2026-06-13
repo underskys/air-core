@@ -1,0 +1,151 @@
+{
+  "generatedFiles": [
+    {
+      "fingerprint": "sha256:bc6243908ee1ce7fea643448e720bcf517b1aaf5ed1203dc7e36fd5b869b992d",
+      "path": "generated/structured_io_handles.air"
+    }
+  ],
+  "generator": "airc structured-io",
+  "handles": [
+    {
+      "field": "blocked",
+      "handle": "STRUCT_TASK_SUMMARY_FIELD_BLOCKED_OFFSET",
+      "kind": "field_offset",
+      "schema": "task_summary",
+      "value": 2
+    },
+    {
+      "field": "blocked",
+      "handle": "STRUCT_TASK_SUMMARY_FIELD_BLOCKED_TYPE",
+      "kind": "field_type",
+      "schema": "task_summary",
+      "value": 2
+    },
+    {
+      "field": null,
+      "handle": "STRUCT_TASK_SUMMARY_FIELD_COUNT",
+      "kind": "field_count",
+      "schema": "task_summary",
+      "value": 4
+    },
+    {
+      "field": "risk_score",
+      "handle": "STRUCT_TASK_SUMMARY_FIELD_RISK_SCORE_OFFSET",
+      "kind": "field_offset",
+      "schema": "task_summary",
+      "value": 3
+    },
+    {
+      "field": "risk_score",
+      "handle": "STRUCT_TASK_SUMMARY_FIELD_RISK_SCORE_TYPE",
+      "kind": "field_type",
+      "schema": "task_summary",
+      "value": 1
+    },
+    {
+      "field": "status_id",
+      "handle": "STRUCT_TASK_SUMMARY_FIELD_STATUS_ID_OFFSET",
+      "kind": "field_offset",
+      "schema": "task_summary",
+      "value": 1
+    },
+    {
+      "field": "status_id",
+      "handle": "STRUCT_TASK_SUMMARY_FIELD_STATUS_ID_TYPE",
+      "kind": "field_type",
+      "schema": "task_summary",
+      "value": 1
+    },
+    {
+      "field": "task_id",
+      "handle": "STRUCT_TASK_SUMMARY_FIELD_TASK_ID_OFFSET",
+      "kind": "field_offset",
+      "schema": "task_summary",
+      "value": 0
+    },
+    {
+      "field": "task_id",
+      "handle": "STRUCT_TASK_SUMMARY_FIELD_TASK_ID_TYPE",
+      "kind": "field_type",
+      "schema": "task_summary",
+      "value": 1
+    },
+    {
+      "field": null,
+      "handle": "STRUCT_TASK_SUMMARY_KIND",
+      "kind": "schema_kind",
+      "schema": "task_summary",
+      "value": 2
+    },
+    {
+      "field": null,
+      "handle": "STRUCT_TASK_SUMMARY_MAX_ROWS",
+      "kind": "max_rows",
+      "schema": "task_summary",
+      "value": 4
+    }
+  ],
+  "kind": "air.generatedStructuredIO",
+  "schemaVersion": "0.32",
+  "schemas": [
+    {
+      "diagnostics": [],
+      "errors": [],
+      "exists": true,
+      "fieldCount": 4,
+      "fields": [
+        {
+          "classification": null,
+          "name": "task_id",
+          "privacy": "minimized",
+          "semantic": "id",
+          "type": "i32"
+        },
+        {
+          "classification": null,
+          "name": "status_id",
+          "privacy": "minimized",
+          "semantic": "enum",
+          "type": "i32"
+        },
+        {
+          "classification": null,
+          "name": "blocked",
+          "privacy": "public",
+          "semantic": "flag",
+          "type": "bool"
+        },
+        {
+          "classification": null,
+          "name": "risk_score",
+          "privacy": "minimized",
+          "semantic": "score",
+          "type": "i32"
+        }
+      ],
+      "fingerprint": "sha256:6d32aaabaa34171ae45a29fe375b82659ee4459db069e1b72911e418eb778112",
+      "kind": "air.structuredRowsetSchema",
+      "maxRows": 4,
+      "name": "task_summary",
+      "ok": true,
+      "path": "schemas/task_summary.structured.rowset.json",
+      "privacyPolicy": {
+        "defaultClassification": "minimized",
+        "forbiddenByDefault": [
+          "raw_text",
+          "raw_url",
+          "token",
+          "secret"
+        ]
+      },
+      "schemaVersion": "0.32",
+      "warnings": []
+    }
+  ],
+  "sourceSchemas": [
+    {
+      "fingerprint": "sha256:6d32aaabaa34171ae45a29fe375b82659ee4459db069e1b72911e418eb778112",
+      "path": "schemas/task_summary.structured.rowset.json"
+    }
+  ]
+}

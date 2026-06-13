@@ -1,0 +1,77 @@
+module gfx3d
+capabilities { gfx }
+
+extern gfx.draw_primitive(primitive: i32, material: i32, x: i32, y: i32, z: i32, sx: i32, sy: i32, sz: i32, yaw: i32, pitch: i32, roll: i32, color: i32, emissive: i32, flags: i32) -> void
+extern gfx.skybox_world(asset: i32, tint: i32, intensity: i32, yaw: i32, pitch: i32, roll: i32) -> void
+
+func primitive(primitive: i32, material: i32, x: i32, y: i32, z: i32, sx: i32, sy: i32, sz: i32, color: i32, emissive: i32) -> void {
+entry:
+  %zero:i32 = 0
+  @primitive_flags(%primitive, %material, %x, %y, %z, %sx, %sy, %sz, %zero, %zero, %zero, %color, %emissive, %zero)
+  return
+}
+
+func primitive_flags(primitive: i32, material: i32, x: i32, y: i32, z: i32, sx: i32, sy: i32, sz: i32, yaw: i32, pitch: i32, roll: i32, color: i32, emissive: i32, flags: i32) -> void {
+entry:
+  %sx_ok:bool = i32.gt_s %sx, 0
+  %sy_ok:bool = i32.gt_s %sy, 0
+  %sz_ok:bool = i32.gt_s %sz, 0
+  %xy_ok:bool = bool.and %sx_ok, %sy_ok
+  %visible:bool = bool.and %xy_ok, %sz_ok
+  br_if %visible, draw, exit
+draw:
+  @gfx.draw_primitive(%primitive, %material, %x, %y, %z, %sx, %sy, %sz, %yaw, %pitch, %roll, %color, %emissive, %flags)
+  return
+exit:
+  return
+}
+
+func box(material: i32, x: i32, y: i32, z: i32, sx: i32, sy: i32, sz: i32, color: i32, emissive: i32) -> void {
+entry:
+  %box:i32 = 1
+  @primitive(%box, %material, %x, %y, %z, %sx, %sy, %sz, %color, %emissive)
+  return
+}
+
+func cylinder(material: i32, x: i32, y: i32, z: i32, sx: i32, sy: i32, sz: i32, color: i32, emissive: i32) -> void {
+entry:
+  %cylinder:i32 = 2
+  @primitive(%cylinder, %material, %x, %y, %z, %sx, %sy, %sz, %color, %emissive)
+  return
+}
+
+func cone(material: i32, x: i32, y: i32, z: i32, sx: i32, sy: i32, sz: i32, color: i32, emissive: i32) -> void {
+entry:
+  %cone:i32 = 3
+  @primitive(%cone, %material, %x, %y, %z, %sx, %sy, %sz, %color, %emissive)
+  return
+}
+
+func wedge(material: i32, x: i32, y: i32, z: i32, sx: i32, sy: i32, sz: i32, color: i32, emissive: i32, yaw: i32) -> void {
+entry:
+  %wedge:i32 = 4
+  %zero:i32 = 0
+  @primitive_flags(%wedge, %material, %x, %y, %z, %sx, %sy, %sz, %yaw, %zero, %zero, %color, %emissive, %zero)
+  return
+}
+
+func plane(material: i32, x: i32, y: i32, z: i32, sx: i32, sz: i32, color: i32, emissive: i32, yaw: i32) -> void {
+entry:
+  %plane:i32 = 5
+  %zero:i32 = 0
+  %one:i32 = 1
+  @primitive_flags(%plane, %material, %x, %y, %z, %sx, %one, %sz, %yaw, %zero, %zero, %color, %emissive, %zero)
+  return
+}
+
+func skybox_world(asset: i32, tint: i32, intensity: i32, yaw: i32, pitch: i32, roll: i32) -> void {
+entry:
+  @gfx.skybox_world(%asset, %tint, %intensity, %yaw, %pitch, %roll)
+  return
+}
+
+func skydome_world(asset: i32, tint: i32, intensity: i32, yaw: i32, pitch: i32, roll: i32) -> void {
+entry:
+  @gfx.skybox_world(%asset, %tint, %intensity, %yaw, %pitch, %roll)
+  return
+}

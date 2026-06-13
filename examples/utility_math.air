@@ -1,0 +1,49 @@
+module utility_math
+use utility.fs
+use utility.net
+use utility.random
+use utility.audio
+use math.fixed
+capabilities { }
+effects { fs.* <= 1, net.* <= 1, random.* <= 1, audio.* <= 1, memory.alloc <= 1, memory.free <= 1, memory.load <= 0, memory.store <= 0, memory.static_alloc_bytes <= 256, memory.dynamic_allocations <= 0 }
+requires export run
+
+func mix(value: i32) -> i32 {
+  effects { cpu.instructions <= 6 }
+  requires param value >= 0
+  requires param value <= 21023
+  ensures return >= 0
+entry:
+  %scale:i32 = 1500
+  %scaled:i32 = fixed.mul_i32 %value, %scale
+  %lo:i32 = 0
+  %hi:i32 = 10000
+  %out:i32 = fixed.clamp_i32 %scaled, %lo, %hi
+  return %out
+}
+
+export func run() -> i32 {
+entry:
+  %path_ptr:i32 = 2048
+  %path_len:i32 = 12
+  %url_ptr:i32 = 2304
+  %url_len:i32 = 18
+  %bytes:i32 = 256
+  %buf:ptr = alloc_region %bytes
+  %read:i32 = @fs.read_file(%path_ptr, %path_len, %buf, %bytes)
+  %net:i32 = @net.http_get(%url_ptr, %url_len, %buf, %bytes)
+  %seed:i32 = @random.u32()
+  %zero:i32 = 0
+  %hi:i32 = 10000
+  %read_pos:i32 = fixed.clamp_i32 %read, %zero, %hi
+  %net_pos:i32 = fixed.clamp_i32 %net, %zero, %hi
+  %mask:i32 = 1023
+  %seed_small:i32 = i32.and %seed, %mask
+  %base:i32 = add %read_pos, %net_pos
+  %sum:i32 = add %base, %seed_small
+  %mixed:i32 = @mix(%sum)
+  %beep:i32 = 1
+  @audio.beep(%beep)
+  free_region %buf
+  return %mixed
+}

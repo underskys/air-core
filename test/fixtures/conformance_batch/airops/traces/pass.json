@@ -1,0 +1,53 @@
+{
+  "schemaVersion": "0.20",
+  "kind": "air.conformance.batchFixture",
+  "id": "airops-incident-observation-batch",
+  "package": "airops-batch-conformance-fixture",
+  "profile": "cli",
+  "rowsets": [
+    {
+      "name": "incident_observation",
+      "schema": "facts/incident_observation.rowset.schema.json",
+      "rows": [
+        { "incident_id": 701, "severity_id": 4, "service_tier_id": 2, "flags": 3 },
+        { "incident_id": 702, "severity_id": 1, "service_tier_id": 1, "flags": 0 }
+      ]
+    }
+  ],
+  "observedOutputs": [
+    {
+      "id": 2001,
+      "name": "pipeline_decision_recorded",
+      "channel": "pipeline",
+      "args": [701, 2, 3],
+      "flags": 0
+    }
+  ],
+  "expectedOutputs": [
+    {
+      "id": 2001,
+      "name": "pipeline_decision_recorded",
+      "channel": "pipeline",
+      "args": [701, 2, 3],
+      "flags": 0
+    }
+  ],
+  "observedCommands": [
+    {
+      "output_id": 2001,
+      "arg0": 701,
+      "arg1": 2,
+      "arg2": 3,
+      "arg3": 0
+    }
+  ],
+  "expectedCommands": [
+    {
+      "output_id": 2001,
+      "arg0": 701,
+      "arg1": 2,
+      "arg2": 3,
+      "arg3": 0
+    }
+  ]
+}

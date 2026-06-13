@@ -1,0 +1,69 @@
+module voxel
+capabilities { gfx }
+
+extern gfx.draw_primitive(primitive: i32, material: i32, x: i32, y: i32, z: i32, sx: i32, sy: i32, sz: i32, yaw: i32, pitch: i32, roll: i32, color: i32, emissive: i32, flags: i32) -> void
+
+func primitive_flags(primitive: i32, material: i32, x: i32, y: i32, z: i32, sx: i32, sy: i32, sz: i32, yaw: i32, pitch: i32, roll: i32, color: i32, emissive: i32, flags: i32) -> void {
+entry:
+  %sx_ok:bool = i32.gt_s %sx, 0
+  %sy_ok:bool = i32.gt_s %sy, 0
+  %sz_ok:bool = i32.gt_s %sz, 0
+  %xy_ok:bool = bool.and %sx_ok, %sy_ok
+  %visible:bool = bool.and %xy_ok, %sz_ok
+  br_if %visible, draw, exit
+draw:
+  @gfx.draw_primitive(%primitive, %material, %x, %y, %z, %sx, %sy, %sz, %yaw, %pitch, %roll, %color, %emissive, %flags)
+  return
+exit:
+  return
+}
+
+func draw_block(material: i32, x: i32, y: i32, z: i32, sx: i32, sy: i32, sz: i32, color: i32, emissive: i32) -> void {
+entry:
+  @draw_block_flags(%material, %x, %y, %z, %sx, %sy, %sz, %color, %emissive, 0)
+  return
+}
+
+func draw_block_flags(material: i32, x: i32, y: i32, z: i32, sx: i32, sy: i32, sz: i32, color: i32, emissive: i32, flags: i32) -> void {
+entry:
+  @primitive_flags(1, %material, %x, %y, %z, %sx, %sy, %sz, 0, 0, 0, %color, %emissive, %flags)
+  return
+}
+
+func draw_cylinder(material: i32, x: i32, y: i32, z: i32, sx: i32, sy: i32, sz: i32, color: i32, emissive: i32) -> void {
+entry:
+  @draw_cylinder_flags(%material, %x, %y, %z, %sx, %sy, %sz, %color, %emissive, 0)
+  return
+}
+
+func draw_cylinder_flags(material: i32, x: i32, y: i32, z: i32, sx: i32, sy: i32, sz: i32, color: i32, emissive: i32, flags: i32) -> void {
+entry:
+  @primitive_flags(2, %material, %x, %y, %z, %sx, %sy, %sz, 0, 0, 0, %color, %emissive, %flags)
+  return
+}
+
+func draw_cone(material: i32, x: i32, y: i32, z: i32, sx: i32, sy: i32, sz: i32, color: i32, emissive: i32) -> void {
+entry:
+  @primitive_flags(3, %material, %x, %y, %z, %sx, %sy, %sz, 0, 0, 0, %color, %emissive, 0)
+  return
+}
+
+func draw_wedge(material: i32, x: i32, y: i32, z: i32, sx: i32, sy: i32, sz: i32, yaw: i32, color: i32, emissive: i32) -> void {
+entry:
+  @primitive_flags(4, %material, %x, %y, %z, %sx, %sy, %sz, %yaw, 0, 0, %color, %emissive, 0)
+  return
+}
+
+func draw_plane(material: i32, x: i32, y: i32, z: i32, sx: i32, sz: i32, yaw: i32, color: i32, emissive: i32, flags: i32) -> void {
+entry:
+  @primitive_flags(5, %material, %x, %y, %z, %sx, 1, %sz, %yaw, 0, 0, %color, %emissive, %flags)
+  return
+}
+
+func draw_height_column(x: i32, z: i32, cell: i32, height: i32, material: i32, color: i32) -> void {
+entry:
+  %half:i32 = i32.div_s %height, 2
+  %y:i32 = sub %half, 900
+  @draw_block(%material, %x, %y, %z, %cell, %height, %cell, %color, 0)
+  return
+}

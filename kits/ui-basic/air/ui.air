@@ -1,0 +1,33 @@
+module ui
+capabilities { ui }
+
+extern ui.begin_frame(width: i32, height: i32, time_ms: i32) -> void
+extern ui.panel(id: i32, x: i32, y: i32, w: i32, h: i32, style: i32) -> void
+extern ui.label(id: i32, x: i32, y: i32, label: i32, style: i32) -> void
+extern ui.badge(id: i32, x: i32, y: i32, label: i32, style: i32) -> void
+extern ui.button(id: i32, x: i32, y: i32, w: i32, h: i32, label: i32, style: i32) -> bool
+extern ui.input_i32(id: i32, x: i32, y: i32, w: i32, label: i32, value: i32, style: i32) -> i32
+extern ui.input_f32(id: i32, x: i32, y: i32, w: i32, label: i32, value: f32, style: i32) -> f32
+extern ui.bar(id: i32, x: i32, y: i32, w: i32, value: i32, max: i32, style: i32) -> void
+extern ui.row(id: i32, x: i32, y: i32, w: i32, label: i32, value: i32, style: i32) -> void
+extern ui.table(id: i32, x: i32, y: i32, w: i32, h: i32, rows: i32, cols: i32, data: i32, style: i32) -> void
+extern ui.metric(id: i32, x: i32, y: i32, label: i32, value: i32, unit: i32, style: i32) -> void
+extern ui.chart(id: i32, x: i32, y: i32, w: i32, h: i32, series: i32, style: i32) -> void
+extern ui.status(id: i32, x: i32, y: i32, label: i32, severity: i32, style: i32) -> void
+extern ui.warning(id: i32, x: i32, y: i32, label: i32, severity: i32, style: i32) -> void
+extern ui.sparkline(id: i32, x: i32, y: i32, w: i32, h: i32, data: i32, style: i32) -> void
+extern ui.end_frame() -> void
+
+func severity_style(severity: i32) -> i32 {
+entry:
+  %warning:i32 = 2
+  %failed:i32 = 8
+  %warning_style:i32 = 2
+  %failed_style:i32 = 3
+  %ok_style:i32 = 1
+  %is_failed:bool = i32.ge_s %severity, %failed
+  %is_warning:bool = i32.ge_s %severity, %warning
+  %warn_or_ok:i32 = select.i32 %is_warning, %warning_style, %ok_style
+  %out:i32 = select.i32 %is_failed, %failed_style, %warn_or_ok
+  return %out
+}

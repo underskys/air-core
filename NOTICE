@@ -1,0 +1,26 @@
+AIR / airlang
+Copyright 2026 Dmitriii
+
+This product includes AIR Core compiler/verifier/CLI, specification,
+conformance suite, and public examples distributed under the Apache License,
+Version 2.0.
+
+AIR is developed with AI assistance under human direction. Dmitriii created and
+directs the project: product direction, architecture constraints, acceptance
+criteria, review orchestration, evidence gates, release decisions, and the
+AI-orchestrated engineering process.
+
+Third-party dependency notices:
+
+- wabt JavaScript package, Apache-2.0. See
+  https://www.npmjs.com/package/wabt and the dependency's LICENSE file in npm
+  distributions.
+
+AIR source files use the `.air` extension. The compiler/verifier CLI is `airc`.
+
+AirLang is a legacy/historical name used during internal development. New
+public-facing text should prefer AIR unless discussing historical context.
+
+This project is not affiliated with, endorsed by, sponsored by, or connected to
+Adobe AIR, HARMAN, Adobe Illustrator, Adobe Inc., or any third-party products or
+services using similar names.

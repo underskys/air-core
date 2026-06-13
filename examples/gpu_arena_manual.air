@@ -1,0 +1,40 @@
+module gpu_arena_manual
+capabilities { gpu }
+effects { gpu.calls <= 11, gpu.draw_calls <= 4 }
+
+extern gpu.begin_frame(r: i32, g: i32, b: i32, a: i32) -> void
+extern gpu.begin_pass() -> void
+extern gpu.set_pipeline(pipeline: i32) -> void
+extern gpu.draw_mesh_instanced(mesh: i32, instances: i32) -> void
+extern gpu.draw_sprite_batch(sprite: i32, count: i32) -> void
+extern gpu.draw_scene_node(node: i32, instances: i32) -> void
+extern gpu.draw_voxel_chunk(chunk: i32, instances: i32) -> void
+extern gpu.end_pass() -> void
+extern gpu.submit() -> void
+
+export func frame(t: i32) -> void {
+entry:
+  %r:i32 = 5
+  %g:i32 = 7
+  %b:i32 = 18
+  %a:i32 = 255
+  @gpu.begin_frame(%r, %g, %b, %a)
+  @gpu.begin_pass()
+  %pipeline:i32 = 1
+  @gpu.set_pipeline(%pipeline)
+  %mesh:i32 = 1
+  %mesh_instances:i32 = 6
+  @gpu.draw_mesh_instanced(%mesh, %mesh_instances)
+  %node:i32 = 1
+  %node_instances:i32 = 3
+  @gpu.draw_scene_node(%node, %node_instances)
+  %voxel:i32 = 1
+  %voxel_instances:i32 = 9
+  @gpu.draw_voxel_chunk(%voxel, %voxel_instances)
+  %sprite:i32 = 1
+  %sprite_count:i32 = 12
+  @gpu.draw_sprite_batch(%sprite, %sprite_count)
+  @gpu.end_pass()
+  @gpu.submit()
+  return
+}

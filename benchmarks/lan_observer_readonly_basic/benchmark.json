@@ -1,0 +1,9 @@
+{
+  "schemaVersion": "0.29",
+  "kind": "air.benchmark",
+  "benchmarkName": "LAN observer read-only basic",
+  "benchmarkId": "lan_observer_readonly_basic",
+  "packageDir": "../../examples/lan_observer_readonly_package",
+  "profile": "cli",
+  "trace": "../../examples/lan_observer_readonly_package/traces/pass.json"
+}

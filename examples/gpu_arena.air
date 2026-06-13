@@ -1,0 +1,17 @@
+module gpu_arena
+capabilities { gpu }
+effects { gpu.calls <= 3, gpu.render_graph_calls <= 1 }
+
+extern gpu.set_scene_time(time: i32) -> void
+extern gpu.set_camera(camera: i32) -> void
+extern gpu.execute_render_graph(graph: i32) -> void
+
+export func frame(t: i32) -> void {
+entry:
+  @gpu.set_scene_time(%t)
+  %camera:i32 = 1
+  @gpu.set_camera(%camera)
+  %graph:i32 = 1
+  @gpu.execute_render_graph(%graph)
+  return
+}

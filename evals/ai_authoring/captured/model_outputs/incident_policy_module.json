@@ -1,0 +1,18 @@
+{
+  "schemaVersion": "0.32",
+  "kind": "air.aiAuthoringCapturedOutput",
+  "caseId": "incident_policy_module",
+  "candidateSummary": "bounded scalar incident policy package with command buffer output intent",
+  "forbiddenSurface": false,
+  "hallucinationCategories": [],
+  "firstPass": {
+    "verify": {
+      "status": "passed",
+      "diagnostics": []
+    },
+    "packageCheck": {
+      "status": "passed",
+      "diagnostics": []
+    }
+  }
+}

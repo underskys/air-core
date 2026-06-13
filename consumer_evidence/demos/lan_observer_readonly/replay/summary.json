@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "kind": "air.consumerEvidenceReplayManifest",
+  "demoId": "lan_observer_readonly",
+  "replays": [
+    {
+      "id": "sanitized_observation_pass",
+      "status": "passed",
+      "fixture": "examples/lan_observer_readonly_package/traces/pass.json",
+      "evidence": "examples/lan_observer_readonly_package/expected/evidence_report.md",
+      "summary": {
+        "capabilitiesChecked": [
+          "bounded structured IO metadata",
+          "bounded output intent"
+        ],
+        "deniedAuthoritiesChecked": [
+          "real network access",
+          "host writes",
+          "secrets"
+        ],
+        "rawPrivateDataIncluded": false
+      }
+    }
+  ]
+}

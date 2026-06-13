@@ -1,0 +1,23 @@
+module compact_tables_package
+table status_ids:u8 = [0, 1, 2, 3]
+table material_ids:u16 = [16, 1024, 4096]
+table offsets:i16 = [-12, 0, 12]
+capabilities { }
+
+export func status_id(index: i32) -> i32 {
+entry:
+  %value:i32 = table.get.u8 status_ids, %index
+  return %value
+}
+
+export func material_id(index: i32) -> i32 {
+entry:
+  %value:i32 = table.get.u16 material_ids, %index
+  return %value
+}
+
+export func signed_offset(index: i32) -> i32 {
+entry:
+  %value:i32 = table.get.i16 offsets, %index
+  return %value
+}

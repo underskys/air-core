@@ -1,0 +1,15 @@
+{
+  "schemaVersion": "0.29",
+  "kind": "air.benchmark",
+  "benchmarkName": "Output emit basic",
+  "benchmarkId": "output_emit_basic",
+  "packageDir": "../../test/fixtures/host_interaction/output_emit",
+  "profile": "mock-output-v011",
+  "buildWasm": true,
+  "repeat": 4,
+  "runtime": {
+    "export": "run",
+    "args": [],
+    "imports": "output"
+  }
+}

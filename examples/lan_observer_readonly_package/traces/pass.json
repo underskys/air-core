@@ -1,0 +1,63 @@
+{
+  "schemaVersion": "0.20",
+  "kind": "air.conformance.batchFixture",
+  "id": "lan-observer-readonly-pass",
+  "package": "lan-observer-readonly-canonical-example",
+  "profile": "cli",
+  "rowsets": [
+    {
+      "name": "device_observation",
+      "schema": "schemas/device_observation.structured.rowset.json",
+      "rows": [
+        {
+          "device_id": 42,
+          "link_status": 1,
+          "latency_ms": 240,
+          "packet_loss_x1000": 35,
+          "gateway_reachable": 1,
+          "dns_reachable": 0,
+          "recent_change_flag": 1,
+          "interface_kind": 1,
+          "confidence_source": 2,
+          "observation_age_ms": 0
+        }
+      ]
+    }
+  ],
+  "observedOutputs": [
+    {
+      "id": 3501,
+      "name": "lan_observer_diagnosis_recorded",
+      "channel": "policy",
+      "args": [303, 3, 712, 480],
+      "flags": 0
+    }
+  ],
+  "expectedOutputs": [
+    {
+      "id": 3501,
+      "name": "lan_observer_diagnosis_recorded",
+      "channel": "policy",
+      "args": [303, 3, 712, 480],
+      "flags": 0
+    }
+  ],
+  "observedCommands": [
+    {
+      "output_id": 3501,
+      "arg0": 303,
+      "arg1": 3,
+      "arg2": 712,
+      "arg3": 480
+    }
+  ],
+  "expectedCommands": [
+    {
+      "output_id": 3501,
+      "arg0": 303,
+      "arg1": 3,
+      "arg2": 712,
+      "arg3": 480
+    }
+  ]
+}

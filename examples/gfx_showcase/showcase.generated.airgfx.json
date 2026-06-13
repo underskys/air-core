@@ -1,0 +1,2086 @@
+{
+  "assets": {
+    "cubemaps": {
+      "dusk_foundry": {
+        "format": "procedural",
+        "handle": 1,
+        "layout": "equirectangular",
+        "path": "assets/dusk_foundry.json",
+        "projection": "spherical"
+      }
+    },
+    "models": {
+      "showcase_block": {
+        "attributes": [
+          "POSITION"
+        ],
+        "format": "glb",
+        "handle": 1,
+        "path": "assets/cube.glb"
+      },
+      "showcase_crystal": {
+        "format": "gltf",
+        "handle": 3,
+        "path": "assets/showcase_primitives.gltf"
+      },
+      "showcase_pillar": {
+        "format": "gltf",
+        "handle": 2,
+        "path": "assets/showcase_primitives.gltf"
+      }
+    },
+    "sprites": {
+      "hud_glyph": {
+        "frame": [
+          0,
+          0,
+          128,
+          128
+        ],
+        "handle": 1,
+        "texture": "hud_atlas"
+      }
+    },
+    "textures": {
+      "glass_emissive": {
+        "format": "image",
+        "handle": 4,
+        "path": "assets/glass_emissive.svg"
+      },
+      "hud_atlas": {
+        "format": "image",
+        "handle": 5,
+        "path": "assets/hud_atlas.svg"
+      },
+      "steel_albedo": {
+        "format": "image",
+        "handle": 1,
+        "path": "assets/steel_albedo.svg"
+      },
+      "steel_normal": {
+        "format": "image",
+        "handle": 2,
+        "path": "assets/steel_normal.svg"
+      },
+      "steel_orm": {
+        "format": "image",
+        "handle": 3,
+        "path": "assets/steel_orm.svg"
+      }
+    }
+  },
+  "canvas": {
+    "clearColor": [
+      6,
+      8,
+      18,
+      255
+    ],
+    "height": 720,
+    "width": 1280
+  },
+  "collision": {
+    "colliders": [
+      {
+        "center": [
+          0,
+          1,
+          0
+        ],
+        "id": "showcase_bounds",
+        "layer": "world",
+        "size": [
+          14,
+          4,
+          14
+        ],
+        "type": "box"
+      },
+      {
+        "id": "floor_ring_0",
+        "layer": "world",
+        "size": [
+          2.3,
+          0.36,
+          2.3
+        ],
+        "target": "floor_ring",
+        "transform": {
+          "position": [
+            -5,
+            0,
+            -5
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1.15,
+            0.18,
+            1.15
+          ]
+        },
+        "type": "box"
+      },
+      {
+        "id": "floor_ring_1",
+        "layer": "world",
+        "size": [
+          2.3,
+          0.36,
+          2.3
+        ],
+        "target": "floor_ring",
+        "transform": {
+          "position": [
+            -5,
+            0,
+            5
+          ],
+          "rotation": [
+            180,
+            0,
+            0
+          ],
+          "scale": [
+            1.15,
+            0.18,
+            1.15
+          ]
+        },
+        "type": "box"
+      },
+      {
+        "id": "floor_ring_2",
+        "layer": "world",
+        "size": [
+          2.3,
+          0.36,
+          2.3
+        ],
+        "target": "floor_ring",
+        "transform": {
+          "position": [
+            -5,
+            0,
+            -5
+          ],
+          "rotation": [
+            -90,
+            0,
+            0
+          ],
+          "scale": [
+            1.15,
+            0.18,
+            1.15
+          ]
+        },
+        "type": "box"
+      },
+      {
+        "id": "floor_ring_3",
+        "layer": "world",
+        "size": [
+          2.3,
+          0.36,
+          2.3
+        ],
+        "target": "floor_ring",
+        "transform": {
+          "position": [
+            5,
+            0,
+            -5
+          ],
+          "rotation": [
+            90,
+            0,
+            0
+          ],
+          "scale": [
+            1.15,
+            0.18,
+            1.15
+          ]
+        },
+        "type": "box"
+      },
+      {
+        "id": "floor_ring_4",
+        "layer": "world",
+        "size": [
+          2.3,
+          0.36,
+          2.3
+        ],
+        "target": "floor_ring",
+        "transform": {
+          "position": [
+            -2.5,
+            0,
+            -5
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1.15,
+            0.18,
+            1.15
+          ]
+        },
+        "type": "box"
+      },
+      {
+        "id": "floor_ring_5",
+        "layer": "world",
+        "size": [
+          2.3,
+          0.36,
+          2.3
+        ],
+        "target": "floor_ring",
+        "transform": {
+          "position": [
+            -2.5,
+            0,
+            5
+          ],
+          "rotation": [
+            180,
+            0,
+            0
+          ],
+          "scale": [
+            1.15,
+            0.18,
+            1.15
+          ]
+        },
+        "type": "box"
+      },
+      {
+        "id": "floor_ring_6",
+        "layer": "world",
+        "size": [
+          2.3,
+          0.36,
+          2.3
+        ],
+        "target": "floor_ring",
+        "transform": {
+          "position": [
+            -5,
+            0,
+            -2.5
+          ],
+          "rotation": [
+            -90,
+            0,
+            0
+          ],
+          "scale": [
+            1.15,
+            0.18,
+            1.15
+          ]
+        },
+        "type": "box"
+      },
+      {
+        "id": "floor_ring_7",
+        "layer": "world",
+        "size": [
+          2.3,
+          0.36,
+          2.3
+        ],
+        "target": "floor_ring",
+        "transform": {
+          "position": [
+            5,
+            0,
+            -2.5
+          ],
+          "rotation": [
+            90,
+            0,
+            0
+          ],
+          "scale": [
+            1.15,
+            0.18,
+            1.15
+          ]
+        },
+        "type": "box"
+      },
+      {
+        "id": "floor_ring_8",
+        "layer": "world",
+        "size": [
+          2.3,
+          0.36,
+          2.3
+        ],
+        "target": "floor_ring",
+        "transform": {
+          "position": [
+            0,
+            0,
+            -5
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1.15,
+            0.18,
+            1.15
+          ]
+        },
+        "type": "box"
+      },
+      {
+        "id": "floor_ring_9",
+        "layer": "world",
+        "size": [
+          2.3,
+          0.36,
+          2.3
+        ],
+        "target": "floor_ring",
+        "transform": {
+          "position": [
+            0,
+            0,
+            5
+          ],
+          "rotation": [
+            180,
+            0,
+            0
+          ],
+          "scale": [
+            1.15,
+            0.18,
+            1.15
+          ]
+        },
+        "type": "box"
+      },
+      {
+        "id": "floor_ring_10",
+        "layer": "world",
+        "size": [
+          2.3,
+          0.36,
+          2.3
+        ],
+        "target": "floor_ring",
+        "transform": {
+          "position": [
+            -5,
+            0,
+            0
+          ],
+          "rotation": [
+            -90,
+            0,
+            0
+          ],
+          "scale": [
+            1.15,
+            0.18,
+            1.15
+          ]
+        },
+        "type": "box"
+      },
+      {
+        "id": "floor_ring_11",
+        "layer": "world",
+        "size": [
+          2.3,
+          0.36,
+          2.3
+        ],
+        "target": "floor_ring",
+        "transform": {
+          "position": [
+            5,
+            0,
+            0
+          ],
+          "rotation": [
+            90,
+            0,
+            0
+          ],
+          "scale": [
+            1.15,
+            0.18,
+            1.15
+          ]
+        },
+        "type": "box"
+      },
+      {
+        "id": "floor_ring_12",
+        "layer": "world",
+        "size": [
+          2.3,
+          0.36,
+          2.3
+        ],
+        "target": "floor_ring",
+        "transform": {
+          "position": [
+            2.5,
+            0,
+            -5
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1.15,
+            0.18,
+            1.15
+          ]
+        },
+        "type": "box"
+      },
+      {
+        "id": "floor_ring_13",
+        "layer": "world",
+        "size": [
+          2.3,
+          0.36,
+          2.3
+        ],
+        "target": "floor_ring",
+        "transform": {
+          "position": [
+            2.5,
+            0,
+            5
+          ],
+          "rotation": [
+            180,
+            0,
+            0
+          ],
+          "scale": [
+            1.15,
+            0.18,
+            1.15
+          ]
+        },
+        "type": "box"
+      },
+      {
+        "id": "floor_ring_14",
+        "layer": "world",
+        "size": [
+          2.3,
+          0.36,
+          2.3
+        ],
+        "target": "floor_ring",
+        "transform": {
+          "position": [
+            -5,
+            0,
+            2.5
+          ],
+          "rotation": [
+            -90,
+            0,
+            0
+          ],
+          "scale": [
+            1.15,
+            0.18,
+            1.15
+          ]
+        },
+        "type": "box"
+      },
+      {
+        "id": "floor_ring_15",
+        "layer": "world",
+        "size": [
+          2.3,
+          0.36,
+          2.3
+        ],
+        "target": "floor_ring",
+        "transform": {
+          "position": [
+            5,
+            0,
+            2.5
+          ],
+          "rotation": [
+            90,
+            0,
+            0
+          ],
+          "scale": [
+            1.15,
+            0.18,
+            1.15
+          ]
+        },
+        "type": "box"
+      },
+      {
+        "id": "floor_ring_16",
+        "layer": "world",
+        "size": [
+          2.3,
+          0.36,
+          2.3
+        ],
+        "target": "floor_ring",
+        "transform": {
+          "position": [
+            5,
+            0,
+            -5
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1.15,
+            0.18,
+            1.15
+          ]
+        },
+        "type": "box"
+      },
+      {
+        "id": "floor_ring_17",
+        "layer": "world",
+        "size": [
+          2.3,
+          0.36,
+          2.3
+        ],
+        "target": "floor_ring",
+        "transform": {
+          "position": [
+            5,
+            0,
+            5
+          ],
+          "rotation": [
+            180,
+            0,
+            0
+          ],
+          "scale": [
+            1.15,
+            0.18,
+            1.15
+          ]
+        },
+        "type": "box"
+      },
+      {
+        "id": "floor_ring_18",
+        "layer": "world",
+        "size": [
+          2.3,
+          0.36,
+          2.3
+        ],
+        "target": "floor_ring",
+        "transform": {
+          "position": [
+            -5,
+            0,
+            5
+          ],
+          "rotation": [
+            -90,
+            0,
+            0
+          ],
+          "scale": [
+            1.15,
+            0.18,
+            1.15
+          ]
+        },
+        "type": "box"
+      },
+      {
+        "id": "floor_ring_19",
+        "layer": "world",
+        "size": [
+          2.3,
+          0.36,
+          2.3
+        ],
+        "target": "floor_ring",
+        "transform": {
+          "position": [
+            5,
+            0,
+            5
+          ],
+          "rotation": [
+            90,
+            0,
+            0
+          ],
+          "scale": [
+            1.15,
+            0.18,
+            1.15
+          ]
+        },
+        "type": "box"
+      },
+      {
+        "height": 3.4,
+        "id": "energy_pillars_0",
+        "layer": "world",
+        "radius": 0.42,
+        "target": "energy_pillars",
+        "transform": {
+          "position": [
+            0,
+            0.85,
+            -4.2
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            0.42,
+            1.7,
+            0.42
+          ]
+        },
+        "type": "cylinder"
+      },
+      {
+        "height": 3.4,
+        "id": "energy_pillars_1",
+        "layer": "world",
+        "radius": 0.42,
+        "target": "energy_pillars",
+        "transform": {
+          "position": [
+            2.969848,
+            0.85,
+            -2.969848
+          ],
+          "rotation": [
+            45,
+            0,
+            0
+          ],
+          "scale": [
+            0.42,
+            1.7,
+            0.42
+          ]
+        },
+        "type": "cylinder"
+      },
+      {
+        "height": 3.4,
+        "id": "energy_pillars_2",
+        "layer": "world",
+        "radius": 0.42,
+        "target": "energy_pillars",
+        "transform": {
+          "position": [
+            4.2,
+            0.85,
+            0
+          ],
+          "rotation": [
+            90,
+            0,
+            0
+          ],
+          "scale": [
+            0.42,
+            1.7,
+            0.42
+          ]
+        },
+        "type": "cylinder"
+      },
+      {
+        "height": 3.4,
+        "id": "energy_pillars_3",
+        "layer": "world",
+        "radius": 0.42,
+        "target": "energy_pillars",
+        "transform": {
+          "position": [
+            2.969848,
+            0.85,
+            2.969848
+          ],
+          "rotation": [
+            135,
+            0,
+            0
+          ],
+          "scale": [
+            0.42,
+            1.7,
+            0.42
+          ]
+        },
+        "type": "cylinder"
+      },
+      {
+        "height": 3.4,
+        "id": "energy_pillars_4",
+        "layer": "world",
+        "radius": 0.42,
+        "target": "energy_pillars",
+        "transform": {
+          "position": [
+            0,
+            0.85,
+            4.2
+          ],
+          "rotation": [
+            180,
+            0,
+            0
+          ],
+          "scale": [
+            0.42,
+            1.7,
+            0.42
+          ]
+        },
+        "type": "cylinder"
+      },
+      {
+        "height": 3.4,
+        "id": "energy_pillars_5",
+        "layer": "world",
+        "radius": 0.42,
+        "target": "energy_pillars",
+        "transform": {
+          "position": [
+            -2.969848,
+            0.85,
+            2.969848
+          ],
+          "rotation": [
+            225,
+            0,
+            0
+          ],
+          "scale": [
+            0.42,
+            1.7,
+            0.42
+          ]
+        },
+        "type": "cylinder"
+      },
+      {
+        "height": 3.4,
+        "id": "energy_pillars_6",
+        "layer": "world",
+        "radius": 0.42,
+        "target": "energy_pillars",
+        "transform": {
+          "position": [
+            -4.2,
+            0.85,
+            0
+          ],
+          "rotation": [
+            270,
+            0,
+            0
+          ],
+          "scale": [
+            0.42,
+            1.7,
+            0.42
+          ]
+        },
+        "type": "cylinder"
+      },
+      {
+        "height": 3.4,
+        "id": "energy_pillars_7",
+        "layer": "world",
+        "radius": 0.42,
+        "target": "energy_pillars",
+        "transform": {
+          "position": [
+            -2.969848,
+            0.85,
+            -2.969848
+          ],
+          "rotation": [
+            315,
+            0,
+            0
+          ],
+          "scale": [
+            0.42,
+            1.7,
+            0.42
+          ]
+        },
+        "type": "cylinder"
+      },
+      {
+        "id": "focus_crystals_0",
+        "layer": "focus",
+        "radius": 0.75,
+        "target": "focus_crystals",
+        "transform": {
+          "position": [
+            0,
+            1.25,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            0.7,
+            1.5,
+            0.7
+          ]
+        },
+        "type": "sphere"
+      },
+      {
+        "id": "focus_crystals_1",
+        "layer": "focus",
+        "radius": 0.75,
+        "target": "focus_crystals",
+        "transform": {
+          "position": [
+            -1.4,
+            0.7,
+            1.2
+          ],
+          "rotation": [
+            35,
+            0,
+            0
+          ],
+          "scale": [
+            0.35,
+            0.8,
+            0.35
+          ]
+        },
+        "type": "sphere"
+      },
+      {
+        "id": "focus_crystals_2",
+        "layer": "focus",
+        "radius": 0.75,
+        "target": "focus_crystals",
+        "transform": {
+          "position": [
+            1.5,
+            0.75,
+            -1
+          ],
+          "rotation": [
+            -28,
+            0,
+            0
+          ],
+          "scale": [
+            0.4,
+            0.9,
+            0.4
+          ]
+        },
+        "type": "sphere"
+      }
+    ],
+    "kind": "air-gfx-collision",
+    "layers": {
+      "focus": {
+        "selectable": true
+      },
+      "trigger": {
+        "triggerOnly": true
+      },
+      "world": {
+        "solid": true
+      }
+    },
+    "triggers": [
+      {
+        "id": "center_focus_trigger",
+        "kind": "selection",
+        "shape": {
+          "radius": 2.1,
+          "type": "sphere"
+        },
+        "target": "focus_crystals"
+      }
+    ],
+    "units": "meters",
+    "upAxis": "Y",
+    "version": "0.1"
+  },
+  "debug": {
+    "sceneCompiler": {
+      "generatedAt": "deterministic",
+      "groups": 3,
+      "layoutVersion": "0.1",
+      "tool": "tools/scene-compiler.js"
+    }
+  },
+  "depth": {
+    "enabled": true,
+    "format": "depth24plus",
+    "size": "canvas",
+    "target": "scene_depth"
+  },
+  "handles": {
+    "cameras": {
+      "main": 1
+    },
+    "inputs": {
+      "orbit_x": 1,
+      "orbit_y": 2,
+      "select": 4,
+      "zoom": 3
+    },
+    "instances": {
+      "energy_pillars": 2,
+      "floor_ring": 1,
+      "focus_crystals": 3
+    },
+    "models": {
+      "showcase_block": 1,
+      "showcase_crystal": 3,
+      "showcase_pillar": 2
+    },
+    "nodes": {
+      "energy_pillars": 2,
+      "floor_ring": 1,
+      "focus_crystals": 3
+    },
+    "particles": {
+      "energy_motes": 1
+    },
+    "pipelines": {
+      "showcase_pipeline": 1
+    },
+    "renderGraphs": {
+      "main_graph": 1
+    },
+    "sprites": {
+      "hud_glyph": 1
+    }
+  },
+  "inputs": {
+    "orbit_x": {
+      "bindings": {
+        "browser": "mouse.dx|ArrowLeft|ArrowRight",
+        "native": "mouse.dx"
+      },
+      "handle": 1,
+      "kind": "axis"
+    },
+    "orbit_y": {
+      "bindings": {
+        "browser": "mouse.dy|ArrowUp|ArrowDown",
+        "native": "mouse.dy"
+      },
+      "handle": 2,
+      "kind": "axis"
+    },
+    "select": {
+      "bindings": {
+        "browser": "MouseLeft|Space",
+        "native": "MouseLeft"
+      },
+      "handle": 4,
+      "kind": "button"
+    },
+    "zoom": {
+      "bindings": {
+        "browser": "wheel.y|KeyQ|KeyE",
+        "native": "wheel.y"
+      },
+      "handle": 3,
+      "kind": "axis"
+    }
+  },
+  "materials": {
+    "brushed_steel": {
+      "baseColor": [
+        0.18,
+        0.2,
+        0.24,
+        1
+      ],
+      "metallic": 0.82,
+      "model": "pbr",
+      "pipeline": "showcase_pipeline",
+      "roughness": 0.38,
+      "textures": {
+        "albedo": "steel_albedo",
+        "metallicRoughness": "steel_orm",
+        "normal": "steel_normal"
+      }
+    },
+    "emissive_glass": {
+      "baseColor": [
+        0.05,
+        0.58,
+        1,
+        0.82
+      ],
+      "emissive": [
+        0.1,
+        1.5,
+        3.2
+      ],
+      "metallic": 0.05,
+      "model": "pbr",
+      "pipeline": "showcase_pipeline",
+      "roughness": 0.12,
+      "textures": {
+        "emissive": "glass_emissive"
+      }
+    },
+    "hud_glyph_material": {
+      "baseColor": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "model": "sprite-unlit",
+      "pipeline": "showcase_pipeline",
+      "textures": {
+        "base": "hud_atlas"
+      }
+    }
+  },
+  "module": "gfx_showcase",
+  "package": {
+    "abi": "0.10",
+    "kind": "air-gfx-package"
+  },
+  "pipelines": {
+    "showcase_pipeline": {
+      "blend": "alpha",
+      "colorFormat": "bgra8unorm",
+      "cull": "none",
+      "depth": false,
+      "depthWrite": false,
+      "fragmentEntry": "fs_main",
+      "primitive": "triangle-list",
+      "shader": "showcase_wgsl",
+      "vertexCount": 3,
+      "vertexEntry": "vs_main"
+    }
+  },
+  "post": {
+    "bloom": {
+      "intensity": 0.85,
+      "kind": "bloom",
+      "radius": 0.55,
+      "threshold": 0.72
+    },
+    "tonemap": {
+      "exposure": 1.05,
+      "kind": "tone-map",
+      "operator": "aces"
+    }
+  },
+  "postPipelines": {
+    "fullscreen_post": {
+      "effects": [
+        "bloom",
+        "tonemap"
+      ],
+      "fragmentEntry": "fs_main",
+      "shader": "showcase_wgsl",
+      "vertexEntry": "vs_main"
+    }
+  },
+  "qualityProfiles": {
+    "desktop": {
+      "maxInstances": 20000,
+      "maxTextureSize": 8192,
+      "post": [
+        "bloom",
+        "tonemap"
+      ],
+      "preferredBackend": "webgpu"
+    },
+    "mobile": {
+      "maxInstances": 4000,
+      "maxTextureSize": 2048,
+      "post": [
+        "tonemap"
+      ],
+      "preferredBackend": "webgpu"
+    },
+    "native": {
+      "maxInstances": 20000,
+      "maxTextureSize": 8192,
+      "post": [
+        "bloom",
+        "tonemap"
+      ],
+      "preferredBackend": "wgpu"
+    }
+  },
+  "renderGraphs": {
+    "main_graph": {
+      "passes": [
+        {
+          "key": "clear",
+          "kind": "clear",
+          "output": "scene_color"
+        },
+        {
+          "camera": "main",
+          "environment": "dusk_foundry",
+          "inputs": [
+            "scene_color"
+          ],
+          "key": "sky",
+          "kind": "skybox",
+          "output": "scene_color",
+          "pipeline": "showcase_pipeline"
+        },
+        {
+          "camera": "main",
+          "inputs": [
+            "scene_color"
+          ],
+          "key": "geometry",
+          "kind": "geometry",
+          "output": "scene_color",
+          "pipeline": "showcase_pipeline"
+        },
+        {
+          "camera": "main",
+          "inputs": [
+            "scene_color"
+          ],
+          "key": "particles",
+          "kind": "particles",
+          "material": "emissive_glass",
+          "output": "scene_color"
+        },
+        {
+          "inputs": [
+            "scene_color"
+          ],
+          "key": "sprites",
+          "kind": "sprite",
+          "material": "hud_glyph_material",
+          "output": "scene_color"
+        },
+        {
+          "inputs": [
+            "scene_color"
+          ],
+          "key": "ui",
+          "kind": "ui",
+          "material": "hud_glyph_material",
+          "output": "scene_color"
+        },
+        {
+          "effect": "bloom",
+          "inputs": [
+            "scene_color"
+          ],
+          "key": "bloom",
+          "kind": "post",
+          "output": "bloom_color"
+        },
+        {
+          "effect": "tonemap",
+          "inputs": [
+            "scene_color",
+            "bloom_color"
+          ],
+          "key": "tonemap",
+          "kind": "post",
+          "output": "backbuffer"
+        },
+        {
+          "inputs": [
+            "backbuffer"
+          ],
+          "key": "present",
+          "kind": "present"
+        }
+      ]
+    }
+  },
+  "renderTargets": {
+    "backbuffer": {
+      "format": "surface",
+      "size": "canvas",
+      "usage": [
+        "present"
+      ]
+    },
+    "bloom_color": {
+      "format": "bgra8unorm",
+      "scale": 0.5,
+      "usage": [
+        "render",
+        "sample"
+      ]
+    },
+    "scene_color": {
+      "format": "bgra8unorm",
+      "size": "canvas",
+      "usage": [
+        "render",
+        "sample"
+      ]
+    }
+  },
+  "scene": {
+    "cameras": {
+      "main": {
+        "far": 180,
+        "fovY": 64,
+        "kind": "perspective",
+        "near": 0.05,
+        "position": [
+          0,
+          2.2,
+          7
+        ],
+        "target": [
+          0,
+          0.8,
+          0
+        ]
+      }
+    },
+    "instances": {
+      "energy_pillars": {
+        "count": 8,
+        "material": "emissive_glass",
+        "model": "showcase_pillar",
+        "transforms": [
+          {
+            "position": [
+              0,
+              0.85,
+              -4.2
+            ],
+            "rotation": [
+              0,
+              0,
+              0
+            ],
+            "scale": [
+              0.42,
+              1.7,
+              0.42
+            ]
+          },
+          {
+            "position": [
+              2.969848,
+              0.85,
+              -2.969848
+            ],
+            "rotation": [
+              45,
+              0,
+              0
+            ],
+            "scale": [
+              0.42,
+              1.7,
+              0.42
+            ]
+          },
+          {
+            "position": [
+              4.2,
+              0.85,
+              0
+            ],
+            "rotation": [
+              90,
+              0,
+              0
+            ],
+            "scale": [
+              0.42,
+              1.7,
+              0.42
+            ]
+          },
+          {
+            "position": [
+              2.969848,
+              0.85,
+              2.969848
+            ],
+            "rotation": [
+              135,
+              0,
+              0
+            ],
+            "scale": [
+              0.42,
+              1.7,
+              0.42
+            ]
+          },
+          {
+            "position": [
+              0,
+              0.85,
+              4.2
+            ],
+            "rotation": [
+              180,
+              0,
+              0
+            ],
+            "scale": [
+              0.42,
+              1.7,
+              0.42
+            ]
+          },
+          {
+            "position": [
+              -2.969848,
+              0.85,
+              2.969848
+            ],
+            "rotation": [
+              225,
+              0,
+              0
+            ],
+            "scale": [
+              0.42,
+              1.7,
+              0.42
+            ]
+          },
+          {
+            "position": [
+              -4.2,
+              0.85,
+              0
+            ],
+            "rotation": [
+              270,
+              0,
+              0
+            ],
+            "scale": [
+              0.42,
+              1.7,
+              0.42
+            ]
+          },
+          {
+            "position": [
+              -2.969848,
+              0.85,
+              -2.969848
+            ],
+            "rotation": [
+              315,
+              0,
+              0
+            ],
+            "scale": [
+              0.42,
+              1.7,
+              0.42
+            ]
+          }
+        ]
+      },
+      "floor_ring": {
+        "count": 20,
+        "material": "brushed_steel",
+        "model": "showcase_block",
+        "transforms": [
+          {
+            "position": [
+              -5,
+              0,
+              -5
+            ],
+            "rotation": [
+              0,
+              0,
+              0
+            ],
+            "scale": [
+              1.15,
+              0.18,
+              1.15
+            ]
+          },
+          {
+            "position": [
+              -5,
+              0,
+              5
+            ],
+            "rotation": [
+              180,
+              0,
+              0
+            ],
+            "scale": [
+              1.15,
+              0.18,
+              1.15
+            ]
+          },
+          {
+            "position": [
+              -5,
+              0,
+              -5
+            ],
+            "rotation": [
+              -90,
+              0,
+              0
+            ],
+            "scale": [
+              1.15,
+              0.18,
+              1.15
+            ]
+          },
+          {
+            "position": [
+              5,
+              0,
+              -5
+            ],
+            "rotation": [
+              90,
+              0,
+              0
+            ],
+            "scale": [
+              1.15,
+              0.18,
+              1.15
+            ]
+          },
+          {
+            "position": [
+              -2.5,
+              0,
+              -5
+            ],
+            "rotation": [
+              0,
+              0,
+              0
+            ],
+            "scale": [
+              1.15,
+              0.18,
+              1.15
+            ]
+          },
+          {
+            "position": [
+              -2.5,
+              0,
+              5
+            ],
+            "rotation": [
+              180,
+              0,
+              0
+            ],
+            "scale": [
+              1.15,
+              0.18,
+              1.15
+            ]
+          },
+          {
+            "position": [
+              -5,
+              0,
+              -2.5
+            ],
+            "rotation": [
+              -90,
+              0,
+              0
+            ],
+            "scale": [
+              1.15,
+              0.18,
+              1.15
+            ]
+          },
+          {
+            "position": [
+              5,
+              0,
+              -2.5
+            ],
+            "rotation": [
+              90,
+              0,
+              0
+            ],
+            "scale": [
+              1.15,
+              0.18,
+              1.15
+            ]
+          },
+          {
+            "position": [
+              0,
+              0,
+              -5
+            ],
+            "rotation": [
+              0,
+              0,
+              0
+            ],
+            "scale": [
+              1.15,
+              0.18,
+              1.15
+            ]
+          },
+          {
+            "position": [
+              0,
+              0,
+              5
+            ],
+            "rotation": [
+              180,
+              0,
+              0
+            ],
+            "scale": [
+              1.15,
+              0.18,
+              1.15
+            ]
+          },
+          {
+            "position": [
+              -5,
+              0,
+              0
+            ],
+            "rotation": [
+              -90,
+              0,
+              0
+            ],
+            "scale": [
+              1.15,
+              0.18,
+              1.15
+            ]
+          },
+          {
+            "position": [
+              5,
+              0,
+              0
+            ],
+            "rotation": [
+              90,
+              0,
+              0
+            ],
+            "scale": [
+              1.15,
+              0.18,
+              1.15
+            ]
+          },
+          {
+            "position": [
+              2.5,
+              0,
+              -5
+            ],
+            "rotation": [
+              0,
+              0,
+              0
+            ],
+            "scale": [
+              1.15,
+              0.18,
+              1.15
+            ]
+          },
+          {
+            "position": [
+              2.5,
+              0,
+              5
+            ],
+            "rotation": [
+              180,
+              0,
+              0
+            ],
+            "scale": [
+              1.15,
+              0.18,
+              1.15
+            ]
+          },
+          {
+            "position": [
+              -5,
+              0,
+              2.5
+            ],
+            "rotation": [
+              -90,
+              0,
+              0
+            ],
+            "scale": [
+              1.15,
+              0.18,
+              1.15
+            ]
+          },
+          {
+            "position": [
+              5,
+              0,
+              2.5
+            ],
+            "rotation": [
+              90,
+              0,
+              0
+            ],
+            "scale": [
+              1.15,
+              0.18,
+              1.15
+            ]
+          },
+          {
+            "position": [
+              5,
+              0,
+              -5
+            ],
+            "rotation": [
+              0,
+              0,
+              0
+            ],
+            "scale": [
+              1.15,
+              0.18,
+              1.15
+            ]
+          },
+          {
+            "position": [
+              5,
+              0,
+              5
+            ],
+            "rotation": [
+              180,
+              0,
+              0
+            ],
+            "scale": [
+              1.15,
+              0.18,
+              1.15
+            ]
+          },
+          {
+            "position": [
+              -5,
+              0,
+              5
+            ],
+            "rotation": [
+              -90,
+              0,
+              0
+            ],
+            "scale": [
+              1.15,
+              0.18,
+              1.15
+            ]
+          },
+          {
+            "position": [
+              5,
+              0,
+              5
+            ],
+            "rotation": [
+              90,
+              0,
+              0
+            ],
+            "scale": [
+              1.15,
+              0.18,
+              1.15
+            ]
+          }
+        ]
+      },
+      "focus_crystals": {
+        "count": 3,
+        "material": "emissive_glass",
+        "model": "showcase_crystal",
+        "transforms": [
+          {
+            "position": [
+              0,
+              1.25,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0
+            ],
+            "scale": [
+              0.7,
+              1.5,
+              0.7
+            ]
+          },
+          {
+            "position": [
+              -1.4,
+              0.7,
+              1.2
+            ],
+            "rotation": [
+              35,
+              0,
+              0
+            ],
+            "scale": [
+              0.35,
+              0.8,
+              0.35
+            ]
+          },
+          {
+            "position": [
+              1.5,
+              0.75,
+              -1
+            ],
+            "rotation": [
+              -28,
+              0,
+              0
+            ],
+            "scale": [
+              0.4,
+              0.9,
+              0.4
+            ]
+          }
+        ]
+      }
+    },
+    "interactions": {
+      "pickups": [
+        {
+          "id": "sample_pickup",
+          "kind": "data-shard",
+          "position": [
+            0,
+            0.55,
+            3.2
+          ],
+          "visual": "hud_glyph"
+        }
+      ],
+      "triggers": [
+        {
+          "id": "showcase_entry",
+          "kind": "debug-zone",
+          "target": "floor_ring"
+        }
+      ]
+    },
+    "lights": {
+      "key": {
+        "color": [
+          0.76,
+          0.88,
+          1
+        ],
+        "direction": [
+          -0.35,
+          -0.8,
+          -0.2
+        ],
+        "intensity": 2.2,
+        "kind": "directional"
+      },
+      "rim": {
+        "color": [
+          0.1,
+          0.6,
+          1
+        ],
+        "intensity": 5.5,
+        "kind": "point",
+        "position": [
+          0,
+          2.5,
+          -3.5
+        ]
+      },
+      "warm_fill": {
+        "color": [
+          1,
+          0.42,
+          0.12
+        ],
+        "intensity": 2.8,
+        "kind": "point",
+        "position": [
+          3.5,
+          0.8,
+          2.5
+        ]
+      }
+    },
+    "meshInstances": {
+      "floating_crystal_echoes": {
+        "count": 5,
+        "material": "emissive_glass",
+        "mesh": "showcase_crystal",
+        "transform": {
+          "rotation": [
+            0,
+            35,
+            0
+          ],
+          "scale": [
+            0.28,
+            0.6,
+            0.28
+          ],
+          "translation": [
+            0,
+            1.6,
+            0
+          ]
+        }
+      }
+    },
+    "nodes": {
+      "energy_pillars": {
+        "instances": 8,
+        "material": "emissive_glass",
+        "mesh": "showcase_pillar",
+        "transform": {
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            0.42,
+            1.7,
+            0.42
+          ],
+          "translation": [
+            0,
+            0.85,
+            -4.2
+          ]
+        }
+      },
+      "floor_ring": {
+        "instances": 20,
+        "material": "brushed_steel",
+        "mesh": "showcase_block",
+        "transform": {
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1.15,
+            0.18,
+            1.15
+          ],
+          "translation": [
+            -5,
+            0,
+            -5
+          ]
+        }
+      },
+      "focus_crystals": {
+        "instances": 3,
+        "material": "emissive_glass",
+        "mesh": "showcase_crystal",
+        "transform": {
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            0.7,
+            1.5,
+            0.7
+          ],
+          "translation": [
+            0,
+            1.25,
+            0
+          ]
+        }
+      }
+    },
+    "particles": {
+      "energy_motes": {
+        "bounds": [
+          5,
+          2,
+          5
+        ],
+        "budget": 256,
+        "count": 128,
+        "emitter": "sphere",
+        "material": "emissive_glass"
+      }
+    },
+    "skybox": {
+      "environment": "dusk_foundry",
+      "exposure": 1.05,
+      "rotation": [
+        0,
+        12,
+        0
+      ]
+    },
+    "sprites": {
+      "hud_glyphs": {
+        "batch": 6,
+        "material": "hud_glyph_material",
+        "sprite": "hud_glyph"
+      }
+    }
+  },
+  "shaders": {
+    "showcase_wgsl": {
+      "fragment": "fs_main",
+      "path": "shaders/showcase.wgsl",
+      "vertex": "vs_main"
+    }
+  },
+  "targets": {
+    "browser": {
+      "backend": "webgpu",
+      "required": false
+    },
+    "mobile": {
+      "backend": "webgpu",
+      "required": false
+    },
+    "native": {
+      "backend": "wgpu",
+      "required": false
+    }
+  },
+  "ui": {
+    "imageQuads": {
+      "glyph": {
+        "panel": "conformance",
+        "sprite": "hud_glyph"
+      }
+    },
+    "panels": {
+      "conformance": {
+        "rect": [
+          18,
+          18,
+          320,
+          128
+        ],
+        "style": "dock"
+      }
+    },
+    "textLabels": {
+      "status": {
+        "panel": "conformance",
+        "text": "verified AIR module + manifest-driven graphics"
+      },
+      "title": {
+        "panel": "conformance",
+        "text": "AIR GFX Showcase"
+      }
+    }
+  },
+  "version": "0.10"
+}

@@ -1,0 +1,9 @@
+{
+  "schemaVersion": "0.29",
+  "kind": "air.benchmark",
+  "benchmarkName": "Command buffer basic",
+  "benchmarkId": "command_buffer_basic",
+  "packageDir": "../../test/fixtures/conformance_batch/flowdesk",
+  "profile": "cli",
+  "trace": "../../test/fixtures/conformance_batch/flowdesk/traces/pass.json"
+}

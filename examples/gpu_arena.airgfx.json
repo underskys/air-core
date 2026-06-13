@@ -1,0 +1,645 @@
+{
+  "version": "0.9",
+  "module": "gpu_arena",
+  "package": {
+    "abi": "0.9",
+    "kind": "air-gfx-package"
+  },
+  "targets": {
+    "browser": {
+      "backend": "webgpu",
+      "required": false
+    },
+    "native": {
+      "backend": "wgpu",
+      "required": false
+    }
+  },
+  "canvas": {
+    "width": 1280,
+    "height": 720,
+    "clearColor": [
+      5,
+      7,
+      18,
+      255
+    ]
+  },
+  "assets": {
+    "models": {
+      "arena_platform": {
+        "path": "gpu_arena/assets/arena_platform.gltf",
+        "format": "gltf",
+        "handle": 1
+      },
+      "floor_panel_4x4": {
+        "path": "gpu_arena/assets/arena_platform.gltf",
+        "format": "gltf",
+        "handle": 2
+      },
+      "wall_segment_8x4": {
+        "path": "gpu_arena/assets/arena_platform.gltf",
+        "format": "gltf",
+        "handle": 3
+      },
+      "support_pillar_tall": {
+        "path": "gpu_arena/assets/arena_platform.gltf",
+        "format": "gltf",
+        "handle": 4
+      },
+      "bridge_module_8x3": {
+        "path": "gpu_arena/assets/arena_platform.gltf",
+        "format": "gltf",
+        "handle": 5
+      },
+      "ramp_module_6x3": {
+        "path": "gpu_arena/assets/arena_platform.gltf",
+        "format": "gltf",
+        "handle": 6
+      },
+      "stair_module_6x3": {
+        "path": "gpu_arena/assets/arena_platform.gltf",
+        "format": "gltf",
+        "handle": 7
+      },
+      "circular_platform": {
+        "path": "gpu_arena/assets/arena_platform.gltf",
+        "format": "gltf",
+        "handle": 8
+      },
+      "jump_pad": {
+        "path": "gpu_arena/assets/arena_platform.gltf",
+        "format": "gltf",
+        "handle": 9
+      },
+      "teleport_pad": {
+        "path": "gpu_arena/assets/arena_platform.gltf",
+        "format": "gltf",
+        "handle": 10
+      },
+      "energy_gate": {
+        "path": "gpu_arena/assets/arena_platform.gltf",
+        "format": "gltf",
+        "handle": 11
+      },
+      "lava_channel_8x2": {
+        "path": "gpu_arena/assets/arena_platform.gltf",
+        "format": "gltf",
+        "handle": 12
+      },
+      "cover_crate": {
+        "path": "gpu_arena/assets/arena_platform.gltf",
+        "format": "gltf",
+        "handle": 13
+      },
+      "archway_frame": {
+        "path": "gpu_arena/assets/arena_platform.gltf",
+        "format": "gltf",
+        "handle": 14
+      },
+      "pickup_spawn_marker": {
+        "path": "gpu_arena/assets/arena_platform.gltf",
+        "format": "gltf",
+        "handle": 15
+      }
+    },
+    "textures": {
+      "rune_atlas": {
+        "path": "gpu_arena/assets/rune_atlas.svg",
+        "format": "image",
+        "handle": 1
+      }
+    },
+    "vectors": {
+      "rune_vector": {
+        "path": "gpu_arena/assets/rune_atlas.svg",
+        "format": "svg",
+        "usage": "decal",
+        "tessellation": "host",
+        "colorSpace": "srgb",
+        "handle": 1
+      }
+    },
+    "sprites": {
+      "blue_rune": {
+        "texture": "rune_atlas",
+        "frame": [
+          0,
+          0,
+          128,
+          128
+        ],
+        "handle": 1
+      }
+    },
+    "cubemaps": {
+      "storm_sky": {
+        "path": "gpu_arena/assets/storm_sky.json",
+        "format": "procedural",
+        "handle": 1
+      }
+    }
+  },
+  "shaders": {
+    "arena_wgsl": {
+      "path": "gpu_arena/shaders/arena.wgsl",
+      "vertex": "vs_main",
+      "fragment": "fs_main"
+    }
+  },
+  "pipelines": {
+    "arena_pipeline": {
+      "shader": "arena_wgsl",
+      "vertexEntry": "vs_main",
+      "fragmentEntry": "fs_main",
+      "colorFormat": "bgra8unorm",
+      "depth": false,
+      "blend": "alpha",
+      "cull": "none",
+      "primitive": "triangle-list"
+    }
+  },
+  "renderTargets": {
+    "scene_color": {
+      "format": "bgra8unorm",
+      "size": "canvas",
+      "usage": [
+        "render",
+        "sample"
+      ]
+    },
+    "bloom_color": {
+      "format": "bgra8unorm",
+      "scale": 0.5,
+      "usage": [
+        "render",
+        "sample"
+      ]
+    },
+    "backbuffer": {
+      "format": "surface",
+      "size": "canvas",
+      "usage": [
+        "present"
+      ]
+    }
+  },
+  "depth": {
+    "target": "scene_depth",
+    "format": "depth24plus",
+    "size": "canvas",
+    "enabled": true
+  },
+  "postPipelines": {
+    "fullscreen_post": {
+      "shader": "arena_wgsl",
+      "vertexEntry": "vs_main",
+      "fragmentEntry": "fs_main",
+      "effects": [
+        "bloom",
+        "tonemap"
+      ]
+    }
+  },
+  "materials": {
+    "heated_panel": {
+      "pipeline": "arena_pipeline",
+      "model": "pbr",
+      "baseColor": [
+        0.15,
+        0.38,
+        0.95,
+        1
+      ],
+      "metallic": 0.8,
+      "roughness": 0.35,
+      "textures": {
+        "emissive": "rune_atlas"
+      }
+    },
+    "lava_rune": {
+      "pipeline": "arena_pipeline",
+      "model": "sprite-unlit",
+      "baseColor": [
+        1,
+        0.18,
+        0.04,
+        1
+      ],
+      "emissive": [
+        1,
+        0.32,
+        0.04
+      ]
+    },
+    "voxel_glow": {
+      "pipeline": "arena_pipeline",
+      "model": "voxel-unlit",
+      "baseColor": [
+        0.05,
+        0.55,
+        1,
+        1
+      ],
+      "emissive": [
+        0.05,
+        0.3,
+        1
+      ]
+    },
+    "dark_industrial_floor": {
+      "pipeline": "arena_pipeline",
+      "model": "pbr",
+      "baseColor": [
+        0.13,
+        0.14,
+        0.15,
+        1
+      ],
+      "metallic": 0.75,
+      "roughness": 0.48
+    },
+    "dark_industrial_wall": {
+      "pipeline": "arena_pipeline",
+      "model": "pbr",
+      "baseColor": [
+        0.08,
+        0.09,
+        0.11,
+        1
+      ],
+      "metallic": 0.82,
+      "roughness": 0.52
+    },
+    "basalt_floor": {
+      "pipeline": "arena_pipeline",
+      "model": "pbr",
+      "baseColor": [
+        0.09,
+        0.085,
+        0.08,
+        1
+      ],
+      "metallic": 0.02,
+      "roughness": 0.9
+    },
+    "bridge_metal": {
+      "pipeline": "arena_pipeline",
+      "model": "pbr",
+      "baseColor": [
+        0.16,
+        0.17,
+        0.18,
+        1
+      ],
+      "metallic": 0.85,
+      "roughness": 0.38
+    },
+    "lava_emissive": {
+      "pipeline": "arena_pipeline",
+      "model": "pbr",
+      "baseColor": [
+        1,
+        0.22,
+        0.03,
+        1
+      ],
+      "emissive": [
+        3.8,
+        0.8,
+        0.04
+      ],
+      "roughness": 0.2,
+      "metallic": 0
+    },
+    "blue_energy": {
+      "pipeline": "arena_pipeline",
+      "model": "pbr",
+      "baseColor": [
+        0.05,
+        0.55,
+        1,
+        0.8
+      ],
+      "emissive": [
+        0.1,
+        1.2,
+        2.4
+      ],
+      "roughness": 0.1,
+      "metallic": 0
+    },
+    "red_rune_panel": {
+      "pipeline": "arena_pipeline",
+      "model": "pbr",
+      "baseColor": [
+        0.7,
+        0.05,
+        0.02,
+        1
+      ],
+      "emissive": [
+        2.5,
+        0.15,
+        0.05
+      ],
+      "roughness": 0.35,
+      "metallic": 0
+    },
+    "pickup_marker": {
+      "pipeline": "arena_pipeline",
+      "model": "pbr",
+      "baseColor": [
+        1,
+        0.78,
+        0.12,
+        1
+      ],
+      "emissive": [
+        2,
+        1.2,
+        0.1
+      ],
+      "roughness": 0.25,
+      "metallic": 0
+    }
+  },
+  "scene": {
+    "cameras": {
+      "main": {
+        "kind": "perspective",
+        "fovY": 65,
+        "near": 0.05,
+        "far": 500,
+        "position": [
+          0,
+          2.5,
+          6
+        ],
+        "target": [
+          0,
+          0.5,
+          0
+        ]
+      }
+    },
+    "lights": {
+      "key": {
+        "kind": "directional",
+        "direction": [
+          -0.35,
+          -0.8,
+          -0.2
+        ],
+        "color": [
+          0.7,
+          0.82,
+          1
+        ],
+        "intensity": 2.5
+      },
+      "lava": {
+        "kind": "point",
+        "position": [
+          0,
+          -1,
+          1.5
+        ],
+        "color": [
+          1,
+          0.18,
+          0.02
+        ],
+        "intensity": 6
+      }
+    },
+    "nodes": {
+      "platform": {
+        "mesh": "arena_platform",
+        "material": "heated_panel",
+        "transform": {
+          "translation": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "instances": 6
+      }
+    },
+    "sprites": {
+      "hud_runes": {
+        "sprite": "blue_rune",
+        "material": "lava_rune",
+        "batch": 12
+      }
+    },
+    "vectorDecals": {
+      "floor_rune": {
+        "vector": "rune_vector",
+        "material": "lava_rune",
+        "space": "world",
+        "transform": {
+          "translation": [
+            0,
+            0.05,
+            0
+          ],
+          "rotation": [
+            0,
+            -90,
+            0
+          ],
+          "scale": [
+            6,
+            6,
+            1
+          ]
+        },
+        "alpha": 0.85
+      }
+    },
+    "voxels": {
+      "energy_columns": {
+        "material": "voxel_glow",
+        "chunkSize": 16,
+        "budget": 512,
+        "mode": "instanced-cubes"
+      }
+    }
+  },
+  "post": {
+    "bloom": {
+      "kind": "bloom",
+      "threshold": 0.82,
+      "radius": 0.45,
+      "intensity": 0.65
+    },
+    "depth_of_field": {
+      "kind": "depth-of-field",
+      "focusDistance": 6,
+      "aperture": 0.08
+    },
+    "tonemap": {
+      "kind": "tone-map",
+      "operator": "aces",
+      "exposure": 1.1
+    }
+  },
+  "renderGraphs": {
+    "main_graph": {
+      "passes": [
+        {
+          "key": "clear",
+          "kind": "clear",
+          "output": "scene_color"
+        },
+        {
+          "key": "sky",
+          "kind": "skybox",
+          "camera": "main",
+          "environment": "storm_sky",
+          "pipeline": "arena_pipeline",
+          "inputs": [
+            "scene_color"
+          ],
+          "output": "scene_color"
+        },
+        {
+          "key": "geometry",
+          "kind": "geometry",
+          "camera": "main",
+          "pipeline": "arena_pipeline",
+          "inputs": [
+            "scene_color"
+          ],
+          "output": "scene_color"
+        },
+        {
+          "key": "voxels",
+          "kind": "voxel",
+          "camera": "main",
+          "material": "voxel_glow",
+          "inputs": [
+            "scene_color"
+          ],
+          "output": "scene_color"
+        },
+        {
+          "key": "sprites",
+          "kind": "sprite",
+          "material": "lava_rune",
+          "inputs": [
+            "scene_color"
+          ],
+          "output": "scene_color"
+        },
+        {
+          "key": "vectors",
+          "kind": "vector",
+          "material": "lava_rune",
+          "inputs": [
+            "scene_color"
+          ],
+          "output": "scene_color"
+        },
+        {
+          "key": "bloom",
+          "kind": "post",
+          "effect": "bloom",
+          "inputs": [
+            "scene_color"
+          ],
+          "output": "bloom_color"
+        },
+        {
+          "key": "tonemap",
+          "kind": "post",
+          "effect": "tonemap",
+          "inputs": [
+            "scene_color",
+            "bloom_color"
+          ],
+          "output": "backbuffer"
+        },
+        {
+          "key": "present",
+          "kind": "present",
+          "inputs": [
+            "backbuffer"
+          ]
+        }
+      ]
+    }
+  },
+  "qualityProfiles": {
+    "mobile": {
+      "maxTextureSize": 2048,
+      "maxInstances": 2000,
+      "post": [
+        "tonemap"
+      ],
+      "preferredBackend": "webgpu"
+    },
+    "desktop": {
+      "maxTextureSize": 8192,
+      "maxInstances": 50000,
+      "post": [
+        "bloom",
+        "depth_of_field",
+        "tonemap"
+      ],
+      "preferredBackend": "webgpu"
+    }
+  },
+  "handles": {
+    "pipelines": {
+      "arena_pipeline": 1
+    },
+    "renderGraphs": {
+      "main_graph": 1
+    },
+    "cameras": {
+      "main": 1
+    },
+    "nodes": {
+      "platform": 1
+    },
+    "voxels": {
+      "energy_columns": 1
+    },
+    "models": {
+      "arena_platform": 1,
+      "floor_panel_4x4": 2,
+      "wall_segment_8x4": 3,
+      "support_pillar_tall": 4,
+      "bridge_module_8x3": 5,
+      "ramp_module_6x3": 6,
+      "stair_module_6x3": 7,
+      "circular_platform": 8,
+      "jump_pad": 9,
+      "teleport_pad": 10,
+      "energy_gate": 11,
+      "lava_channel_8x2": 12,
+      "cover_crate": 13,
+      "archway_frame": 14,
+      "pickup_spawn_marker": 15
+    },
+    "sprites": {
+      "blue_rune": 1
+    },
+    "vectors": {
+      "rune_vector": 1
+    }
+  }
+}

@@ -1,0 +1,60 @@
+module ai_generated_health_score
+capabilities { debug }
+effects { debug.metric <= 2 }
+requires capability debug
+requires export evaluate
+
+extern debug.metric(id: i32, value: i32) -> void
+
+func clamp_percent(value: i32) -> i32 {
+entry:
+  %zero:i32 = 0
+  %hi:i32 = 100
+  %too_low:bool = i32.lt_s %value, %zero
+  %low:i32 = select.i32 %too_low, %zero, %value
+  %too_high:bool = i32.gt_s %low, %hi
+  %out:i32 = select.i32 %too_high, %hi, %low
+  return %out
+}
+
+func latency_penalty(latency_ms: i32) -> i32 {
+entry:
+  %warn:bool = i32.gt_s %latency_ms, 100
+  %critical:bool = i32.gt_s %latency_ms, 250
+  %warn_penalty:i32 = 20
+  %critical_penalty:i32 = 45
+  %warn_or_zero:i32 = select.i32 %warn, %warn_penalty, 0
+  %out:i32 = select.i32 %critical, %critical_penalty, %warn_or_zero
+  return %out
+}
+
+func loss_penalty(packet_loss_pct: i32) -> i32 {
+entry:
+  %safe_loss:i32 = @clamp_percent(%packet_loss_pct)
+  %out:i32 = mul %safe_loss, 2
+  return %out
+}
+
+func service_penalty(service_errors: i32) -> i32 {
+entry:
+  %zero:i32 = 0
+  %negative:bool = i32.lt_s %service_errors, %zero
+  %safe_errors:i32 = select.i32 %negative, %zero, %service_errors
+  %out:i32 = mul %safe_errors, 15
+  return %out
+}
+
+export func evaluate(latency_ms: i32, packet_loss_pct: i32, service_errors: i32) -> i32 {
+entry:
+  %latency:i32 = @latency_penalty(%latency_ms)
+  %loss:i32 = @loss_penalty(%packet_loss_pct)
+  %service:i32 = @service_penalty(%service_errors)
+  %partial:i32 = add %latency, %loss
+  %penalty:i32 = add %partial, %service
+  %base:i32 = 100
+  %raw_score:i32 = sub %base, %penalty
+  %score:i32 = @clamp_percent(%raw_score)
+  @debug.metric(1, %score)
+  @debug.metric(2, %penalty)
+  return %score
+}

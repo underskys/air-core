@@ -1,0 +1,11 @@
+module ai_review_debug_metric_event_bus
+capabilities { debug }
+effects { debug.metric <= 1 }
+
+extern debug.metric(id: i32, value: i32) -> void
+
+export func run(seed: i32) -> i32 {
+entry:
+  @debug.metric(77, 1)
+  return %seed
+}

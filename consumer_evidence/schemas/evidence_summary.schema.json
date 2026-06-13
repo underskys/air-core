@@ -1,0 +1,141 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://airlang.dev/schemas/consumer_evidence/evidence_summary.schema.json",
+  "title": "AIR Consumer Evidence Summary",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "kind",
+    "demoId",
+    "status",
+    "airAbi",
+    "hostAbi",
+    "capabilityBoundary",
+    "proofTypes",
+    "privacy",
+    "routing"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "integer",
+      "const": 1
+    },
+    "kind": {
+      "type": "string",
+      "const": "air.consumerEvidenceSummary"
+    },
+    "demoId": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "not_run",
+        "passed",
+        "failed",
+        "partial",
+        "deferred"
+      ]
+    },
+    "airAbi": {
+      "type": "string"
+    },
+    "hostAbi": {
+      "type": "string"
+    },
+    "capabilityBoundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "allowedCapabilities",
+        "deniedAuthorities"
+      ],
+      "properties": {
+        "allowedCapabilities": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "deniedAuthorities": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "proofTypes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "privacy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "containsSecrets",
+        "containsRawPrivateData",
+        "containsAbsolutePaths",
+        "containsLargeLogs"
+      ],
+      "properties": {
+        "containsSecrets": {
+          "type": "boolean",
+          "const": false
+        },
+        "containsRawPrivateData": {
+          "type": "boolean",
+          "const": false
+        },
+        "containsAbsolutePaths": {
+          "type": "boolean",
+          "const": false
+        },
+        "containsLargeLogs": {
+          "type": "boolean",
+          "const": false
+        }
+      }
+    },
+    "routing": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "pressure",
+          "route",
+          "status"
+        ],
+        "properties": {
+          "pressure": {
+            "type": "string"
+          },
+          "route": {
+            "type": "string",
+            "enum": [
+              "Core",
+              "stdlib",
+              "kit",
+              "host adapter",
+              "demo-local",
+              "rejected"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "proposed",
+              "accepted",
+              "deferred",
+              "rejected"
+            ]
+          }
+        }
+      }
+    }
+  }
+}

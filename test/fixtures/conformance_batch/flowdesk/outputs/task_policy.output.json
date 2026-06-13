@@ -1,0 +1,19 @@
+{
+  "schemaVersion": "0.18",
+  "kind": "air.outputContract",
+  "outputs": [
+    {
+      "id": 1001,
+      "name": "priority_alert_requested",
+      "channel": "notification",
+      "capability": "notify.request",
+      "args": [
+        { "name": "task_id", "type": "i32" },
+        { "name": "severity", "type": "i32" },
+        { "name": "flags", "type": "i32" }
+      ],
+      "resources": [],
+      "profileConstraints": []
+    }
+  ]
+}

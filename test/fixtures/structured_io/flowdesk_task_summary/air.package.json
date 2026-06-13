@@ -1,0 +1,17 @@
+{
+  "name": "flowdesk-structured-io-fuzz-fixture",
+  "version": "0.1.0",
+  "airAbi": "0.10",
+  "hostAbi": "0.10",
+  "entry": "main.air",
+  "capabilities": [],
+  "targetProfiles": [
+    "cli"
+  ],
+  "generatedModules": [
+    "generated/structured_io_handles.air"
+  ],
+  "structuredIO": [
+    "schemas/task_summary.structured.rowset.json"
+  ]
+}

@@ -1,0 +1,144 @@
+{
+  "package": "lan-observer-readonly-canonical-example",
+  "status": "warn",
+  "linkedWasm": false,
+  "structuredIO": {
+    "schemas": [
+      {
+        "name": "device_observation",
+        "kind": "air.structuredRowsetSchema",
+        "maxRows": 8,
+        "fieldCount": 10,
+        "fields": [
+          {
+            "name": "confidence_source",
+            "type": "i32",
+            "privacy": "minimized",
+            "semantic": "enum"
+          },
+          {
+            "name": "device_id",
+            "type": "i32",
+            "privacy": "minimized",
+            "semantic": "id"
+          },
+          {
+            "name": "dns_reachable",
+            "type": "i32",
+            "privacy": "minimized",
+            "semantic": "flag"
+          },
+          {
+            "name": "gateway_reachable",
+            "type": "i32",
+            "privacy": "minimized",
+            "semantic": "flag"
+          },
+          {
+            "name": "interface_kind",
+            "type": "i32",
+            "privacy": "minimized",
+            "semantic": "enum"
+          },
+          {
+            "name": "latency_ms",
+            "type": "i32",
+            "privacy": "minimized",
+            "semantic": "counter"
+          },
+          {
+            "name": "link_status",
+            "type": "i32",
+            "privacy": "minimized",
+            "semantic": "enum"
+          },
+          {
+            "name": "observation_age_ms",
+            "type": "i32",
+            "privacy": "minimized",
+            "semantic": "counter"
+          },
+          {
+            "name": "packet_loss_x1000",
+            "type": "i32",
+            "privacy": "minimized",
+            "semantic": "score"
+          },
+          {
+            "name": "recent_change_flag",
+            "type": "i32",
+            "privacy": "minimized",
+            "semantic": "flag"
+          }
+        ]
+      },
+      {
+        "name": "diagnosis_summary",
+        "kind": "air.structuredOutputSummarySchema",
+        "maxRows": null,
+        "fieldCount": 5,
+        "fields": [
+          {
+            "name": "confidence_x1000",
+            "type": "i32",
+            "privacy": "minimized",
+            "semantic": "score"
+          },
+          {
+            "name": "diagnosis_code",
+            "type": "i32",
+            "privacy": "minimized",
+            "semantic": "enum"
+          },
+          {
+            "name": "recommended_action_id",
+            "type": "i32",
+            "privacy": "minimized",
+            "semantic": "enum"
+          },
+          {
+            "name": "requires_human_approval",
+            "type": "i32",
+            "privacy": "minimized",
+            "semantic": "flag"
+          },
+          {
+            "name": "severity",
+            "type": "i32",
+            "privacy": "minimized",
+            "semantic": "score"
+          }
+        ]
+      }
+    ],
+    "handleSets": [
+      {
+        "path": "generated/structured_io_handles.air",
+        "metadataPath": "generated/structured_io.meta.json",
+        "status": "fresh",
+        "handleCount": 35
+      }
+    ]
+  },
+  "outputContracts": [
+    {
+      "path": "outputs/lan_observer_diagnosis.output.json",
+      "ok": true,
+      "outputsCount": 1,
+      "outputIds": [
+        3501
+      ]
+    }
+  ],
+  "commandBuffers": [
+    {
+      "path": "outputs/lan_observer_diagnosis.commands.json",
+      "ok": true,
+      "maxCommands": 4,
+      "recordCount": 1,
+      "usedOutputIds": [
+        3501
+      ]
+    }
+  ]
+}

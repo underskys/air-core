@@ -1,0 +1,9 @@
+{
+  "schemaVersion": "0.29",
+  "kind": "air.benchmark",
+  "benchmarkName": "AirOps decision basic",
+  "benchmarkId": "air_ops_decision_basic",
+  "packageDir": "../../examples/airops_incident_package",
+  "profile": "cli",
+  "trace": "../../examples/airops_incident_package/traces/pass.json"
+}

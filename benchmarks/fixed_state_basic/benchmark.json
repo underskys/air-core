@@ -1,0 +1,16 @@
+{
+  "schemaVersion": "0.29",
+  "kind": "air.benchmark",
+  "benchmarkName": "Fixed state basic",
+  "benchmarkId": "fixed_state_basic",
+  "packageDir": "../../test/fixtures/conformance_state",
+  "profile": "cli",
+  "trace": "../../test/fixtures/conformance_state/traces/pass.json",
+  "traceRequiresWasm": true,
+  "buildWasm": true,
+  "repeat": 4,
+  "runtime": {
+    "export": "write_cell",
+    "args": [1, 7]
+  }
+}

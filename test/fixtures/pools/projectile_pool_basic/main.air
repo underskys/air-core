@@ -1,0 +1,29 @@
+module projectile_pool_basic
+pool projectiles capacity 8 {
+  active:bool = false
+  x:i32 = 0
+  y:i32 = 0
+  vx:i32 = 0
+  vy:i32 = 0
+}
+capabilities { }
+
+export func capacity() -> i32 {
+entry:
+  %cap:i32 = pool.capacity @projectiles
+  return %cap
+}
+
+export func write_x(index: i32, value: i32) -> i32 {
+entry:
+  pool.set.i32 @projectiles.x, %index, %value
+  %v:i32 = pool.get.i32 @projectiles.x, %index
+  return %v
+}
+
+export func activate(index: i32) -> bool {
+entry:
+  pool.set.bool @projectiles.active, %index, true
+  %a:bool = pool.get.bool @projectiles.active, %index
+  return %a
+}

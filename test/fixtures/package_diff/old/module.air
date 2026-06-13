@@ -1,0 +1,6 @@
+module package_diff_golden
+
+export func run() -> i32 {
+entry:
+  return 1
+}

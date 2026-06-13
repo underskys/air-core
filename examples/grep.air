@@ -1,0 +1,10 @@
+module grep_demo
+capabilities { stdio }
+
+func main(args: slice) -> i32 {
+entry:
+  %banner:slice = "AIR grep demo: matched line containing needle\n"
+  print %banner
+  %code:i32 = 0
+  return %code
+}

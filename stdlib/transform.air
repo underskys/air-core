@@ -1,0 +1,93 @@
+module transform
+capabilities { }
+
+func deg1000_to_rad(v: i32) -> f32 {
+entry:
+  %fv:f32 = f32.convert_i32_s %v
+  %scale:f32 = 0.000017453292
+  %out:f32 = mul %fv, %scale
+  return %out
+}
+
+func yaw_forward(yaw: i32) -> vec3 {
+entry:
+  %rad:f32 = @deg1000_to_rad(%yaw)
+  %x:f32 = f32.sin %rad
+  %z:f32 = f32.cos %rad
+  %zero:f32 = 0
+  %out:vec3 = vec3.new %x, %zero, %z
+  return %out
+}
+
+func yaw_right(yaw: i32) -> vec3 {
+entry:
+  %rad:f32 = @deg1000_to_rad(%yaw)
+  %x:f32 = f32.cos %rad
+  %sin:f32 = f32.sin %rad
+  %zero:f32 = 0
+  %z:f32 = sub %zero, %sin
+  %out:vec3 = vec3.new %x, %zero, %z
+  return %out
+}
+
+func yaw_pitch_forward(yaw: i32, pitch: i32) -> vec3 {
+entry:
+  %yaw_rad:f32 = @deg1000_to_rad(%yaw)
+  %pitch_rad:f32 = @deg1000_to_rad(%pitch)
+  %sy:f32 = f32.sin %yaw_rad
+  %cy:f32 = f32.cos %yaw_rad
+  %sp:f32 = f32.sin %pitch_rad
+  %cp:f32 = f32.cos %pitch_rad
+  %x:f32 = mul %sy, %cp
+  %z:f32 = mul %cy, %cp
+  %raw:vec3 = vec3.new %x, %sp, %z
+  %out:vec3 = vec3.normalize %raw
+  return %out
+}
+
+func compose_trs(position: vec3, rotation: quat, scale: vec3) -> mat4 {
+entry:
+  %out:mat4 = mat4.from_trs %position, %rotation, %scale
+  return %out
+}
+
+func transform_point(position: vec3, rotation: quat, scale: vec3, point: vec3) -> vec3 {
+entry:
+  %px:f32 = vec3.x %point
+  %py:f32 = vec3.y %point
+  %pz:f32 = vec3.z %point
+  %sx:f32 = vec3.x %scale
+  %sy:f32 = vec3.y %scale
+  %sz:f32 = vec3.z %scale
+  %scaled_x:f32 = mul %px, %sx
+  %scaled_y:f32 = mul %py, %sy
+  %scaled_z:f32 = mul %pz, %sz
+  %scaled:vec3 = vec3.new %scaled_x, %scaled_y, %scaled_z
+  %rotated:vec3 = quat.rotate_vec3 %rotation, %scaled
+  %out:vec3 = vec3.add %position, %rotated
+  return %out
+}
+
+func transform_vector(rotation: quat, scale: vec3, vector: vec3) -> vec3 {
+entry:
+  %vx:f32 = vec3.x %vector
+  %vy:f32 = vec3.y %vector
+  %vz:f32 = vec3.z %vector
+  %sx:f32 = vec3.x %scale
+  %sy:f32 = vec3.y %scale
+  %sz:f32 = vec3.z %scale
+  %scaled_x:f32 = mul %vx, %sx
+  %scaled_y:f32 = mul %vy, %sy
+  %scaled_z:f32 = mul %vz, %sz
+  %scaled:vec3 = vec3.new %scaled_x, %scaled_y, %scaled_z
+  %out:vec3 = quat.rotate_vec3 %rotation, %scaled
+  return %out
+}
+
+func view_projection(eye: vec3, target: vec3, up: vec3, fov: f32, aspect: f32, near: f32, far: f32) -> mat4 {
+entry:
+  %view:mat4 = mat4.look_at %eye, %target, %up
+  %proj:mat4 = mat4.perspective %fov, %aspect, %near, %far
+  %out:mat4 = mat4.mul %proj, %view
+  return %out
+}

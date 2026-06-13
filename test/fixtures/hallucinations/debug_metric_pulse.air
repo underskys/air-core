@@ -1,0 +1,9 @@
+module hallucinated_debug_metric_pulse
+capabilities { debug }
+extern debug.metric(id: i32, value: i32) -> void
+
+export func run() -> void {
+entry:
+  @debug.metric(9, 1)
+  return
+}

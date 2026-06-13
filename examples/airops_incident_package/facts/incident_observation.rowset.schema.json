@@ -1,0 +1,52 @@
+{
+  "schemaVersion": "0.20",
+  "kind": "air.boundedRowsetSchema",
+  "name": "incident_observation",
+  "layout": "columnar",
+  "maxRows": 4,
+  "columns": [
+    {
+      "name": "incident_id",
+      "type": "i32",
+      "storageHint": "u16",
+      "privacy": "minimized"
+    },
+    {
+      "name": "service_id",
+      "type": "i32",
+      "storageHint": "u16",
+      "privacy": "minimized"
+    },
+    {
+      "name": "severity_id",
+      "type": "i32",
+      "range": [0, 5],
+      "storageHint": "u8",
+      "privacy": "minimized"
+    },
+    {
+      "name": "signal_count",
+      "type": "i32",
+      "range": [0, 100],
+      "storageHint": "u8",
+      "privacy": "minimized"
+    },
+    {
+      "name": "age_minutes",
+      "type": "i32",
+      "range": [0, 100],
+      "storageHint": "u8",
+      "privacy": "minimized"
+    },
+    {
+      "name": "flags",
+      "type": "i32",
+      "storageHint": "u16",
+      "privacy": "minimized"
+    }
+  ],
+  "privacyPolicy": {
+    "defaultClassification": "minimized",
+    "forbiddenByDefault": ["raw_text", "raw_url", "token", "secret", "credential"]
+  }
+}

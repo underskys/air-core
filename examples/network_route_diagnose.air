@@ -1,0 +1,30 @@
+module network_route_diagnose
+capabilities { }
+effects { cpu.instructions <= 40 }
+
+func diagnose(has_gateway: bool, has_default_route: bool, vpn_active: bool, first_hop_ok: bool, mtu: i32) -> i32 {
+entry:
+  %no_gateway_code:i32 = 40
+  %no_default_code:i32 = 30
+  %vpn_code:i32 = 25
+  %hop_code:i32 = 20
+  %hop_issue:i32 = select.i32 %vpn_active, %vpn_code, %hop_code
+  %min_mtu:i32 = 1280
+  %bad_mtu:bool = i32.lt_s %mtu, %min_mtu
+  %mtu_code:i32 = 10
+  %ok:i32 = 0
+  %mtu_result:i32 = select.i32 %bad_mtu, %mtu_code, %ok
+  %hop_result:i32 = select.i32 %first_hop_ok, %mtu_result, %hop_issue
+  %default_result:i32 = select.i32 %has_default_route, %hop_result, %no_default_code
+  %out:i32 = select.i32 %has_gateway, %default_result, %no_gateway_code
+  return %out
+}
+
+export func run() -> i32 {
+entry:
+  %yes:bool = true
+  %no:bool = false
+  %mtu:i32 = 1500
+  %out:i32 = @diagnose(%yes, %yes, %no, %yes, %mtu)
+  return %out
+}

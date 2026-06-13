@@ -1,0 +1,41 @@
+{
+  "schemaVersion": "0.32",
+  "kind": "air.structuredRowsetSchema",
+  "name": "task_summary",
+  "maxRows": 4,
+  "privacyPolicy": {
+    "defaultClassification": "minimized",
+    "forbiddenByDefault": [
+      "raw_text",
+      "raw_url",
+      "token",
+      "secret"
+    ]
+  },
+  "fields": [
+    {
+      "name": "task_id",
+      "type": "i32",
+      "privacy": "minimized",
+      "semantic": "id"
+    },
+    {
+      "name": "status_id",
+      "type": "i32",
+      "privacy": "minimized",
+      "semantic": "enum"
+    },
+    {
+      "name": "blocked",
+      "type": "bool",
+      "privacy": "public",
+      "semantic": "flag"
+    },
+    {
+      "name": "risk_score",
+      "type": "i32",
+      "privacy": "minimized",
+      "semantic": "score"
+    }
+  ]
+}

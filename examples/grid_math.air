@@ -1,0 +1,27 @@
+module grid_math
+use std.grid
+capabilities { }
+requires export run
+
+export func run() -> i32 {
+entry:
+  %value:i32 = 37
+  %cell_size:i32 = 8
+  %cell:i32 = @grid.cell_trunc_i32(%value, %cell_size)
+  %origin:i32 = @grid.cell_origin_i32(%cell, %cell_size)
+  %center:i32 = @grid.cell_center_i32(%cell, %cell_size)
+  %clamped_x:i32 = @grid.clamp_coord_i32(9, 6)
+  %clamped_z:i32 = @grid.clamp_coord_i32(2, 6)
+  %inside_2d:bool = @grid.in_bounds_2d(%clamped_x, %clamped_z, 6, 6)
+  %index_2d:i32 = @grid.index_2d(%clamped_x, %clamped_z, 6)
+  %inside_3d:bool = @grid.in_bounds_3d(1, 2, 3, 4, 5, 6)
+  %index_3d:i32 = @grid.index_3d(1, 2, 3, 4, 5)
+  %inside_2d_i:i32 = select.i32 %inside_2d, 1000, 0
+  %inside_3d_i:i32 = select.i32 %inside_3d, 2000, 0
+  %sum0:i32 = add %origin, %center
+  %sum1:i32 = add %sum0, %index_2d
+  %sum2:i32 = add %sum1, %index_3d
+  %sum3:i32 = add %sum2, %inside_2d_i
+  %out:i32 = add %sum3, %inside_3d_i
+  return %out
+}

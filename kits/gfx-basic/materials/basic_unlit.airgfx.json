@@ -1,0 +1,12 @@
+{
+  "materials": {
+    "basic_unlit": {
+      "pipeline": "stdlib_unlit_mesh",
+      "model": "unlit",
+      "baseColor": [0.08, 0.62, 1, 1],
+      "metallic": 0,
+      "roughness": 1
+    }
+  }
+}
+

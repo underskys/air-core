@@ -1,0 +1,79 @@
+{
+  "schemaVersion": "0.32",
+  "kind": "air.structuredRowsetSchema",
+  "name": "device_observation",
+  "maxRows": 8,
+  "privacyPolicy": {
+    "defaultClassification": "minimized",
+    "forbiddenByDefault": [
+      "raw_text",
+      "raw_url",
+      "private_text",
+      "token",
+      "secret",
+      "credential"
+    ]
+  },
+  "fields": [
+    {
+      "name": "device_id",
+      "type": "i32",
+      "privacy": "minimized",
+      "semantic": "id"
+    },
+    {
+      "name": "link_status",
+      "type": "i32",
+      "privacy": "minimized",
+      "semantic": "enum"
+    },
+    {
+      "name": "latency_ms",
+      "type": "i32",
+      "privacy": "minimized",
+      "semantic": "counter"
+    },
+    {
+      "name": "packet_loss_x1000",
+      "type": "i32",
+      "privacy": "minimized",
+      "semantic": "score"
+    },
+    {
+      "name": "gateway_reachable",
+      "type": "i32",
+      "privacy": "minimized",
+      "semantic": "flag"
+    },
+    {
+      "name": "dns_reachable",
+      "type": "i32",
+      "privacy": "minimized",
+      "semantic": "flag"
+    },
+    {
+      "name": "recent_change_flag",
+      "type": "i32",
+      "privacy": "minimized",
+      "semantic": "flag"
+    },
+    {
+      "name": "interface_kind",
+      "type": "i32",
+      "privacy": "minimized",
+      "semantic": "enum"
+    },
+    {
+      "name": "confidence_source",
+      "type": "i32",
+      "privacy": "minimized",
+      "semantic": "enum"
+    },
+    {
+      "name": "observation_age_ms",
+      "type": "i32",
+      "privacy": "minimized",
+      "semantic": "counter"
+    }
+  ]
+}

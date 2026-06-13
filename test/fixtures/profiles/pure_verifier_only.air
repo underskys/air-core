@@ -1,0 +1,7 @@
+module pure_verifier_only
+capabilities { }
+
+export func run() -> i32 {
+entry:
+  return 0
+}

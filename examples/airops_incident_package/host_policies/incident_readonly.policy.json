@@ -1,0 +1,12 @@
+{
+  "schemaVersion": "0.25",
+  "kind": "air.mockHostPolicy",
+  "id": "incident-readonly",
+  "allowOutputs": ["incident_policy_decision_recorded"],
+  "denyOutputs": [],
+  "capabilities": {
+    "incident.policy_decision": "allowed",
+    "network": "forbidden",
+    "secrets": "forbidden"
+  }
+}

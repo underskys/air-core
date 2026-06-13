@@ -1,0 +1,17 @@
+module slice_borrow
+capabilities { }
+
+export func run() -> i32 {
+entry:
+  %bytes:i32 = 16
+  %ptr:ptr = alloc_region %bytes
+  %zero:i32 = 0
+  %four:i32 = 4
+  %value:i32 = 42
+  %slice:slice = slice.from_region %ptr, %bytes
+  %view:slice = slice.sub %slice, %four, %four
+  slice.store.i32 %view, %zero, %value
+  %out:i32 = slice.load.i32 %view, %zero
+  free_region %ptr
+  return %out
+}

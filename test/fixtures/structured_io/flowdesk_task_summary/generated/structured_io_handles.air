@@ -1,0 +1,18 @@
+# Generated file. Do not edit manually.
+# Generator: repo:bin/airc.js
+# Source: schemas/task_summary.structured.rowset.json
+# Structured IO schema fingerprint: sha256:8284d4382ba47c6f814d0962ac8a3aeed59b82dafa8933729df05a5ff3165c70
+module structured_io_handles
+capabilities { }
+
+const STRUCT_TASK_SUMMARY_FIELD_BLOCKED_OFFSET:i32 = 2
+const STRUCT_TASK_SUMMARY_FIELD_BLOCKED_TYPE:i32 = 2
+const STRUCT_TASK_SUMMARY_FIELD_COUNT:i32 = 4
+const STRUCT_TASK_SUMMARY_FIELD_RISK_SCORE_OFFSET:i32 = 3
+const STRUCT_TASK_SUMMARY_FIELD_RISK_SCORE_TYPE:i32 = 1
+const STRUCT_TASK_SUMMARY_FIELD_STATUS_ID_OFFSET:i32 = 1
+const STRUCT_TASK_SUMMARY_FIELD_STATUS_ID_TYPE:i32 = 1
+const STRUCT_TASK_SUMMARY_FIELD_TASK_ID_OFFSET:i32 = 0
+const STRUCT_TASK_SUMMARY_FIELD_TASK_ID_TYPE:i32 = 1
+const STRUCT_TASK_SUMMARY_KIND:i32 = 2
+const STRUCT_TASK_SUMMARY_MAX_ROWS:i32 = 4

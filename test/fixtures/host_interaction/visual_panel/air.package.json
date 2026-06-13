@@ -1,0 +1,11 @@
+{
+  "name": "visual-panel-command-intent-fixture",
+  "version": "0.1.0",
+  "airAbi": "0.10",
+  "hostAbi": "0.10",
+  "entry": "module.air",
+  "capabilities": [],
+  "targetProfiles": ["cli"],
+  "outputContracts": ["outputs/visual_panel.output.json"],
+  "commandBuffers": ["outputs/visual_panel.commands.json"]
+}

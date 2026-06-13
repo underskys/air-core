@@ -1,0 +1,27 @@
+{
+  "schemaVersion": "0.32",
+  "kind": "air.aiAuthoringCapturedOutput",
+  "caseId": "dynamic_object_map_hallucination",
+  "candidateSummary": "candidate introduces dynamic map/object fields",
+  "forbiddenSurface": true,
+  "hallucinationCategories": [
+    "dynamic_map",
+    "object_model"
+  ],
+  "firstPass": {
+    "verify": {
+      "status": "passed",
+      "diagnostics": []
+    },
+    "packageCheck": {
+      "status": "failed",
+      "diagnostics": [
+        {
+          "code": "air.structured_io.object_field_rejected",
+          "severity": "fail",
+          "message": "structured IO object/map fields are rejected"
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,150 @@
+module lan_observer_readonly
+const CONFIDENCE_MAX:i32 = 1000
+const DIAG_HEALTHY:i32 = 300
+const DIAG_LINK_DOWN:i32 = 301
+const DIAG_GATEWAY_UNREACHABLE:i32 = 302
+const DIAG_DNS_UNREACHABLE:i32 = 303
+const DIAG_PACKET_LOSS:i32 = 304
+const DIAG_LATENCY:i32 = 305
+const DIAG_RECENT_CHANGE:i32 = 306
+const ACTION_OBSERVE:i32 = 700
+const ACTION_CHECK_LINK:i32 = 710
+const ACTION_CHECK_GATEWAY:i32 = 711
+const ACTION_CHECK_DNS:i32 = 712
+const ACTION_INVESTIGATE_LOSS:i32 = 713
+const ACTION_INVESTIGATE_LATENCY:i32 = 714
+const ACTION_REVIEW_CHANGE:i32 = 715
+const SEVERITY_OK:i32 = 0
+const SEVERITY_INFO:i32 = 1
+const SEVERITY_WARN:i32 = 2
+const SEVERITY_ACTION:i32 = 3
+const SEVERITY_CRITICAL:i32 = 4
+const PACKET_LOSS_HIGH_X1000:i32 = 100
+const LATENCY_HIGH_MS:i32 = 200
+const LATENCY_PENALTY_DIVISOR:i32 = 2
+const PACKET_LOSS_PENALTY_SCALE:i32 = 2
+const CONFIDENCE_LOW_THRESHOLD:i32 = 650
+const INTERFACE_KIND_UNKNOWN:i32 = 0
+const CONFIDENCE_SOURCE_LOW:i32 = 0
+const AGE_PENALTY_DIVISOR_MS:i32 = 100
+capabilities { }
+
+func clamp_nonnegative(value: i32) -> i32 {
+entry:
+  %negative:bool = i32.lt_s %value, 0
+  %out:i32 = select.i32 %negative, 0, %value
+  return %out
+}
+
+func clamp_1000(value: i32) -> i32 {
+entry:
+  %positive:i32 = @clamp_nonnegative(%value)
+  %too_high:bool = i32.gt_s %positive, CONFIDENCE_MAX
+  %out:i32 = select.i32 %too_high, CONFIDENCE_MAX, %positive
+  return %out
+}
+
+export func diagnosis_code(link_status: i32, latency_ms: i32, packet_loss_x1000: i32, gateway_reachable: i32, dns_reachable: i32, recent_change_flag: i32) -> i32 {
+entry:
+  %link_down:bool = i32.eq %link_status, 0
+  %gateway_down:bool = i32.eq %gateway_reachable, 0
+  %dns_down:bool = i32.eq %dns_reachable, 0
+  %loss_high:bool = i32.ge_s %packet_loss_x1000, PACKET_LOSS_HIGH_X1000
+  %latency_high:bool = i32.ge_s %latency_ms, LATENCY_HIGH_MS
+  %recent_change:bool = i32.ne %recent_change_flag, 0
+  %recent_diag:i32 = select.i32 %recent_change, DIAG_RECENT_CHANGE, DIAG_HEALTHY
+  %latency_diag:i32 = select.i32 %latency_high, DIAG_LATENCY, %recent_diag
+  %loss_diag:i32 = select.i32 %loss_high, DIAG_PACKET_LOSS, %latency_diag
+  %dns_diag:i32 = select.i32 %dns_down, DIAG_DNS_UNREACHABLE, %loss_diag
+  %gateway_diag:i32 = select.i32 %gateway_down, DIAG_GATEWAY_UNREACHABLE, %dns_diag
+  %out:i32 = select.i32 %link_down, DIAG_LINK_DOWN, %gateway_diag
+  return %out
+}
+
+export func severity(link_status: i32, latency_ms: i32, packet_loss_x1000: i32, gateway_reachable: i32, dns_reachable: i32, recent_change_flag: i32) -> i32 {
+entry:
+  %link_down:bool = i32.eq %link_status, 0
+  %gateway_down:bool = i32.eq %gateway_reachable, 0
+  %dns_down:bool = i32.eq %dns_reachable, 0
+  %loss_high:bool = i32.ge_s %packet_loss_x1000, PACKET_LOSS_HIGH_X1000
+  %latency_high:bool = i32.ge_s %latency_ms, LATENCY_HIGH_MS
+  %recent_change:bool = i32.ne %recent_change_flag, 0
+  %recent_sev:i32 = select.i32 %recent_change, SEVERITY_INFO, SEVERITY_OK
+  %latency_sev:i32 = select.i32 %latency_high, SEVERITY_WARN, %recent_sev
+  %loss_sev:i32 = select.i32 %loss_high, SEVERITY_ACTION, %latency_sev
+  %dns_sev:i32 = select.i32 %dns_down, SEVERITY_ACTION, %loss_sev
+  %gateway_sev:i32 = select.i32 %gateway_down, SEVERITY_CRITICAL, %dns_sev
+  %out:i32 = select.i32 %link_down, SEVERITY_CRITICAL, %gateway_sev
+  return %out
+}
+
+export func recommended_action_id(diagnosis_code: i32) -> i32 {
+entry:
+  %is_link_down:bool = i32.eq %diagnosis_code, DIAG_LINK_DOWN
+  %is_gateway:bool = i32.eq %diagnosis_code, DIAG_GATEWAY_UNREACHABLE
+  %is_dns:bool = i32.eq %diagnosis_code, DIAG_DNS_UNREACHABLE
+  %is_loss:bool = i32.eq %diagnosis_code, DIAG_PACKET_LOSS
+  %is_latency:bool = i32.eq %diagnosis_code, DIAG_LATENCY
+  %is_recent:bool = i32.eq %diagnosis_code, DIAG_RECENT_CHANGE
+  %recent_action:i32 = select.i32 %is_recent, ACTION_REVIEW_CHANGE, ACTION_OBSERVE
+  %latency_action:i32 = select.i32 %is_latency, ACTION_INVESTIGATE_LATENCY, %recent_action
+  %loss_action:i32 = select.i32 %is_loss, ACTION_INVESTIGATE_LOSS, %latency_action
+  %dns_action:i32 = select.i32 %is_dns, ACTION_CHECK_DNS, %loss_action
+  %gateway_action:i32 = select.i32 %is_gateway, ACTION_CHECK_GATEWAY, %dns_action
+  %out:i32 = select.i32 %is_link_down, ACTION_CHECK_LINK, %gateway_action
+  return %out
+}
+
+export func confidence_x1000(link_status: i32, latency_ms: i32, packet_loss_x1000: i32, gateway_reachable: i32, dns_reachable: i32, recent_change_flag: i32, interface_kind: i32, confidence_source: i32, observation_age_ms: i32) -> i32 {
+entry:
+  %latency_penalty:i32 = i32.div_s %latency_ms, LATENCY_PENALTY_DIVISOR
+  %loss_penalty:i32 = mul %packet_loss_x1000, PACKET_LOSS_PENALTY_SCALE
+  %link_down:bool = i32.eq %link_status, 0
+  %link_penalty:i32 = select.i32 %link_down, 250, 0
+  %gateway_down:bool = i32.eq %gateway_reachable, 0
+  %gateway_penalty:i32 = select.i32 %gateway_down, 150, 0
+  %dns_down:bool = i32.eq %dns_reachable, 0
+  %dns_penalty:i32 = select.i32 %dns_down, 150, 0
+  %recent_change:bool = i32.ne %recent_change_flag, 0
+  %recent_penalty:i32 = select.i32 %recent_change, 80, 0
+  %unknown_interface:bool = i32.eq %interface_kind, INTERFACE_KIND_UNKNOWN
+  %interface_penalty:i32 = select.i32 %unknown_interface, 50, 0
+  %low_source:bool = i32.eq %confidence_source, CONFIDENCE_SOURCE_LOW
+  %source_penalty:i32 = select.i32 %low_source, 60, 0
+  %age_penalty:i32 = i32.div_s %observation_age_ms, AGE_PENALTY_DIVISOR_MS
+  %penalty_a:i32 = add %latency_penalty, %loss_penalty
+  %penalty_b:i32 = add %link_penalty, %gateway_penalty
+  %penalty_c:i32 = add %dns_penalty, %recent_penalty
+  %penalty_d:i32 = add %penalty_a, %penalty_b
+  %penalty_e:i32 = add %penalty_c, %interface_penalty
+  %penalty:i32 = add %penalty_d, %penalty_e
+  %penalty_with_source:i32 = add %penalty, %source_penalty
+  %total_penalty:i32 = add %penalty_with_source, %age_penalty
+  %raw:i32 = sub 900, %total_penalty
+  %out:i32 = @clamp_1000(%raw)
+  return %out
+}
+
+export func requires_human_approval(severity: i32, confidence_x1000: i32) -> i32 {
+entry:
+  %high_severity:bool = i32.ge_s %severity, SEVERITY_ACTION
+  %low_confidence:bool = i32.lt_s %confidence_x1000, CONFIDENCE_LOW_THRESHOLD
+  %needs_review:bool = bool.or %high_severity, %low_confidence
+  %out:i32 = select.i32 %needs_review, 1, 0
+  return %out
+}
+
+export func recommendation_code(link_status: i32, latency_ms: i32, packet_loss_x1000: i32, gateway_reachable: i32, dns_reachable: i32, recent_change_flag: i32, interface_kind: i32, confidence_source: i32, observation_age_ms: i32) -> i32 {
+entry:
+  %diag:i32 = @diagnosis_code(%link_status, %latency_ms, %packet_loss_x1000, %gateway_reachable, %dns_reachable, %recent_change_flag)
+  %sev:i32 = @severity(%link_status, %latency_ms, %packet_loss_x1000, %gateway_reachable, %dns_reachable, %recent_change_flag)
+  %action:i32 = @recommended_action_id(%diag)
+  %confidence:i32 = @confidence_x1000(%link_status, %latency_ms, %packet_loss_x1000, %gateway_reachable, %dns_reachable, %recent_change_flag, %interface_kind, %confidence_source, %observation_age_ms)
+  %diag_slot:i32 = mul %diag, 1000000
+  %sev_slot:i32 = mul %sev, 100000
+  %action_slot:i32 = mul %action, 100
+  %prefix:i32 = add %diag_slot, %sev_slot
+  %body:i32 = add %action_slot, %confidence
+  %out:i32 = add %prefix, %body
+  return %out
+}

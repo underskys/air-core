@@ -1,0 +1,9 @@
+{
+  "schemaVersion": "0.29",
+  "kind": "air.benchmark",
+  "benchmarkName": "FlowDesk policy basic",
+  "benchmarkId": "flowdesk_policy_basic",
+  "packageDir": "../../test/fixtures/conformance_batch/flowdesk",
+  "profile": "cli",
+  "trace": "../../test/fixtures/conformance_batch/flowdesk/traces/pass.json"
+}

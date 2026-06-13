@@ -1,0 +1,53 @@
+{
+  "schemaVersion": "0.20",
+  "kind": "air.conformance.batchFixture",
+  "id": "flowdesk-task-summary-batch",
+  "package": "flowdesk-batch-conformance-fixture",
+  "profile": "cli",
+  "rowsets": [
+    {
+      "name": "task_summary",
+      "schema": "facts/task_summary.rowset.schema.json",
+      "rows": [
+        { "task_id": 101, "status_id": 2, "priority": 95, "flags": 1 },
+        { "task_id": 102, "status_id": 1, "priority": 20, "flags": 0 }
+      ]
+    }
+  ],
+  "observedOutputs": [
+    {
+      "id": 1001,
+      "name": "priority_alert_requested",
+      "channel": "notification",
+      "args": [101, 3, 1],
+      "flags": 0
+    }
+  ],
+  "expectedOutputs": [
+    {
+      "id": 1001,
+      "name": "priority_alert_requested",
+      "channel": "notification",
+      "args": [101, 3, 1],
+      "flags": 0
+    }
+  ],
+  "observedCommands": [
+    {
+      "output_id": 1001,
+      "arg0": 101,
+      "arg1": 3,
+      "arg2": 1,
+      "arg3": 0
+    }
+  ],
+  "expectedCommands": [
+    {
+      "output_id": 1001,
+      "arg0": 101,
+      "arg1": 3,
+      "arg2": 1,
+      "arg3": 0
+    }
+  ]
+}

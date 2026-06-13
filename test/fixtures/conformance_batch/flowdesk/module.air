@@ -1,0 +1,9 @@
+module flowdesk_batch_conformance
+capabilities { }
+
+export func score_task(priority: i32) -> i32 {
+entry:
+  %ten:i32 = const.i32 10
+  %score:i32 = add %priority, %ten
+  return %score
+}

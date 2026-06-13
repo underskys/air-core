@@ -1,0 +1,13 @@
+[package]
+name = "airgfx-native"
+version = "0.10.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1"
+pollster = "0.3"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+wasmi = "0.31"
+wgpu = "0.19"
+winit = "0.29"

@@ -1,0 +1,21 @@
+module math3d_stdlib_reference
+capabilities { }
+
+export func run() -> i32 {
+entry:
+  %zero:f32 = 0.0
+  %one:f32 = 1.0
+  %two:f32 = 2.0
+  %a:vec3 = vec3.new %zero, %zero, %zero
+  %b:vec3 = vec3.new %one, %zero, %zero
+  %hit:bool = collision.sphere_sphere %a, %one, %b, %one
+  %q:quat = quat.from_axis_angle %b, %zero
+  %rot:vec3 = quat.rotate_vec3 %q, %b
+  %x:f32 = vec3.x %rot
+  %rot_score:i32 = i32.trunc_f32_s %x
+  %one_i:i32 = 1
+  %zero_i:i32 = 0
+  %hit_score:i32 = select.i32 %hit, %one_i, %zero_i
+  %score:i32 = add %rot_score, %hit_score
+  return %score
+}

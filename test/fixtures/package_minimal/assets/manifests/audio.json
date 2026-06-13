@@ -1,0 +1,10 @@
+{
+  "authority": {
+    "kind": "host-owned",
+    "source": "host-owned",
+    "triggers": []
+  },
+  "sfx": {
+    "package_click": "assets/audio/package_click.wav"
+  }
+}

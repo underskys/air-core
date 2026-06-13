@@ -1,0 +1,24 @@
+{
+  "schemaVersion": "0.20",
+  "kind": "air.boundedRowsetSchema",
+  "name": "task_summary",
+  "layout": "columnar",
+  "maxRows": 4,
+  "columns": [
+    {
+      "name": "task_id",
+      "type": "i32",
+      "privacy": "minimized"
+    },
+    {
+      "name": "status_id",
+      "type": "i32",
+      "storageHint": "u8",
+      "privacy": "minimized"
+    }
+  ],
+  "privacyPolicy": {
+    "defaultClassification": "minimized",
+    "forbiddenByDefault": ["raw_text", "raw_url", "token", "secret"]
+  }
+}

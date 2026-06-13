@@ -1,0 +1,28 @@
+{
+  "schemaVersion": "0.32",
+  "kind": "air.aiAuthoringRepairTranscript",
+  "caseId": "dynamic_output_id_hallucination",
+  "attempts": [
+    {
+      "iteration": 1,
+      "summary": "keeps computed output_id expression after repair attempt",
+      "verify": {
+        "status": "failed",
+        "diagnostics": [
+          {
+            "code": "air.output_emit.output_id_dynamic",
+            "severity": "fail",
+            "message": "dynamic output ids are rejected"
+          }
+        ]
+      },
+      "packageCheck": {
+        "status": "failed",
+        "diagnostics": []
+      },
+      "hallucinationCategories": [
+        "dynamic_output_id"
+      ]
+    }
+  ]
+}

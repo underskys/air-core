@@ -1,0 +1,59 @@
+{
+  "version": "0.12",
+  "assets": {
+    "sprites": {
+      "player_idle": {
+        "path": "sprites/player_idle.png",
+        "atlas": "main_atlas"
+      }
+    },
+    "spriteAtlases": {
+      "main_atlas": {
+        "path": "sprites/main_atlas.json"
+      }
+    },
+    "audioSfx": {
+      "heal": {
+        "path": "audio/sfx/heal.wav"
+      }
+    },
+    "audioMusic": {
+      "jungle_1": {
+        "path": "audio/music/jungle_1.wav"
+      }
+    },
+    "models": {
+      "crate": {
+        "path": "models/crate.glb"
+      }
+    },
+    "shaders": {
+      "unlit_mesh": {
+        "path": "shaders/unlit_mesh.wgsl"
+      }
+    },
+    "materials": {
+      "basic_unlit": {
+        "kind": "unlit",
+        "shader": "unlit_mesh"
+      }
+    },
+    "rigs": {
+      "player_rig": {
+        "path": "rigs/player_rig.json"
+      }
+    },
+    "textures": {
+      "fallback_texture": {
+        "path": "textures/fallback.png"
+      },
+      "tiny_texture": {
+        "path": "textures/tiny.png"
+      }
+    }
+  },
+  "fallbacks": {
+    "missingTexture": "textures/fallback.png",
+    "missingAudio": "audio/silence.wav"
+  }
+}

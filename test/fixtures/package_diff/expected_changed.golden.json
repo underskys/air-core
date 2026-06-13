@@ -1,0 +1,403 @@
+{
+  "airAbiDelta": {
+    "changed": false,
+    "new": "0.10",
+    "old": "0.10"
+  },
+  "capabilityDelta": {
+    "added": [
+      "output"
+    ],
+    "changed": true,
+    "new": [
+      "output"
+    ],
+    "old": [],
+    "removed": []
+  },
+  "commandBufferDelta": {
+    "added": [],
+    "changed": false,
+    "changedItems": [],
+    "new": [],
+    "old": [],
+    "removed": []
+  },
+  "diagnostics": [
+    {
+      "category": "package_diff",
+      "code": "air.package_diff.package_report_warning",
+      "col": null,
+      "endCol": null,
+      "endLine": null,
+      "fields": {
+        "side": "new"
+      },
+      "file": null,
+      "gateAction": null,
+      "legacyId": null,
+      "line": null,
+      "message": "new: ai-review:module.air:magic-host-literals: 1 host call literal candidate(s) may be magic handles or IDs",
+      "metric": null,
+      "module": null,
+      "packageStatusImpact": "warn",
+      "pathClass": null,
+      "related": [],
+      "repairHint": null,
+      "severity": "warn",
+      "source": "package-diff",
+      "symbol": null,
+      "threshold": null,
+      "value": null
+    },
+    {
+      "category": "review",
+      "code": "air.review.magic_handle_literal",
+      "col": null,
+      "endCol": null,
+      "endLine": null,
+      "fields": {
+        "moduleName": "package_diff_golden",
+        "pathClass": "authored",
+        "side": "new"
+      },
+      "file": "module.air",
+      "gateAction": null,
+      "legacyId": "magic-host-literals",
+      "line": null,
+      "message": "new: 1 host call literal candidate(s) may be magic handles or IDs",
+      "metric": null,
+      "module": "module.air",
+      "packageStatusImpact": "warn",
+      "pathClass": "authored",
+      "related": [],
+      "repairHint": "use generated handles or named module constants for manifest-backed IDs, material IDs, metric IDs, and asset handles",
+      "severity": "warn",
+      "source": "package-diff",
+      "symbol": null,
+      "threshold": null,
+      "value": null
+    }
+  ],
+  "effectDelta": {
+    "added": [
+      {
+        "key": "output.emit",
+        "value": 1
+      }
+    ],
+    "changed": true,
+    "changedItems": [
+      {
+        "key": "cpu.instructions",
+        "new": 3,
+        "old": 1
+      }
+    ],
+    "new": [
+      {
+        "key": "cpu.blocks",
+        "value": 1
+      },
+      {
+        "key": "cpu.instructions",
+        "value": 3
+      },
+      {
+        "key": "dynamic_allocations",
+        "value": 0
+      },
+      {
+        "key": "exports",
+        "value": 1
+      },
+      {
+        "key": "memory.dynamic_allocations",
+        "value": 0
+      },
+      {
+        "key": "memory.static_alloc_bytes",
+        "value": 0
+      },
+      {
+        "key": "memory.static_readonly_bytes",
+        "value": 0
+      },
+      {
+        "key": "memory.static_state_bytes",
+        "value": 0
+      },
+      {
+        "key": "output.emit",
+        "value": 1
+      },
+      {
+        "key": "state.static_bytes",
+        "value": 0
+      },
+      {
+        "key": "static_alloc_bytes",
+        "value": 0
+      },
+      {
+        "key": "static_readonly_bytes",
+        "value": 0
+      }
+    ],
+    "old": [
+      {
+        "key": "cpu.blocks",
+        "value": 1
+      },
+      {
+        "key": "cpu.instructions",
+        "value": 1
+      },
+      {
+        "key": "dynamic_allocations",
+        "value": 0
+      },
+      {
+        "key": "exports",
+        "value": 1
+      },
+      {
+        "key": "memory.dynamic_allocations",
+        "value": 0
+      },
+      {
+        "key": "memory.static_alloc_bytes",
+        "value": 0
+      },
+      {
+        "key": "memory.static_readonly_bytes",
+        "value": 0
+      },
+      {
+        "key": "memory.static_state_bytes",
+        "value": 0
+      },
+      {
+        "key": "state.static_bytes",
+        "value": 0
+      },
+      {
+        "key": "static_alloc_bytes",
+        "value": 0
+      },
+      {
+        "key": "static_readonly_bytes",
+        "value": 0
+      }
+    ],
+    "removed": []
+  },
+  "factSchemaDelta": {
+    "added": [],
+    "changed": false,
+    "changedItems": [],
+    "new": [],
+    "old": [],
+    "removed": []
+  },
+  "generatedArtifactDelta": {
+    "added": [],
+    "changed": false,
+    "changedItems": [],
+    "new": [],
+    "old": [],
+    "removed": []
+  },
+  "hostAbiDelta": {
+    "changed": true,
+    "new": "0.11",
+    "old": "0.10"
+  },
+  "kind": "air.packageDiff",
+  "limitations": [
+    "first slice compares package metadata, package reports, schema fingerprints, and generated artifact metadata; it does not diff sensitive payload classes",
+    "package paths are normalized relative to each compared package root"
+  ],
+  "newPackageHash": "sha256:d9d3ca61d526f9aa7e709a283770e2fc7942fdf7f9d12f296945a9d756d001a2",
+  "oldPackageHash": "sha256:dddab27db81442f1fd50e48d1accf8bb2a2a958c85f5075a3d648156e3f5d2ab",
+  "outputContractDelta": {
+    "added": [
+      {
+        "exists": true,
+        "fingerprint": "sha256:62f58de66031982fc8febf9754363bb4dd46b360f11a53966df72e016fcf6653",
+        "kind": "air.outputContract",
+        "ok": true,
+        "outputs": [
+          {
+            "argCount": 4,
+            "capability": "output.emit",
+            "channel": "policy",
+            "id": 1001,
+            "name": "task_policy_review_requested"
+          }
+        ],
+        "outputsCount": 1,
+        "path": "outputs/task_policy.output.json"
+      }
+    ],
+    "changed": true,
+    "changedItems": [],
+    "new": [
+      {
+        "exists": true,
+        "fingerprint": "sha256:62f58de66031982fc8febf9754363bb4dd46b360f11a53966df72e016fcf6653",
+        "kind": "air.outputContract",
+        "ok": true,
+        "outputs": [
+          {
+            "argCount": 4,
+            "capability": "output.emit",
+            "channel": "policy",
+            "id": 1001,
+            "name": "task_policy_review_requested"
+          }
+        ],
+        "outputsCount": 1,
+        "path": "outputs/task_policy.output.json"
+      }
+    ],
+    "old": [],
+    "removed": []
+  },
+  "rowsetSchemaDelta": {
+    "added": [],
+    "changed": true,
+    "changedItems": [
+      {
+        "key": "facts/task_summary.rowset.schema.json",
+        "new": {
+          "columnCount": 3,
+          "columns": [
+            {
+              "name": "priority",
+              "privacy": "minimized",
+              "storageHint": "u8",
+              "type": "i32"
+            },
+            {
+              "name": "status_id",
+              "privacy": "minimized",
+              "storageHint": "u8",
+              "type": "i32"
+            },
+            {
+              "name": "task_id",
+              "privacy": "minimized",
+              "storageHint": null,
+              "type": "i32"
+            }
+          ],
+          "exists": true,
+          "fingerprint": "sha256:3de8b08100613f4ea016d883e0b53ad8d97b85ffdc9ce41c5a82e918b6c24e72",
+          "kind": "air.boundedRowsetSchema",
+          "layout": "columnar",
+          "maxRows": 8,
+          "name": "task_summary",
+          "ok": true,
+          "path": "facts/task_summary.rowset.schema.json"
+        },
+        "old": {
+          "columnCount": 2,
+          "columns": [
+            {
+              "name": "status_id",
+              "privacy": "minimized",
+              "storageHint": "u8",
+              "type": "i32"
+            },
+            {
+              "name": "task_id",
+              "privacy": "minimized",
+              "storageHint": null,
+              "type": "i32"
+            }
+          ],
+          "exists": true,
+          "fingerprint": "sha256:bdbf48e49cbb044eaa9f032294019e9be74bcdc724d9ef13218f06ab3710e180",
+          "kind": "air.boundedRowsetSchema",
+          "layout": "columnar",
+          "maxRows": 4,
+          "name": "task_summary",
+          "ok": true,
+          "path": "facts/task_summary.rowset.schema.json"
+        }
+      }
+    ],
+    "new": [
+      {
+        "columnCount": 3,
+        "columns": [
+          {
+            "name": "priority",
+            "privacy": "minimized",
+            "storageHint": "u8",
+            "type": "i32"
+          },
+          {
+            "name": "status_id",
+            "privacy": "minimized",
+            "storageHint": "u8",
+            "type": "i32"
+          },
+          {
+            "name": "task_id",
+            "privacy": "minimized",
+            "storageHint": null,
+            "type": "i32"
+          }
+        ],
+        "exists": true,
+        "fingerprint": "sha256:3de8b08100613f4ea016d883e0b53ad8d97b85ffdc9ce41c5a82e918b6c24e72",
+        "kind": "air.boundedRowsetSchema",
+        "layout": "columnar",
+        "maxRows": 8,
+        "name": "task_summary",
+        "ok": true,
+        "path": "facts/task_summary.rowset.schema.json"
+      }
+    ],
+    "old": [
+      {
+        "columnCount": 2,
+        "columns": [
+          {
+            "name": "status_id",
+            "privacy": "minimized",
+            "storageHint": "u8",
+            "type": "i32"
+          },
+          {
+            "name": "task_id",
+            "privacy": "minimized",
+            "storageHint": null,
+            "type": "i32"
+          }
+        ],
+        "exists": true,
+        "fingerprint": "sha256:bdbf48e49cbb044eaa9f032294019e9be74bcdc724d9ef13218f06ab3710e180",
+        "kind": "air.boundedRowsetSchema",
+        "layout": "columnar",
+        "maxRows": 4,
+        "name": "task_summary",
+        "ok": true,
+        "path": "facts/task_summary.rowset.schema.json"
+      }
+    ],
+    "removed": []
+  },
+  "structuredIODelta": {
+    "added": [],
+    "changed": false,
+    "changedItems": [],
+    "new": [],
+    "old": [],
+    "removed": []
+  },
+  "schemaVersion": "0.30",
+  "status": "changed"
+}

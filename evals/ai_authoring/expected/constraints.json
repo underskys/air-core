@@ -1,0 +1,175 @@
+{
+  "schemaVersion": "0.32",
+  "kind": "air.aiAuthoringEvalConstraints",
+  "suite": "ai_authoring",
+  "cases": [
+    {
+      "id": "dynamic_object_map_hallucination",
+      "prompt": "prompts/dynamic_object_map_hallucination.md",
+      "modelOutput": "captured/model_outputs/dynamic_object_map_hallucination.json",
+      "repairTranscript": "captured/repair_transcripts/dynamic_object_map_hallucination.json",
+      "expected": {
+        "firstPassVerify": "passed",
+        "firstPassPackageCheck": "failed",
+        "requiredDiagnosticCodes": [
+          "air.structured_io.object_field_rejected"
+        ],
+        "repairSuccessIteration": null,
+        "forbiddenSurfaceCategory": "object_model"
+      }
+    },
+    {
+      "id": "dynamic_output_id_hallucination",
+      "prompt": "prompts/dynamic_output_id_hallucination.md",
+      "modelOutput": "captured/model_outputs/dynamic_output_id_hallucination.json",
+      "repairTranscript": "captured/repair_transcripts/dynamic_output_id_hallucination.json",
+      "expected": {
+        "firstPassVerify": "failed",
+        "firstPassPackageCheck": "failed",
+        "requiredDiagnosticCodes": [
+          "air.output_emit.output_id_dynamic"
+        ],
+        "repairSuccessIteration": null,
+        "forbiddenSurfaceCategory": "dynamic_output_id"
+      }
+    },
+    {
+      "id": "fixed_state_module",
+      "prompt": "prompts/fixed_state_module.md",
+      "modelOutput": "captured/model_outputs/fixed_state_module.json",
+      "repairTranscript": "captured/repair_transcripts/fixed_state_module.json",
+      "expected": {
+        "firstPassVerify": "passed",
+        "firstPassPackageCheck": "passed",
+        "requiredDiagnosticCodes": [],
+        "repairSuccessIteration": 0
+      }
+    },
+    {
+      "id": "hallucination_negative_case",
+      "prompt": "prompts/hallucination_negative_case.md",
+      "modelOutput": "captured/model_outputs/hallucination_negative_case.json",
+      "repairTranscript": "captured/repair_transcripts/hallucination_negative_case.json",
+      "expected": {
+        "firstPassVerify": "failed",
+        "firstPassPackageCheck": "failed",
+        "requiredDiagnosticCodes": [
+          "air.api_gate.output_event_rejected",
+          "air.structured_io.runtime_json_rejected",
+          "air.verify.host_object_handle_rejected"
+        ],
+        "repairSuccessIteration": null,
+        "forbiddenSurfaceCategory": "host_object_handle"
+      }
+    },
+    {
+      "id": "host_authority_hallucination",
+      "prompt": "prompts/host_authority_hallucination.md",
+      "modelOutput": "captured/model_outputs/host_authority_hallucination.json",
+      "repairTranscript": "captured/repair_transcripts/host_authority_hallucination.json",
+      "expected": {
+        "firstPassVerify": "failed",
+        "firstPassPackageCheck": "failed",
+        "requiredDiagnosticCodes": [
+          "air.api_gate.raw_host_authority_rejected"
+        ],
+        "repairSuccessIteration": null,
+        "forbiddenSurfaceCategory": "raw_host_authority"
+      }
+    },
+    {
+      "id": "lan_observer_readonly_proof",
+      "prompt": "prompts/lan_observer_readonly_proof.md",
+      "modelOutput": "captured/model_outputs/lan_observer_readonly_proof.json",
+      "repairTranscript": "captured/repair_transcripts/lan_observer_readonly_proof.json",
+      "expected": {
+        "firstPassVerify": "failed",
+        "firstPassPackageCheck": "failed",
+        "requiredDiagnosticCodes": [
+          "air.api_gate.raw_host_authority_rejected",
+          "air.structured_io.runtime_json_rejected"
+        ],
+        "repairSuccessIteration": 1,
+        "forbiddenSurfaceCategory": "raw_host_authority"
+      }
+    },
+    {
+      "id": "incident_policy_module",
+      "prompt": "prompts/incident_policy_module.md",
+      "modelOutput": "captured/model_outputs/incident_policy_module.json",
+      "repairTranscript": "captured/repair_transcripts/incident_policy_module.json",
+      "expected": {
+        "firstPassVerify": "passed",
+        "firstPassPackageCheck": "passed",
+        "requiredDiagnosticCodes": [],
+        "repairSuccessIteration": 0
+      }
+    },
+    {
+      "id": "output_emit_module",
+      "prompt": "prompts/output_emit_module.md",
+      "modelOutput": "captured/model_outputs/output_emit_module.json",
+      "repairTranscript": "captured/repair_transcripts/output_emit_module.json",
+      "expected": {
+        "firstPassVerify": "passed",
+        "firstPassPackageCheck": "passed",
+        "requiredDiagnosticCodes": [],
+        "repairSuccessIteration": 0
+      }
+    },
+    {
+      "id": "repairable_invalid_module",
+      "prompt": "prompts/repairable_invalid_module.md",
+      "modelOutput": "captured/model_outputs/repairable_invalid_module.json",
+      "repairTranscript": "captured/repair_transcripts/repairable_invalid_module.json",
+      "expected": {
+        "firstPassVerify": "passed",
+        "firstPassPackageCheck": "failed",
+        "requiredDiagnosticCodes": [
+          "air.structured_io.field_type_invalid"
+        ],
+        "repairSuccessIteration": 1,
+        "forbiddenSurfaceCategory": "string_payload"
+      }
+    },
+    {
+      "id": "runtime_json_hallucination",
+      "prompt": "prompts/runtime_json_hallucination.md",
+      "modelOutput": "captured/model_outputs/runtime_json_hallucination.json",
+      "repairTranscript": "captured/repair_transcripts/runtime_json_hallucination.json",
+      "expected": {
+        "firstPassVerify": "passed",
+        "firstPassPackageCheck": "failed",
+        "requiredDiagnosticCodes": [
+          "air.structured_io.runtime_json_rejected"
+        ],
+        "repairSuccessIteration": null,
+        "forbiddenSurfaceCategory": "runtime_json"
+      }
+    },
+    {
+      "id": "structured_io_module",
+      "prompt": "prompts/structured_io_module.md",
+      "modelOutput": "captured/model_outputs/structured_io_module.json",
+      "repairTranscript": "captured/repair_transcripts/structured_io_module.json",
+      "expected": {
+        "firstPassVerify": "passed",
+        "firstPassPackageCheck": "passed",
+        "requiredDiagnosticCodes": [],
+        "repairSuccessIteration": 0
+      }
+    },
+    {
+      "id": "valid_small_module",
+      "prompt": "prompts/valid_small_module.md",
+      "modelOutput": "captured/model_outputs/valid_small_module.json",
+      "repairTranscript": "captured/repair_transcripts/valid_small_module.json",
+      "expected": {
+        "firstPassVerify": "passed",
+        "firstPassPackageCheck": "passed",
+        "requiredDiagnosticCodes": [],
+        "repairSuccessIteration": 0
+      }
+    }
+  ]
+}

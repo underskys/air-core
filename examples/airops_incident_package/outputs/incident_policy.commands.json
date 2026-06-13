@@ -1,0 +1,15 @@
+{
+  "schemaVersion": "0.20",
+  "kind": "air.commandBuffer",
+  "name": "incident_policy_commands",
+  "maxCommands": 4,
+  "records": [
+    {
+      "output_id": 2001,
+      "arg0": 701,
+      "arg1": 102,
+      "arg2": 204,
+      "arg3": 100
+    }
+  ]
+}

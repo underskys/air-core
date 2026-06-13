@@ -1,0 +1,87 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://airlang.dev/schemas/consumer_evidence/replay_manifest.schema.json",
+  "title": "AIR Consumer Evidence Replay Manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "kind",
+    "demoId",
+    "replays"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "integer",
+      "const": 1
+    },
+    "kind": {
+      "type": "string",
+      "const": "air.consumerEvidenceReplayManifest"
+    },
+    "demoId": {
+      "type": "string"
+    },
+    "replays": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "status",
+          "fixture",
+          "evidence",
+          "summary"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "not_run",
+              "passed",
+              "failed",
+              "deferred"
+            ]
+          },
+          "fixture": {
+            "type": "string"
+          },
+          "evidence": {
+            "type": "string"
+          },
+          "summary": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "capabilitiesChecked",
+              "deniedAuthoritiesChecked",
+              "rawPrivateDataIncluded"
+            ],
+            "properties": {
+              "capabilitiesChecked": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "deniedAuthoritiesChecked": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "rawPrivateDataIncluded": {
+                "type": "boolean",
+                "const": false
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

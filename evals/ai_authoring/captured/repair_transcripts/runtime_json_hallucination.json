@@ -1,0 +1,28 @@
+{
+  "schemaVersion": "0.32",
+  "kind": "air.aiAuthoringRepairTranscript",
+  "caseId": "runtime_json_hallucination",
+  "attempts": [
+    {
+      "iteration": 1,
+      "summary": "keeps runtime JSON payload after repair attempt",
+      "verify": {
+        "status": "passed",
+        "diagnostics": []
+      },
+      "packageCheck": {
+        "status": "failed",
+        "diagnostics": [
+          {
+            "code": "air.structured_io.runtime_json_rejected",
+            "severity": "fail",
+            "message": "runtime JSON is rejected"
+          }
+        ]
+      },
+      "hallucinationCategories": [
+        "runtime_json"
+      ]
+    }
+  ]
+}

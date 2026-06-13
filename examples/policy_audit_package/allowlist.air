@@ -1,0 +1,23 @@
+module policy_allowlist
+const SERVICE_API:i32 = 0
+const SERVICE_CI:i32 = 1
+const SERVICE_ADMIN:i32 = 2
+const RETRY_FAST_MS:i32 = 100
+const RETRY_SLOW_MS:i32 = 250
+const RETRY_BLOCKED_MS:i32 = 0
+table service_ids:i32[3] = [SERVICE_API, SERVICE_CI, SERVICE_ADMIN]
+table allowed:i32[3] = [1, 1, 0]
+table retry_ms:i32[3] = [RETRY_FAST_MS, RETRY_SLOW_MS, RETRY_BLOCKED_MS]
+capabilities { }
+
+export func service_allowed(service_id: i32) -> i32 {
+entry:
+  %allowed:i32 = table.get allowed, %service_id
+  return %allowed
+}
+
+export func retry_budget_ms(service_id: i32) -> i32 {
+entry:
+  %budget:i32 = table.get retry_ms, %service_id
+  return %budget
+}

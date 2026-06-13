@@ -1,0 +1,22 @@
+{
+  "packageCheck": [
+    "air.generated.stale",
+    "air.package.host_import",
+    "air.package.module_graph",
+    "air.package.profile_mismatch",
+    "air.structured_io.generated_stale",
+    "air.structured_io.object_field_rejected",
+    "air.structured_io.runtime_json_rejected",
+    "air.structured_io.schema_invalid"
+  ],
+  "verificationEvidence": [
+    "air.generated.stale",
+    "air.package.host_import",
+    "air.package.module_graph",
+    "air.package.profile_mismatch",
+    "air.structured_io.generated_stale",
+    "air.structured_io.object_field_rejected",
+    "air.structured_io.runtime_json_rejected",
+    "air.structured_io.schema_invalid"
+  ]
+}

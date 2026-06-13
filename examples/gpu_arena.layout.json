@@ -1,0 +1,181 @@
+{
+  "version": "0.1",
+  "kind": "air-gfx-scene-layout",
+  "module": "gpu_arena",
+  "units": "meters",
+  "upAxis": "Y",
+  "coordinateSystem": "right-handed",
+  "arena": {
+    "bounds": { "min": [-48, -8, -48], "max": [48, 24, 48] },
+    "playerHeight": 1.8,
+    "mainRouteWidth": [5, 8],
+    "layers": [
+      { "id": "lower", "height": -2 },
+      { "id": "mid", "height": 0 },
+      { "id": "upper", "height": 8 }
+    ]
+  },
+  "skybox": {
+    "environment": "storm_sky",
+    "rotation": [0, 0, 0],
+    "exposure": 1.0
+  },
+  "instanceGroups": [
+    {
+      "key": "main_floor_grid",
+      "module": "floor_panel_4x4",
+      "material": "dark_industrial_floor",
+      "repeat": { "kind": "rect_ring", "countPerSide": 8, "halfExtent": 28, "y": 0, "scale": [1.5, 1, 1.5] },
+      "collision": { "type": "box", "layer": "world", "size": [6, 0.5, 6] }
+    },
+    {
+      "key": "outer_walls",
+      "module": "wall_segment_8x4",
+      "material": "dark_industrial_wall",
+      "repeat": { "kind": "rect_ring", "countPerSide": 12, "halfExtent": 48, "y": 2, "scale": [1, 1, 1] },
+      "collision": { "type": "box", "layer": "world", "size": [8, 4, 1] }
+    },
+    {
+      "key": "central_platform",
+      "module": "circular_platform",
+      "material": "red_rune_panel",
+      "transforms": [
+        { "position": [0, 0.25, 0], "rotation": [0, 0, 0], "scale": [24, 1, 24] }
+      ],
+      "collision": { "type": "cylinder", "layer": "world", "radius": 12, "height": 1 }
+    },
+    {
+      "key": "lava_channels",
+      "module": "lava_channel_8x2",
+      "material": "lava_emissive",
+      "transforms": [
+        { "position": [0, -1.5, -16], "rotation": [0, 0, 0], "scale": [4, 1, 1] },
+        { "position": [0, -1.5, 16], "rotation": [0, 0, 0], "scale": [4, 1, 1] },
+        { "position": [-16, -1.5, 0], "rotation": [90, 0, 0], "scale": [4, 1, 1] },
+        { "position": [16, -1.5, 0], "rotation": [90, 0, 0], "scale": [4, 1, 1] },
+        { "position": [-22, -1.5, -22], "rotation": [45, 0, 0], "scale": [3, 1, 1] },
+        { "position": [22, -1.5, -22], "rotation": [-45, 0, 0], "scale": [3, 1, 1] },
+        { "position": [-22, -1.5, 22], "rotation": [-45, 0, 0], "scale": [3, 1, 1] },
+        { "position": [22, -1.5, 22], "rotation": [45, 0, 0], "scale": [3, 1, 1] }
+      ],
+      "collision": { "trigger": true, "kind": "damage_zone", "layer": "hazard", "damagePerSecond": 45, "shape": { "type": "box", "size": [8, 1, 2] } }
+    },
+    {
+      "key": "cardinal_bridges",
+      "module": "bridge_module_8x3",
+      "material": "bridge_metal",
+      "transforms": [
+        { "position": [0, 0.5, -24], "rotation": [0, 0, 0], "scale": [1, 1, 2.5] },
+        { "position": [0, 0.5, 24], "rotation": [0, 0, 0], "scale": [1, 1, 2.5] },
+        { "position": [-24, 0.5, 0], "rotation": [90, 0, 0], "scale": [1, 1, 2.5] },
+        { "position": [24, 0.5, 0], "rotation": [90, 0, 0], "scale": [1, 1, 2.5] }
+      ],
+      "collision": { "type": "box", "layer": "world", "size": [8, 0.6, 20] }
+    },
+    {
+      "key": "major_pillars",
+      "module": "support_pillar_tall",
+      "material": "dark_industrial_wall",
+      "transforms": [
+        { "position": [-18, 5, -18], "rotation": [0, 0, 0], "scale": [1, 1.4, 1] },
+        { "position": [18, 5, -18], "rotation": [0, 0, 0], "scale": [1, 1.4, 1] },
+        { "position": [-18, 5, 18], "rotation": [0, 0, 0], "scale": [1, 1.4, 1] },
+        { "position": [18, 5, 18], "rotation": [0, 0, 0], "scale": [1, 1.4, 1] }
+      ],
+      "collision": { "type": "box", "layer": "world", "size": [3, 10, 3] }
+    },
+    {
+      "key": "upper_ramps",
+      "module": "ramp_module_6x3",
+      "material": "bridge_metal",
+      "transforms": [
+        { "position": [-34, 2, -16], "rotation": [35, 0, 0], "scale": [1, 1, 2] },
+        { "position": [34, 2, 16], "rotation": [-145, 0, 0], "scale": [1, 1, 2] }
+      ],
+      "collision": { "type": "box", "layer": "world", "size": [6, 2, 12] }
+    },
+    {
+      "key": "upper_stairs",
+      "module": "stair_module_6x3",
+      "material": "bridge_metal",
+      "transforms": [
+        { "position": [0, 2, -40], "rotation": [0, 0, 0], "scale": [1, 1, 2] },
+        { "position": [0, 2, 40], "rotation": [180, 0, 0], "scale": [1, 1, 2] }
+      ],
+      "collision": { "type": "box", "layer": "world", "size": [6, 2, 12] }
+    },
+    {
+      "key": "jump_pads",
+      "module": "jump_pad",
+      "material": "blue_energy",
+      "transforms": [
+        { "position": [-36, 0.2, 0], "rotation": [0, 0, 0], "scale": [1, 1, 1] },
+        { "position": [36, 0.2, 0], "rotation": [0, 0, 0], "scale": [1, 1, 1] }
+      ],
+      "collision": { "trigger": true, "kind": "jump_pad", "layer": "trigger", "impulse": [0, 9, 0], "shape": { "type": "sphere", "radius": 1.4 } }
+    },
+    {
+      "key": "teleport_pads",
+      "module": "teleport_pad",
+      "material": "blue_energy",
+      "transforms": [
+        { "position": [-42, 0.2, 0], "rotation": [90, 0, 0], "scale": [1, 1, 1] },
+        { "position": [42, 0.2, 0], "rotation": [-90, 0, 0], "scale": [1, 1, 1] }
+      ],
+      "collision": { "trigger": true, "kind": "teleport", "layer": "trigger", "shape": { "type": "box", "size": [2, 2, 4] } }
+    },
+    {
+      "key": "energy_gates",
+      "module": "energy_gate",
+      "material": "blue_energy",
+      "transforms": [
+        { "position": [0, 2, -32], "rotation": [0, 0, 0], "scale": [1, 1, 1] },
+        { "position": [0, 2, 32], "rotation": [180, 0, 0], "scale": [1, 1, 1] }
+      ]
+    },
+    {
+      "key": "cover_crates",
+      "module": "cover_crate",
+      "material": "dark_industrial_wall",
+      "repeat": { "kind": "radial", "count": 8, "radius": 13, "y": 0.7, "startAngle": 22.5, "scale": [1, 1, 1] },
+      "collision": { "type": "box", "layer": "world", "size": [2, 1.4, 2] }
+    },
+    {
+      "key": "archways",
+      "module": "archway_frame",
+      "material": "red_rune_panel",
+      "transforms": [
+        { "position": [0, 2.5, -46], "rotation": [0, 0, 0], "scale": [1, 1, 1] },
+        { "position": [0, 2.5, 46], "rotation": [180, 0, 0], "scale": [1, 1, 1] }
+      ]
+    },
+    {
+      "key": "pickup_spawns",
+      "module": "pickup_spawn_marker",
+      "material": "pickup_marker",
+      "transforms": [
+        { "position": [0, 0.4, -36], "rotation": [0, 0, 0], "scale": [1, 1, 1] },
+        { "position": [0, 0.4, 36], "rotation": [0, 0, 0], "scale": [1, 1, 1] },
+        { "position": [-36, 0.4, 0], "rotation": [0, 0, 0], "scale": [1, 1, 1] },
+        { "position": [36, 0.4, 0], "rotation": [0, 0, 0], "scale": [1, 1, 1] }
+      ],
+      "collision": { "trigger": true, "kind": "pickup", "layer": "pickup", "shape": { "type": "sphere", "radius": 1.2 } }
+    }
+  ],
+  "spawns": [
+    { "id": "player_spawn", "kind": "player", "position": [0, 1.8, 38], "yaw": 180 }
+  ],
+  "collision": {
+    "layers": {
+      "world": { "collidesWith": ["actor", "projectile"] },
+      "actor": { "collidesWith": ["world", "pickup", "trigger", "hazard"] },
+      "pickup": { "triggerOnly": true },
+      "trigger": { "triggerOnly": true },
+      "hazard": { "triggerOnly": true }
+    },
+    "colliders": [
+      { "id": "player_capsule", "type": "capsule", "center": [0, 0.9, 38], "height": 1.8, "radius": 0.35, "axis": "Y", "layer": "actor" }
+    ],
+    "triggers": []
+  }
+}

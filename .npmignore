@@ -1,0 +1,60 @@
+# Public alpha package exclusion plan.
+# Do not publish from this repo until the public cut audit is complete.
+
+snapshots/
+demo_snapshots/
+REVIEW_RESULTS/
+MOBILE_SUMMARY.md
+REVIEW_REQUEST.md
+CONSUMER_EVIDENCE_SUMMARY.md
+
+demo/
+kits/
+hosts/
+prompts/
+requests/
+consumer_evidence/
+
+node_modules/
+build/
+.build/
+dist/
+public/
+test-artifacts/
+raw_logs/
+prompt_logs/
+chat_transcripts/
+tmp/
+review_bundles/
+raw_review_bundles/
+backup_snapshots/
+
+# Public repo docs may keep images, but the alpha npm package should stay
+# small and text/source oriented unless a release explicitly includes media.
+docs/*.png
+
+# Intentional secret-like negative fixtures are useful in repo tests but should
+# not ship in the alpha package tarball.
+test/fixtures/ai_eval_import/secret/
+
+*.log
+*.tmp
+*.zip
+*.tgz
+*.tar
+*.tar.gz
+*.mp4
+*.mov
+*.webm
+*.wasm
+*.bak
+*.orig
+._*
+.DS_Store
+
+*.pem
+*.key
+.env
+.env.*
+id_rsa
+id_ed25519

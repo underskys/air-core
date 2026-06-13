@@ -1,0 +1,51 @@
+{
+  "schemaVersion": 1,
+  "id": "template_demo",
+  "name": "Template Consumer Evidence Entry",
+  "category": "experimental_demo_pressure",
+  "status": "proposed",
+  "owner": "AIR Core",
+  "source": "external or canonical source reference",
+  "airRole": "Own bounded deterministic logic and evidence metadata.",
+  "hostRole": "Own rich platform state, policy execution, and real side effects.",
+  "airOwns": [
+    "bounded deterministic logic",
+    "declared capabilities/effects",
+    "evidence/report/replay metadata"
+  ],
+  "hostOwns": [
+    "rich platform state",
+    "real side effects",
+    "policy execution",
+    "secrets and private data"
+  ],
+  "allowedCapabilities": [
+    "bounded facts or structured IO metadata"
+  ],
+  "deniedAuthorities": [
+    "raw host authority",
+    "secrets",
+    "unbounded runtime data"
+  ],
+  "proofTypes": [
+    "capability-boundary"
+  ],
+  "proofFiles": {
+    "proofCard": "PROOF_CARD.md",
+    "prompts": "PROMPTS.md",
+    "capabilityBoundary": "reports/capability_boundary.md",
+    "replay": [],
+    "metrics": []
+  },
+  "pressureRouting": [
+    {
+      "pressure": "Describe the pressure item.",
+      "route": "demo-local",
+      "status": "proposed",
+      "notes": "Explain why this route is appropriate."
+    }
+  ],
+  "privacySafetyNotes": [
+    "No secrets, raw private data, local absolute paths, raw URLs, or large logs."
+  ]
+}

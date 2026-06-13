@@ -1,0 +1,13 @@
+module package_diff_golden
+const OUT_TASK_POLICY:i32 = 1001
+capabilities { output }
+effects { output.emit <= 1 }
+
+extern output.emit(output_id: i32, arg0: i32, arg1: i32, arg2: i32, arg3: i32) -> i32
+
+export func run() -> i32 {
+entry:
+  %zero:i32 = const.i32 0
+  %status:i32 = @output.emit(OUT_TASK_POLICY, 42, %zero, %zero, %zero)
+  return %status
+}

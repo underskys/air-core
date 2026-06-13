@@ -1,0 +1,45 @@
+.DS_Store
+._*
+node_modules/
+build/
+.build/
+dist/
+public/
+public_export/
+!examples/public/
+!examples/public/**
+test-artifacts/
+tmp/
+raw_logs/
+prompt_logs/
+chat_transcripts/
+*.log
+*.tmp
+*.zip
+*.tgz
+*.tar
+*.tar.gz
+*.mp4
+*.mov
+*.webm
+*.wasm
+target/
+snapshots/
+demo_snapshots/
+REVIEW_RESULTS/
+MOBILE_SUMMARY.md
+REVIEW_REQUEST.md
+CONSUMER_EVIDENCE_SUMMARY.md
+
+# Local diagram exports. Keep source-controlled docs images explicitly named.
+docs/image.png
+
+# Active demo implementations live in nested repositories or external repositories.
+/demo/
+
+# Host/demo local build outputs.
+hosts/**/node_modules/
+hosts/**/dist/
+hosts/**/build/
+hosts/**/public/
+hosts/**/test-artifacts/

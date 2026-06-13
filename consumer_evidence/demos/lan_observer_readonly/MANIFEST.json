@@ -1,0 +1,66 @@
+{
+  "schemaVersion": 1,
+  "id": "lan_observer_readonly",
+  "name": "lan-observer-style read-only consumer proof",
+  "category": "read_only_diagnostics",
+  "status": "core-proof",
+  "owner": "AIR Core",
+  "source": "examples/lan_observer_readonly_package",
+  "airRole": "Consume sanitized bounded structured facts and emit deterministic diagnosis/recommendation intent.",
+  "hostRole": "Own raw network/platform state, sanitization, policy execution, and all real side effects.",
+  "airOwns": [
+    "sanitized bounded structured facts",
+    "deterministic diagnosis/recommendation logic",
+    "bounded output intent evidence"
+  ],
+  "hostOwns": [
+    "raw network/platform state",
+    "sanitization",
+    "policy execution",
+    "all real side effects"
+  ],
+  "allowedCapabilities": [
+    "bounded structured IO metadata",
+    "bounded output intent",
+    "deterministic replay",
+    "evidence report"
+  ],
+  "deniedAuthorities": [
+    "real network access",
+    "raw packet capture",
+    "raw hostnames",
+    "raw MAC/IP values unless sanitized IDs",
+    "writes/mutations",
+    "secrets/tokens"
+  ],
+  "proofTypes": [
+    "package-check",
+    "evidence-report",
+    "replay",
+    "package-diff",
+    "benchmark",
+    "ai-eval"
+  ],
+  "proofFiles": {
+    "proofCard": "PROOF_CARD.md",
+    "prompts": "PROMPTS.md",
+    "capabilityBoundary": "reports/capability_boundary.md",
+    "replay": [
+      "replay/summary.json"
+    ],
+    "metrics": [
+      "metrics/summary.json"
+    ]
+  },
+  "pressureRouting": [
+    {
+      "pressure": "Real read-only consumer proof for sanitized host-shaped facts.",
+      "route": "Core",
+      "status": "accepted",
+      "notes": "Already implemented as a small Core proof package in v0.35."
+    }
+  ],
+  "privacySafetyNotes": [
+    "No real network access, raw packet data, raw hostnames, raw MAC/IP values unless sanitized IDs, secrets/tokens, writes, or mutations."
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "schemaVersion": "0.25",
+  "kind": "air.mockHostPolicy",
+  "id": "visual-panel-review",
+  "allowOutputs": [
+    "panel_status_intent_recorded",
+    "panel_attention_intent_recorded"
+  ],
+  "denyOutputs": [],
+  "capabilities": {
+    "visual.status_intent": "allowed",
+    "visual.attention_intent": "allowed",
+    "renderer": "forbidden",
+    "gpu": "forbidden",
+    "canvas": "forbidden"
+  }
+}

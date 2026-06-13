@@ -1,0 +1,9 @@
+module packet
+capabilities { }
+
+func has_flag(value: i32, mask: i32) -> bool {
+entry:
+  %hit:i32 = i32.and %value, %mask
+  %out:bool = i32.ne %hit, 0
+  return %out
+}

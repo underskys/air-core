@@ -1,0 +1,39 @@
+{
+  "schemaVersion": "0.32",
+  "kind": "air.aiAuthoringCapturedOutput",
+  "caseId": "hallucination_negative_case",
+  "candidateSummary": "negative candidate using runtime JSON, output.event, and host object handles",
+  "forbiddenSurface": true,
+  "hallucinationCategories": [
+    "host_object_handle",
+    "output_event",
+    "runtime_json"
+  ],
+  "firstPass": {
+    "verify": {
+      "status": "failed",
+      "diagnostics": [
+        {
+          "code": "air.verify.host_object_handle_rejected",
+          "severity": "fail",
+          "message": "host object handles are rejected"
+        }
+      ]
+    },
+    "packageCheck": {
+      "status": "failed",
+      "diagnostics": [
+        {
+          "code": "air.api_gate.output_event_rejected",
+          "severity": "fail",
+          "message": "output.event is not part of the accepted Host ABI"
+        },
+        {
+          "code": "air.structured_io.runtime_json_rejected",
+          "severity": "fail",
+          "message": "runtime JSON is rejected"
+        }
+      ]
+    }
+  }
+}

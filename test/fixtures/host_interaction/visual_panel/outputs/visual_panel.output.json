@@ -1,0 +1,34 @@
+{
+  "schemaVersion": "0.18",
+  "kind": "air.outputContract",
+  "outputs": [
+    {
+      "id": 3101,
+      "name": "panel_status_intent_recorded",
+      "channel": "visual",
+      "capability": "visual.status_intent",
+      "args": [
+        { "name": "panel_id", "type": "i32" },
+        { "name": "status_id", "type": "i32" },
+        { "name": "severity_id", "type": "i32" },
+        { "name": "flags", "type": "i32" }
+      ],
+      "resources": [],
+      "profileConstraints": []
+    },
+    {
+      "id": 3102,
+      "name": "panel_attention_intent_recorded",
+      "channel": "visual",
+      "capability": "visual.attention_intent",
+      "args": [
+        { "name": "panel_id", "type": "i32" },
+        { "name": "attention_id", "type": "i32" },
+        { "name": "confidence", "type": "i32" },
+        { "name": "flags", "type": "i32" }
+      ],
+      "resources": [],
+      "profileConstraints": []
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+module main
+use "./missing.air" as missing
+capabilities { }
+
+export func run(seed: i32) -> i32 {
+entry:
+  return %seed
+}

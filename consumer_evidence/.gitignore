@@ -1,0 +1,21 @@
+# Heavy or generated evidence artifacts.
+media/*
+*.mp4
+*.mov
+*.webm
+node_modules/
+dist/
+build/
+tmp/
+raw_logs/
+screenshots/raw/
+full_demo_bundle*.zip
+
+# Keep reviewable descriptors and summaries.
+!**/MANIFEST.json
+!**/PROOF_CARD.md
+!**/PROMPTS.md
+!**/reports/*.md
+!**/reports/*.json
+!**/replay/*.json
+!**/metrics/*.json

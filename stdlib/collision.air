@@ -1,0 +1,121 @@
+module collision
+capabilities { }
+
+func lift_y_from_ground(y: i32, ground_y: i32, clearance: i32) -> i32 {
+  requires param clearance >= 0
+entry:
+  %safe_min:i32 = add %ground_y, %clearance
+  %blocked:bool = i32.lt_s %y, %safe_min
+  %out:i32 = select.i32 %blocked, %safe_min, %y
+  return %out
+}
+
+func collision_hit_from_ground(y: i32, ground_y: i32, clearance: i32) -> i32 {
+  requires param clearance >= 0
+entry:
+  %safe_min:i32 = add %ground_y, %clearance
+  %blocked:bool = i32.lt_s %y, %safe_min
+  %out:i32 = select.i32 %blocked, 1, 0
+  return %out
+}
+
+func point_aabb_hit(px: i32, py: i32, pz: i32, min_x: i32, min_y: i32, min_z: i32, max_x: i32, max_y: i32, max_z: i32) -> bool {
+entry:
+  %ge_x:bool = i32.ge_s %px, %min_x
+  %le_x:bool = i32.le_s %px, %max_x
+  %in_x:bool = bool.and %ge_x, %le_x
+  %ge_y:bool = i32.ge_s %py, %min_y
+  %le_y:bool = i32.le_s %py, %max_y
+  %in_y:bool = bool.and %ge_y, %le_y
+  %ge_z:bool = i32.ge_s %pz, %min_z
+  %le_z:bool = i32.le_s %pz, %max_z
+  %in_z:bool = bool.and %ge_z, %le_z
+  %xy:bool = bool.and %in_x, %in_y
+  %out:bool = bool.and %xy, %in_z
+  return %out
+}
+
+func closest_i32(v: i32, min: i32, max: i32) -> i32 {
+entry:
+  %too_low:bool = i32.lt_s %v, %min
+  %low:i32 = select.i32 %too_low, %min, %v
+  %too_high:bool = i32.gt_s %low, %max
+  %out:i32 = select.i32 %too_high, %max, %low
+  return %out
+}
+
+func closest_point_aabb_x(px: i32, min_x: i32, max_x: i32) -> i32 {
+entry:
+  %out:i32 = @closest_i32(%px, %min_x, %max_x)
+  return %out
+}
+
+func closest_point_aabb_y(py: i32, min_y: i32, max_y: i32) -> i32 {
+entry:
+  %out:i32 = @closest_i32(%py, %min_y, %max_y)
+  return %out
+}
+
+func closest_point_aabb_z(pz: i32, min_z: i32, max_z: i32) -> i32 {
+entry:
+  %out:i32 = @closest_i32(%pz, %min_z, %max_z)
+  return %out
+}
+
+func sphere_aabb_hit(cx: i32, cy: i32, cz: i32, radius: i32, min_x: i32, min_y: i32, min_z: i32, max_x: i32, max_y: i32, max_z: i32) -> bool {
+  requires param radius >= 0
+entry:
+  %qx:i32 = @closest_i32(%cx, %min_x, %max_x)
+  %qy:i32 = @closest_i32(%cy, %min_y, %max_y)
+  %qz:i32 = @closest_i32(%cz, %min_z, %max_z)
+  %dx:i32 = sub %cx, %qx
+  %dy:i32 = sub %cy, %qy
+  %dz:i32 = sub %cz, %qz
+  %dx2:i32 = mul %dx, %dx
+  %dy2:i32 = mul %dy, %dy
+  %dz2:i32 = mul %dz, %dz
+  %sum0:i32 = add %dx2, %dy2
+  %dist_sq:i32 = add %sum0, %dz2
+  %r2:i32 = mul %radius, %radius
+  %out:bool = i32.le_s %dist_sq, %r2
+  return %out
+}
+
+func ray_sphere_hit(origin: vec3, dir: vec3, center: vec3, radius: f32) -> bool {
+  requires param radius >= 0
+entry:
+  %oc:vec3 = vec3.sub %origin, %center
+  %b:f32 = vec3.dot %oc, %dir
+  %c0:f32 = vec3.dot %oc, %oc
+  %r2:f32 = mul %radius, %radius
+  %c:f32 = sub %c0, %r2
+  %b2:f32 = mul %b, %b
+  %disc:f32 = sub %b2, %c
+  %zero:f32 = 0
+  %out:bool = f32.ge %disc, %zero
+  return %out
+}
+
+func ray_plane_y_t(origin: vec3, dir: vec3, plane_y: f32) -> f32 {
+entry:
+  %out:f32 = ray.plane_y %origin, %dir, %plane_y
+  return %out
+}
+
+func swept_aabb_x_hit(start_x: i32, delta_x: i32, radius: i32, min_x: i32, max_x: i32) -> bool {
+  requires param radius >= 0
+entry:
+  %end_x:i32 = add %start_x, %delta_x
+  %smin:i32 = sub %start_x, %radius
+  %smax:i32 = add %start_x, %radius
+  %emin:i32 = sub %end_x, %radius
+  %emax:i32 = add %end_x, %radius
+  %take_smin:bool = i32.lt_s %smin, %emin
+  %take_smax:bool = i32.gt_s %smax, %emax
+  %path_min:i32 = select.i32 %take_smin, %smin, %emin
+  %path_max:i32 = select.i32 %take_smax, %smax, %emax
+  %after_min:bool = i32.le_s %path_min, %max_x
+  %before_max:bool = i32.ge_s %path_max, %min_x
+  %out:bool = bool.and %after_min, %before_max
+  return %out
+}

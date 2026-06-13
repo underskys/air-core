@@ -1,0 +1,15 @@
+{
+  "schemaVersion": "0.20",
+  "kind": "air.commandBuffer",
+  "name": "lan_observer_diagnosis_commands",
+  "maxCommands": 4,
+  "records": [
+    {
+      "output_id": 3501,
+      "arg0": 303,
+      "arg1": 3,
+      "arg2": 712,
+      "arg3": 480
+    }
+  ]
+}

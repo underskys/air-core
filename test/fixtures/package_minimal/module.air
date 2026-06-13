@@ -1,0 +1,10 @@
+module minimal_package_fixture
+capabilities { debug }
+
+extern debug.metric(id: i32, value: i32) -> void
+
+export func run(seed: i32) -> i32 {
+entry:
+  @debug.metric(%seed, %seed)
+  return %seed
+}

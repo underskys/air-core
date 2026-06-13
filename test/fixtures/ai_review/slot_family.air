@@ -1,0 +1,14 @@
+module ai_review_slot_family
+capabilities { }
+
+global task0_state:i32 = const.i32 0
+global task1_state:i32 = const.i32 0
+global task2_state:i32 = const.i32 0
+
+export func run(seed: i32) -> i32 {
+entry:
+  %task0_value:i32 = i32.add %seed, 5
+  %task1_value:i32 = i32.add %task0_value, 5
+  %task2_value:i32 = i32.add %task1_value, 5
+  return %task2_value
+}

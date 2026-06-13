@@ -1,0 +1,166 @@
+{
+  "status": "current-state-audit",
+  "date": "2026-05-15",
+  "branch": "air-v0.12-package-profile-core-ergonomics",
+  "scope": [
+    "AIR core/toolchain repository",
+    "demo/contra-platformer current worktree",
+    "demo pressure evidence"
+  ],
+  "worktree": {
+    "clean": false,
+    "dirtyFileCountAtAudit": 32,
+    "note": "Active demo changes were present and treated as evidence, not as release-gate truth."
+  },
+  "testStatus": {
+    "markdownLinks": "pass",
+    "reviewBundleSanity": "pass",
+    "npmTest": "fail",
+    "npmTestFailure": "stricter layer_guard now blocks host-authority wrappers in stdlib"
+  },
+  "v0_12Status": {
+    "implemented": [
+      "package manifest validation",
+      "host profile validation",
+      "package-check --profile JSON/text report",
+      "asset manifest validation",
+      "generated manifest-backed handles",
+      "module-level immutable scalar constants first slice",
+      "audio authority reporting",
+      "AI anti-slop review report",
+      "layer guard/public hygiene checks"
+    ],
+    "partial": [
+      "package-local module graph analysis without linked output",
+      "host profile limits expressed but not deeply enforced",
+      "audio authority checks while host still owns playback/presentation",
+      "anti-slop diagnostics as advisory reporting"
+    ],
+    "documentedNotEnforced": [
+      "static read-only scalar tables",
+      "sprite transform ABI",
+      "audio.event ABI",
+      "target packaging",
+      "LSP/live demo adoption blockers"
+    ],
+    "missing": [
+      "domain kit validation",
+      "determinism/replay harness for host-observable behavior",
+      "release gate semantics for safe-but-unreviewable AIR slop"
+    ]
+  },
+  "contraPlatformer": {
+    "packageCheckProfile": "browser-webgpu",
+    "packageCheckStatus": "pass",
+    "declaredCapabilities": [
+      "audio",
+      "debug",
+      "gfx",
+      "input"
+    ],
+    "computedCapabilities": [
+      "audio",
+      "debug",
+      "gfx",
+      "input"
+    ],
+    "hostImports": [
+      "audio.beep",
+      "debug.metric",
+      "gfx.begin_frame",
+      "gfx.draw_primitive",
+      "gfx.end_frame",
+      "input.axis"
+    ],
+    "unsupportedHostImports": [],
+    "audio": {
+      "used": true,
+      "source": "direct-import",
+      "authority": "module capability",
+      "manifestAuthority": "host-owned",
+      "debugMetricAsAudio": false,
+      "remainingRisk": "Host presentation/effects still derive behavior from debug metrics."
+    },
+    "ownership": {
+      "airLoc": 2560,
+      "hostTsLoc": 2751,
+      "platformerAirLoc": 1848,
+      "levelAirLoc": 712,
+      "largestHostFile": {
+        "path": "demo/contra-platformer/src/main.ts",
+        "loc": 2036
+      }
+    },
+    "slop": {
+      "aiReviewStatus": "fail",
+      "aiReviewWarnings": 78,
+      "largestFunction": {
+        "name": "frame",
+        "statements": 1141,
+        "blocks": 1
+      },
+      "constants": 105,
+      "globals": 66,
+      "selectCount": 291,
+      "debugMetricCalls": 12,
+      "audioCalls": 1,
+      "inputCalls": 7,
+      "topRepeatedLiterals": [
+        { "value": "2", "count": 1963 },
+        { "value": "3", "count": 55 },
+        { "value": "24", "count": 22 },
+        { "value": "16", "count": 21 },
+        { "value": "5", "count": 19 }
+      ],
+      "slotPatterns": [
+        "e0/e1/e2 enemy slot families",
+        "bullet_after chains",
+        "enemy_bullet state",
+        "select-chain table patterns"
+      ]
+    }
+  },
+  "voxelDemo": {
+    "packageCheckProfile": "browser-webgpu",
+    "packageCheckStatus": "fail",
+    "unsupportedHostImports": [
+      "gfx.camera_look_at",
+      "gfx.skybox_world"
+    ],
+    "unsupportedManifestKinds": [
+      "host-contract"
+    ],
+    "moduleGraphErrors": [
+      "unknown function gfx3d.primitive_flags",
+      "unknown function noise.hash2"
+    ],
+    "role": "demo evidence, not Core release blocker unless selected as a v0.12 gate"
+  },
+  "verifiedDefinition": {
+    "syntaxTypeSafety": "supported",
+    "capabilitySafety": "supported",
+    "hostProfileCompatibility": "supported for core fields, partial for limits/domain behavior",
+    "resourceBudgets": "supported in Core, weakly applied to large demo closure",
+    "determinismReplay": "partial",
+    "antiSlopDiagnostics": "partial/advisory",
+    "domainValidationThroughKits": "missing/partial"
+  },
+  "blockers": [
+    "migrate host-authority stdlib wrappers out of stdlib",
+    "define release gate semantics for anti-slop",
+    "keep audio authority strict and add negative fixtures",
+    "clarify debug.metric boundary for host visual/effect behavior",
+    "decide module split linked-output scope",
+    "decide static scalar table scope",
+    "enforce or document host profile limits",
+    "keep demo failures out of Core release gates unless selected explicitly"
+  ],
+  "doNotDo": [
+    "player/enemy/boss APIs in Core",
+    "game-specific rendering calls",
+    "host_everything capability",
+    "dynamic object model",
+    "demo-specific shortcuts",
+    "debug.metric as audio/effects/gameplay event bus"
+  ]
+}

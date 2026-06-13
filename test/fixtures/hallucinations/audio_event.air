@@ -1,0 +1,9 @@
+module hallucinated_audio_event
+capabilities { audio }
+extern audio.event(id: i32, value: i32) -> void
+
+export func run() -> void {
+entry:
+  @audio.event(1, 1)
+  return
+}

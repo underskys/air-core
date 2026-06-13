@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AIR Browser Proof</title>
+  </head>
+  <body>
+    <main id="demo-shell">
+      <canvas id="gpu-canvas" aria-label="AIR GFX WebGPU canvas"></canvas>
+      <section id="hud" aria-label="AIR diagnostics">
+        <div class="hud-heading">
+          <div>
+            <p class="eyebrow">AIR browser proof</p>
+            <h1>AIR GFX Showcase</h1>
+          </div>
+          <span id="status" class="status-pill">loading</span>
+        </div>
+        <div class="metric-grid">
+          <div>
+            <span>Package</span>
+            <strong id="diag-package">-</strong>
+          </div>
+          <div>
+            <span>Manifest</span>
+            <strong id="diag-manifest">-</strong>
+          </div>
+          <div>
+            <span>Backend</span>
+            <strong id="diag-backend">-</strong>
+          </div>
+          <div>
+            <span>Draw calls</span>
+            <strong id="diag-draw-calls">0</strong>
+          </div>
+        </div>
+        <dl class="report-list">
+          <div>
+            <dt>Capabilities</dt>
+            <dd id="diag-capabilities">-</dd>
+          </div>
+          <div>
+            <dt>Loaded assets</dt>
+            <dd id="diag-assets">-</dd>
+          </div>
+          <div>
+            <dt>Unsupported features</dt>
+            <dd id="diag-unsupported">waiting for host report</dd>
+          </div>
+        </dl>
+      </section>
+    </main>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

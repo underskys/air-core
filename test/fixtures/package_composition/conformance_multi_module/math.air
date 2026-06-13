@@ -1,0 +1,9 @@
+module math
+capabilities { }
+
+export func add_two(value: i32) -> i32 {
+entry:
+  %two:i32 = 2
+  %next:i32 = add %value, %two
+  return %next
+}

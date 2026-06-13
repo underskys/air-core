@@ -1,0 +1,16 @@
+module branch_demo
+capabilities { }
+
+func main(args: slice) -> i32 {
+entry:
+  %a:i32 = 7
+  %b:i32 = 7
+  %same:bool = i32.eq %a, %b
+  br_if %same, matched, missed
+matched:
+  %ok:i32 = 0
+  return %ok
+missed:
+  %bad:i32 = 1
+  return %bad
+}

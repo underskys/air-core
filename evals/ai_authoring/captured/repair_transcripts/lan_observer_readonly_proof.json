@@ -1,0 +1,20 @@
+{
+  "schemaVersion": "0.32",
+  "kind": "air.aiAuthoringRepairTranscript",
+  "caseId": "lan_observer_readonly_proof",
+  "attempts": [
+    {
+      "iteration": 1,
+      "summary": "rewrites to sanitized scalar structured facts and bounded command-buffer recommendation intent",
+      "verify": {
+        "status": "passed",
+        "diagnostics": []
+      },
+      "packageCheck": {
+        "status": "passed",
+        "diagnostics": []
+      },
+      "hallucinationCategories": []
+    }
+  ]
+}

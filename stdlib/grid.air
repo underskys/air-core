@@ -1,0 +1,93 @@
+module grid
+capabilities { }
+
+func cell_trunc_i32(value: i32, cell_size: i32) -> i32 {
+  requires param cell_size >= 1
+entry:
+  %out:i32 = i32.div_s %value, %cell_size
+  return %out
+}
+
+func cell_origin_i32(cell: i32, cell_size: i32) -> i32 {
+  requires param cell_size >= 1
+entry:
+  %out:i32 = mul %cell, %cell_size
+  return %out
+}
+
+func cell_center_i32(cell: i32, cell_size: i32) -> i32 {
+  requires param cell_size >= 1
+entry:
+  %origin:i32 = mul %cell, %cell_size
+  %half:i32 = i32.div_s %cell_size, 2
+  %out:i32 = add %origin, %half
+  return %out
+}
+
+func clamp_coord_i32(value: i32, max_exclusive: i32) -> i32 {
+  requires param max_exclusive >= 1
+entry:
+  %zero:i32 = 0
+  %too_low:bool = i32.lt_s %value, %zero
+  %low:i32 = select.i32 %too_low, %zero, %value
+  %one:i32 = 1
+  %max_index:i32 = sub %max_exclusive, %one
+  %too_high:bool = i32.gt_s %low, %max_index
+  %out:i32 = select.i32 %too_high, %max_index, %low
+  return %out
+}
+
+func in_bounds_2d(x: i32, z: i32, width: i32, depth: i32) -> bool {
+  requires param width >= 1
+  requires param depth >= 1
+entry:
+  %zero:i32 = 0
+  %x_ge:bool = i32.ge_s %x, %zero
+  %z_ge:bool = i32.ge_s %z, %zero
+  %x_lt:bool = i32.lt_s %x, %width
+  %z_lt:bool = i32.lt_s %z, %depth
+  %x_ok:bool = bool.and %x_ge, %x_lt
+  %z_ok:bool = bool.and %z_ge, %z_lt
+  %out:bool = bool.and %x_ok, %z_ok
+  return %out
+}
+
+func index_2d(x: i32, z: i32, width: i32) -> i32 {
+  requires param width >= 1
+entry:
+  %row:i32 = mul %z, %width
+  %out:i32 = add %row, %x
+  return %out
+}
+
+func in_bounds_3d(x: i32, y: i32, z: i32, width: i32, height: i32, depth: i32) -> bool {
+  requires param width >= 1
+  requires param height >= 1
+  requires param depth >= 1
+entry:
+  %zero:i32 = 0
+  %x_ge:bool = i32.ge_s %x, %zero
+  %y_ge:bool = i32.ge_s %y, %zero
+  %z_ge:bool = i32.ge_s %z, %zero
+  %x_lt:bool = i32.lt_s %x, %width
+  %y_lt:bool = i32.lt_s %y, %height
+  %z_lt:bool = i32.lt_s %z, %depth
+  %x_ok:bool = bool.and %x_ge, %x_lt
+  %y_ok:bool = bool.and %y_ge, %y_lt
+  %z_ok:bool = bool.and %z_ge, %z_lt
+  %xy_ok:bool = bool.and %x_ok, %y_ok
+  %out:bool = bool.and %xy_ok, %z_ok
+  return %out
+}
+
+func index_3d(x: i32, y: i32, z: i32, width: i32, height: i32) -> i32 {
+  requires param width >= 1
+  requires param height >= 1
+entry:
+  %plane:i32 = mul %width, %height
+  %z_part:i32 = mul %z, %plane
+  %y_part:i32 = mul %y, %width
+  %base:i32 = add %z_part, %y_part
+  %out:i32 = add %base, %x
+  return %out
+}

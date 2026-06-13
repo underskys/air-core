@@ -1,0 +1,30 @@
+{
+  "version": "0.12",
+  "assets": {
+    "textures": {
+      "package_checker": {
+        "path": "assets/textures/package_checker.png"
+      }
+    },
+    "audioSfx": {
+      "package_click": {
+        "path": "assets/audio/package_click.wav"
+      }
+    },
+    "shaders": {
+      "package_unlit": {
+        "path": "assets/shaders/package_unlit.wgsl"
+      }
+    },
+    "materials": {
+      "package_basic": {
+        "kind": "unlit",
+        "shader": "package_unlit"
+      }
+    }
+  },
+  "fallbacks": {
+    "missingTexture": "assets/textures/fallback.png",
+    "missingAudio": "assets/audio/silence.wav"
+  }
+}

@@ -1,0 +1,26 @@
+module resource_contract
+capabilities { debug }
+effects { cpu.instructions <= 12, debug.metric <= 1 }
+requires export run
+
+extern debug.metric(id: i32, value: i32) -> void
+
+func inc(value: i32) -> i32 {
+  effects { cpu.instructions <= 3 }
+  requires param value >= 0
+  requires param value <= 2147483646
+  ensures return >= 1
+entry:
+  %one:i32 = 1
+  %next:i32 = add %value, %one
+  return %next
+}
+
+export func run() -> i32 {
+entry:
+  %zero:i32 = 0
+  %next:i32 = @inc(%zero)
+  %id:i32 = 1
+  @debug.metric(%id, %next)
+  return %next
+}

@@ -1,0 +1,16 @@
+{
+  "name": "lan-observer-readonly-canonical-example",
+  "version": "0.1.0",
+  "airAbi": "0.10",
+  "hostAbi": "0.10",
+  "entry": "module.air",
+  "capabilities": [],
+  "targetProfiles": ["cli"],
+  "generatedModules": ["generated/structured_io_handles.air"],
+  "structuredIO": [
+    "schemas/device_observation.structured.rowset.json",
+    "schemas/diagnosis_summary.structured.output.json"
+  ],
+  "outputContracts": ["outputs/lan_observer_diagnosis.output.json"],
+  "commandBuffers": ["outputs/lan_observer_diagnosis.commands.json"]
+}

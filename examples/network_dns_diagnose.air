@@ -1,0 +1,34 @@
+module network_dns_diagnose
+capabilities { }
+effects { cpu.instructions <= 40 }
+
+func diagnose(resolver_count: i32, direct_ok: bool, nxdomain_count: i32, timeout_count: i32, status: i32) -> i32 {
+entry:
+  %status_bad:bool = i32.lt_s %status, 0
+  %host_error_code:i32 = 50
+  %has_resolver:bool = i32.gt_s %resolver_count, 0
+  %no_resolver_code:i32 = 40
+  %timed_out:bool = i32.gt_s %timeout_count, 0
+  %timeout_code:i32 = 30
+  %ok:i32 = 0
+  %has_nx:bool = i32.gt_s %nxdomain_count, 0
+  %nx_code:i32 = 20
+  %generic_code:i32 = 10
+  %name_code:i32 = select.i32 %has_nx, %nx_code, %generic_code
+  %direct_code:i32 = select.i32 %direct_ok, %ok, %name_code
+  %timeout_or_direct:i32 = select.i32 %timed_out, %timeout_code, %direct_code
+  %resolver_or_timeout:i32 = select.i32 %has_resolver, %timeout_or_direct, %no_resolver_code
+  %out:i32 = select.i32 %status_bad, %host_error_code, %resolver_or_timeout
+  return %out
+}
+
+export func run() -> i32 {
+entry:
+  %resolvers:i32 = 1
+  %direct:bool = false
+  %nx:i32 = 0
+  %timeouts:i32 = 2
+  %status:i32 = 0
+  %out:i32 = @diagnose(%resolvers, %direct, %nx, %timeouts, %status)
+  return %out
+}

@@ -1,0 +1,18 @@
+module particle_update
+capabilities { }
+
+export func run() -> i32 {
+entry:
+  %one:i32 = 1
+  %two:i32 = 2
+  %three:i32 = 3
+  %four:i32 = 4
+  %particles:array<i32,4> = array.new %one, %two, %three, %four
+  %idx:i32 = 2
+  %current:i32 = array.get %particles, %idx
+  %delta:i32 = 5
+  %next:i32 = add %current, %delta
+  %updated:array<i32,4> = array.set %particles, %idx, %next
+  %out:i32 = array.get %updated, %idx
+  return %out
+}

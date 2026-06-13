@@ -1,0 +1,195 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://airlang.dev/schemas/consumer_evidence/demo_manifest.schema.json",
+  "title": "AIR Consumer Evidence Demo Manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "id",
+    "name",
+    "category",
+    "status",
+    "airRole",
+    "hostRole",
+    "airOwns",
+    "hostOwns",
+    "allowedCapabilities",
+    "deniedAuthorities",
+    "proofTypes",
+    "proofFiles",
+    "pressureRouting",
+    "privacySafetyNotes"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "integer",
+      "const": 1
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9_\\-]*$"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "canonical_example",
+        "experimental_demo_pressure",
+        "external_consumer_proof",
+        "read_only_diagnostics",
+        "interactive_demo_pressure",
+        "policy_ops_decision",
+        "snapshot_or_review_artifact"
+      ]
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "proposed",
+        "seeded",
+        "core-proof",
+        "canonical-proof",
+        "pressure-evidence",
+        "active",
+        "deferred",
+        "rejected",
+        "archived"
+      ]
+    },
+    "owner": {
+      "type": "string"
+    },
+    "source": {
+      "type": "string"
+    },
+    "airRole": {
+      "type": "string",
+      "minLength": 1
+    },
+    "hostRole": {
+      "type": "string",
+      "minLength": 1
+    },
+    "airOwns": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string"
+      }
+    },
+    "hostOwns": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string"
+      }
+    },
+    "allowedCapabilities": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "deniedAuthorities": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string"
+      }
+    },
+    "proofTypes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string"
+      }
+    },
+    "proofFiles": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "proofCard",
+        "prompts",
+        "capabilityBoundary",
+        "replay",
+        "metrics"
+      ],
+      "properties": {
+        "proofCard": {
+          "type": "string"
+        },
+        "prompts": {
+          "type": "string"
+        },
+        "capabilityBoundary": {
+          "type": "string"
+        },
+        "replay": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "metrics": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "pressureRouting": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "pressure",
+          "route",
+          "status",
+          "notes"
+        ],
+        "properties": {
+          "pressure": {
+            "type": "string"
+          },
+          "route": {
+            "type": "string",
+            "enum": [
+              "Core",
+              "stdlib",
+              "kit",
+              "host adapter",
+              "demo-local",
+              "rejected"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "proposed",
+              "accepted",
+              "deferred",
+              "rejected"
+            ]
+          },
+          "notes": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "privacySafetyNotes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}

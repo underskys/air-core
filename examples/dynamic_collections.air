@@ -1,0 +1,44 @@
+module dynamic_collections
+capabilities { }
+effects { memory.alloc <= 1, memory.free <= 1, memory.load <= 1, memory.store <= 1, memory.static_alloc_bytes <= 16, memory.dynamic_allocations <= 0, cpu.loops <= 2, cpu.loop_iterations_upper_bound <= 3, effects.dynamic <= 1 }
+
+func inc_i32(value: i32) -> i32 {
+entry:
+  %one:i32 = 1
+  %next:i32 = add %value, %one
+  return %next
+}
+
+func double_f32(value: f32) -> f32 {
+entry:
+  %two:f32 = 2.0
+  %next:f32 = mul %value, %two
+  return %next
+}
+
+export func run() -> i32 {
+entry:
+  %one:i32 = 1
+  %two:i32 = 2
+  %three:i32 = 3
+  %items:array<i32,3> = array.new %one, %two, %three
+  %idx:i32 = 1
+  %picked:i32 = array.get %items, %idx
+  %patched:array<i32,3> = array.set %items, %idx, %three
+  %count:i32 = add %one, %two
+  %looped:array<i32,3> = loop.array.i32 @inc_i32, %patched, %count
+  %after:i32 = array.get %looped, %idx
+  %bytes:i32 = 16
+  %ptr:ptr = alloc_region %bytes
+  %buf:buffer<f32,4> = buffer.from_ptr %ptr
+  %zero:i32 = 0
+  %seed:f32 = 1.0
+  buffer.store %buf, %zero, %seed
+  loop.buffer.f32 @double_f32, %buf, %one
+  %loaded:f32 = buffer.load %buf, %zero
+  %loaded_i:i32 = i32.trunc_f32_s %loaded
+  %sum:i32 = add %picked, %after
+  %out:i32 = add %sum, %loaded_i
+  free_region %ptr
+  return %out
+}

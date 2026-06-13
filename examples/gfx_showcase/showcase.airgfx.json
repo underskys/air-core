@@ -1,0 +1,174 @@
+{
+  "version": "0.10",
+  "module": "gfx_showcase",
+  "package": { "abi": "0.10", "kind": "air-gfx-package" },
+  "targets": {
+    "browser": { "backend": "webgpu", "required": false },
+    "native": { "backend": "wgpu", "required": false },
+    "mobile": { "backend": "webgpu", "required": false }
+  },
+  "canvas": {
+    "width": 1280,
+    "height": 720,
+    "clearColor": [6, 8, 18, 255]
+  },
+  "inputs": {
+    "orbit_x": { "kind": "axis", "handle": 1, "bindings": { "browser": "mouse.dx|ArrowLeft|ArrowRight", "native": "mouse.dx" } },
+    "orbit_y": { "kind": "axis", "handle": 2, "bindings": { "browser": "mouse.dy|ArrowUp|ArrowDown", "native": "mouse.dy" } },
+    "zoom": { "kind": "axis", "handle": 3, "bindings": { "browser": "wheel.y|KeyQ|KeyE", "native": "wheel.y" } },
+    "select": { "kind": "button", "handle": 4, "bindings": { "browser": "MouseLeft|Space", "native": "MouseLeft" } }
+  },
+  "assets": {
+    "models": {
+      "showcase_block": { "path": "assets/cube.glb", "format": "glb", "handle": 1, "attributes": ["POSITION"] },
+      "showcase_pillar": { "path": "assets/showcase_primitives.gltf", "format": "gltf", "handle": 2 },
+      "showcase_crystal": { "path": "assets/showcase_primitives.gltf", "format": "gltf", "handle": 3 }
+    },
+    "textures": {
+      "steel_albedo": { "path": "assets/steel_albedo.svg", "format": "image", "handle": 1 },
+      "steel_normal": { "path": "assets/steel_normal.svg", "format": "image", "handle": 2 },
+      "steel_orm": { "path": "assets/steel_orm.svg", "format": "image", "handle": 3 },
+      "glass_emissive": { "path": "assets/glass_emissive.svg", "format": "image", "handle": 4 },
+      "hud_atlas": { "path": "assets/hud_atlas.svg", "format": "image", "handle": 5 }
+    },
+    "sprites": {
+      "hud_glyph": { "texture": "hud_atlas", "frame": [0, 0, 128, 128], "handle": 1 }
+    },
+    "cubemaps": {
+      "dusk_foundry": { "path": "assets/dusk_foundry.json", "format": "procedural", "layout": "equirectangular", "projection": "spherical", "handle": 1 }
+    }
+  },
+  "shaders": {
+    "showcase_wgsl": { "path": "shaders/showcase.wgsl", "vertex": "vs_main", "fragment": "fs_main" }
+  },
+  "pipelines": {
+    "showcase_pipeline": {
+      "shader": "showcase_wgsl",
+      "vertexEntry": "vs_main",
+      "fragmentEntry": "fs_main",
+      "colorFormat": "bgra8unorm",
+      "depth": false,
+      "depthWrite": false,
+      "blend": "alpha",
+      "cull": "none",
+      "primitive": "triangle-list",
+      "vertexCount": 3
+    }
+  },
+  "renderTargets": {
+    "scene_color": { "format": "bgra8unorm", "size": "canvas", "usage": ["render", "sample"] },
+    "bloom_color": { "format": "bgra8unorm", "scale": 0.5, "usage": ["render", "sample"] },
+    "backbuffer": { "format": "surface", "size": "canvas", "usage": ["present"] }
+  },
+  "depth": {
+    "target": "scene_depth",
+    "format": "depth24plus",
+    "size": "canvas",
+    "enabled": true
+  },
+  "postPipelines": {
+    "fullscreen_post": {
+      "shader": "showcase_wgsl",
+      "vertexEntry": "vs_main",
+      "fragmentEntry": "fs_main",
+      "effects": ["bloom", "tonemap"]
+    }
+  },
+  "materials": {
+    "brushed_steel": {
+      "pipeline": "showcase_pipeline",
+      "model": "pbr",
+      "baseColor": [0.18, 0.2, 0.24, 1],
+      "metallic": 0.82,
+      "roughness": 0.38,
+      "textures": {
+        "albedo": "steel_albedo",
+        "normal": "steel_normal",
+        "metallicRoughness": "steel_orm"
+      }
+    },
+    "emissive_glass": {
+      "pipeline": "showcase_pipeline",
+      "model": "pbr",
+      "baseColor": [0.05, 0.58, 1, 0.82],
+      "metallic": 0.05,
+      "roughness": 0.12,
+      "emissive": [0.1, 1.5, 3.2],
+      "textures": {
+        "emissive": "glass_emissive"
+      }
+    },
+    "hud_glyph_material": {
+      "pipeline": "showcase_pipeline",
+      "model": "sprite-unlit",
+      "baseColor": [1, 1, 1, 1],
+      "textures": {
+        "base": "hud_atlas"
+      }
+    }
+  },
+  "scene": {
+    "cameras": {
+      "main": { "kind": "perspective", "fovY": 64, "near": 0.05, "far": 180, "position": [0, 2.2, 7], "target": [0, 0.8, 0] }
+    },
+    "lights": {
+      "key": { "kind": "directional", "direction": [-0.35, -0.8, -0.2], "color": [0.76, 0.88, 1], "intensity": 2.2 },
+      "rim": { "kind": "point", "position": [0, 2.5, -3.5], "color": [0.1, 0.6, 1], "intensity": 5.5 },
+      "warm_fill": { "kind": "point", "position": [3.5, 0.8, 2.5], "color": [1, 0.42, 0.12], "intensity": 2.8 }
+    },
+    "meshInstances": {
+      "floating_crystal_echoes": { "mesh": "showcase_crystal", "material": "emissive_glass", "count": 5, "transform": { "translation": [0, 1.6, 0], "rotation": [0, 35, 0], "scale": [0.28, 0.6, 0.28] } }
+    },
+    "sprites": {
+      "hud_glyphs": { "sprite": "hud_glyph", "material": "hud_glyph_material", "batch": 6 }
+    },
+    "particles": {
+      "energy_motes": { "material": "emissive_glass", "count": 128, "budget": 256, "emitter": "sphere", "bounds": [5, 2, 5] }
+    }
+  },
+  "ui": {
+    "panels": {
+      "conformance": { "rect": [18, 18, 320, 128], "style": "dock" }
+    },
+    "textLabels": {
+      "title": { "text": "AIR GFX Showcase", "panel": "conformance" },
+      "status": { "text": "verified AIR module + manifest-driven graphics", "panel": "conformance" }
+    },
+    "imageQuads": {
+      "glyph": { "sprite": "hud_glyph", "panel": "conformance" }
+    }
+  },
+  "post": {
+    "bloom": { "kind": "bloom", "threshold": 0.72, "radius": 0.55, "intensity": 0.85 },
+    "tonemap": { "kind": "tone-map", "operator": "aces", "exposure": 1.05 }
+  },
+  "renderGraphs": {
+    "main_graph": {
+      "passes": [
+        { "key": "clear", "kind": "clear", "output": "scene_color" },
+        { "key": "sky", "kind": "skybox", "camera": "main", "environment": "dusk_foundry", "pipeline": "showcase_pipeline", "inputs": ["scene_color"], "output": "scene_color" },
+        { "key": "geometry", "kind": "geometry", "camera": "main", "pipeline": "showcase_pipeline", "inputs": ["scene_color"], "output": "scene_color" },
+        { "key": "particles", "kind": "particles", "camera": "main", "material": "emissive_glass", "inputs": ["scene_color"], "output": "scene_color" },
+        { "key": "sprites", "kind": "sprite", "material": "hud_glyph_material", "inputs": ["scene_color"], "output": "scene_color" },
+        { "key": "ui", "kind": "ui", "material": "hud_glyph_material", "inputs": ["scene_color"], "output": "scene_color" },
+        { "key": "bloom", "kind": "post", "effect": "bloom", "inputs": ["scene_color"], "output": "bloom_color" },
+        { "key": "tonemap", "kind": "post", "effect": "tonemap", "inputs": ["scene_color", "bloom_color"], "output": "backbuffer" },
+        { "key": "present", "kind": "present", "inputs": ["backbuffer"] }
+      ]
+    }
+  },
+  "qualityProfiles": {
+    "desktop": { "maxTextureSize": 8192, "maxInstances": 20000, "post": ["bloom", "tonemap"], "preferredBackend": "webgpu" },
+    "mobile": { "maxTextureSize": 2048, "maxInstances": 4000, "post": ["tonemap"], "preferredBackend": "webgpu" },
+    "native": { "maxTextureSize": 8192, "maxInstances": 20000, "post": ["bloom", "tonemap"], "preferredBackend": "wgpu" }
+  },
+  "handles": {
+    "inputs": { "orbit_x": 1, "orbit_y": 2, "zoom": 3, "select": 4 },
+    "pipelines": { "showcase_pipeline": 1 },
+    "renderGraphs": { "main_graph": 1 },
+    "cameras": { "main": 1 },
+    "models": { "showcase_block": 1, "showcase_pillar": 2, "showcase_crystal": 3 },
+    "sprites": { "hud_glyph": 1 },
+    "particles": { "energy_motes": 1 }
+  }
+}

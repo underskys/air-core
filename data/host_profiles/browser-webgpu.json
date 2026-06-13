@@ -1,0 +1,49 @@
+{
+  "id": "browser-webgpu",
+  "name": "Browser WebGPU Host",
+  "hostAbi": "0.10",
+  "supports": {
+    "capabilities": ["debug", "time", "random", "input", "gfx", "gpu", "ui", "audio"],
+    "hostImports": [
+      "audio.beep",
+      "audio.play_tone",
+      "audio.set_gain",
+      "debug.metric",
+      "gfx.begin_frame",
+      "gfx.draw_cube",
+      "gfx.draw_primitive",
+      "gfx.end_frame",
+      "gpu.begin_frame",
+      "gpu.begin_pass",
+      "gpu.draw",
+      "gpu.draw_indexed",
+      "gpu.execute_render_graph",
+      "gpu.set_camera",
+      "gpu.set_pipeline",
+      "gpu.submit",
+      "input.axis",
+      "input.button",
+      "ui.begin_frame",
+      "ui.button",
+      "ui.chart",
+      "ui.end_frame",
+      "ui.metric",
+      "ui.status",
+      "ui.table",
+      "ui.warning"
+    ],
+    "assetKinds": ["texture", "shader", "model", "material", "audioSfx", "audioMusic", "sprite", "spriteAtlas", "background", "rig"],
+    "manifestKinds": ["gfx", "assets", "audio"]
+  },
+  "limits": {
+    "maxAssets": 256,
+    "maxTextureSize": 4096,
+    "maxAudioFiles": 64
+  },
+  "diagnostics": {
+    "ciSafe": true,
+    "manualOnly": false,
+    "requiredReports": ["package-check --profile", "browser conformance panel", "unsupported feature diagnostics"],
+    "unsupportedFeatureBehavior": "fail-with-diagnostic"
+  }
+}

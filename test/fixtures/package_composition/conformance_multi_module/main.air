@@ -1,0 +1,9 @@
+module main
+use "./math.air" as math
+capabilities { }
+
+export func run(seed: i32) -> i32 {
+entry:
+  %next:i32 = @math.add_two(%seed)
+  return %next
+}

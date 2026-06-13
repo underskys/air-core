@@ -1,0 +1,68 @@
+module network_packet_record
+capabilities { }
+effects { memory.alloc <= 1, memory.free <= 1, memory.load <= 4, memory.store <= 11, memory.static_alloc_bytes <= 44, memory.dynamic_allocations <= 0, cpu.instructions <= 96 }
+
+func has_flag(value: i32, mask: i32) -> bool {
+entry:
+  %hit:i32 = i32.and %value, %mask
+  %out:bool = i32.ne %hit, 0
+  return %out
+}
+
+func classify_fields(proto: i32, flags: i32, payload: i32, retrans: i32) -> i32 {
+entry:
+  %tcp:i32 = 6
+  %is_tcp:bool = i32.eq %proto, %tcp
+  %rst_mask:i32 = 4
+  %syn_mask:i32 = 2
+  %rst:bool = @has_flag(%flags, %rst_mask)
+  %syn:bool = @has_flag(%flags, %syn_mask)
+  %has_retrans:bool = i32.gt_s %retrans, 0
+  %has_payload:bool = i32.gt_s %payload, 0
+  %rst_code:i32 = 80
+  %syn_code:i32 = 40
+  %payload_code:i32 = 20
+  %retrans_code:i32 = 60
+  %data_or_syn:i32 = select.i32 %has_payload, %payload_code, %syn_code
+  %maybe_retrans:i32 = select.i32 %has_retrans, %retrans_code, %data_or_syn
+  %tcp_code:i32 = select.i32 %rst, %rst_code, %maybe_retrans
+  %not_tcp_code:i32 = 0
+  %out:i32 = select.i32 %is_tcp, %tcp_code, %not_tcp_code
+  return %out
+}
+
+export func run() -> i32 {
+entry:
+  %bytes:i32 = 44
+  %ptr:ptr = alloc_region %bytes
+  %record:buffer<i32,11> = buffer.from_ptr %ptr
+  %proto_idx:i32 = 0
+  %dir_idx:i32 = 1
+  %flags_idx:i32 = 2
+  %payload_idx:i32 = 3
+  %src_idx:i32 = 4
+  %dst_idx:i32 = 5
+  %age_idx:i32 = 6
+  %retrans_idx:i32 = 7
+  %dns_req_idx:i32 = 8
+  %dns_resp_idx:i32 = 9
+  %status_idx:i32 = 10
+  buffer.store %record, %proto_idx, 6
+  buffer.store %record, %dir_idx, 1
+  buffer.store %record, %flags_idx, 18
+  buffer.store %record, %payload_idx, 0
+  buffer.store %record, %src_idx, 49152
+  buffer.store %record, %dst_idx, 443
+  buffer.store %record, %age_idx, 25
+  buffer.store %record, %retrans_idx, 0
+  buffer.store %record, %dns_req_idx, 0
+  buffer.store %record, %dns_resp_idx, 0
+  buffer.store %record, %status_idx, 0
+  %proto:i32 = buffer.load %record, %proto_idx
+  %flags:i32 = buffer.load %record, %flags_idx
+  %payload:i32 = buffer.load %record, %payload_idx
+  %retrans:i32 = buffer.load %record, %retrans_idx
+  %out:i32 = @classify_fields(%proto, %flags, %payload, %retrans)
+  free_region %ptr
+  return %out
+}

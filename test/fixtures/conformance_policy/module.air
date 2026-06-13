@@ -1,0 +1,17 @@
+module conformance_policy
+capabilities { }
+
+export func policy_score(service_id: i32) -> i32 {
+entry:
+  %ten:i32 = const.i32 10
+  %score:i32 = add %service_id, %ten
+  return %score
+}
+
+export func service_allowed(service_id: i32) -> i32 {
+entry:
+  %limit:i32 = const.i32 2
+  %is_allowed:bool = i32.lt_s %service_id, %limit
+  %allowed:i32 = select.i32 %is_allowed, 1, 0
+  return %allowed
+}

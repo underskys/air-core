@@ -1,0 +1,29 @@
+module async_io
+use utility.fs
+use utility.net
+use utility.io
+capabilities { }
+effects { fs.read_file_async <= 1, net.http_get_async <= 1, io.poll <= 4, io.result_len <= 2, memory.alloc <= 2, memory.free <= 2, memory.load <= 0, memory.store <= 0, memory.static_alloc_bytes <= 512, memory.dynamic_allocations <= 0 }
+requires export run
+
+export func run() -> i32 {
+entry:
+  %path_ptr:i32 = 2048
+  %path_len:i32 = 12
+  %url_ptr:i32 = 2304
+  %url_len:i32 = 18
+  %bytes:i32 = 256
+  %file_buf:ptr = alloc_region %bytes
+  %net_buf:ptr = alloc_region %bytes
+  %file_req:i32 = @fs.read_file_async(%path_ptr, %path_len, %file_buf, %bytes)
+  %net_req:i32 = @net.http_get_async(%url_ptr, %url_len, %net_buf, %bytes)
+  %count:i32 = 2
+  %file_status:i32 = io.poll_bounded %file_req, %count
+  %net_status:i32 = io.poll_bounded %net_req, %count
+  %file_len:i32 = @io.result_len(%file_req)
+  %net_len:i32 = @io.result_len(%net_req)
+  %total:i32 = add %file_len, %net_len
+  free_region %net_buf
+  free_region %file_buf
+  return %total
+}

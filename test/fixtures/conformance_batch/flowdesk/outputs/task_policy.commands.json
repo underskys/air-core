@@ -1,0 +1,15 @@
+{
+  "schemaVersion": "0.20",
+  "kind": "air.commandBuffer",
+  "name": "task_policy_commands",
+  "maxCommands": 4,
+  "records": [
+    {
+      "output_id": 1001,
+      "arg0": 101,
+      "arg1": 3,
+      "arg2": 1,
+      "arg3": 0
+    }
+  ]
+}

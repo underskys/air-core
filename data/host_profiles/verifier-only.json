@@ -1,0 +1,22 @@
+{
+  "id": "verifier-only",
+  "name": "Verifier-Only Inspection Host",
+  "hostAbi": "0.10",
+  "supports": {
+    "capabilities": [],
+    "hostImports": [],
+    "assetKinds": [],
+    "manifestKinds": ["gfx", "assets", "audio"]
+  },
+  "limits": {
+    "maxAssets": 0,
+    "maxTextureSize": 0,
+    "maxAudioFiles": 0
+  },
+  "diagnostics": {
+    "ciSafe": true,
+    "manualOnly": false,
+    "requiredReports": ["package-check --profile", "strict verifier report"],
+    "unsupportedFeatureBehavior": "fail-with-diagnostic"
+  }
+}

@@ -1,0 +1,12 @@
+module lan_observer_unsafe_raw_authority
+capabilities { }
+
+extern host.fetch(request_id: i32) -> i32
+extern device.mutate(device_id: i32, action_id: i32) -> void
+
+export func unsafe_remediate(device_id: i32) -> i32 {
+entry:
+  %raw:i32 = @host.fetch(%device_id)
+  @device.mutate(%device_id, %raw)
+  return %raw
+}

@@ -1,0 +1,73 @@
+module network_dashboard
+capabilities { debug, ui }
+effects { ui.* <= 12, debug.metric <= 3 }
+requires capability ui
+requires capability debug
+requires export render
+
+extern ui.begin_frame(width: i32, height: i32, time_ms: i32) -> void
+extern ui.panel(id: i32, x: i32, y: i32, w: i32, h: i32, style: i32) -> void
+extern ui.label(id: i32, x: i32, y: i32, label: i32, style: i32) -> void
+extern ui.button(id: i32, x: i32, y: i32, w: i32, h: i32, label: i32, style: i32) -> bool
+extern ui.input_i32(id: i32, x: i32, y: i32, w: i32, label: i32, value: i32, style: i32) -> i32
+extern ui.input_f32(id: i32, x: i32, y: i32, w: i32, label: i32, value: f32, style: i32) -> f32
+extern ui.metric(id: i32, x: i32, y: i32, label: i32, value: i32, unit: i32, style: i32) -> void
+extern ui.table(id: i32, x: i32, y: i32, w: i32, h: i32, rows: i32, cols: i32, data: i32, style: i32) -> void
+extern ui.chart(id: i32, x: i32, y: i32, w: i32, h: i32, series: i32, style: i32) -> void
+extern ui.status(id: i32, x: i32, y: i32, label: i32, severity: i32, style: i32) -> void
+extern ui.warning(id: i32, x: i32, y: i32, label: i32, severity: i32, style: i32) -> void
+extern ui.end_frame() -> void
+extern debug.metric(id: i32, value: i32) -> void
+
+export func render(default_latency_threshold_ms: i32, default_loss_threshold_pct: f32) -> i32 {
+entry:
+  @ui.begin_frame(1180, 720, 0)
+  @ui.panel(1, 24, 24, 840, 560, 1)
+  @ui.label(2, 48, 48, 1300, 1)
+  %latency_threshold:i32 = @ui.input_i32(3, 48, 96, 260, 1301, %default_latency_threshold_ms, 1)
+  %loss_threshold:f32 = @ui.input_f32(4, 340, 96, 260, 1302, %default_loss_threshold_pct, 1)
+  %refresh:bool = @ui.button(5, 632, 92, 160, 36, 1303, 1)
+  %latency_a:i32 = 42
+  %latency_b:i32 = 138
+  %latency_c:i32 = 215
+  %latency_ab:i32 = add %latency_a, %latency_b
+  %latency_sum:i32 = add %latency_ab, %latency_c
+  %avg_latency:i32 = i32.div_s %latency_sum, 3
+  %loss_pct:f32 = 2.75
+  %service_down:i32 = 0
+  %stale_route:i32 = 0
+  %latency_bad:bool = i32.gt_s %avg_latency, %latency_threshold
+  %loss_bad:bool = f32.gt %loss_pct, %loss_threshold
+  %service_bad:bool = i32.gt_s %service_down, 0
+  %route_bad:bool = i32.gt_s %stale_route, 0
+  %latency_penalty:i32 = select.i32 %latency_bad, 25, 0
+  %loss_penalty:i32 = select.i32 %loss_bad, 35, 0
+  %service_penalty:i32 = select.i32 %service_bad, 20, 0
+  %route_penalty:i32 = select.i32 %route_bad, 10, 0
+  %net_penalty:i32 = add %latency_penalty, %loss_penalty
+  %ops_penalty:i32 = add %service_penalty, %route_penalty
+  %total_penalty:i32 = add %net_penalty, %ops_penalty
+  %base_score:i32 = 100
+  %score:i32 = sub %base_score, %total_penalty
+  %error_limit:i32 = 60
+  %warn_limit:i32 = 85
+  %is_error:bool = i32.lt_s %score, %error_limit
+  %is_warn_score:bool = i32.lt_s %score, %warn_limit
+  %has_risk:bool = bool.or %latency_bad, %loss_bad
+  %has_ops_risk:bool = bool.or %service_bad, %route_bad
+  %warn_or_ops:bool = bool.or %is_warn_score, %has_ops_risk
+  %warning_state:bool = bool.or %has_risk, %warn_or_ops
+  %warn_severity:i32 = select.i32 %warning_state, 1, 0
+  %severity:i32 = select.i32 %is_error, 2, %warn_severity
+  %loss_metric:i32 = 275
+  @ui.metric(6, 48, 156, 1304, %score, 2004, 1)
+  @ui.status(7, 286, 156, 1305, %severity, 1)
+  @ui.warning(8, 48, 214, 1306, %severity, 1)
+  @ui.table(9, 48, 274, 760, 140, 4, 4, 3002, 1)
+  @ui.chart(10, 48, 440, 760, 92, 4002, 1)
+  @debug.metric(9001, %avg_latency)
+  @debug.metric(9002, %loss_metric)
+  @debug.metric(9003, %score)
+  @ui.end_frame()
+  return %score
+}

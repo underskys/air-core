@@ -1,0 +1,13 @@
+{
+  "materials": {
+    "basic_emissive": {
+      "pipeline": "stdlib_unlit_mesh",
+      "model": "pbr",
+      "baseColor": [0.05, 0.1, 0.18, 1],
+      "metallic": 0,
+      "roughness": 0.35,
+      "emissive": [0.1, 0.55, 1]
+    }
+  }
+}
+

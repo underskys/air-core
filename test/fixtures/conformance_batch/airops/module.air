@@ -1,0 +1,9 @@
+module airops_batch_conformance
+capabilities { }
+
+export func incident_score(severity: i32) -> i32 {
+entry:
+  %base:i32 = const.i32 5
+  %score:i32 = add %severity, %base
+  return %score
+}

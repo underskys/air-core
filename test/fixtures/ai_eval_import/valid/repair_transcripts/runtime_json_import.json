@@ -1,0 +1,20 @@
+{
+  "schemaVersion": "0.32",
+  "kind": "air.aiAuthoringRepairTranscript",
+  "caseId": "runtime_json_import",
+  "attempts": [
+    {
+      "iteration": 1,
+      "summary": "replace runtime JSON with bounded scalar structured IO fields",
+      "verify": {
+        "status": "passed",
+        "diagnostics": []
+      },
+      "packageCheck": {
+        "status": "passed",
+        "diagnostics": []
+      },
+      "hallucinationCategories": []
+    }
+  ]
+}

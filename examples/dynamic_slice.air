@@ -1,0 +1,13 @@
+module dynamic_slice
+capabilities { }
+effects { memory.alloc <= 1, memory.free <= 1, memory.load <= 0, memory.store <= 0, memory.static_alloc_bytes <= 12, memory.dynamic_allocations <= 0 }
+
+export func run() -> i32 {
+entry:
+  %bytes:i32 = 12
+  %ptr:ptr = alloc_region %bytes
+  %slice:slice = slice.from_region %ptr, %bytes
+  %len:i32 = slice.len %slice
+  free_region %ptr
+  return %len
+}

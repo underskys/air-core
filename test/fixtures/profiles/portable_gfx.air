@@ -1,0 +1,9 @@
+module portable_gfx
+capabilities { debug, gfx }
+extern debug.metric(id: i32, value: i32) -> void
+extern gfx.draw_primitive(primitive: i32, x: i32, y: i32, z: i32, sx: i32, sy: i32, sz: i32, yaw: i32, pitch: i32, roll: i32, material: i32, flags: i32, layer: i32, id: i32) -> void
+
+export func run() -> void {
+entry:
+  return
+}

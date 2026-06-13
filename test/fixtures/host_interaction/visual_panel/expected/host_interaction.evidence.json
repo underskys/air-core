@@ -1,0 +1,83 @@
+{
+  "abiHash": "sha256:02ea49433dec46e044394b6dc64e1757aea4e71ca4c6cadfdea100bdb5bced22",
+  "airAbi": "0.10",
+  "commandRecords": [
+    {
+      "args": {
+        "arg0": 12,
+        "arg1": 2,
+        "arg2": 1,
+        "arg3": 0
+      },
+      "argsHash": "sha256:9496f41e7267c654c03c5b6f06a6d97a98623c57ba31a0e90c5e298146eb4d7a",
+      "index": 0,
+      "output_id": 3101,
+      "source": "outputs/visual_panel.commands.json"
+    },
+    {
+      "args": {
+        "arg0": 12,
+        "arg1": 7,
+        "arg2": 900,
+        "arg3": 0
+      },
+      "argsHash": "sha256:93b2fb62fe5ab1667a00fd530f5b20ef299a4844a8c0b8c935dfdaaeaf8f5c59",
+      "index": 1,
+      "output_id": 3102,
+      "source": "outputs/visual_panel.commands.json"
+    }
+  ],
+  "decisions": [
+    {
+      "argsHash": "sha256:9496f41e7267c654c03c5b6f06a6d97a98623c57ba31a0e90c5e298146eb4d7a",
+      "capability": "visual.status_intent",
+      "decision": "allow",
+      "diagnostics": [],
+      "index": 0,
+      "output": "panel_status_intent_recorded",
+      "output_id": 3101,
+      "reasonCode": "allowed",
+      "source": "outputs/visual_panel.commands.json"
+    },
+    {
+      "argsHash": "sha256:93b2fb62fe5ab1667a00fd530f5b20ef299a4844a8c0b8c935dfdaaeaf8f5c59",
+      "capability": "visual.attention_intent",
+      "decision": "allow",
+      "diagnostics": [],
+      "index": 1,
+      "output": "panel_attention_intent_recorded",
+      "output_id": 3102,
+      "reasonCode": "allowed",
+      "source": "outputs/visual_panel.commands.json"
+    }
+  ],
+  "deniedCapabilities": [],
+  "diagnostics": [],
+  "hostAbi": "0.10",
+  "hostProfile": "cli",
+  "kind": "air.hostInteractionEvidence",
+  "outputContracts": [
+    {
+      "argCount": 4,
+      "capability": "visual.status_intent",
+      "channel": "visual",
+      "contract": "outputs/visual_panel.output.json",
+      "id": 3101,
+      "name": "panel_status_intent_recorded"
+    },
+    {
+      "argCount": 4,
+      "capability": "visual.attention_intent",
+      "channel": "visual",
+      "contract": "outputs/visual_panel.output.json",
+      "id": 3102,
+      "name": "panel_attention_intent_recorded"
+    }
+  ],
+  "package": "visual-panel-command-intent-fixture",
+  "packageHash": "sha256:f715c01a674f6b01451b6c46cb73fe14e91cebb3f98cca065660cbfbbd535634",
+  "policyId": "visual-panel-review",
+  "replayChecksum": "sha256:c30ebdb7bba83b8e989a983f2ddbd508c78cac63ecb608ccc93bdd0fd3bf3f43",
+  "schemaVersion": "0.25",
+  "status": "passed"
+}

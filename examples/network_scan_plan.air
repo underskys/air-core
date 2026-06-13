@@ -1,0 +1,50 @@
+module network_scan_plan
+capabilities { }
+effects { cpu.instructions <= 48 }
+
+func progress(phase: i32, checked: i32, total: i32, stopped: bool, failed: bool) -> i32 {
+entry:
+  %has_total:bool = i32.gt_s %total, 0
+  br_if %has_total, compute, no_total
+no_total:
+  %zero:i32 = 0
+  return %zero
+compute:
+  %hundred:i32 = 100
+  %scaled:i32 = mul %checked, %hundred
+  %percent:i32 = i32.div_s %scaled, %total
+  %phase_scale:i32 = 1000
+  %phase_code:i32 = mul %phase, %phase_scale
+  %base:i32 = add %phase_code, %percent
+  %stopped_code:i32 = -50
+  %failed_code:i32 = -100
+  %maybe_stopped:i32 = select.i32 %stopped, %stopped_code, %base
+  %out:i32 = select.i32 %failed, %failed_code, %maybe_stopped
+  return %out
+}
+
+func chunk_size(total: i32, fast_tools: bool, mobile: bool) -> i32 {
+entry:
+  %small:i32 = 16
+  %medium:i32 = 64
+  %large:i32 = 256
+  %base:i32 = select.i32 %fast_tools, %large, %medium
+  %mobile_base:i32 = select.i32 %mobile, %small, %base
+  %tiny:bool = i32.lt_s %total, %mobile_base
+  %out:i32 = select.i32 %tiny, %total, %mobile_base
+  return %out
+}
+
+export func run() -> i32 {
+entry:
+  %phase:i32 = 2
+  %checked:i32 = 25
+  %total:i32 = 100
+  %no:bool = false
+  %progress:i32 = @progress(%phase, %checked, %total, %no, %no)
+  %fast:bool = true
+  %mobile:bool = false
+  %chunk:i32 = @chunk_size(%total, %fast, %mobile)
+  %out:i32 = add %progress, %chunk
+  return %out
+}

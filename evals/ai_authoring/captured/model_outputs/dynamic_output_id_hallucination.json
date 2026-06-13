@@ -1,0 +1,32 @@
+{
+  "schemaVersion": "0.32",
+  "kind": "air.aiAuthoringCapturedOutput",
+  "caseId": "dynamic_output_id_hallucination",
+  "candidateSummary": "candidate computes output.emit output_id dynamically",
+  "forbiddenSurface": true,
+  "hallucinationCategories": [
+    "dynamic_output_id"
+  ],
+  "firstPass": {
+    "verify": {
+      "status": "failed",
+      "diagnostics": [
+        {
+          "code": "air.output_emit.output_id_dynamic",
+          "severity": "fail",
+          "message": "output.emit output_id must be a literal or module constant"
+        }
+      ]
+    },
+    "packageCheck": {
+      "status": "failed",
+      "diagnostics": [
+        {
+          "code": "air.output_emit.output_id_dynamic",
+          "severity": "fail",
+          "message": "dynamic output ids are rejected"
+        }
+      ]
+    }
+  }
+}

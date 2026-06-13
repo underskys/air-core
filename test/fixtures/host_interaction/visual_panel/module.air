@@ -1,0 +1,9 @@
+module visual_panel_command_intent
+capabilities { }
+
+export func panel_score(signal: i32) -> i32 {
+entry:
+  %base:i32 = const.i32 10
+  %score:i32 = add %signal, %base
+  return %score
+}

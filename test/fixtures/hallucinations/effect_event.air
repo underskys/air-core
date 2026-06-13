@@ -1,0 +1,9 @@
+module hallucinated_effect_event
+capabilities { debug }
+extern effect.event(id: i32, value: i32) -> void
+
+export func run() -> void {
+entry:
+  @effect.event(1, 1)
+  return
+}

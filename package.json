@@ -1,0 +1,80 @@
+{
+  "name": "air-verifier",
+  "version": "0.43.0-alpha.1",
+  "description": "Verifier-enforced IR and CLI (AIR) for bounded, deterministic AI-authored modules with capability/effect checks and evidence reports.",
+  "license": "Apache-2.0",
+  "author": "Dmitriii",
+  "type": "commonjs",
+  "bin": {
+    "airc": "./bin/airc.js"
+  },
+  "files": [
+    "AUTHORS",
+    "CHANGELOG.md",
+    "CONFORMANCE.md",
+    "CONTRIBUTING.md",
+    "LICENSE",
+    "METHOD.md",
+    "NOTICE",
+    "README.md",
+    "ROADMAP.md",
+    "SECURITY.md",
+    "SHOWCASE.md",
+    "THREAT_MODEL.md",
+    "VERSIONING.md",
+    "WHY_AIR.md",
+    "bin/",
+    "data/host_profiles/",
+    "examples/public/",
+    "spec/",
+    "src/",
+    "stdlib/",
+    "test/fixtures/conformance_policy/",
+    "test/fixtures/conformance_state/",
+    "test/fixtures/profiles/"
+  ],
+  "scripts": {
+    "test": "node test/run.js && node test/package_manifest.test.js && node test/facts_schema.test.js && node test/output_contract_schema.test.js && node test/command_buffer_schema.test.js && node test/structured_io.test.js && node test/ai_authoring_eval.test.js && node test/verifier_safety_fuzz.test.js && node test/mock_host_policy.test.js && node test/verification_evidence.test.js && node test/host_profiles.test.js && node test/output_emit_validation.test.js && node test/output_emit_runtime.test.js && node test/output_handle_generator.test.js && node test/asset_manifest.test.js && node test/handle_generator.test.js && node test/module_graph.test.js && node test/static_tables.test.js && node test/tablegroups.test.js && node test/fixed_state.test.js && node test/pools.test.js && node test/report.test.js && node test/lsp_diagnostics.test.js && node test/lsp_server.test.js && node test/anti_slop_diagnostics.test.js && node test/surface.test.js && node test/hallucination_fixtures.test.js && node test/airpkg.test.js && node test/target_bundle.test.js && node test/link_symbols.test.js && node test/link_plan.test.js && node test/linked_package.test.js && node test/conformance_replay.test.js && node test/e2e_proof.test.js && node test/benchmark.test.js && node test/package_diff.test.js && node test/evidence_report.test.js && node test/lan_observer_readonly.test.js && node test/consumer_evidence.test.js && node test/request_ledger.test.js && node scripts/check_feature_status.js",
+    "test:bundle": "AIR_REVIEW_BUNDLE=1 npm test",
+    "snapshot": "bash scripts/make_review_bundle.sh",
+    "bundle:recipe": "bash scripts/review_bundle_recipe.sh",
+    "snapshot:demos": "bash scripts/make_demo_review_bundle.sh",
+    "consumer-evidence:bundle": "bash scripts/make_consumer_evidence_bundle.sh",
+    "agent:finish": "bash scripts/agent_finish.sh",
+    "rc:check": "bash scripts/run_rc_checks.sh",
+    "review:check": "node scripts/check_review_bundle.js",
+    "abi:check": "node scripts/check_abi_requests.js",
+    "check:abi-requests": "node scripts/check_abi_requests.js",
+    "check:api-gates:v0.21": "node scripts/check_api_gates_v0_21.js",
+    "check:api-gates:v0.22": "node scripts/check_api_gates_v0_22.js",
+    "check:api-gates:v0.26": "node scripts/check_api_gates_v0_26.js",
+    "check:api-gates:v0.27": "node scripts/check_api_gates_v0_27.js",
+    "check:api-gates:v0.28": "node scripts/check_api_gates_v0_28.js",
+    "check:api-gates:v0.32": "node scripts/check_api_gates_v0_32.js",
+    "check:api-gates:v0.33": "node scripts/check_api_gates_v0_33.js",
+    "check:api-gates:v0.37": "node scripts/check_api_gates_v0_37.js",
+    "check:api-gates:v0.38": "node scripts/check_api_gates_v0_38.js",
+    "check:api-gates:v0.39": "node scripts/check_api_gates_v0_39.js",
+    "check:api-gates:v0.40": "node scripts/check_api_gates_v0_40.js",
+    "check:api-gates:v0.41": "node scripts/check_api_gates_v0_41.js",
+    "check:consumer-evidence": "node scripts/check_consumer_evidence.js",
+    "check:public-claims": "node scripts/check_public_claims.js",
+    "check:public-package-surface": "node scripts/check_public_package_surface.js",
+    "build:grep": "node bin/airc.js build examples/grep.air --emit wat -o build/grep.wat",
+    "build:wasm": "node bin/airc.js build examples/grep.air --emit wasm -o build/grep.wasm",
+    "check:request-ledger": "node scripts/check_request_ledger.js"
+  },
+  "config": {
+    "reviewBundle": {
+      "version": "2.0",
+      "script": "scripts/make_review_bundle.sh",
+      "retention": 10
+    }
+  },
+  "dependencies": {
+    "wabt": "^1.0.37"
+  },
+  "engines": {
+    "node": ">=16"
+  }
+}

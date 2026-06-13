@@ -1,0 +1,38 @@
+stages:
+  - verify
+  - policy
+  - merge
+
+default:
+  image: node:20
+  cache:
+    key:
+      files:
+        - package-lock.json
+    paths:
+      - .npm/
+  before_script:
+    - npm ci --cache .npm --prefer-offline
+
+verify:
+  stage: verify
+  script:
+    - npm test
+
+mr-approval-policy:
+  stage: policy
+  script:
+    - node scripts/gitlab_mr_policy.mjs check
+  rules:
+    - if: '$CI_MERGE_REQUEST_IID'
+
+mr-auto-merge:
+  stage: merge
+  needs:
+    - verify
+    - mr-approval-policy
+  script:
+    - node scripts/gitlab_mr_policy.mjs auto-merge
+  rules:
+    - if: '$CI_MERGE_REQUEST_IID && $AIR_AUTO_MERGE == "1"'
+    - if: '$CI_MERGE_REQUEST_IID && $CI_MERGE_REQUEST_LABELS =~ /(^|,)auto-merge(,|$)/'

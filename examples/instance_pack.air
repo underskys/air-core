@@ -1,0 +1,44 @@
+module instance_pack
+use std.transform
+use std.color
+capabilities { }
+effects { memory.alloc <= 1, memory.free <= 1, memory.load <= 3, memory.store <= 20, memory.static_alloc_bytes <= 80, memory.dynamic_allocations <= 0 }
+requires export run
+
+export func run() -> i32 {
+entry:
+  %bytes:i32 = 80
+  %ptr:ptr = alloc_region %bytes
+  %zero:i32 = 0
+  %one:f32 = 1
+  %px:f32 = 2
+  %py:f32 = 3
+  %pz:f32 = 4
+  %pos:vec3 = vec3.new %px, %py, %pz
+  %rot:quat = quat.identity
+  %scale:vec3 = vec3.new %one, %one, %one
+  %m:mat4 = @transform.compose_trs(%pos, %rot, %scale)
+  mat4.store_f32 %m, %ptr, %zero
+  %material:i32 = 7
+  %red:i32 = 210
+  %green:i32 = 80
+  %blue:i32 = 40
+  %color:i32 = @color.rgb_pack(%red, %green, %blue)
+  %flags:i32 = 3
+  %user:i32 = 11
+  %off_material:i32 = 64
+  %off_color:i32 = 68
+  %off_flags:i32 = 72
+  %off_user:i32 = 76
+  store.i32 %ptr, %off_material, %material
+  store.i32 %ptr, %off_color, %color
+  store.i32 %ptr, %off_flags, %flags
+  store.i32 %ptr, %off_user, %user
+  %loaded_material:i32 = load.i32 %ptr, %off_material
+  %loaded_flags:i32 = load.i32 %ptr, %off_flags
+  %loaded_user:i32 = load.i32 %ptr, %off_user
+  %sum0:i32 = add %loaded_material, %loaded_flags
+  %out:i32 = add %sum0, %loaded_user
+  free_region %ptr
+  return %out
+}

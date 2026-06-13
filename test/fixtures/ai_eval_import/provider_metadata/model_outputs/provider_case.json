@@ -1,0 +1,16 @@
+{
+  "schemaVersion": "0.32",
+  "kind": "air.aiAuthoringCapturedOutput",
+  "caseId": "provider_case",
+  "candidateSummary": "otherwise valid captured output",
+  "firstPass": {
+    "verify": {
+      "status": "passed",
+      "diagnostics": []
+    },
+    "packageCheck": {
+      "status": "passed",
+      "diagnostics": []
+    }
+  }
+}

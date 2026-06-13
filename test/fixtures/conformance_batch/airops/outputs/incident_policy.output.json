@@ -1,0 +1,19 @@
+{
+  "schemaVersion": "0.18",
+  "kind": "air.outputContract",
+  "outputs": [
+    {
+      "id": 2001,
+      "name": "pipeline_decision_recorded",
+      "channel": "pipeline",
+      "capability": "pipeline.decision",
+      "args": [
+        { "name": "incident_id", "type": "i32" },
+        { "name": "decision_id", "type": "i32" },
+        { "name": "flags", "type": "i32" }
+      ],
+      "resources": [],
+      "profileConstraints": []
+    }
+  ]
+}

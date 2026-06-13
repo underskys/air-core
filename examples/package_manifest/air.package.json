@@ -1,0 +1,22 @@
+{
+  "name": "package-manifest-example",
+  "version": "0.1.0",
+  "airAbi": "0.10",
+  "hostAbi": "0.10",
+  "entry": "module.air",
+  "wasm": "module.wasm",
+  "capabilities": ["debug"],
+  "targetProfiles": ["browser-webgpu"],
+  "generatedModules": [
+    "generated/assets.air",
+    "generated/asset_handles.air",
+    "generated/audio_handles.air",
+    "generated/material_handles.air",
+    "generated/sprite_handles.air"
+  ],
+  "manifests": {
+    "assets": "assets/manifest.json",
+    "audio": "assets/manifests/audio.json",
+    "gfx": "scene.airgfx.json"
+  }
+}

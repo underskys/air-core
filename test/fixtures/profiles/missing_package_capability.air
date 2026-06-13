@@ -1,0 +1,8 @@
+module missing_{{capability}}_package_capability
+capabilities { {{capability}} }
+extern {{extern}}
+
+export func run() -> i32 {
+entry:
+  return 0
+}

@@ -1,0 +1,8 @@
+{
+  "kind": "procedural-environment",
+  "layout": "equirectangular",
+  "top": [10, 14, 30, 255],
+  "horizon": [54, 72, 110, 255],
+  "accent": [40, 190, 255, 255],
+  "ground": [8, 8, 12, 255]
+}

@@ -1,0 +1,19 @@
+{
+  "name": "package-composition-conformance",
+  "version": "0.1.0",
+  "airAbi": "0.10",
+  "hostAbi": "0.10",
+  "entry": "main.air",
+  "wasm": "linked.wasm",
+  "capabilities": [],
+  "targetProfiles": [
+    "cli"
+  ],
+  "packageExports": [
+    {
+      "name": "run",
+      "module": "main.air",
+      "function": "run"
+    }
+  ]
+}

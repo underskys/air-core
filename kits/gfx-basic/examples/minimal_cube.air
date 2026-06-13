@@ -1,0 +1,21 @@
+module gfx_basic_minimal_cube
+capabilities { gfx }
+effects { gfx.draw_primitive <= 1 }
+requires capability gfx
+requires export frame
+
+extern gfx.draw_primitive(primitive: i32, material: i32, x: i32, y: i32, z: i32, sx: i32, sy: i32, sz: i32, yaw: i32, pitch: i32, roll: i32, color: i32, emissive: i32, flags: i32) -> void
+
+export func frame(t: i32) -> void {
+entry:
+  %box:i32 = 1
+  %material:i32 = 1
+  %x:i32 = 0
+  %y:i32 = 0
+  %z:i32 = 0
+  %size:i32 = 1000
+  %zero:i32 = 0
+  %color:i32 = 41151
+  @gfx.draw_primitive(%box, %material, %x, %y, %z, %size, %size, %size, %t, %zero, %zero, %color, %zero, %zero)
+  return
+}

@@ -1,0 +1,10 @@
+module text_processor_demo
+capabilities { stdio }
+
+func main(args: slice) -> i32 {
+entry:
+  %msg:slice = "{\"status\":\"ok\",\"engine\":\"air\"}\n"
+  print %msg
+  %code:i32 = 0
+  return %code
+}

@@ -1,0 +1,11 @@
+{
+  "schemaVersion": "0.25",
+  "kind": "air.mockHostPolicy",
+  "id": "visual-panel-deny-attention",
+  "allowOutputs": ["panel_status_intent_recorded"],
+  "denyOutputs": ["panel_attention_intent_recorded"],
+  "capabilities": {
+    "visual.status_intent": "allowed",
+    "visual.attention_intent": "forbidden"
+  }
+}

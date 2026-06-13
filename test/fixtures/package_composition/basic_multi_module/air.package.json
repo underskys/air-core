@@ -1,0 +1,20 @@
+{
+  "name": "package-composition-basic",
+  "version": "0.1.0",
+  "airAbi": "0.10",
+  "hostAbi": "0.10",
+  "entry": "main.air",
+  "capabilities": [
+    "debug"
+  ],
+  "targetProfiles": [
+    "browser-webgpu"
+  ],
+  "packageExports": [
+    {
+      "name": "run",
+      "module": "main.air",
+      "function": "run"
+    }
+  ]
+}

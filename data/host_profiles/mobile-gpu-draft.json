@@ -1,0 +1,40 @@
+{
+  "id": "mobile-gpu-draft",
+  "name": "Mobile-Style GPU Host Draft",
+  "hostAbi": "0.10",
+  "supports": {
+    "capabilities": ["debug", "time", "random", "input", "gfx", "ui", "audio"],
+    "hostImports": [
+      "audio.beep",
+      "audio.play_tone",
+      "audio.set_gain",
+      "debug.metric",
+      "gfx.begin_frame",
+      "gfx.draw_primitive",
+      "gfx.end_frame",
+      "input.axis",
+      "input.button",
+      "ui.begin_frame",
+      "ui.button",
+      "ui.chart",
+      "ui.end_frame",
+      "ui.metric",
+      "ui.status",
+      "ui.table",
+      "ui.warning"
+    ],
+    "assetKinds": ["texture", "shader", "model", "material", "audioSfx", "audioMusic", "sprite", "spriteAtlas", "background", "rig"],
+    "manifestKinds": ["gfx", "assets", "audio", "ui"]
+  },
+  "limits": {
+    "maxAssets": 96,
+    "maxTextureSize": 2048,
+    "maxAudioFiles": 32
+  },
+  "diagnostics": {
+    "ciSafe": false,
+    "manualOnly": true,
+    "requiredReports": ["package-check --profile", "manual mobile-style host diagnostics"],
+    "unsupportedFeatureBehavior": "fail-with-diagnostic"
+  }
+}

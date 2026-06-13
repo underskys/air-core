@@ -1,0 +1,11 @@
+module public_evidence_report
+capabilities { }
+requires export score
+
+export func score(priority: i32, risk: i32) -> i32 {
+entry:
+  %weighted:i32 = mul %priority, 10
+  %out:i32 = add %weighted, %risk
+  return %out
+}
+

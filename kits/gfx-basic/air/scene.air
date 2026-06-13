@@ -1,0 +1,23 @@
+module scene
+capabilities { gfx }
+
+extern gfx.camera_look_at(x: i32, y: i32, z: i32, target_x: i32, target_y: i32, target_z: i32, fov: i32) -> void
+extern gfx.skybox_world(asset: i32, tint: i32, intensity: i32, yaw: i32, pitch: i32, roll: i32) -> void
+
+func camera_look_at(x: i32, y: i32, z: i32, target_x: i32, target_y: i32, target_z: i32, fov: i32) -> void {
+entry:
+  @gfx.camera_look_at(%x, %y, %z, %target_x, %target_y, %target_z, %fov)
+  return
+}
+
+func skybox_world(asset: i32, tint: i32, intensity: i32, yaw: i32, pitch: i32, roll: i32) -> void {
+entry:
+  @gfx.skybox_world(%asset, %tint, %intensity, %yaw, %pitch, %roll)
+  return
+}
+
+func skydome_world(asset: i32, tint: i32, intensity: i32, yaw: i32, pitch: i32, roll: i32) -> void {
+entry:
+  @gfx.skybox_world(%asset, %tint, %intensity, %yaw, %pitch, %roll)
+  return
+}

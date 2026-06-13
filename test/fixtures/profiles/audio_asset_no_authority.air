@@ -1,0 +1,8 @@
+module audio_asset_no_authority
+capabilities { debug }
+extern debug.metric(id: i32, value: i32) -> void
+
+export func run() -> void {
+entry:
+  return
+}

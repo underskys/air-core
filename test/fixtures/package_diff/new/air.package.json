@@ -1,0 +1,13 @@
+{
+  "name": "package-diff-golden",
+  "version": "0.1.0",
+  "airAbi": "0.10",
+  "hostAbi": "0.11",
+  "entry": "module.air",
+  "capabilities": ["output"],
+  "targetProfiles": ["mock-output-v011"],
+  "factSchemas": ["facts/task_summary.rowset.schema.json"],
+  "outputContracts": ["outputs/task_policy.output.json"],
+  "commandBuffers": [],
+  "generatedModules": []
+}

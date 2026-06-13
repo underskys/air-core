@@ -1,0 +1,32 @@
+{
+  "schemaVersion": "0.32",
+  "kind": "air.aiAuthoringCapturedOutput",
+  "caseId": "host_authority_hallucination",
+  "candidateSummary": "candidate tries to call raw host.fetch/chrome/db authority",
+  "forbiddenSurface": true,
+  "hallucinationCategories": [
+    "raw_host_authority"
+  ],
+  "firstPass": {
+    "verify": {
+      "status": "failed",
+      "diagnostics": [
+        {
+          "code": "air.api_gate.raw_host_authority_rejected",
+          "severity": "fail",
+          "message": "raw host authority is rejected"
+        }
+      ]
+    },
+    "packageCheck": {
+      "status": "failed",
+      "diagnostics": [
+        {
+          "code": "air.api_gate.raw_host_authority_rejected",
+          "severity": "fail",
+          "message": "host.fetch/chrome/db/cloud authority is not available to AIR"
+        }
+      ]
+    }
+  }
+}

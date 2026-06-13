@@ -1,0 +1,6542 @@
+{
+  "assets": {
+    "cubemaps": {
+      "storm_sky": {
+        "format": "procedural",
+        "handle": 1,
+        "path": "gpu_arena/assets/storm_sky.json"
+      }
+    },
+    "models": {
+      "archway_frame": {
+        "format": "gltf",
+        "handle": 14,
+        "path": "gpu_arena/assets/arena_platform.gltf"
+      },
+      "arena_platform": {
+        "format": "gltf",
+        "handle": 1,
+        "path": "gpu_arena/assets/arena_platform.gltf"
+      },
+      "bridge_module_8x3": {
+        "format": "gltf",
+        "handle": 5,
+        "path": "gpu_arena/assets/arena_platform.gltf"
+      },
+      "circular_platform": {
+        "format": "gltf",
+        "handle": 8,
+        "path": "gpu_arena/assets/arena_platform.gltf"
+      },
+      "cover_crate": {
+        "format": "gltf",
+        "handle": 13,
+        "path": "gpu_arena/assets/arena_platform.gltf"
+      },
+      "energy_gate": {
+        "format": "gltf",
+        "handle": 11,
+        "path": "gpu_arena/assets/arena_platform.gltf"
+      },
+      "floor_panel_4x4": {
+        "format": "gltf",
+        "handle": 2,
+        "path": "gpu_arena/assets/arena_platform.gltf"
+      },
+      "jump_pad": {
+        "format": "gltf",
+        "handle": 9,
+        "path": "gpu_arena/assets/arena_platform.gltf"
+      },
+      "lava_channel_8x2": {
+        "format": "gltf",
+        "handle": 12,
+        "path": "gpu_arena/assets/arena_platform.gltf"
+      },
+      "pickup_spawn_marker": {
+        "format": "gltf",
+        "handle": 15,
+        "path": "gpu_arena/assets/arena_platform.gltf"
+      },
+      "ramp_module_6x3": {
+        "format": "gltf",
+        "handle": 6,
+        "path": "gpu_arena/assets/arena_platform.gltf"
+      },
+      "stair_module_6x3": {
+        "format": "gltf",
+        "handle": 7,
+        "path": "gpu_arena/assets/arena_platform.gltf"
+      },
+      "support_pillar_tall": {
+        "format": "gltf",
+        "handle": 4,
+        "path": "gpu_arena/assets/arena_platform.gltf"
+      },
+      "teleport_pad": {
+        "format": "gltf",
+        "handle": 10,
+        "path": "gpu_arena/assets/arena_platform.gltf"
+      },
+      "wall_segment_8x4": {
+        "format": "gltf",
+        "handle": 3,
+        "path": "gpu_arena/assets/arena_platform.gltf"
+      }
+    },
+    "sprites": {
+      "blue_rune": {
+        "frame": [
+          0,
+          0,
+          128,
+          128
+        ],
+        "handle": 1,
+        "texture": "rune_atlas"
+      }
+    },
+    "textures": {
+      "rune_atlas": {
+        "format": "image",
+        "handle": 1,
+        "path": "gpu_arena/assets/rune_atlas.svg"
+      }
+    },
+    "vectors": {
+      "rune_vector": {
+        "colorSpace": "srgb",
+        "format": "svg",
+        "handle": 1,
+        "path": "gpu_arena/assets/rune_atlas.svg",
+        "tessellation": "host",
+        "usage": "decal"
+      }
+    }
+  },
+  "canvas": {
+    "clearColor": [
+      5,
+      7,
+      18,
+      255
+    ],
+    "height": 720,
+    "width": 1280
+  },
+  "collision": {
+    "colliders": [
+      {
+        "axis": "Y",
+        "center": [
+          0,
+          0.9,
+          38
+        ],
+        "height": 1.8,
+        "id": "player_capsule",
+        "layer": "actor",
+        "radius": 0.35,
+        "type": "capsule"
+      },
+      {
+        "id": "main_floor_grid_0",
+        "layer": "world",
+        "size": [
+          6,
+          0.5,
+          6
+        ],
+        "target": "main_floor_grid",
+        "transform": {
+          "position": [
+            -28,
+            0,
+            -28
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1.5,
+            1,
+            1.5
+          ]
+        },
+        "type": "box"
+      },
+      {
+        "id": "main_floor_grid_1",
+        "layer": "world",
+        "size": [
+          6,
+          0.5,
+          6
+        ],
+        "target": "main_floor_grid",
+        "transform": {
+          "position": [
+            -28,
+            0,
+            28
+          ],
+          "rotation": [
+            180,
+            0,
+            0
+          ],
+          "scale": [
+            1.5,
+            1,
+            1.5
+          ]
+        },
+        "type": "box"
+      },
+      {
+        "id": "main_floor_grid_2",
+        "layer": "world",
+        "size": [
+          6,
+          0.5,
+          6
+        ],
+        "target": "main_floor_grid",
+        "transform": {
+          "position": [
+            -28,
+            0,
+            -28
+          ],
+          "rotation": [
+            -90,
+            0,
+            0
+          ],
+          "scale": [
+            1.5,
+            1,
+            1.5
+          ]
+        },
+        "type": "box"
+      },
+      {
+        "id": "main_floor_grid_3",
+        "layer": "world",
+        "size": [
+          6,
+          0.5,
+          6
+        ],
+        "target": "main_floor_grid",
+        "transform": {
+          "position": [
+            28,
+            0,
+            -28
+          ],
+          "rotation": [
+            90,
+            0,
+            0
+          ],
+          "scale": [
+            1.5,
+            1,
+            1.5
+          ]
+        },
+        "type": "box"
+      },
+      {
+        "id": "main_floor_grid_4",
+        "layer": "world",
+        "size": [
+          6,
+          0.5,
+          6
+        ],
+        "target": "main_floor_grid",
+        "transform": {
+          "position": [
+            -20,
+            0,
+            -28
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1.5,
+            1,
+            1.5
+          ]
+        },
+        "type": "box"
+      },
+      {
+        "id": "main_floor_grid_5",
+        "layer": "world",
+        "size": [
+          6,
+          0.5,
+          6
+        ],
+        "target": "main_floor_grid",
+        "transform": {
+          "position": [
+            -20,
+            0,
+            28
+          ],
+          "rotation": [
+            180,
+            0,
+            0
+          ],
+          "scale": [
+            1.5,
+            1,
+            1.5
+          ]
+        },
+        "type": "box"
+      },
+      {
+        "id": "main_floor_grid_6",
+        "layer": "world",
+        "size": [
+          6,
+          0.5,
+          6
+        ],
+        "target": "main_floor_grid",
+        "transform": {
+          "position": [
+            -28,
+            0,
+            -20
+          ],
+          "rotation": [
+            -90,
+            0,
+            0
+          ],
+          "scale": [
+            1.5,
+            1,
+            1.5
+          ]
+        },
+        "type": "box"
+      },
+      {
+        "id": "main_floor_grid_7",
+        "layer": "world",
+        "size": [
+          6,
+          0.5,
+          6
+        ],
+        "target": "main_floor_grid",
+        "transform": {
+          "position": [
+            28,
+            0,
+            -20
+          ],
+          "rotation": [
+            90,
+            0,
+            0
+          ],
+          "scale": [
+            1.5,
+            1,
+            1.5
+          ]
+        },
+        "type": "box"
+      },
+      {
+        "id": "main_floor_grid_8",
+        "layer": "world",
+        "size": [
+          6,
+          0.5,
+          6
+        ],
+        "target": "main_floor_grid",
+        "transform": {
+          "position": [
+            -12,
+            0,
+            -28
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1.5,
+            1,
+            1.5
+          ]
+        },
+        "type": "box"
+      },
+      {
+        "id": "main_floor_grid_9",
+        "layer": "world",
+        "size": [
+          6,
+          0.5,
+          6
+        ],
+        "target": "main_floor_grid",
+        "transform": {
+          "position": [
+            -12,
+            0,
+            28
+          ],
+          "rotation": [
+            180,
+            0,
+            0
+          ],
+          "scale": [
+            1.5,
+            1,
+            1.5
+          ]
+        },
+        "type": "box"
+      },
+      {
+        "id": "main_floor_grid_10",
+        "layer": "world",
+        "size": [
+          6,
+          0.5,
+          6
+        ],
+        "target": "main_floor_grid",
+        "transform": {
+          "position": [
+            -28,
+            0,
+            -12
+          ],
+          "rotation": [
+            -90,
+            0,
+            0
+          ],
+          "scale": [
+            1.5,
+            1,
+            1.5
+          ]
+        },
+        "type": "box"
+      },
+      {
+        "id": "main_floor_grid_11",
+        "layer": "world",
+        "size": [
+          6,
+          0.5,
+          6
+        ],
+        "target": "main_floor_grid",
+        "transform": {
+          "position": [
+            28,
+            0,
+            -12
+          ],
+          "rotation": [
+            90,
+            0,
+            0
+          ],
+          "scale": [
+            1.5,
+            1,
+            1.5
+          ]
+        },
+        "type": "box"
+      },
+      {
+        "id": "main_floor_grid_12",
+        "layer": "world",
+        "size": [
+          6,
+          0.5,
+          6
+        ],
+        "target": "main_floor_grid",
+        "transform": {
+          "position": [
+            -4,
+            0,
+            -28
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1.5,
+            1,
+            1.5
+          ]
+        },
+        "type": "box"
+      },
+      {
+        "id": "main_floor_grid_13",
+        "layer": "world",
+        "size": [
+          6,
+          0.5,
+          6
+        ],
+        "target": "main_floor_grid",
+        "transform": {
+          "position": [
+            -4,
+            0,
+            28
+          ],
+          "rotation": [
+            180,
+            0,
+            0
+          ],
+          "scale": [
+            1.5,
+            1,
+            1.5
+          ]
+        },
+        "type": "box"
+      },
+      {
+        "id": "main_floor_grid_14",
+        "layer": "world",
+        "size": [
+          6,
+          0.5,
+          6
+        ],
+        "target": "main_floor_grid",
+        "transform": {
+          "position": [
+            -28,
+            0,
+            -4
+          ],
+          "rotation": [
+            -90,
+            0,
+            0
+          ],
+          "scale": [
+            1.5,
+            1,
+            1.5
+          ]
+        },
+        "type": "box"
+      },
+      {
+        "id": "main_floor_grid_15",
+        "layer": "world",
+        "size": [
+          6,
+          0.5,
+          6
+        ],
+        "target": "main_floor_grid",
+        "transform": {
+          "position": [
+            28,
+            0,
+            -4
+          ],
+          "rotation": [
+            90,
+            0,
+            0
+          ],
+          "scale": [
+            1.5,
+            1,
+            1.5
+          ]
+        },
+        "type": "box"
+      },
+      {
+        "id": "main_floor_grid_16",
+        "layer": "world",
+        "size": [
+          6,
+          0.5,
+          6
+        ],
+        "target": "main_floor_grid",
+        "transform": {
+          "position": [
+            4,
+            0,
+            -28
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1.5,
+            1,
+            1.5
+          ]
+        },
+        "type": "box"
+      },
+      {
+        "id": "main_floor_grid_17",
+        "layer": "world",
+        "size": [
+          6,
+          0.5,
+          6
+        ],
+        "target": "main_floor_grid",
+        "transform": {
+          "position": [
+            4,
+            0,
+            28
+          ],
+          "rotation": [
+            180,
+            0,
+            0
+          ],
+          "scale": [
+            1.5,
+            1,
+            1.5
+          ]
+        },
+        "type": "box"
+      },
+      {
+        "id": "main_floor_grid_18",
+        "layer": "world",
+        "size": [
+          6,
+          0.5,
+          6
+        ],
+        "target": "main_floor_grid",
+        "transform": {
+          "position": [
+            -28,
+            0,
+            4
+          ],
+          "rotation": [
+            -90,
+            0,
+            0
+          ],
+          "scale": [
+            1.5,
+            1,
+            1.5
+          ]
+        },
+        "type": "box"
+      },
+      {
+        "id": "main_floor_grid_19",
+        "layer": "world",
+        "size": [
+          6,
+          0.5,
+          6
+        ],
+        "target": "main_floor_grid",
+        "transform": {
+          "position": [
+            28,
+            0,
+            4
+          ],
+          "rotation": [
+            90,
+            0,
+            0
+          ],
+          "scale": [
+            1.5,
+            1,
+            1.5
+          ]
+        },
+        "type": "box"
+      },
+      {
+        "id": "main_floor_grid_20",
+        "layer": "world",
+        "size": [
+          6,
+          0.5,
+          6
+        ],
+        "target": "main_floor_grid",
+        "transform": {
+          "position": [
+            12,
+            0,
+            -28
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1.5,
+            1,
+            1.5
+          ]
+        },
+        "type": "box"
+      },
+      {
+        "id": "main_floor_grid_21",
+        "layer": "world",
+        "size": [
+          6,
+          0.5,
+          6
+        ],
+        "target": "main_floor_grid",
+        "transform": {
+          "position": [
+            12,
+            0,
+            28
+          ],
+          "rotation": [
+            180,
+            0,
+            0
+          ],
+          "scale": [
+            1.5,
+            1,
+            1.5
+          ]
+        },
+        "type": "box"
+      },
+      {
+        "id": "main_floor_grid_22",
+        "layer": "world",
+        "size": [
+          6,
+          0.5,
+          6
+        ],
+        "target": "main_floor_grid",
+        "transform": {
+          "position": [
+            -28,
+            0,
+            12
+          ],
+          "rotation": [
+            -90,
+            0,
+            0
+          ],
+          "scale": [
+            1.5,
+            1,
+            1.5
+          ]
+        },
+        "type": "box"
+      },
+      {
+        "id": "main_floor_grid_23",
+        "layer": "world",
+        "size": [
+          6,
+          0.5,
+          6
+        ],
+        "target": "main_floor_grid",
+        "transform": {
+          "position": [
+            28,
+            0,
+            12
+          ],
+          "rotation": [
+            90,
+            0,
+            0
+          ],
+          "scale": [
+            1.5,
+            1,
+            1.5
+          ]
+        },
+        "type": "box"
+      },
+      {
+        "id": "main_floor_grid_24",
+        "layer": "world",
+        "size": [
+          6,
+          0.5,
+          6
+        ],
+        "target": "main_floor_grid",
+        "transform": {
+          "position": [
+            20,
+            0,
+            -28
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1.5,
+            1,
+            1.5
+          ]
+        },
+        "type": "box"
+      },
+      {
+        "id": "main_floor_grid_25",
+        "layer": "world",
+        "size": [
+          6,
+          0.5,
+          6
+        ],
+        "target": "main_floor_grid",
+        "transform": {
+          "position": [
+            20,
+            0,
+            28
+          ],
+          "rotation": [
+            180,
+            0,
+            0
+          ],
+          "scale": [
+            1.5,
+            1,
+            1.5
+          ]
+        },
+        "type": "box"
+      },
+      {
+        "id": "main_floor_grid_26",
+        "layer": "world",
+        "size": [
+          6,
+          0.5,
+          6
+        ],
+        "target": "main_floor_grid",
+        "transform": {
+          "position": [
+            -28,
+            0,
+            20
+          ],
+          "rotation": [
+            -90,
+            0,
+            0
+          ],
+          "scale": [
+            1.5,
+            1,
+            1.5
+          ]
+        },
+        "type": "box"
+      },
+      {
+        "id": "main_floor_grid_27",
+        "layer": "world",
+        "size": [
+          6,
+          0.5,
+          6
+        ],
+        "target": "main_floor_grid",
+        "transform": {
+          "position": [
+            28,
+            0,
+            20
+          ],
+          "rotation": [
+            90,
+            0,
+            0
+          ],
+          "scale": [
+            1.5,
+            1,
+            1.5
+          ]
+        },
+        "type": "box"
+      },
+      {
+        "id": "main_floor_grid_28",
+        "layer": "world",
+        "size": [
+          6,
+          0.5,
+          6
+        ],
+        "target": "main_floor_grid",
+        "transform": {
+          "position": [
+            28,
+            0,
+            -28
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1.5,
+            1,
+            1.5
+          ]
+        },
+        "type": "box"
+      },
+      {
+        "id": "main_floor_grid_29",
+        "layer": "world",
+        "size": [
+          6,
+          0.5,
+          6
+        ],
+        "target": "main_floor_grid",
+        "transform": {
+          "position": [
+            28,
+            0,
+            28
+          ],
+          "rotation": [
+            180,
+            0,
+            0
+          ],
+          "scale": [
+            1.5,
+            1,
+            1.5
+          ]
+        },
+        "type": "box"
+      },
+      {
+        "id": "main_floor_grid_30",
+        "layer": "world",
+        "size": [
+          6,
+          0.5,
+          6
+        ],
+        "target": "main_floor_grid",
+        "transform": {
+          "position": [
+            -28,
+            0,
+            28
+          ],
+          "rotation": [
+            -90,
+            0,
+            0
+          ],
+          "scale": [
+            1.5,
+            1,
+            1.5
+          ]
+        },
+        "type": "box"
+      },
+      {
+        "id": "main_floor_grid_31",
+        "layer": "world",
+        "size": [
+          6,
+          0.5,
+          6
+        ],
+        "target": "main_floor_grid",
+        "transform": {
+          "position": [
+            28,
+            0,
+            28
+          ],
+          "rotation": [
+            90,
+            0,
+            0
+          ],
+          "scale": [
+            1.5,
+            1,
+            1.5
+          ]
+        },
+        "type": "box"
+      },
+      {
+        "id": "outer_walls_0",
+        "layer": "world",
+        "size": [
+          8,
+          4,
+          1
+        ],
+        "target": "outer_walls",
+        "transform": {
+          "position": [
+            -48,
+            2,
+            -48
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "type": "box"
+      },
+      {
+        "id": "outer_walls_1",
+        "layer": "world",
+        "size": [
+          8,
+          4,
+          1
+        ],
+        "target": "outer_walls",
+        "transform": {
+          "position": [
+            -48,
+            2,
+            48
+          ],
+          "rotation": [
+            180,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "type": "box"
+      },
+      {
+        "id": "outer_walls_2",
+        "layer": "world",
+        "size": [
+          8,
+          4,
+          1
+        ],
+        "target": "outer_walls",
+        "transform": {
+          "position": [
+            -48,
+            2,
+            -48
+          ],
+          "rotation": [
+            -90,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "type": "box"
+      },
+      {
+        "id": "outer_walls_3",
+        "layer": "world",
+        "size": [
+          8,
+          4,
+          1
+        ],
+        "target": "outer_walls",
+        "transform": {
+          "position": [
+            48,
+            2,
+            -48
+          ],
+          "rotation": [
+            90,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "type": "box"
+      },
+      {
+        "id": "outer_walls_4",
+        "layer": "world",
+        "size": [
+          8,
+          4,
+          1
+        ],
+        "target": "outer_walls",
+        "transform": {
+          "position": [
+            -39.27272727272727,
+            2,
+            -48
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "type": "box"
+      },
+      {
+        "id": "outer_walls_5",
+        "layer": "world",
+        "size": [
+          8,
+          4,
+          1
+        ],
+        "target": "outer_walls",
+        "transform": {
+          "position": [
+            -39.27272727272727,
+            2,
+            48
+          ],
+          "rotation": [
+            180,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "type": "box"
+      },
+      {
+        "id": "outer_walls_6",
+        "layer": "world",
+        "size": [
+          8,
+          4,
+          1
+        ],
+        "target": "outer_walls",
+        "transform": {
+          "position": [
+            -48,
+            2,
+            -39.27272727272727
+          ],
+          "rotation": [
+            -90,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "type": "box"
+      },
+      {
+        "id": "outer_walls_7",
+        "layer": "world",
+        "size": [
+          8,
+          4,
+          1
+        ],
+        "target": "outer_walls",
+        "transform": {
+          "position": [
+            48,
+            2,
+            -39.27272727272727
+          ],
+          "rotation": [
+            90,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "type": "box"
+      },
+      {
+        "id": "outer_walls_8",
+        "layer": "world",
+        "size": [
+          8,
+          4,
+          1
+        ],
+        "target": "outer_walls",
+        "transform": {
+          "position": [
+            -30.545454545454547,
+            2,
+            -48
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "type": "box"
+      },
+      {
+        "id": "outer_walls_9",
+        "layer": "world",
+        "size": [
+          8,
+          4,
+          1
+        ],
+        "target": "outer_walls",
+        "transform": {
+          "position": [
+            -30.545454545454547,
+            2,
+            48
+          ],
+          "rotation": [
+            180,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "type": "box"
+      },
+      {
+        "id": "outer_walls_10",
+        "layer": "world",
+        "size": [
+          8,
+          4,
+          1
+        ],
+        "target": "outer_walls",
+        "transform": {
+          "position": [
+            -48,
+            2,
+            -30.545454545454547
+          ],
+          "rotation": [
+            -90,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "type": "box"
+      },
+      {
+        "id": "outer_walls_11",
+        "layer": "world",
+        "size": [
+          8,
+          4,
+          1
+        ],
+        "target": "outer_walls",
+        "transform": {
+          "position": [
+            48,
+            2,
+            -30.545454545454547
+          ],
+          "rotation": [
+            90,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "type": "box"
+      },
+      {
+        "id": "outer_walls_12",
+        "layer": "world",
+        "size": [
+          8,
+          4,
+          1
+        ],
+        "target": "outer_walls",
+        "transform": {
+          "position": [
+            -21.81818181818182,
+            2,
+            -48
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "type": "box"
+      },
+      {
+        "id": "outer_walls_13",
+        "layer": "world",
+        "size": [
+          8,
+          4,
+          1
+        ],
+        "target": "outer_walls",
+        "transform": {
+          "position": [
+            -21.81818181818182,
+            2,
+            48
+          ],
+          "rotation": [
+            180,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "type": "box"
+      },
+      {
+        "id": "outer_walls_14",
+        "layer": "world",
+        "size": [
+          8,
+          4,
+          1
+        ],
+        "target": "outer_walls",
+        "transform": {
+          "position": [
+            -48,
+            2,
+            -21.81818181818182
+          ],
+          "rotation": [
+            -90,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "type": "box"
+      },
+      {
+        "id": "outer_walls_15",
+        "layer": "world",
+        "size": [
+          8,
+          4,
+          1
+        ],
+        "target": "outer_walls",
+        "transform": {
+          "position": [
+            48,
+            2,
+            -21.81818181818182
+          ],
+          "rotation": [
+            90,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "type": "box"
+      },
+      {
+        "id": "outer_walls_16",
+        "layer": "world",
+        "size": [
+          8,
+          4,
+          1
+        ],
+        "target": "outer_walls",
+        "transform": {
+          "position": [
+            -13.090909090909093,
+            2,
+            -48
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "type": "box"
+      },
+      {
+        "id": "outer_walls_17",
+        "layer": "world",
+        "size": [
+          8,
+          4,
+          1
+        ],
+        "target": "outer_walls",
+        "transform": {
+          "position": [
+            -13.090909090909093,
+            2,
+            48
+          ],
+          "rotation": [
+            180,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "type": "box"
+      },
+      {
+        "id": "outer_walls_18",
+        "layer": "world",
+        "size": [
+          8,
+          4,
+          1
+        ],
+        "target": "outer_walls",
+        "transform": {
+          "position": [
+            -48,
+            2,
+            -13.090909090909093
+          ],
+          "rotation": [
+            -90,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "type": "box"
+      },
+      {
+        "id": "outer_walls_19",
+        "layer": "world",
+        "size": [
+          8,
+          4,
+          1
+        ],
+        "target": "outer_walls",
+        "transform": {
+          "position": [
+            48,
+            2,
+            -13.090909090909093
+          ],
+          "rotation": [
+            90,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "type": "box"
+      },
+      {
+        "id": "outer_walls_20",
+        "layer": "world",
+        "size": [
+          8,
+          4,
+          1
+        ],
+        "target": "outer_walls",
+        "transform": {
+          "position": [
+            -4.363636363636367,
+            2,
+            -48
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "type": "box"
+      },
+      {
+        "id": "outer_walls_21",
+        "layer": "world",
+        "size": [
+          8,
+          4,
+          1
+        ],
+        "target": "outer_walls",
+        "transform": {
+          "position": [
+            -4.363636363636367,
+            2,
+            48
+          ],
+          "rotation": [
+            180,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "type": "box"
+      },
+      {
+        "id": "outer_walls_22",
+        "layer": "world",
+        "size": [
+          8,
+          4,
+          1
+        ],
+        "target": "outer_walls",
+        "transform": {
+          "position": [
+            -48,
+            2,
+            -4.363636363636367
+          ],
+          "rotation": [
+            -90,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "type": "box"
+      },
+      {
+        "id": "outer_walls_23",
+        "layer": "world",
+        "size": [
+          8,
+          4,
+          1
+        ],
+        "target": "outer_walls",
+        "transform": {
+          "position": [
+            48,
+            2,
+            -4.363636363636367
+          ],
+          "rotation": [
+            90,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "type": "box"
+      },
+      {
+        "id": "outer_walls_24",
+        "layer": "world",
+        "size": [
+          8,
+          4,
+          1
+        ],
+        "target": "outer_walls",
+        "transform": {
+          "position": [
+            4.36363636363636,
+            2,
+            -48
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "type": "box"
+      },
+      {
+        "id": "outer_walls_25",
+        "layer": "world",
+        "size": [
+          8,
+          4,
+          1
+        ],
+        "target": "outer_walls",
+        "transform": {
+          "position": [
+            4.36363636363636,
+            2,
+            48
+          ],
+          "rotation": [
+            180,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "type": "box"
+      },
+      {
+        "id": "outer_walls_26",
+        "layer": "world",
+        "size": [
+          8,
+          4,
+          1
+        ],
+        "target": "outer_walls",
+        "transform": {
+          "position": [
+            -48,
+            2,
+            4.36363636363636
+          ],
+          "rotation": [
+            -90,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "type": "box"
+      },
+      {
+        "id": "outer_walls_27",
+        "layer": "world",
+        "size": [
+          8,
+          4,
+          1
+        ],
+        "target": "outer_walls",
+        "transform": {
+          "position": [
+            48,
+            2,
+            4.36363636363636
+          ],
+          "rotation": [
+            90,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "type": "box"
+      },
+      {
+        "id": "outer_walls_28",
+        "layer": "world",
+        "size": [
+          8,
+          4,
+          1
+        ],
+        "target": "outer_walls",
+        "transform": {
+          "position": [
+            13.090909090909086,
+            2,
+            -48
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "type": "box"
+      },
+      {
+        "id": "outer_walls_29",
+        "layer": "world",
+        "size": [
+          8,
+          4,
+          1
+        ],
+        "target": "outer_walls",
+        "transform": {
+          "position": [
+            13.090909090909086,
+            2,
+            48
+          ],
+          "rotation": [
+            180,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "type": "box"
+      },
+      {
+        "id": "outer_walls_30",
+        "layer": "world",
+        "size": [
+          8,
+          4,
+          1
+        ],
+        "target": "outer_walls",
+        "transform": {
+          "position": [
+            -48,
+            2,
+            13.090909090909086
+          ],
+          "rotation": [
+            -90,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "type": "box"
+      },
+      {
+        "id": "outer_walls_31",
+        "layer": "world",
+        "size": [
+          8,
+          4,
+          1
+        ],
+        "target": "outer_walls",
+        "transform": {
+          "position": [
+            48,
+            2,
+            13.090909090909086
+          ],
+          "rotation": [
+            90,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "type": "box"
+      },
+      {
+        "id": "outer_walls_32",
+        "layer": "world",
+        "size": [
+          8,
+          4,
+          1
+        ],
+        "target": "outer_walls",
+        "transform": {
+          "position": [
+            21.818181818181813,
+            2,
+            -48
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "type": "box"
+      },
+      {
+        "id": "outer_walls_33",
+        "layer": "world",
+        "size": [
+          8,
+          4,
+          1
+        ],
+        "target": "outer_walls",
+        "transform": {
+          "position": [
+            21.818181818181813,
+            2,
+            48
+          ],
+          "rotation": [
+            180,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "type": "box"
+      },
+      {
+        "id": "outer_walls_34",
+        "layer": "world",
+        "size": [
+          8,
+          4,
+          1
+        ],
+        "target": "outer_walls",
+        "transform": {
+          "position": [
+            -48,
+            2,
+            21.818181818181813
+          ],
+          "rotation": [
+            -90,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "type": "box"
+      },
+      {
+        "id": "outer_walls_35",
+        "layer": "world",
+        "size": [
+          8,
+          4,
+          1
+        ],
+        "target": "outer_walls",
+        "transform": {
+          "position": [
+            48,
+            2,
+            21.818181818181813
+          ],
+          "rotation": [
+            90,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "type": "box"
+      },
+      {
+        "id": "outer_walls_36",
+        "layer": "world",
+        "size": [
+          8,
+          4,
+          1
+        ],
+        "target": "outer_walls",
+        "transform": {
+          "position": [
+            30.545454545454533,
+            2,
+            -48
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "type": "box"
+      },
+      {
+        "id": "outer_walls_37",
+        "layer": "world",
+        "size": [
+          8,
+          4,
+          1
+        ],
+        "target": "outer_walls",
+        "transform": {
+          "position": [
+            30.545454545454533,
+            2,
+            48
+          ],
+          "rotation": [
+            180,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "type": "box"
+      },
+      {
+        "id": "outer_walls_38",
+        "layer": "world",
+        "size": [
+          8,
+          4,
+          1
+        ],
+        "target": "outer_walls",
+        "transform": {
+          "position": [
+            -48,
+            2,
+            30.545454545454533
+          ],
+          "rotation": [
+            -90,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "type": "box"
+      },
+      {
+        "id": "outer_walls_39",
+        "layer": "world",
+        "size": [
+          8,
+          4,
+          1
+        ],
+        "target": "outer_walls",
+        "transform": {
+          "position": [
+            48,
+            2,
+            30.545454545454533
+          ],
+          "rotation": [
+            90,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "type": "box"
+      },
+      {
+        "id": "outer_walls_40",
+        "layer": "world",
+        "size": [
+          8,
+          4,
+          1
+        ],
+        "target": "outer_walls",
+        "transform": {
+          "position": [
+            39.272727272727266,
+            2,
+            -48
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "type": "box"
+      },
+      {
+        "id": "outer_walls_41",
+        "layer": "world",
+        "size": [
+          8,
+          4,
+          1
+        ],
+        "target": "outer_walls",
+        "transform": {
+          "position": [
+            39.272727272727266,
+            2,
+            48
+          ],
+          "rotation": [
+            180,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "type": "box"
+      },
+      {
+        "id": "outer_walls_42",
+        "layer": "world",
+        "size": [
+          8,
+          4,
+          1
+        ],
+        "target": "outer_walls",
+        "transform": {
+          "position": [
+            -48,
+            2,
+            39.272727272727266
+          ],
+          "rotation": [
+            -90,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "type": "box"
+      },
+      {
+        "id": "outer_walls_43",
+        "layer": "world",
+        "size": [
+          8,
+          4,
+          1
+        ],
+        "target": "outer_walls",
+        "transform": {
+          "position": [
+            48,
+            2,
+            39.272727272727266
+          ],
+          "rotation": [
+            90,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "type": "box"
+      },
+      {
+        "id": "outer_walls_44",
+        "layer": "world",
+        "size": [
+          8,
+          4,
+          1
+        ],
+        "target": "outer_walls",
+        "transform": {
+          "position": [
+            48,
+            2,
+            -48
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "type": "box"
+      },
+      {
+        "id": "outer_walls_45",
+        "layer": "world",
+        "size": [
+          8,
+          4,
+          1
+        ],
+        "target": "outer_walls",
+        "transform": {
+          "position": [
+            48,
+            2,
+            48
+          ],
+          "rotation": [
+            180,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "type": "box"
+      },
+      {
+        "id": "outer_walls_46",
+        "layer": "world",
+        "size": [
+          8,
+          4,
+          1
+        ],
+        "target": "outer_walls",
+        "transform": {
+          "position": [
+            -48,
+            2,
+            48
+          ],
+          "rotation": [
+            -90,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "type": "box"
+      },
+      {
+        "id": "outer_walls_47",
+        "layer": "world",
+        "size": [
+          8,
+          4,
+          1
+        ],
+        "target": "outer_walls",
+        "transform": {
+          "position": [
+            48,
+            2,
+            48
+          ],
+          "rotation": [
+            90,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "type": "box"
+      },
+      {
+        "height": 1,
+        "id": "central_platform_0",
+        "layer": "world",
+        "radius": 12,
+        "target": "central_platform",
+        "transform": {
+          "position": [
+            0,
+            0.25,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            24,
+            1,
+            24
+          ]
+        },
+        "type": "cylinder"
+      },
+      {
+        "id": "cardinal_bridges_0",
+        "layer": "world",
+        "size": [
+          8,
+          0.6,
+          20
+        ],
+        "target": "cardinal_bridges",
+        "transform": {
+          "position": [
+            0,
+            0.5,
+            -24
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            2.5
+          ]
+        },
+        "type": "box"
+      },
+      {
+        "id": "cardinal_bridges_1",
+        "layer": "world",
+        "size": [
+          8,
+          0.6,
+          20
+        ],
+        "target": "cardinal_bridges",
+        "transform": {
+          "position": [
+            0,
+            0.5,
+            24
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            2.5
+          ]
+        },
+        "type": "box"
+      },
+      {
+        "id": "cardinal_bridges_2",
+        "layer": "world",
+        "size": [
+          8,
+          0.6,
+          20
+        ],
+        "target": "cardinal_bridges",
+        "transform": {
+          "position": [
+            -24,
+            0.5,
+            0
+          ],
+          "rotation": [
+            90,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            2.5
+          ]
+        },
+        "type": "box"
+      },
+      {
+        "id": "cardinal_bridges_3",
+        "layer": "world",
+        "size": [
+          8,
+          0.6,
+          20
+        ],
+        "target": "cardinal_bridges",
+        "transform": {
+          "position": [
+            24,
+            0.5,
+            0
+          ],
+          "rotation": [
+            90,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            2.5
+          ]
+        },
+        "type": "box"
+      },
+      {
+        "id": "major_pillars_0",
+        "layer": "world",
+        "size": [
+          3,
+          10,
+          3
+        ],
+        "target": "major_pillars",
+        "transform": {
+          "position": [
+            -18,
+            5,
+            -18
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1.4,
+            1
+          ]
+        },
+        "type": "box"
+      },
+      {
+        "id": "major_pillars_1",
+        "layer": "world",
+        "size": [
+          3,
+          10,
+          3
+        ],
+        "target": "major_pillars",
+        "transform": {
+          "position": [
+            18,
+            5,
+            -18
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1.4,
+            1
+          ]
+        },
+        "type": "box"
+      },
+      {
+        "id": "major_pillars_2",
+        "layer": "world",
+        "size": [
+          3,
+          10,
+          3
+        ],
+        "target": "major_pillars",
+        "transform": {
+          "position": [
+            -18,
+            5,
+            18
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1.4,
+            1
+          ]
+        },
+        "type": "box"
+      },
+      {
+        "id": "major_pillars_3",
+        "layer": "world",
+        "size": [
+          3,
+          10,
+          3
+        ],
+        "target": "major_pillars",
+        "transform": {
+          "position": [
+            18,
+            5,
+            18
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1.4,
+            1
+          ]
+        },
+        "type": "box"
+      },
+      {
+        "id": "upper_ramps_0",
+        "layer": "world",
+        "size": [
+          6,
+          2,
+          12
+        ],
+        "target": "upper_ramps",
+        "transform": {
+          "position": [
+            -34,
+            2,
+            -16
+          ],
+          "rotation": [
+            35,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            2
+          ]
+        },
+        "type": "box"
+      },
+      {
+        "id": "upper_ramps_1",
+        "layer": "world",
+        "size": [
+          6,
+          2,
+          12
+        ],
+        "target": "upper_ramps",
+        "transform": {
+          "position": [
+            34,
+            2,
+            16
+          ],
+          "rotation": [
+            -145,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            2
+          ]
+        },
+        "type": "box"
+      },
+      {
+        "id": "upper_stairs_0",
+        "layer": "world",
+        "size": [
+          6,
+          2,
+          12
+        ],
+        "target": "upper_stairs",
+        "transform": {
+          "position": [
+            0,
+            2,
+            -40
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            2
+          ]
+        },
+        "type": "box"
+      },
+      {
+        "id": "upper_stairs_1",
+        "layer": "world",
+        "size": [
+          6,
+          2,
+          12
+        ],
+        "target": "upper_stairs",
+        "transform": {
+          "position": [
+            0,
+            2,
+            40
+          ],
+          "rotation": [
+            180,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            2
+          ]
+        },
+        "type": "box"
+      },
+      {
+        "id": "cover_crates_0",
+        "layer": "world",
+        "size": [
+          2,
+          1.4,
+          2
+        ],
+        "target": "cover_crates",
+        "transform": {
+          "position": [
+            4.974885,
+            0.7,
+            -12.010434
+          ],
+          "rotation": [
+            22.5,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "type": "box"
+      },
+      {
+        "id": "cover_crates_1",
+        "layer": "world",
+        "size": [
+          2,
+          1.4,
+          2
+        ],
+        "target": "cover_crates",
+        "transform": {
+          "position": [
+            12.010434,
+            0.7,
+            -4.974885
+          ],
+          "rotation": [
+            67.5,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "type": "box"
+      },
+      {
+        "id": "cover_crates_2",
+        "layer": "world",
+        "size": [
+          2,
+          1.4,
+          2
+        ],
+        "target": "cover_crates",
+        "transform": {
+          "position": [
+            12.010434,
+            0.7,
+            4.974885
+          ],
+          "rotation": [
+            112.5,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "type": "box"
+      },
+      {
+        "id": "cover_crates_3",
+        "layer": "world",
+        "size": [
+          2,
+          1.4,
+          2
+        ],
+        "target": "cover_crates",
+        "transform": {
+          "position": [
+            4.974885,
+            0.7,
+            12.010434
+          ],
+          "rotation": [
+            157.5,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "type": "box"
+      },
+      {
+        "id": "cover_crates_4",
+        "layer": "world",
+        "size": [
+          2,
+          1.4,
+          2
+        ],
+        "target": "cover_crates",
+        "transform": {
+          "position": [
+            -4.974885,
+            0.7,
+            12.010434
+          ],
+          "rotation": [
+            202.5,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "type": "box"
+      },
+      {
+        "id": "cover_crates_5",
+        "layer": "world",
+        "size": [
+          2,
+          1.4,
+          2
+        ],
+        "target": "cover_crates",
+        "transform": {
+          "position": [
+            -12.010434,
+            0.7,
+            4.974885
+          ],
+          "rotation": [
+            247.5,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "type": "box"
+      },
+      {
+        "id": "cover_crates_6",
+        "layer": "world",
+        "size": [
+          2,
+          1.4,
+          2
+        ],
+        "target": "cover_crates",
+        "transform": {
+          "position": [
+            -12.010434,
+            0.7,
+            -4.974885
+          ],
+          "rotation": [
+            292.5,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "type": "box"
+      },
+      {
+        "id": "cover_crates_7",
+        "layer": "world",
+        "size": [
+          2,
+          1.4,
+          2
+        ],
+        "target": "cover_crates",
+        "transform": {
+          "position": [
+            -4.974885,
+            0.7,
+            -12.010434
+          ],
+          "rotation": [
+            337.5,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "type": "box"
+      }
+    ],
+    "kind": "air-gfx-collision",
+    "layers": {
+      "actor": {
+        "collidesWith": [
+          "world",
+          "pickup",
+          "trigger",
+          "hazard"
+        ]
+      },
+      "hazard": {
+        "triggerOnly": true
+      },
+      "pickup": {
+        "triggerOnly": true
+      },
+      "trigger": {
+        "triggerOnly": true
+      },
+      "world": {
+        "collidesWith": [
+          "actor",
+          "projectile"
+        ]
+      }
+    },
+    "triggers": [
+      {
+        "damagePerSecond": 45,
+        "id": "lava_channels_0",
+        "kind": "damage_zone",
+        "layer": "hazard",
+        "shape": {
+          "size": [
+            8,
+            1,
+            2
+          ],
+          "type": "box"
+        },
+        "target": "lava_channels",
+        "transform": {
+          "position": [
+            0,
+            -1.5,
+            -16
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            4,
+            1,
+            1
+          ]
+        },
+        "trigger": true
+      },
+      {
+        "damagePerSecond": 45,
+        "id": "lava_channels_1",
+        "kind": "damage_zone",
+        "layer": "hazard",
+        "shape": {
+          "size": [
+            8,
+            1,
+            2
+          ],
+          "type": "box"
+        },
+        "target": "lava_channels",
+        "transform": {
+          "position": [
+            0,
+            -1.5,
+            16
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            4,
+            1,
+            1
+          ]
+        },
+        "trigger": true
+      },
+      {
+        "damagePerSecond": 45,
+        "id": "lava_channels_2",
+        "kind": "damage_zone",
+        "layer": "hazard",
+        "shape": {
+          "size": [
+            8,
+            1,
+            2
+          ],
+          "type": "box"
+        },
+        "target": "lava_channels",
+        "transform": {
+          "position": [
+            -16,
+            -1.5,
+            0
+          ],
+          "rotation": [
+            90,
+            0,
+            0
+          ],
+          "scale": [
+            4,
+            1,
+            1
+          ]
+        },
+        "trigger": true
+      },
+      {
+        "damagePerSecond": 45,
+        "id": "lava_channels_3",
+        "kind": "damage_zone",
+        "layer": "hazard",
+        "shape": {
+          "size": [
+            8,
+            1,
+            2
+          ],
+          "type": "box"
+        },
+        "target": "lava_channels",
+        "transform": {
+          "position": [
+            16,
+            -1.5,
+            0
+          ],
+          "rotation": [
+            90,
+            0,
+            0
+          ],
+          "scale": [
+            4,
+            1,
+            1
+          ]
+        },
+        "trigger": true
+      },
+      {
+        "damagePerSecond": 45,
+        "id": "lava_channels_4",
+        "kind": "damage_zone",
+        "layer": "hazard",
+        "shape": {
+          "size": [
+            8,
+            1,
+            2
+          ],
+          "type": "box"
+        },
+        "target": "lava_channels",
+        "transform": {
+          "position": [
+            -22,
+            -1.5,
+            -22
+          ],
+          "rotation": [
+            45,
+            0,
+            0
+          ],
+          "scale": [
+            3,
+            1,
+            1
+          ]
+        },
+        "trigger": true
+      },
+      {
+        "damagePerSecond": 45,
+        "id": "lava_channels_5",
+        "kind": "damage_zone",
+        "layer": "hazard",
+        "shape": {
+          "size": [
+            8,
+            1,
+            2
+          ],
+          "type": "box"
+        },
+        "target": "lava_channels",
+        "transform": {
+          "position": [
+            22,
+            -1.5,
+            -22
+          ],
+          "rotation": [
+            -45,
+            0,
+            0
+          ],
+          "scale": [
+            3,
+            1,
+            1
+          ]
+        },
+        "trigger": true
+      },
+      {
+        "damagePerSecond": 45,
+        "id": "lava_channels_6",
+        "kind": "damage_zone",
+        "layer": "hazard",
+        "shape": {
+          "size": [
+            8,
+            1,
+            2
+          ],
+          "type": "box"
+        },
+        "target": "lava_channels",
+        "transform": {
+          "position": [
+            -22,
+            -1.5,
+            22
+          ],
+          "rotation": [
+            -45,
+            0,
+            0
+          ],
+          "scale": [
+            3,
+            1,
+            1
+          ]
+        },
+        "trigger": true
+      },
+      {
+        "damagePerSecond": 45,
+        "id": "lava_channels_7",
+        "kind": "damage_zone",
+        "layer": "hazard",
+        "shape": {
+          "size": [
+            8,
+            1,
+            2
+          ],
+          "type": "box"
+        },
+        "target": "lava_channels",
+        "transform": {
+          "position": [
+            22,
+            -1.5,
+            22
+          ],
+          "rotation": [
+            45,
+            0,
+            0
+          ],
+          "scale": [
+            3,
+            1,
+            1
+          ]
+        },
+        "trigger": true
+      },
+      {
+        "id": "jump_pads_0",
+        "impulse": [
+          0,
+          9,
+          0
+        ],
+        "kind": "jump_pad",
+        "layer": "trigger",
+        "shape": {
+          "radius": 1.4,
+          "type": "sphere"
+        },
+        "target": "jump_pads",
+        "transform": {
+          "position": [
+            -36,
+            0.2,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "trigger": true
+      },
+      {
+        "id": "jump_pads_1",
+        "impulse": [
+          0,
+          9,
+          0
+        ],
+        "kind": "jump_pad",
+        "layer": "trigger",
+        "shape": {
+          "radius": 1.4,
+          "type": "sphere"
+        },
+        "target": "jump_pads",
+        "transform": {
+          "position": [
+            36,
+            0.2,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "trigger": true
+      },
+      {
+        "id": "teleport_pads_0",
+        "kind": "teleport",
+        "layer": "trigger",
+        "shape": {
+          "size": [
+            2,
+            2,
+            4
+          ],
+          "type": "box"
+        },
+        "target": "teleport_pads",
+        "transform": {
+          "position": [
+            -42,
+            0.2,
+            0
+          ],
+          "rotation": [
+            90,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "trigger": true
+      },
+      {
+        "id": "teleport_pads_1",
+        "kind": "teleport",
+        "layer": "trigger",
+        "shape": {
+          "size": [
+            2,
+            2,
+            4
+          ],
+          "type": "box"
+        },
+        "target": "teleport_pads",
+        "transform": {
+          "position": [
+            42,
+            0.2,
+            0
+          ],
+          "rotation": [
+            -90,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "trigger": true
+      },
+      {
+        "id": "pickup_spawns_0",
+        "kind": "pickup",
+        "layer": "pickup",
+        "shape": {
+          "radius": 1.2,
+          "type": "sphere"
+        },
+        "target": "pickup_spawns",
+        "transform": {
+          "position": [
+            0,
+            0.4,
+            -36
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "trigger": true
+      },
+      {
+        "id": "pickup_spawns_1",
+        "kind": "pickup",
+        "layer": "pickup",
+        "shape": {
+          "radius": 1.2,
+          "type": "sphere"
+        },
+        "target": "pickup_spawns",
+        "transform": {
+          "position": [
+            0,
+            0.4,
+            36
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "trigger": true
+      },
+      {
+        "id": "pickup_spawns_2",
+        "kind": "pickup",
+        "layer": "pickup",
+        "shape": {
+          "radius": 1.2,
+          "type": "sphere"
+        },
+        "target": "pickup_spawns",
+        "transform": {
+          "position": [
+            -36,
+            0.4,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "trigger": true
+      },
+      {
+        "id": "pickup_spawns_3",
+        "kind": "pickup",
+        "layer": "pickup",
+        "shape": {
+          "radius": 1.2,
+          "type": "sphere"
+        },
+        "target": "pickup_spawns",
+        "transform": {
+          "position": [
+            36,
+            0.4,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "trigger": true
+      }
+    ],
+    "units": "meters",
+    "upAxis": "Y",
+    "version": "0.1"
+  },
+  "depth": {
+    "enabled": true,
+    "format": "depth24plus",
+    "size": "canvas",
+    "target": "scene_depth"
+  },
+  "handles": {
+    "cameras": {
+      "main": 1
+    },
+    "instances": {
+      "archways": 13,
+      "cardinal_bridges": 5,
+      "central_platform": 3,
+      "cover_crates": 12,
+      "energy_gates": 11,
+      "jump_pads": 9,
+      "lava_channels": 4,
+      "main_floor_grid": 1,
+      "major_pillars": 6,
+      "outer_walls": 2,
+      "pickup_spawns": 14,
+      "teleport_pads": 10,
+      "upper_ramps": 7,
+      "upper_stairs": 8
+    },
+    "models": {
+      "archway_frame": 14,
+      "arena_platform": 1,
+      "bridge_module_8x3": 5,
+      "circular_platform": 8,
+      "cover_crate": 13,
+      "energy_gate": 11,
+      "floor_panel_4x4": 2,
+      "jump_pad": 9,
+      "lava_channel_8x2": 12,
+      "pickup_spawn_marker": 15,
+      "ramp_module_6x3": 6,
+      "stair_module_6x3": 7,
+      "support_pillar_tall": 4,
+      "teleport_pad": 10,
+      "wall_segment_8x4": 3
+    },
+    "nodes": {
+      "archways": 14,
+      "cardinal_bridges": 6,
+      "central_platform": 4,
+      "cover_crates": 13,
+      "energy_gates": 12,
+      "jump_pads": 10,
+      "lava_channels": 5,
+      "main_floor_grid": 2,
+      "major_pillars": 7,
+      "outer_walls": 3,
+      "pickup_spawns": 15,
+      "platform": 1,
+      "teleport_pads": 11,
+      "upper_ramps": 8,
+      "upper_stairs": 9
+    },
+    "pipelines": {
+      "arena_pipeline": 1
+    },
+    "renderGraphs": {
+      "main_graph": 1
+    },
+    "sprites": {
+      "blue_rune": 1
+    },
+    "vectors": {
+      "rune_vector": 1
+    },
+    "voxels": {
+      "energy_columns": 1
+    }
+  },
+  "materials": {
+    "basalt_floor": {
+      "baseColor": [
+        0.09,
+        0.085,
+        0.08,
+        1
+      ],
+      "metallic": 0.02,
+      "model": "pbr",
+      "pipeline": "arena_pipeline",
+      "roughness": 0.9
+    },
+    "blue_energy": {
+      "baseColor": [
+        0.05,
+        0.55,
+        1,
+        0.8
+      ],
+      "emissive": [
+        0.1,
+        1.2,
+        2.4
+      ],
+      "metallic": 0,
+      "model": "pbr",
+      "pipeline": "arena_pipeline",
+      "roughness": 0.1
+    },
+    "bridge_metal": {
+      "baseColor": [
+        0.16,
+        0.17,
+        0.18,
+        1
+      ],
+      "metallic": 0.85,
+      "model": "pbr",
+      "pipeline": "arena_pipeline",
+      "roughness": 0.38
+    },
+    "dark_industrial_floor": {
+      "baseColor": [
+        0.13,
+        0.14,
+        0.15,
+        1
+      ],
+      "metallic": 0.75,
+      "model": "pbr",
+      "pipeline": "arena_pipeline",
+      "roughness": 0.48
+    },
+    "dark_industrial_wall": {
+      "baseColor": [
+        0.08,
+        0.09,
+        0.11,
+        1
+      ],
+      "metallic": 0.82,
+      "model": "pbr",
+      "pipeline": "arena_pipeline",
+      "roughness": 0.52
+    },
+    "heated_panel": {
+      "baseColor": [
+        0.15,
+        0.38,
+        0.95,
+        1
+      ],
+      "metallic": 0.8,
+      "model": "pbr",
+      "pipeline": "arena_pipeline",
+      "roughness": 0.35,
+      "textures": {
+        "emissive": "rune_atlas"
+      }
+    },
+    "lava_emissive": {
+      "baseColor": [
+        1,
+        0.22,
+        0.03,
+        1
+      ],
+      "emissive": [
+        3.8,
+        0.8,
+        0.04
+      ],
+      "metallic": 0,
+      "model": "pbr",
+      "pipeline": "arena_pipeline",
+      "roughness": 0.2
+    },
+    "lava_rune": {
+      "baseColor": [
+        1,
+        0.18,
+        0.04,
+        1
+      ],
+      "emissive": [
+        1,
+        0.32,
+        0.04
+      ],
+      "model": "sprite-unlit",
+      "pipeline": "arena_pipeline"
+    },
+    "pickup_marker": {
+      "baseColor": [
+        1,
+        0.78,
+        0.12,
+        1
+      ],
+      "emissive": [
+        2,
+        1.2,
+        0.1
+      ],
+      "metallic": 0,
+      "model": "pbr",
+      "pipeline": "arena_pipeline",
+      "roughness": 0.25
+    },
+    "red_rune_panel": {
+      "baseColor": [
+        0.7,
+        0.05,
+        0.02,
+        1
+      ],
+      "emissive": [
+        2.5,
+        0.15,
+        0.05
+      ],
+      "metallic": 0,
+      "model": "pbr",
+      "pipeline": "arena_pipeline",
+      "roughness": 0.35
+    },
+    "voxel_glow": {
+      "baseColor": [
+        0.05,
+        0.55,
+        1,
+        1
+      ],
+      "emissive": [
+        0.05,
+        0.3,
+        1
+      ],
+      "model": "voxel-unlit",
+      "pipeline": "arena_pipeline"
+    }
+  },
+  "module": "gpu_arena",
+  "package": {
+    "abi": "0.9",
+    "kind": "air-gfx-package"
+  },
+  "pipelines": {
+    "arena_pipeline": {
+      "blend": "alpha",
+      "colorFormat": "bgra8unorm",
+      "cull": "none",
+      "depth": false,
+      "fragmentEntry": "fs_main",
+      "primitive": "triangle-list",
+      "shader": "arena_wgsl",
+      "vertexEntry": "vs_main"
+    }
+  },
+  "post": {
+    "bloom": {
+      "intensity": 0.65,
+      "kind": "bloom",
+      "radius": 0.45,
+      "threshold": 0.82
+    },
+    "depth_of_field": {
+      "aperture": 0.08,
+      "focusDistance": 6,
+      "kind": "depth-of-field"
+    },
+    "tonemap": {
+      "exposure": 1.1,
+      "kind": "tone-map",
+      "operator": "aces"
+    }
+  },
+  "postPipelines": {
+    "fullscreen_post": {
+      "effects": [
+        "bloom",
+        "tonemap"
+      ],
+      "fragmentEntry": "fs_main",
+      "shader": "arena_wgsl",
+      "vertexEntry": "vs_main"
+    }
+  },
+  "qualityProfiles": {
+    "desktop": {
+      "maxInstances": 50000,
+      "maxTextureSize": 8192,
+      "post": [
+        "bloom",
+        "depth_of_field",
+        "tonemap"
+      ],
+      "preferredBackend": "webgpu"
+    },
+    "mobile": {
+      "maxInstances": 2000,
+      "maxTextureSize": 2048,
+      "post": [
+        "tonemap"
+      ],
+      "preferredBackend": "webgpu"
+    }
+  },
+  "renderGraphs": {
+    "main_graph": {
+      "passes": [
+        {
+          "key": "clear",
+          "kind": "clear",
+          "output": "scene_color"
+        },
+        {
+          "camera": "main",
+          "environment": "storm_sky",
+          "inputs": [
+            "scene_color"
+          ],
+          "key": "sky",
+          "kind": "skybox",
+          "output": "scene_color",
+          "pipeline": "arena_pipeline"
+        },
+        {
+          "camera": "main",
+          "inputs": [
+            "scene_color"
+          ],
+          "key": "geometry",
+          "kind": "geometry",
+          "output": "scene_color",
+          "pipeline": "arena_pipeline"
+        },
+        {
+          "camera": "main",
+          "inputs": [
+            "scene_color"
+          ],
+          "key": "voxels",
+          "kind": "voxel",
+          "material": "voxel_glow",
+          "output": "scene_color"
+        },
+        {
+          "inputs": [
+            "scene_color"
+          ],
+          "key": "sprites",
+          "kind": "sprite",
+          "material": "lava_rune",
+          "output": "scene_color"
+        },
+        {
+          "inputs": [
+            "scene_color"
+          ],
+          "key": "vectors",
+          "kind": "vector",
+          "material": "lava_rune",
+          "output": "scene_color"
+        },
+        {
+          "effect": "bloom",
+          "inputs": [
+            "scene_color"
+          ],
+          "key": "bloom",
+          "kind": "post",
+          "output": "bloom_color"
+        },
+        {
+          "effect": "tonemap",
+          "inputs": [
+            "scene_color",
+            "bloom_color"
+          ],
+          "key": "tonemap",
+          "kind": "post",
+          "output": "backbuffer"
+        },
+        {
+          "inputs": [
+            "backbuffer"
+          ],
+          "key": "present",
+          "kind": "present"
+        }
+      ]
+    }
+  },
+  "renderTargets": {
+    "backbuffer": {
+      "format": "surface",
+      "size": "canvas",
+      "usage": [
+        "present"
+      ]
+    },
+    "bloom_color": {
+      "format": "bgra8unorm",
+      "scale": 0.5,
+      "usage": [
+        "render",
+        "sample"
+      ]
+    },
+    "scene_color": {
+      "format": "bgra8unorm",
+      "size": "canvas",
+      "usage": [
+        "render",
+        "sample"
+      ]
+    }
+  },
+  "scene": {
+    "cameras": {
+      "main": {
+        "far": 500,
+        "fovY": 65,
+        "kind": "perspective",
+        "near": 0.05,
+        "position": [
+          0,
+          2.5,
+          6
+        ],
+        "target": [
+          0,
+          0.5,
+          0
+        ]
+      }
+    },
+    "instances": {
+      "archways": {
+        "count": 2,
+        "material": "red_rune_panel",
+        "model": "archway_frame",
+        "transforms": [
+          {
+            "position": [
+              0,
+              2.5,
+              -46
+            ],
+            "rotation": [
+              0,
+              0,
+              0
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          {
+            "position": [
+              0,
+              2.5,
+              46
+            ],
+            "rotation": [
+              180,
+              0,
+              0
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          }
+        ]
+      },
+      "cardinal_bridges": {
+        "count": 4,
+        "material": "bridge_metal",
+        "model": "bridge_module_8x3",
+        "transforms": [
+          {
+            "position": [
+              0,
+              0.5,
+              -24
+            ],
+            "rotation": [
+              0,
+              0,
+              0
+            ],
+            "scale": [
+              1,
+              1,
+              2.5
+            ]
+          },
+          {
+            "position": [
+              0,
+              0.5,
+              24
+            ],
+            "rotation": [
+              0,
+              0,
+              0
+            ],
+            "scale": [
+              1,
+              1,
+              2.5
+            ]
+          },
+          {
+            "position": [
+              -24,
+              0.5,
+              0
+            ],
+            "rotation": [
+              90,
+              0,
+              0
+            ],
+            "scale": [
+              1,
+              1,
+              2.5
+            ]
+          },
+          {
+            "position": [
+              24,
+              0.5,
+              0
+            ],
+            "rotation": [
+              90,
+              0,
+              0
+            ],
+            "scale": [
+              1,
+              1,
+              2.5
+            ]
+          }
+        ]
+      },
+      "central_platform": {
+        "count": 1,
+        "material": "red_rune_panel",
+        "model": "circular_platform",
+        "transforms": [
+          {
+            "position": [
+              0,
+              0.25,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0
+            ],
+            "scale": [
+              24,
+              1,
+              24
+            ]
+          }
+        ]
+      },
+      "cover_crates": {
+        "count": 8,
+        "material": "dark_industrial_wall",
+        "model": "cover_crate",
+        "transforms": [
+          {
+            "position": [
+              4.974885,
+              0.7,
+              -12.010434
+            ],
+            "rotation": [
+              22.5,
+              0,
+              0
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          {
+            "position": [
+              12.010434,
+              0.7,
+              -4.974885
+            ],
+            "rotation": [
+              67.5,
+              0,
+              0
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          {
+            "position": [
+              12.010434,
+              0.7,
+              4.974885
+            ],
+            "rotation": [
+              112.5,
+              0,
+              0
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          {
+            "position": [
+              4.974885,
+              0.7,
+              12.010434
+            ],
+            "rotation": [
+              157.5,
+              0,
+              0
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          {
+            "position": [
+              -4.974885,
+              0.7,
+              12.010434
+            ],
+            "rotation": [
+              202.5,
+              0,
+              0
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          {
+            "position": [
+              -12.010434,
+              0.7,
+              4.974885
+            ],
+            "rotation": [
+              247.5,
+              0,
+              0
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          {
+            "position": [
+              -12.010434,
+              0.7,
+              -4.974885
+            ],
+            "rotation": [
+              292.5,
+              0,
+              0
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          {
+            "position": [
+              -4.974885,
+              0.7,
+              -12.010434
+            ],
+            "rotation": [
+              337.5,
+              0,
+              0
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          }
+        ]
+      },
+      "energy_gates": {
+        "count": 2,
+        "material": "blue_energy",
+        "model": "energy_gate",
+        "transforms": [
+          {
+            "position": [
+              0,
+              2,
+              -32
+            ],
+            "rotation": [
+              0,
+              0,
+              0
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          {
+            "position": [
+              0,
+              2,
+              32
+            ],
+            "rotation": [
+              180,
+              0,
+              0
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          }
+        ]
+      },
+      "jump_pads": {
+        "count": 2,
+        "material": "blue_energy",
+        "model": "jump_pad",
+        "transforms": [
+          {
+            "position": [
+              -36,
+              0.2,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          {
+            "position": [
+              36,
+              0.2,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          }
+        ]
+      },
+      "lava_channels": {
+        "count": 8,
+        "material": "lava_emissive",
+        "model": "lava_channel_8x2",
+        "transforms": [
+          {
+            "position": [
+              0,
+              -1.5,
+              -16
+            ],
+            "rotation": [
+              0,
+              0,
+              0
+            ],
+            "scale": [
+              4,
+              1,
+              1
+            ]
+          },
+          {
+            "position": [
+              0,
+              -1.5,
+              16
+            ],
+            "rotation": [
+              0,
+              0,
+              0
+            ],
+            "scale": [
+              4,
+              1,
+              1
+            ]
+          },
+          {
+            "position": [
+              -16,
+              -1.5,
+              0
+            ],
+            "rotation": [
+              90,
+              0,
+              0
+            ],
+            "scale": [
+              4,
+              1,
+              1
+            ]
+          },
+          {
+            "position": [
+              16,
+              -1.5,
+              0
+            ],
+            "rotation": [
+              90,
+              0,
+              0
+            ],
+            "scale": [
+              4,
+              1,
+              1
+            ]
+          },
+          {
+            "position": [
+              -22,
+              -1.5,
+              -22
+            ],
+            "rotation": [
+              45,
+              0,
+              0
+            ],
+            "scale": [
+              3,
+              1,
+              1
+            ]
+          },
+          {
+            "position": [
+              22,
+              -1.5,
+              -22
+            ],
+            "rotation": [
+              -45,
+              0,
+              0
+            ],
+            "scale": [
+              3,
+              1,
+              1
+            ]
+          },
+          {
+            "position": [
+              -22,
+              -1.5,
+              22
+            ],
+            "rotation": [
+              -45,
+              0,
+              0
+            ],
+            "scale": [
+              3,
+              1,
+              1
+            ]
+          },
+          {
+            "position": [
+              22,
+              -1.5,
+              22
+            ],
+            "rotation": [
+              45,
+              0,
+              0
+            ],
+            "scale": [
+              3,
+              1,
+              1
+            ]
+          }
+        ]
+      },
+      "main_floor_grid": {
+        "count": 32,
+        "material": "dark_industrial_floor",
+        "model": "floor_panel_4x4",
+        "transforms": [
+          {
+            "position": [
+              -28,
+              0,
+              -28
+            ],
+            "rotation": [
+              0,
+              0,
+              0
+            ],
+            "scale": [
+              1.5,
+              1,
+              1.5
+            ]
+          },
+          {
+            "position": [
+              -28,
+              0,
+              28
+            ],
+            "rotation": [
+              180,
+              0,
+              0
+            ],
+            "scale": [
+              1.5,
+              1,
+              1.5
+            ]
+          },
+          {
+            "position": [
+              -28,
+              0,
+              -28
+            ],
+            "rotation": [
+              -90,
+              0,
+              0
+            ],
+            "scale": [
+              1.5,
+              1,
+              1.5
+            ]
+          },
+          {
+            "position": [
+              28,
+              0,
+              -28
+            ],
+            "rotation": [
+              90,
+              0,
+              0
+            ],
+            "scale": [
+              1.5,
+              1,
+              1.5
+            ]
+          },
+          {
+            "position": [
+              -20,
+              0,
+              -28
+            ],
+            "rotation": [
+              0,
+              0,
+              0
+            ],
+            "scale": [
+              1.5,
+              1,
+              1.5
+            ]
+          },
+          {
+            "position": [
+              -20,
+              0,
+              28
+            ],
+            "rotation": [
+              180,
+              0,
+              0
+            ],
+            "scale": [
+              1.5,
+              1,
+              1.5
+            ]
+          },
+          {
+            "position": [
+              -28,
+              0,
+              -20
+            ],
+            "rotation": [
+              -90,
+              0,
+              0
+            ],
+            "scale": [
+              1.5,
+              1,
+              1.5
+            ]
+          },
+          {
+            "position": [
+              28,
+              0,
+              -20
+            ],
+            "rotation": [
+              90,
+              0,
+              0
+            ],
+            "scale": [
+              1.5,
+              1,
+              1.5
+            ]
+          },
+          {
+            "position": [
+              -12,
+              0,
+              -28
+            ],
+            "rotation": [
+              0,
+              0,
+              0
+            ],
+            "scale": [
+              1.5,
+              1,
+              1.5
+            ]
+          },
+          {
+            "position": [
+              -12,
+              0,
+              28
+            ],
+            "rotation": [
+              180,
+              0,
+              0
+            ],
+            "scale": [
+              1.5,
+              1,
+              1.5
+            ]
+          },
+          {
+            "position": [
+              -28,
+              0,
+              -12
+            ],
+            "rotation": [
+              -90,
+              0,
+              0
+            ],
+            "scale": [
+              1.5,
+              1,
+              1.5
+            ]
+          },
+          {
+            "position": [
+              28,
+              0,
+              -12
+            ],
+            "rotation": [
+              90,
+              0,
+              0
+            ],
+            "scale": [
+              1.5,
+              1,
+              1.5
+            ]
+          },
+          {
+            "position": [
+              -4,
+              0,
+              -28
+            ],
+            "rotation": [
+              0,
+              0,
+              0
+            ],
+            "scale": [
+              1.5,
+              1,
+              1.5
+            ]
+          },
+          {
+            "position": [
+              -4,
+              0,
+              28
+            ],
+            "rotation": [
+              180,
+              0,
+              0
+            ],
+            "scale": [
+              1.5,
+              1,
+              1.5
+            ]
+          },
+          {
+            "position": [
+              -28,
+              0,
+              -4
+            ],
+            "rotation": [
+              -90,
+              0,
+              0
+            ],
+            "scale": [
+              1.5,
+              1,
+              1.5
+            ]
+          },
+          {
+            "position": [
+              28,
+              0,
+              -4
+            ],
+            "rotation": [
+              90,
+              0,
+              0
+            ],
+            "scale": [
+              1.5,
+              1,
+              1.5
+            ]
+          },
+          {
+            "position": [
+              4,
+              0,
+              -28
+            ],
+            "rotation": [
+              0,
+              0,
+              0
+            ],
+            "scale": [
+              1.5,
+              1,
+              1.5
+            ]
+          },
+          {
+            "position": [
+              4,
+              0,
+              28
+            ],
+            "rotation": [
+              180,
+              0,
+              0
+            ],
+            "scale": [
+              1.5,
+              1,
+              1.5
+            ]
+          },
+          {
+            "position": [
+              -28,
+              0,
+              4
+            ],
+            "rotation": [
+              -90,
+              0,
+              0
+            ],
+            "scale": [
+              1.5,
+              1,
+              1.5
+            ]
+          },
+          {
+            "position": [
+              28,
+              0,
+              4
+            ],
+            "rotation": [
+              90,
+              0,
+              0
+            ],
+            "scale": [
+              1.5,
+              1,
+              1.5
+            ]
+          },
+          {
+            "position": [
+              12,
+              0,
+              -28
+            ],
+            "rotation": [
+              0,
+              0,
+              0
+            ],
+            "scale": [
+              1.5,
+              1,
+              1.5
+            ]
+          },
+          {
+            "position": [
+              12,
+              0,
+              28
+            ],
+            "rotation": [
+              180,
+              0,
+              0
+            ],
+            "scale": [
+              1.5,
+              1,
+              1.5
+            ]
+          },
+          {
+            "position": [
+              -28,
+              0,
+              12
+            ],
+            "rotation": [
+              -90,
+              0,
+              0
+            ],
+            "scale": [
+              1.5,
+              1,
+              1.5
+            ]
+          },
+          {
+            "position": [
+              28,
+              0,
+              12
+            ],
+            "rotation": [
+              90,
+              0,
+              0
+            ],
+            "scale": [
+              1.5,
+              1,
+              1.5
+            ]
+          },
+          {
+            "position": [
+              20,
+              0,
+              -28
+            ],
+            "rotation": [
+              0,
+              0,
+              0
+            ],
+            "scale": [
+              1.5,
+              1,
+              1.5
+            ]
+          },
+          {
+            "position": [
+              20,
+              0,
+              28
+            ],
+            "rotation": [
+              180,
+              0,
+              0
+            ],
+            "scale": [
+              1.5,
+              1,
+              1.5
+            ]
+          },
+          {
+            "position": [
+              -28,
+              0,
+              20
+            ],
+            "rotation": [
+              -90,
+              0,
+              0
+            ],
+            "scale": [
+              1.5,
+              1,
+              1.5
+            ]
+          },
+          {
+            "position": [
+              28,
+              0,
+              20
+            ],
+            "rotation": [
+              90,
+              0,
+              0
+            ],
+            "scale": [
+              1.5,
+              1,
+              1.5
+            ]
+          },
+          {
+            "position": [
+              28,
+              0,
+              -28
+            ],
+            "rotation": [
+              0,
+              0,
+              0
+            ],
+            "scale": [
+              1.5,
+              1,
+              1.5
+            ]
+          },
+          {
+            "position": [
+              28,
+              0,
+              28
+            ],
+            "rotation": [
+              180,
+              0,
+              0
+            ],
+            "scale": [
+              1.5,
+              1,
+              1.5
+            ]
+          },
+          {
+            "position": [
+              -28,
+              0,
+              28
+            ],
+            "rotation": [
+              -90,
+              0,
+              0
+            ],
+            "scale": [
+              1.5,
+              1,
+              1.5
+            ]
+          },
+          {
+            "position": [
+              28,
+              0,
+              28
+            ],
+            "rotation": [
+              90,
+              0,
+              0
+            ],
+            "scale": [
+              1.5,
+              1,
+              1.5
+            ]
+          }
+        ]
+      },
+      "major_pillars": {
+        "count": 4,
+        "material": "dark_industrial_wall",
+        "model": "support_pillar_tall",
+        "transforms": [
+          {
+            "position": [
+              -18,
+              5,
+              -18
+            ],
+            "rotation": [
+              0,
+              0,
+              0
+            ],
+            "scale": [
+              1,
+              1.4,
+              1
+            ]
+          },
+          {
+            "position": [
+              18,
+              5,
+              -18
+            ],
+            "rotation": [
+              0,
+              0,
+              0
+            ],
+            "scale": [
+              1,
+              1.4,
+              1
+            ]
+          },
+          {
+            "position": [
+              -18,
+              5,
+              18
+            ],
+            "rotation": [
+              0,
+              0,
+              0
+            ],
+            "scale": [
+              1,
+              1.4,
+              1
+            ]
+          },
+          {
+            "position": [
+              18,
+              5,
+              18
+            ],
+            "rotation": [
+              0,
+              0,
+              0
+            ],
+            "scale": [
+              1,
+              1.4,
+              1
+            ]
+          }
+        ]
+      },
+      "outer_walls": {
+        "count": 48,
+        "material": "dark_industrial_wall",
+        "model": "wall_segment_8x4",
+        "transforms": [
+          {
+            "position": [
+              -48,
+              2,
+              -48
+            ],
+            "rotation": [
+              0,
+              0,
+              0
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          {
+            "position": [
+              -48,
+              2,
+              48
+            ],
+            "rotation": [
+              180,
+              0,
+              0
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          {
+            "position": [
+              -48,
+              2,
+              -48
+            ],
+            "rotation": [
+              -90,
+              0,
+              0
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          {
+            "position": [
+              48,
+              2,
+              -48
+            ],
+            "rotation": [
+              90,
+              0,
+              0
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          {
+            "position": [
+              -39.27272727272727,
+              2,
+              -48
+            ],
+            "rotation": [
+              0,
+              0,
+              0
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          {
+            "position": [
+              -39.27272727272727,
+              2,
+              48
+            ],
+            "rotation": [
+              180,
+              0,
+              0
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          {
+            "position": [
+              -48,
+              2,
+              -39.27272727272727
+            ],
+            "rotation": [
+              -90,
+              0,
+              0
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          {
+            "position": [
+              48,
+              2,
+              -39.27272727272727
+            ],
+            "rotation": [
+              90,
+              0,
+              0
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          {
+            "position": [
+              -30.545454545454547,
+              2,
+              -48
+            ],
+            "rotation": [
+              0,
+              0,
+              0
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          {
+            "position": [
+              -30.545454545454547,
+              2,
+              48
+            ],
+            "rotation": [
+              180,
+              0,
+              0
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          {
+            "position": [
+              -48,
+              2,
+              -30.545454545454547
+            ],
+            "rotation": [
+              -90,
+              0,
+              0
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          {
+            "position": [
+              48,
+              2,
+              -30.545454545454547
+            ],
+            "rotation": [
+              90,
+              0,
+              0
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          {
+            "position": [
+              -21.81818181818182,
+              2,
+              -48
+            ],
+            "rotation": [
+              0,
+              0,
+              0
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          {
+            "position": [
+              -21.81818181818182,
+              2,
+              48
+            ],
+            "rotation": [
+              180,
+              0,
+              0
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          {
+            "position": [
+              -48,
+              2,
+              -21.81818181818182
+            ],
+            "rotation": [
+              -90,
+              0,
+              0
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          {
+            "position": [
+              48,
+              2,
+              -21.81818181818182
+            ],
+            "rotation": [
+              90,
+              0,
+              0
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          {
+            "position": [
+              -13.090909090909093,
+              2,
+              -48
+            ],
+            "rotation": [
+              0,
+              0,
+              0
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          {
+            "position": [
+              -13.090909090909093,
+              2,
+              48
+            ],
+            "rotation": [
+              180,
+              0,
+              0
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          {
+            "position": [
+              -48,
+              2,
+              -13.090909090909093
+            ],
+            "rotation": [
+              -90,
+              0,
+              0
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          {
+            "position": [
+              48,
+              2,
+              -13.090909090909093
+            ],
+            "rotation": [
+              90,
+              0,
+              0
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          {
+            "position": [
+              -4.363636363636367,
+              2,
+              -48
+            ],
+            "rotation": [
+              0,
+              0,
+              0
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          {
+            "position": [
+              -4.363636363636367,
+              2,
+              48
+            ],
+            "rotation": [
+              180,
+              0,
+              0
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          {
+            "position": [
+              -48,
+              2,
+              -4.363636363636367
+            ],
+            "rotation": [
+              -90,
+              0,
+              0
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          {
+            "position": [
+              48,
+              2,
+              -4.363636363636367
+            ],
+            "rotation": [
+              90,
+              0,
+              0
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          {
+            "position": [
+              4.36363636363636,
+              2,
+              -48
+            ],
+            "rotation": [
+              0,
+              0,
+              0
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          {
+            "position": [
+              4.36363636363636,
+              2,
+              48
+            ],
+            "rotation": [
+              180,
+              0,
+              0
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          {
+            "position": [
+              -48,
+              2,
+              4.36363636363636
+            ],
+            "rotation": [
+              -90,
+              0,
+              0
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          {
+            "position": [
+              48,
+              2,
+              4.36363636363636
+            ],
+            "rotation": [
+              90,
+              0,
+              0
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          {
+            "position": [
+              13.090909090909086,
+              2,
+              -48
+            ],
+            "rotation": [
+              0,
+              0,
+              0
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          {
+            "position": [
+              13.090909090909086,
+              2,
+              48
+            ],
+            "rotation": [
+              180,
+              0,
+              0
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          {
+            "position": [
+              -48,
+              2,
+              13.090909090909086
+            ],
+            "rotation": [
+              -90,
+              0,
+              0
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          {
+            "position": [
+              48,
+              2,
+              13.090909090909086
+            ],
+            "rotation": [
+              90,
+              0,
+              0
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          {
+            "position": [
+              21.818181818181813,
+              2,
+              -48
+            ],
+            "rotation": [
+              0,
+              0,
+              0
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          {
+            "position": [
+              21.818181818181813,
+              2,
+              48
+            ],
+            "rotation": [
+              180,
+              0,
+              0
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          {
+            "position": [
+              -48,
+              2,
+              21.818181818181813
+            ],
+            "rotation": [
+              -90,
+              0,
+              0
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          {
+            "position": [
+              48,
+              2,
+              21.818181818181813
+            ],
+            "rotation": [
+              90,
+              0,
+              0
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          {
+            "position": [
+              30.545454545454533,
+              2,
+              -48
+            ],
+            "rotation": [
+              0,
+              0,
+              0
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          {
+            "position": [
+              30.545454545454533,
+              2,
+              48
+            ],
+            "rotation": [
+              180,
+              0,
+              0
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          {
+            "position": [
+              -48,
+              2,
+              30.545454545454533
+            ],
+            "rotation": [
+              -90,
+              0,
+              0
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          {
+            "position": [
+              48,
+              2,
+              30.545454545454533
+            ],
+            "rotation": [
+              90,
+              0,
+              0
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          {
+            "position": [
+              39.272727272727266,
+              2,
+              -48
+            ],
+            "rotation": [
+              0,
+              0,
+              0
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          {
+            "position": [
+              39.272727272727266,
+              2,
+              48
+            ],
+            "rotation": [
+              180,
+              0,
+              0
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          {
+            "position": [
+              -48,
+              2,
+              39.272727272727266
+            ],
+            "rotation": [
+              -90,
+              0,
+              0
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          {
+            "position": [
+              48,
+              2,
+              39.272727272727266
+            ],
+            "rotation": [
+              90,
+              0,
+              0
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          {
+            "position": [
+              48,
+              2,
+              -48
+            ],
+            "rotation": [
+              0,
+              0,
+              0
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          {
+            "position": [
+              48,
+              2,
+              48
+            ],
+            "rotation": [
+              180,
+              0,
+              0
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          {
+            "position": [
+              -48,
+              2,
+              48
+            ],
+            "rotation": [
+              -90,
+              0,
+              0
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          {
+            "position": [
+              48,
+              2,
+              48
+            ],
+            "rotation": [
+              90,
+              0,
+              0
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          }
+        ]
+      },
+      "pickup_spawns": {
+        "count": 4,
+        "material": "pickup_marker",
+        "model": "pickup_spawn_marker",
+        "transforms": [
+          {
+            "position": [
+              0,
+              0.4,
+              -36
+            ],
+            "rotation": [
+              0,
+              0,
+              0
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          {
+            "position": [
+              0,
+              0.4,
+              36
+            ],
+            "rotation": [
+              0,
+              0,
+              0
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          {
+            "position": [
+              -36,
+              0.4,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          {
+            "position": [
+              36,
+              0.4,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          }
+        ]
+      },
+      "teleport_pads": {
+        "count": 2,
+        "material": "blue_energy",
+        "model": "teleport_pad",
+        "transforms": [
+          {
+            "position": [
+              -42,
+              0.2,
+              0
+            ],
+            "rotation": [
+              90,
+              0,
+              0
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          {
+            "position": [
+              42,
+              0.2,
+              0
+            ],
+            "rotation": [
+              -90,
+              0,
+              0
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          }
+        ]
+      },
+      "upper_ramps": {
+        "count": 2,
+        "material": "bridge_metal",
+        "model": "ramp_module_6x3",
+        "transforms": [
+          {
+            "position": [
+              -34,
+              2,
+              -16
+            ],
+            "rotation": [
+              35,
+              0,
+              0
+            ],
+            "scale": [
+              1,
+              1,
+              2
+            ]
+          },
+          {
+            "position": [
+              34,
+              2,
+              16
+            ],
+            "rotation": [
+              -145,
+              0,
+              0
+            ],
+            "scale": [
+              1,
+              1,
+              2
+            ]
+          }
+        ]
+      },
+      "upper_stairs": {
+        "count": 2,
+        "material": "bridge_metal",
+        "model": "stair_module_6x3",
+        "transforms": [
+          {
+            "position": [
+              0,
+              2,
+              -40
+            ],
+            "rotation": [
+              0,
+              0,
+              0
+            ],
+            "scale": [
+              1,
+              1,
+              2
+            ]
+          },
+          {
+            "position": [
+              0,
+              2,
+              40
+            ],
+            "rotation": [
+              180,
+              0,
+              0
+            ],
+            "scale": [
+              1,
+              1,
+              2
+            ]
+          }
+        ]
+      }
+    },
+    "interactions": {
+      "spawns": [
+        {
+          "id": "player_spawn",
+          "kind": "player",
+          "position": [
+            0,
+            1.8,
+            38
+          ],
+          "yaw": 180
+        }
+      ]
+    },
+    "lights": {
+      "key": {
+        "color": [
+          0.7,
+          0.82,
+          1
+        ],
+        "direction": [
+          -0.35,
+          -0.8,
+          -0.2
+        ],
+        "intensity": 2.5,
+        "kind": "directional"
+      },
+      "lava": {
+        "color": [
+          1,
+          0.18,
+          0.02
+        ],
+        "intensity": 6,
+        "kind": "point",
+        "position": [
+          0,
+          -1,
+          1.5
+        ]
+      }
+    },
+    "nodes": {
+      "archways": {
+        "instances": 2,
+        "material": "red_rune_panel",
+        "mesh": "archway_frame",
+        "transform": {
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "translation": [
+            0,
+            2.5,
+            -46
+          ]
+        }
+      },
+      "cardinal_bridges": {
+        "instances": 4,
+        "material": "bridge_metal",
+        "mesh": "bridge_module_8x3",
+        "transform": {
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            2.5
+          ],
+          "translation": [
+            0,
+            0.5,
+            -24
+          ]
+        }
+      },
+      "central_platform": {
+        "instances": 1,
+        "material": "red_rune_panel",
+        "mesh": "circular_platform",
+        "transform": {
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            24,
+            1,
+            24
+          ],
+          "translation": [
+            0,
+            0.25,
+            0
+          ]
+        }
+      },
+      "cover_crates": {
+        "instances": 8,
+        "material": "dark_industrial_wall",
+        "mesh": "cover_crate",
+        "transform": {
+          "rotation": [
+            22.5,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "translation": [
+            4.974885,
+            0.7,
+            -12.010434
+          ]
+        }
+      },
+      "energy_gates": {
+        "instances": 2,
+        "material": "blue_energy",
+        "mesh": "energy_gate",
+        "transform": {
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "translation": [
+            0,
+            2,
+            -32
+          ]
+        }
+      },
+      "jump_pads": {
+        "instances": 2,
+        "material": "blue_energy",
+        "mesh": "jump_pad",
+        "transform": {
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "translation": [
+            -36,
+            0.2,
+            0
+          ]
+        }
+      },
+      "lava_channels": {
+        "instances": 8,
+        "material": "lava_emissive",
+        "mesh": "lava_channel_8x2",
+        "transform": {
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            4,
+            1,
+            1
+          ],
+          "translation": [
+            0,
+            -1.5,
+            -16
+          ]
+        }
+      },
+      "main_floor_grid": {
+        "instances": 32,
+        "material": "dark_industrial_floor",
+        "mesh": "floor_panel_4x4",
+        "transform": {
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1.5,
+            1,
+            1.5
+          ],
+          "translation": [
+            -28,
+            0,
+            -28
+          ]
+        }
+      },
+      "major_pillars": {
+        "instances": 4,
+        "material": "dark_industrial_wall",
+        "mesh": "support_pillar_tall",
+        "transform": {
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1.4,
+            1
+          ],
+          "translation": [
+            -18,
+            5,
+            -18
+          ]
+        }
+      },
+      "outer_walls": {
+        "instances": 48,
+        "material": "dark_industrial_wall",
+        "mesh": "wall_segment_8x4",
+        "transform": {
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "translation": [
+            -48,
+            2,
+            -48
+          ]
+        }
+      },
+      "pickup_spawns": {
+        "instances": 4,
+        "material": "pickup_marker",
+        "mesh": "pickup_spawn_marker",
+        "transform": {
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "translation": [
+            0,
+            0.4,
+            -36
+          ]
+        }
+      },
+      "platform": {
+        "instances": 6,
+        "material": "heated_panel",
+        "mesh": "arena_platform",
+        "transform": {
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "translation": [
+            0,
+            0,
+            0
+          ]
+        }
+      },
+      "teleport_pads": {
+        "instances": 2,
+        "material": "blue_energy",
+        "mesh": "teleport_pad",
+        "transform": {
+          "rotation": [
+            90,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "translation": [
+            -42,
+            0.2,
+            0
+          ]
+        }
+      },
+      "upper_ramps": {
+        "instances": 2,
+        "material": "bridge_metal",
+        "mesh": "ramp_module_6x3",
+        "transform": {
+          "rotation": [
+            35,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            2
+          ],
+          "translation": [
+            -34,
+            2,
+            -16
+          ]
+        }
+      },
+      "upper_stairs": {
+        "instances": 2,
+        "material": "bridge_metal",
+        "mesh": "stair_module_6x3",
+        "transform": {
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            2
+          ],
+          "translation": [
+            0,
+            2,
+            -40
+          ]
+        }
+      }
+    },
+    "skybox": {
+      "environment": "storm_sky",
+      "exposure": 1,
+      "rotation": [
+        0,
+        0,
+        0
+      ]
+    },
+    "sprites": {
+      "hud_runes": {
+        "batch": 12,
+        "material": "lava_rune",
+        "sprite": "blue_rune"
+      }
+    },
+    "vectorDecals": {
+      "floor_rune": {
+        "alpha": 0.85,
+        "material": "lava_rune",
+        "space": "world",
+        "transform": {
+          "rotation": [
+            0,
+            -90,
+            0
+          ],
+          "scale": [
+            6,
+            6,
+            1
+          ],
+          "translation": [
+            0,
+            0.05,
+            0
+          ]
+        },
+        "vector": "rune_vector"
+      }
+    },
+    "voxels": {
+      "energy_columns": {
+        "budget": 512,
+        "chunkSize": 16,
+        "material": "voxel_glow",
+        "mode": "instanced-cubes"
+      }
+    }
+  },
+  "shaders": {
+    "arena_wgsl": {
+      "fragment": "fs_main",
+      "path": "gpu_arena/shaders/arena.wgsl",
+      "vertex": "vs_main"
+    }
+  },
+  "targets": {
+    "browser": {
+      "backend": "webgpu",
+      "required": false
+    },
+    "native": {
+      "backend": "wgpu",
+      "required": false
+    }
+  },
+  "version": "0.9"
+}

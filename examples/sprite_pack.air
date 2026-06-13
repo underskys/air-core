@@ -1,0 +1,42 @@
+module sprite_pack
+use std.color
+capabilities { }
+effects { memory.alloc <= 1, memory.free <= 1, memory.load <= 3, memory.store <= 12, memory.static_alloc_bytes <= 48, memory.dynamic_allocations <= 0 }
+requires export run
+
+export func run() -> i32 {
+entry:
+  %bytes:i32 = 48
+  %ptr:ptr = alloc_region %bytes
+  %x:i32 = 120
+  %y:i32 = 64
+  %w:i32 = 32
+  %h:i32 = 32
+  %u0:i32 = 0
+  %v0:i32 = 0
+  %u1:i32 = 1000
+  %v1:i32 = 1000
+  %color:i32 = @color.rgb_pack(18, 42, 200)
+  %depth:i32 = 3
+  %flags:i32 = 5
+  %user:i32 = 9
+  store.i32 %ptr, 0, %x
+  store.i32 %ptr, 4, %y
+  store.i32 %ptr, 8, %w
+  store.i32 %ptr, 12, %h
+  store.i32 %ptr, 16, %u0
+  store.i32 %ptr, 20, %v0
+  store.i32 %ptr, 24, %u1
+  store.i32 %ptr, 28, %v1
+  store.i32 %ptr, 32, %color
+  store.i32 %ptr, 36, %depth
+  store.i32 %ptr, 40, %flags
+  store.i32 %ptr, 44, %user
+  %loaded_x:i32 = load.i32 %ptr, 0
+  %loaded_depth:i32 = load.i32 %ptr, 36
+  %loaded_flags:i32 = load.i32 %ptr, 40
+  %sum0:i32 = add %loaded_x, %loaded_depth
+  %out:i32 = add %sum0, %loaded_flags
+  free_region %ptr
+  return %out
+}

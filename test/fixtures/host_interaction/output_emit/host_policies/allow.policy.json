@@ -1,0 +1,11 @@
+{
+  "schemaVersion": "0.25",
+  "kind": "air.mockHostPolicy",
+  "id": "output-emit-allow",
+  "hostProfile": "mock-output-v011",
+  "allowOutputs": ["notify_status_recorded"],
+  "denyOutputs": [],
+  "capabilities": {
+    "output.emit": "allowed"
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "schemaVersion": "0.16",
+  "kind": "air.conformance.trace",
+  "id": "fixed-state-digest-pass",
+  "package": "fixed-state-conformance-fixture",
+  "profile": "cli",
+  "steps": [
+    {
+      "id": "write-cell",
+      "call": {
+        "export": "write_cell",
+        "args": [2, 99]
+      },
+      "expect": {
+        "return": 99
+      }
+    }
+  ],
+  "stateDigest": {
+    "algorithm": "sha256",
+    "expected": "sha256:bc06fece7d5e0cb8e70137aaef89e8a92be973af1acb23304ad3a1258d7b62ee",
+    "helpers": [
+      { "export": "board_cell", "args": [0] },
+      { "export": "board_cell", "args": [1] },
+      { "export": "board_cell", "args": [2] },
+      { "export": "board_cell", "args": [3] }
+    ]
+  }
+}

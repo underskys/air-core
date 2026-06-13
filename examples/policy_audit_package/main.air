@@ -1,0 +1,23 @@
+module policy_audit_main
+use "./allowlist.air" as allowlist
+capabilities { }
+
+export func is_service_allowed(service_id: i32) -> i32 {
+entry:
+  %allowed:i32 = @allowlist.service_allowed(%service_id)
+  return %allowed
+}
+
+export func service_retry_budget_ms(service_id: i32) -> i32 {
+entry:
+  %budget:i32 = @allowlist.retry_budget_ms(%service_id)
+  return %budget
+}
+
+export func policy_score(service_id: i32) -> i32 {
+entry:
+  %allowed:i32 = @allowlist.service_allowed(%service_id)
+  %budget:i32 = @allowlist.retry_budget_ms(%service_id)
+  %score:i32 = add %allowed, %budget
+  return %score
+}

@@ -1,0 +1,30 @@
+{
+  "schemaVersion": "0.16",
+  "kind": "air.conformance.report",
+  "package": "fixed-state-conformance-fixture",
+  "profile": "cli",
+  "status": "pass",
+  "trace": {
+    "id": "fixed-state-digest-pass",
+    "kind": "air.conformance.trace"
+  },
+  "replayChecksum": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+  "outputs": {
+    "expectedCount": 0,
+    "observedCount": 0,
+    "expected": [],
+    "observed": []
+  },
+  "commands": {
+    "expectedCount": 0,
+    "observedCount": 0,
+    "expected": [],
+    "observed": []
+  },
+  "mismatches": [],
+  "stateDigest": {
+    "expected": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+    "observed": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+    "helperCount": 4
+  }
+}

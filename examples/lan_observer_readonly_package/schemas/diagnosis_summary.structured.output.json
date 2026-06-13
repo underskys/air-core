@@ -1,0 +1,48 @@
+{
+  "schemaVersion": "0.32",
+  "kind": "air.structuredOutputSummarySchema",
+  "name": "diagnosis_summary",
+  "privacyPolicy": {
+    "defaultClassification": "minimized",
+    "forbiddenByDefault": [
+      "raw_text",
+      "raw_url",
+      "private_text",
+      "token",
+      "secret",
+      "credential"
+    ]
+  },
+  "fields": [
+    {
+      "name": "diagnosis_code",
+      "type": "i32",
+      "privacy": "minimized",
+      "semantic": "enum"
+    },
+    {
+      "name": "severity",
+      "type": "i32",
+      "privacy": "minimized",
+      "semantic": "score"
+    },
+    {
+      "name": "recommended_action_id",
+      "type": "i32",
+      "privacy": "minimized",
+      "semantic": "enum"
+    },
+    {
+      "name": "confidence_x1000",
+      "type": "i32",
+      "privacy": "minimized",
+      "semantic": "score"
+    },
+    {
+      "name": "requires_human_approval",
+      "type": "i32",
+      "privacy": "minimized",
+      "semantic": "flag"
+    }
+  ]
+}

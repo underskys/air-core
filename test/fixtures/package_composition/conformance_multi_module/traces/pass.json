@@ -1,0 +1,19 @@
+{
+  "schemaVersion": "0.16",
+  "kind": "air.conformance.trace",
+  "id": "package-composition-linked-pass",
+  "package": "package-composition-conformance",
+  "profile": "cli",
+  "steps": [
+    {
+      "id": "linked-run",
+      "call": {
+        "export": "run",
+        "args": [7]
+      },
+      "expect": {
+        "return": 9
+      }
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+module missing_audio_capability
+capabilities { audio }
+extern audio.beep(id: i32) -> void
+
+export func run() -> void {
+entry:
+  return
+}

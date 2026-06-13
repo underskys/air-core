@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "0.25",
+  "kind": "air.mockHostPolicy",
+  "id": "airops-incident-readonly",
+  "allowOutputs": ["pipeline_decision_recorded"],
+  "denyOutputs": [],
+  "capabilities": {
+    "pipeline.decision": "allowed",
+    "network": "forbidden",
+    "secrets": "forbidden",
+    "filesystem.write": "forbidden"
+  }
+}

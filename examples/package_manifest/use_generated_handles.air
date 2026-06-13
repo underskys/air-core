@@ -1,0 +1,16 @@
+module use_generated_handles
+use "./generated/material_handles.air" as material_handles
+use "./generated/asset_handles.air" as asset_handles
+use "./generated/audio_handles.air" as audio_handles
+
+export func run() -> i32 {
+entry:
+  %mat:i32 = call @material_handles.mat_package_basic()
+  %shader:i32 = call @asset_handles.shader_package_unlit()
+  %texture:i32 = call @asset_handles.texture_package_checker()
+  %click:i32 = call @audio_handles.sfx_package_click()
+  %a:i32 = add %mat, %shader
+  %b:i32 = add %texture, %click
+  %out:i32 = add %a, %b
+  return %out
+}

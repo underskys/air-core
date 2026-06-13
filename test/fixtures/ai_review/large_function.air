@@ -1,0 +1,12 @@
+module ai_review_large_function
+capabilities { }
+
+export func run(seed: i32) -> i32 {
+entry:
+  %a:i32 = i32.add %seed, 7
+  %b:i32 = i32.add %a, 7
+  %c:i32 = i32.add %b, 7
+  %d:i32 = i32.add %c, 7
+  %e:i32 = i32.add %d, 7
+  return %e
+}

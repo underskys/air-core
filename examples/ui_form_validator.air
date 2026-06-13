@@ -1,0 +1,40 @@
+module ui_form_validator
+capabilities { ui }
+effects { ui.* <= 10 }
+requires capability ui
+requires export render
+
+extern ui.begin_frame(width: i32, height: i32, time_ms: i32) -> void
+extern ui.panel(id: i32, x: i32, y: i32, w: i32, h: i32, style: i32) -> void
+extern ui.label(id: i32, x: i32, y: i32, label: i32, style: i32) -> void
+extern ui.input_i32(id: i32, x: i32, y: i32, w: i32, label: i32, value: i32, style: i32) -> i32
+extern ui.button(id: i32, x: i32, y: i32, w: i32, h: i32, label: i32, style: i32) -> bool
+extern ui.status(id: i32, x: i32, y: i32, label: i32, severity: i32, style: i32) -> void
+extern ui.warning(id: i32, x: i32, y: i32, label: i32, severity: i32, style: i32) -> void
+extern ui.end_frame() -> void
+
+export func render(default_age: i32, default_email_ok: i32) -> i32 {
+entry:
+  @ui.begin_frame(720, 520, 0)
+  @ui.panel(1, 24, 24, 480, 360, 1)
+  @ui.label(2, 48, 48, 1200, 1)
+  %age:i32 = @ui.input_i32(3, 48, 96, 280, 1201, %default_age, 1)
+  %email_ok_i:i32 = @ui.input_i32(4, 48, 144, 280, 1202, %default_email_ok, 1)
+  %terms:bool = @ui.button(5, 48, 200, 220, 40, 1203, 1)
+  %age_min:bool = i32.ge_s %age, 13
+  %age_max:bool = i32.le_s %age, 120
+  %age_ok:bool = bool.and %age_min, %age_max
+  %email_ok:bool = i32.gt_s %email_ok_i, 0
+  %field_ok:bool = bool.and %age_ok, %email_ok
+  %valid:bool = bool.and %field_ok, %terms
+  %invalid_severity:i32 = 8
+  %ok_severity:i32 = 0
+  %severity:i32 = select.i32 %valid, %ok_severity, %invalid_severity
+  @ui.status(6, 48, 272, 1204, %severity, 1)
+  @ui.warning(7, 48, 316, 1205, %severity, 1)
+  @ui.end_frame()
+  %one:i32 = 1
+  %zero:i32 = 0
+  %valid_i:i32 = select.i32 %valid, %one, %zero
+  return %valid_i
+}

@@ -1,0 +1,18 @@
+module math
+capabilities { }
+table offsets:i32[2] = [1, 2]
+global cached:i32 = const.i32 0
+
+export func add_one(value: i32) -> i32 {
+entry:
+  %one:i32 = table.get offsets, 0
+  %next:i32 = add %value, %one
+  return %next
+}
+
+func internal_add_one(value: i32) -> i32 {
+entry:
+  %one:i32 = table.get offsets, 0
+  %next:i32 = add %value, %one
+  return %next
+}

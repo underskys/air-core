@@ -1,0 +1,309 @@
+# AIR Changelog
+
+This changelog keeps public milestone history out of the README. It uses a
+compact format:
+
+- Added
+- Changed
+- Fixed
+- Security
+- Breaking / Migration
+
+## Unreleased
+
+### Added
+
+- Public launch documentation: `WHY_AIR.md`, `METHOD.md`, `SECURITY.md`,
+  `THREAT_MODEL.md`, `CONFORMANCE.md`, and `ROADMAP.md`.
+
+### Changed
+
+- README now uses strict anti-overclaim language for public alpha.
+- Package version set to `0.43.0-alpha.1` for current milestone alpha
+  preparation.
+- Public npm package identity changed to `air-verifier`; AIR remains the
+  project name and `airc` remains the CLI.
+- Public-alpha governance docs now cover installability, conformance,
+  package files, promise debt, and request ledger validation.
+
+### Fixed
+
+- Public docs now avoid unsupported claims about formal methods, security, and
+  performance.
+
+### Security
+
+- Public security documentation now states what AIR does and does not protect
+  against.
+
+### Breaking / Migration
+
+- None.
+
+## v0.42 - Resource Validators & ReviewPolicy Hard Gates
+
+### Added
+
+- Resource Validators RFC.
+- ReviewPolicy Hard Gates RFC.
+- API gates plan for resource/reviewPolicy surfaces.
+
+### Changed
+
+- Public release hygiene and Apache-2.0 licensing work prepared the repository
+  for alpha launch review.
+
+### Fixed
+
+- Public-clean audit docs classify public-now, public-later, and excluded
+  repository paths.
+
+### Security
+
+- Resource validation and reviewPolicy hard-gate plans keep validators
+  deterministic and outside language semantics.
+
+### Breaking / Migration
+
+- None.
+
+## v0.41 - Declared Fixed-Capacity Pools First Slice
+
+### Added
+
+- Declared fixed-capacity pool source syntax.
+- `pool.capacity`.
+- `pool.get.i32`, `pool.get.bool`, `pool.set.i32`, and `pool.set.bool`.
+- Verifier checks for fixed positive capacity, required `active:bool`, allowed
+  scalar field types, access bounds, and rejected unsupported pool surfaces.
+- Report/evidence/diff visibility for pool metadata.
+- v0.41 API gates.
+
+### Changed
+
+- reviewPolicy distinguishes declared pools from accidental mutable slot-family
+  patterns.
+
+### Fixed
+
+- None.
+
+### Security
+
+- Pools remain fixed-capacity, scalar-only, and compiler-managed. No runtime
+  JSON/object model, dynamic maps, GC, host object handles, or Host ABI
+  expansion were added.
+
+### Breaking / Migration
+
+- Dynamic loop fuel cap: verifier/lowering behavior caps verifier-visible
+  dynamic loop execution at `4096`.
+- Why: recursive and arbitrary unbounded loops weaken AIR's bounded execution
+  story and can fail only at runtime stack/fuel limits.
+- What breaks: AIR modules relying on dynamic loops above `4096` iterations or
+  verifier-unbounded execution forms must be rewritten.
+- How to migrate: split work into host-owned batching, bounded AIR invocations,
+  or static `loop.fold` counts at or below `4096`.
+- How to test: run `npm test`, then add a negative fixture for counts above
+  `4096` and a positive fixture for `4096`.
+
+## v0.40 - Declared Fixed-Capacity Pools RFC & Gates
+
+### Added
+
+- Declared Fixed-Capacity Pools RFC.
+- v0.40 API gates that rejected active pool implementation before the v0.41
+  decision lock.
+
+### Changed
+
+- Clarified pool vs fixed state vs readonly tablegroup.
+
+### Fixed
+
+- None.
+
+### Security
+
+- Documented kill criteria for dynamic allocation, GC, runtime JSON, object
+  identity, host object handles, and platform-specific APIs.
+
+### Breaking / Migration
+
+- None.
+
+## v0.39 - Executable Package Composition / Authored Graph Runtime
+
+### Added
+
+- Executable package composition first slice.
+- Authored graph vs executable graph ownership model.
+- Deterministic linked executable output.
+- Multi-module conformance fixture and negative unresolved/private import tests.
+- v0.39 API gates.
+
+### Changed
+
+- Reports/evidence preserve authored ownership while executable output remains
+  derived.
+
+### Fixed
+
+- None.
+
+### Security
+
+- Executable graph cannot introduce capabilities/effects absent from authored
+  graph.
+
+### Breaking / Migration
+
+- None.
+
+## v0.38 - End-to-End Execution Proof & AI Eval Capture
+
+### Added
+
+- `airc run-proof` first slice.
+- `airc eval-ai import` for deterministic local capture/import scoring.
+- E2E evidence report distinctions and benchmark fixture.
+- v0.38 API gates.
+
+### Changed
+
+- Evidence reports can distinguish static validation, package policy,
+  conformance replay, runtime execution proof, and host policy simulation.
+
+### Fixed
+
+- None.
+
+### Security
+
+- Capture/import rejects secret-like content, provider metadata, raw URLs, and
+  nondeterministic live-provider data.
+
+### Breaking / Migration
+
+- None.
+
+## v0.37 - Readonly Tablegroups First Slice
+
+### Added
+
+- Readonly tablegroup syntax and `tablegroup.get`.
+- Equal-length and bounds validation.
+- Lowering to existing static table machinery.
+- Report/evidence visibility and anti-slop diagnostics.
+- v0.37 API gates.
+
+### Changed
+
+- reviewPolicy can suggest readonly tablegroups for related static row data.
+
+### Fixed
+
+- None.
+
+### Security
+
+- Tablegroups are readonly, fixed-length, scalar-only, and do not add Host ABI
+  authority.
+
+### Breaking / Migration
+
+- None.
+
+## v0.36 - Consumer Evidence Corpus & Demo Pressure Intake
+
+### Added
+
+- `consumer_evidence/` skeleton, schemas, validator, separate evidence bundle,
+  and seeded safe entries.
+
+### Changed
+
+- Demos are classified as pressure evidence, not Core authority.
+
+### Fixed
+
+- None.
+
+### Security
+
+- Consumer evidence excludes full demo bundles, large assets, raw logs, secrets,
+  and private data.
+
+### Breaking / Migration
+
+- None.
+
+## v0.35 - Read-only Consumer Proof & Product Evidence Pack
+
+### Added
+
+- lan-observer-style read-only proof package.
+- Sanitized structured facts, bounded output intent, mock host policy,
+  evidence report, package diff, replay, benchmark, AI eval case, and
+  unsafe-to-safe rejection story.
+
+### Changed
+
+- Active docs and review artifacts aligned with v0.35 proof scope.
+
+### Fixed
+
+- None.
+
+### Security
+
+- Proof uses no real network access, writes, secrets, raw hostnames, MACs, IPs,
+  or raw host authority.
+
+### Breaking / Migration
+
+- None.
+
+## v0.34 - Documentation, Agent Context, and Workflow Automation Hygiene
+
+### Added
+
+- Slim README, CHANGELOG, examples/demos classification, and agent finish
+  workflow automation.
+
+### Changed
+
+- Milestone history moved out of README.
+
+### Fixed
+
+- Review bundles include mobile summary and review request artifacts.
+
+### Security
+
+- No compiler/runtime changes.
+
+### Breaking / Migration
+
+- None.
+
+## Earlier Milestones
+
+- v0.33 added AI authoring eval and verifier safety deepening.
+- v0.32 added bounded structured IO first slice, AI authoring replay mode, and
+  verifier safety scaffolding.
+- v0.31 planned bounded structured IO gates.
+- v0.30 added evidence review surface and package diff first slice.
+- v0.29 added benchmark report first slice.
+- v0.28 hardened generated output handles for bounded `output.emit`.
+- v0.27 stabilized Host ABI `0.11` for bounded `output.emit`.
+- v0.26 introduced Host ABI `0.11` bounded `output.emit`.
+- v0.25 added host interaction evidence and mock host policy.
+- v0.24 planned generated state handles.
+- v0.23 implemented fixed bounded state first slice.
+- v0.22 planned fixed bounded state.
+- v0.21 rebaselined API surfaces and host interaction contracts.
+- v0.20 added verification evidence, bounded rowsets, and command buffers.
+- v0.19 added compact static tables planning and diagnostics-only LSP.
+- v0.18 added bounded facts and output contract tooling.
+- v0.10 established AIR ABI `0.10`.

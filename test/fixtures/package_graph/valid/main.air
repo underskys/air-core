@@ -1,0 +1,12 @@
+module main
+use "./math.air" as math
+capabilities { debug }
+effects { debug.metric <= 1 }
+extern debug.metric(id: i32, value: i32) -> void
+
+export func run(seed: i32) -> i32 {
+entry:
+  %next:i32 = @math.add_one(%seed)
+  @debug.metric(1, %next)
+  return %next
+}

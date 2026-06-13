@@ -1,0 +1,113 @@
+{
+  "schemaVersion": 1,
+  "kind": "air.consumerEvidenceRegistry",
+  "demos": [
+    {
+      "id": "lan_observer_readonly",
+      "name": "lan-observer-style read-only consumer proof",
+      "category": "read_only_diagnostics",
+      "status": "core-proof",
+      "owner": "AIR Core",
+      "source": "examples/lan_observer_readonly_package",
+      "airRole": "Consume sanitized bounded structured facts and emit deterministic diagnosis/recommendation intent.",
+      "hostRole": "Own raw network/platform state, sanitization, policy execution, and all real side effects.",
+      "allowedCapabilities": [
+        "bounded structured IO metadata",
+        "bounded output intent",
+        "deterministic replay",
+        "evidence report"
+      ],
+      "deniedAuthorities": [
+        "real network access",
+        "raw packet capture",
+        "raw hostnames",
+        "raw MAC/IP values unless sanitized IDs",
+        "writes/mutations",
+        "secrets/tokens"
+      ],
+      "proofTypes": [
+        "package-check",
+        "evidence-report",
+        "replay",
+        "package-diff",
+        "benchmark",
+        "ai-eval"
+      ],
+      "replayCount": 1,
+      "hasAiPrompt": true,
+      "hasRepairTranscript": true,
+      "evidencePath": "examples/lan_observer_readonly_package/expected/evidence_report.md",
+      "pressurePath": "docs/rfcs/v0.35-readonly-consumer-proof.md",
+      "notes": [
+        "Seed entry references existing Core proof package; no external demo source is imported."
+      ]
+    },
+    {
+      "id": "airon_platformer_pressure",
+      "name": "AIRON platformer pressure summary",
+      "category": "interactive_demo_pressure",
+      "status": "pressure-evidence",
+      "owner": "External demo / AIR Core triage",
+      "source": "docs/abi-requests/airon-platformer-pressure.md",
+      "airRole": "Record deterministic game logic pressure and authored package/tablegroup/pool pressure.",
+      "hostRole": "Own rendering, assets, browser/WebGPU, input, and demo-specific gameplay behavior.",
+      "allowedCapabilities": [
+        "pressure routing",
+        "package-check evidence",
+        "review notes"
+      ],
+      "deniedAuthorities": [
+        "platformer-specific Core APIs",
+        "draw_actor",
+        "dynamic host object handles",
+        "GC/maps",
+        "debug.metric event bus"
+      ],
+      "proofTypes": [
+        "pressure-summary"
+      ],
+      "replayCount": 0,
+      "hasAiPrompt": false,
+      "hasRepairTranscript": false,
+      "evidencePath": "docs/abi-requests/airon-platformer-pressure.md",
+      "pressurePath": "docs/abi-requests/airon-platformer-pressure.md",
+      "notes": [
+        "Pressure evidence only; AIRON does not define Core ABI or Host ABI."
+      ]
+    },
+    {
+      "id": "airops_incident_package",
+      "name": "AirOps-style incident package",
+      "category": "policy_ops_decision",
+      "status": "canonical-proof",
+      "owner": "AIR Core",
+      "source": "examples/airops_incident_package",
+      "airRole": "Evaluate bounded incident facts and produce deterministic incident policy intent.",
+      "hostRole": "Own incident systems, user-facing workflow, execution policy, and all real side effects.",
+      "allowedCapabilities": [
+        "bounded facts",
+        "command buffer output intent",
+        "readonly host policy fixture"
+      ],
+      "deniedAuthorities": [
+        "real incident system access",
+        "secrets",
+        "raw host authority",
+        "automatic remediation"
+      ],
+      "proofTypes": [
+        "package-check",
+        "replay",
+        "evidence-summary"
+      ],
+      "replayCount": 1,
+      "hasAiPrompt": false,
+      "hasRepairTranscript": false,
+      "evidencePath": "examples/airops_incident_package/README.md",
+      "pressurePath": "docs/CANONICAL_EXAMPLES_v0_21.md",
+      "notes": [
+        "Existing canonical Core example included as a small safe seed reference."
+      ]
+    }
+  ]
+}

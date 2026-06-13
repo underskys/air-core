@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "0.32",
+  "kind": "air.aiAuthoringCapturedOutput",
+  "caseId": "runtime_json_hallucination",
+  "candidateSummary": "structured IO candidate uses a runtime json payload field",
+  "forbiddenSurface": true,
+  "hallucinationCategories": [
+    "runtime_json"
+  ],
+  "firstPass": {
+    "verify": {
+      "status": "passed",
+      "diagnostics": []
+    },
+    "packageCheck": {
+      "status": "failed",
+      "diagnostics": [
+        {
+          "code": "air.structured_io.runtime_json_rejected",
+          "severity": "fail",
+          "message": "structured IO field type json is rejected"
+        }
+      ]
+    }
+  }
+}

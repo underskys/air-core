@@ -1,0 +1,5 @@
+AIR package manifest placeholder texture.
+
+This text fixture intentionally uses a .png extension so asset manifest
+validation can demonstrate placeholder detection without adding binary media to
+the repository.

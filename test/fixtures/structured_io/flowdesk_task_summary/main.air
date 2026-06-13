@@ -1,0 +1,7 @@
+module flowdesk_structured_io_fuzz_fixture
+capabilities { }
+
+export func run() -> i32 {
+entry:
+  return 1
+}

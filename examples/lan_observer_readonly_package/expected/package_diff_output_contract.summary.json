@@ -1,0 +1,45 @@
+{
+  "kind": "air.packageDiff",
+  "status": "changed",
+  "airAbiDelta": {
+    "changed": false,
+    "new": "0.10",
+    "old": "0.10"
+  },
+  "hostAbiDelta": {
+    "changed": false,
+    "new": "0.10",
+    "old": "0.10"
+  },
+  "capabilityDelta": {
+    "added": [],
+    "changed": false,
+    "new": [],
+    "old": [],
+    "removed": []
+  },
+  "effectChanged": false,
+  "outputContractDelta": {
+    "changed": true,
+    "changedItems": [
+      {
+        "oldOutputIds": [
+          3501
+        ],
+        "newOutputIds": [
+          3502
+        ]
+      }
+    ]
+  },
+  "structuredIODelta": {
+    "changed": false,
+    "changedItems": []
+  },
+  "generatedArtifactDelta": {
+    "changed": false,
+    "added": [],
+    "removed": [],
+    "changedItems": []
+  }
+}

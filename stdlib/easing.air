@@ -1,0 +1,100 @@
+module easing
+capabilities { }
+
+func clamp_1000(t: i32) -> i32 {
+entry:
+  %zero:i32 = 0
+  %hi:i32 = 1000
+  %too_low:bool = i32.lt_s %t, %zero
+  %low:i32 = select.i32 %too_low, %zero, %t
+  %too_high:bool = i32.gt_s %low, %hi
+  %out:i32 = select.i32 %too_high, %hi, %low
+  return %out
+}
+
+func repeat_time(t: i32, duration: i32) -> i32 {
+entry:
+  %bad:bool = i32.lt_s %duration, 1
+  %safe_duration:i32 = select.i32 %bad, 1, %duration
+  %raw:i32 = i32.rem_s %t, %safe_duration
+  %neg:bool = i32.lt_s %raw, 0
+  %wrapped:i32 = add %raw, %safe_duration
+  %out:i32 = select.i32 %neg, %wrapped, %raw
+  return %out
+}
+
+func pingpong_time(t: i32, duration: i32) -> i32 {
+  requires param duration >= 1
+entry:
+  %two:i32 = 2
+  %cycle:i32 = mul %duration, %two
+  %r:i32 = @repeat_time(%t, %cycle)
+  %over:bool = i32.gt_s %r, %duration
+  %back:i32 = sub %cycle, %r
+  %out:i32 = select.i32 %over, %back, %r
+  return %out
+}
+
+func in_quad_1000(t: i32) -> i32 {
+entry:
+  %c:i32 = @clamp_1000(%t)
+  %mul:i32 = mul %c, %c
+  %out:i32 = i32.div_s %mul, 1000
+  return %out
+}
+
+func out_quad_1000(t: i32) -> i32 {
+entry:
+  %c:i32 = @clamp_1000(%t)
+  %inv:i32 = sub 1000, %c
+  %mul:i32 = mul %inv, %inv
+  %step:i32 = i32.div_s %mul, 1000
+  %out:i32 = sub 1000, %step
+  return %out
+}
+
+func in_out_quad_1000(t: i32) -> i32 {
+entry:
+  %c:i32 = @clamp_1000(%t)
+  %first:bool = i32.lt_s %c, 500
+  br_if %first, low, high
+low:
+  %c2:i32 = mul %c, %c
+  %low_out:i32 = i32.div_s %c2, 500
+  return %low_out
+high:
+  %inv:i32 = sub 1000, %c
+  %inv2:i32 = mul %inv, %inv
+  %step:i32 = i32.div_s %inv2, 500
+  %high_out:i32 = sub 1000, %step
+  return %high_out
+}
+
+func in_cubic_1000(t: i32) -> i32 {
+entry:
+  %c:i32 = @clamp_1000(%t)
+  %c2:i32 = mul %c, %c
+  %c2s:i32 = i32.div_s %c2, 1000
+  %c3:i32 = mul %c2s, %c
+  %out:i32 = i32.div_s %c3, 1000
+  return %out
+}
+
+func out_cubic_1000(t: i32) -> i32 {
+entry:
+  %c:i32 = @clamp_1000(%t)
+  %inv:i32 = sub 1000, %c
+  %inv2:i32 = mul %inv, %inv
+  %inv2s:i32 = i32.div_s %inv2, 1000
+  %inv3:i32 = mul %inv2s, %inv
+  %step:i32 = i32.div_s %inv3, 1000
+  %out:i32 = sub 1000, %step
+  return %out
+}
+
+func damp_i32(current: i32, target: i32, keep: i32, accel: i32, div: i32) -> i32 {
+  requires param div >= 1
+entry:
+  %out:i32 = physics.damp_i32 %current, %target, %keep, %accel, %div
+  return %out
+}

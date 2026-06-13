@@ -1,0 +1,123 @@
+{
+  "version": "0.9",
+  "module": "ui_tool",
+  "package": { "abi": "0.9", "kind": "air-gfx-package" },
+  "targets": {
+    "browser": { "backend": "webgpu", "required": true },
+    "native": { "backend": "wgpu", "required": true },
+    "mobile": { "backend": "webgpu", "required": false }
+  },
+  "canvas": {
+    "clearColor": [5, 7, 18, 255]
+  },
+  "inputs": {
+    "orbit_x": { "kind": "axis", "handle": 1, "bindings": { "browser": "mouse.dx|ArrowLeft|ArrowRight", "native": "mouse.dx" } },
+    "orbit_y": { "kind": "axis", "handle": 2, "bindings": { "browser": "mouse.dy|ArrowUp|ArrowDown", "native": "mouse.dy" } },
+    "zoom": { "kind": "axis", "handle": 3, "bindings": { "browser": "wheel.y|KeyQ|KeyE", "native": "wheel.y" } },
+    "select": { "kind": "button", "handle": 4, "bindings": { "browser": "MouseLeft|Space", "native": "MouseLeft" } }
+  },
+  "assets": {
+    "models": {
+      "tool_cube": { "path": "gpu_arena/assets/arena_platform.gltf", "handle": 1 }
+    },
+    "textures": {
+      "tool_atlas": { "path": "gpu_arena/assets/rune_atlas.svg", "handle": 1 }
+    },
+    "sprites": {
+      "select_icon": { "texture": "tool_atlas", "handle": 1 }
+    }
+  },
+  "shaders": {
+    "tool_wgsl": { "path": "kits/gfx-basic/shaders/unlit_mesh.wgsl", "vertex": "vs_main", "fragment": "fs_main" }
+  },
+  "pipelines": {
+    "tool_pipeline": { "shader": "tool_wgsl", "depth": true, "vertexCount": 3 }
+  },
+  "renderTargets": {
+    "scene_color": { "format": "bgra8unorm", "size": "canvas", "usage": ["render", "sample"] },
+    "ui_color": { "format": "bgra8unorm", "size": "canvas", "usage": ["render", "sample"] },
+    "backbuffer": { "format": "surface", "size": "canvas", "usage": ["present"] }
+  },
+  "depth": {
+    "target": "scene_depth",
+    "format": "depth24plus",
+    "size": "canvas",
+    "enabled": true
+  },
+  "materials": {
+    "tool_surface": { "pipeline": "tool_pipeline", "model": "pbr", "baseColor": [0.05, 0.55, 1, 1], "metallic": 0.15, "roughness": 0.42 },
+    "ui_surface": { "pipeline": "tool_pipeline", "model": "sprite-unlit", "baseColor": [1, 1, 1, 1], "textures": { "base": "tool_atlas" } }
+  },
+  "scene": {
+    "cameras": {
+      "main": { "kind": "perspective", "fovY": 65, "near": 0.1, "far": 100, "position": [0, 2, 6], "target": [0, 0, 0] }
+    },
+    "lights": {
+      "key": { "kind": "directional", "direction": [-0.2, -1, -0.4], "color": [0.7, 0.85, 1], "intensity": 1.4 }
+    },
+    "nodes": {
+      "tool_object": { "mesh": "tool_cube", "material": "tool_surface", "instances": 1, "transform": { "translation": [0, 0, 0], "scale": [1, 1, 1] } }
+    },
+    "meshInstances": {
+      "tool_ghosts": { "mesh": "tool_cube", "material": "tool_surface", "count": 3, "transform": { "translation": [1.8, 0, -0.6], "rotationQuat": [0, 0.25, 0, 1], "scale": [0.55, 0.55, 0.55] } }
+    },
+    "sprites": {
+      "select_badge": { "sprite": "select_icon", "material": "ui_surface", "batch": 4 }
+    },
+    "voxels": {
+      "selection_volume": { "material": "tool_surface", "chunkSize": 16, "budget": 512, "mode": "sparse" }
+    },
+    "particles": {
+      "spark_field": { "material": "tool_surface", "count": 96, "budget": 256, "emitter": "box", "bounds": [4, 2, 4] }
+    }
+  },
+  "ui": {
+    "panels": {
+      "inspector": { "rect": [16, 16, 280, 180], "style": "dock" }
+    },
+    "textLabels": {
+      "title": { "text": "AIR UI Tool", "panel": "inspector" }
+    },
+    "imageQuads": {
+      "select_icon": { "sprite": "select_icon", "panel": "inspector" }
+    },
+    "gizmos": {
+      "object_handle": { "node": "tool_object", "kind": "translate" }
+    }
+  },
+  "post": {
+    "tonemap": { "kind": "tone-map", "operator": "aces" },
+    "outline": { "kind": "outline", "color": [0.1, 0.7, 1], "width": 2 },
+    "selection_highlight": { "kind": "selection-highlight", "intensity": 0.8 }
+  },
+  "renderGraphs": {
+    "main_graph": {
+      "passes": [
+        { "key": "clear", "kind": "clear", "output": "scene_color" },
+        { "key": "geometry", "kind": "geometry", "camera": "main", "pipeline": "tool_pipeline", "output": "scene_color" },
+        { "key": "voxels", "kind": "voxel", "camera": "main", "material": "tool_surface", "inputs": ["scene_color"], "output": "scene_color" },
+        { "key": "particles", "kind": "particles", "camera": "main", "material": "tool_surface", "inputs": ["scene_color"], "output": "scene_color" },
+        { "key": "sprites", "kind": "sprite", "material": "ui_surface", "inputs": ["scene_color"], "output": "scene_color" },
+        { "key": "ui", "kind": "ui", "material": "ui_surface", "inputs": ["scene_color"], "output": "ui_color" },
+        { "key": "outline", "kind": "post", "effect": "outline", "inputs": ["ui_color"], "output": "backbuffer" },
+        { "key": "present", "kind": "present", "inputs": ["backbuffer"] }
+      ]
+    }
+  },
+  "qualityProfiles": {
+    "desktop": { "maxTextureSize": 8192, "maxInstances": 50000, "post": ["tonemap", "outline", "selection_highlight"] },
+    "mobile": { "maxTextureSize": 2048, "maxInstances": 5000, "post": ["tonemap", "outline"] },
+    "native": { "maxTextureSize": 8192, "maxInstances": 50000, "post": ["tonemap", "outline", "selection_highlight"] }
+  },
+  "handles": {
+    "inputs": { "orbit_x": 1, "orbit_y": 2, "zoom": 3, "select": 4 },
+    "pipelines": { "tool_pipeline": 1 },
+    "renderGraphs": { "main_graph": 1 },
+    "cameras": { "main": 1 },
+    "nodes": { "tool_object": 1 },
+    "voxels": { "selection_volume": 1 },
+    "particles": { "spark_field": 1 },
+    "models": { "tool_cube": 1 },
+    "sprites": { "select_icon": 1 }
+  }
+}

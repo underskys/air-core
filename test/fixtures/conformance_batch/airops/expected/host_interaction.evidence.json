@@ -1,0 +1,52 @@
+{
+  "abiHash": "sha256:02ea49433dec46e044394b6dc64e1757aea4e71ca4c6cadfdea100bdb5bced22",
+  "airAbi": "0.10",
+  "commandRecords": [
+    {
+      "args": {
+        "arg0": 701,
+        "arg1": 2,
+        "arg2": 3,
+        "arg3": 0
+      },
+      "argsHash": "sha256:a39c315cdd0da3ce2ab691ca44a533eba6fb7da660ef62d772fd2343690394f9",
+      "index": 0,
+      "output_id": 2001,
+      "source": "outputs/incident_policy.commands.json"
+    }
+  ],
+  "decisions": [
+    {
+      "argsHash": "sha256:a39c315cdd0da3ce2ab691ca44a533eba6fb7da660ef62d772fd2343690394f9",
+      "capability": "pipeline.decision",
+      "decision": "allow",
+      "diagnostics": [],
+      "index": 0,
+      "output": "pipeline_decision_recorded",
+      "output_id": 2001,
+      "reasonCode": "allowed",
+      "source": "outputs/incident_policy.commands.json"
+    }
+  ],
+  "deniedCapabilities": [],
+  "diagnostics": [],
+  "hostAbi": "0.10",
+  "hostProfile": "cli",
+  "kind": "air.hostInteractionEvidence",
+  "outputContracts": [
+    {
+      "argCount": 3,
+      "capability": "pipeline.decision",
+      "channel": "pipeline",
+      "contract": "outputs/incident_policy.output.json",
+      "id": 2001,
+      "name": "pipeline_decision_recorded"
+    }
+  ],
+  "package": "airops-batch-conformance-fixture",
+  "packageHash": "sha256:146a7b8c85fb85ad9623be5cab005c6be5f0522fe40403d653f6770961447a11",
+  "policyId": "airops-incident-readonly",
+  "replayChecksum": "sha256:430a84fc23931801148fda14197376c99fa17ff0e7ef9644a0fd61bde646e87b",
+  "schemaVersion": "0.25",
+  "status": "passed"
+}

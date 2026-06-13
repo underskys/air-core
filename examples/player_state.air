@@ -1,0 +1,17 @@
+module player_state
+capabilities { }
+
+struct PlayerState { x: f32, y: f32, z: f32, speed: f32 }
+
+export func run() -> i32 {
+entry:
+  %zero:f32 = 0.0
+  %one:f32 = 1.0
+  %two:f32 = 2.0
+  %state:PlayerState = struct.new %zero, %zero, %zero, %two
+  %speed:f32 = struct.get.speed %state
+  %updated:PlayerState = struct.set.x %state, %speed
+  %x:f32 = struct.get.x %updated
+  %out:i32 = i32.trunc_f32_s %x
+  return %out
+}

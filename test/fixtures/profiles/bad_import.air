@@ -1,0 +1,10 @@
+module bad_import
+capabilities { debug }
+extern debug.fake(x: i32) -> void
+
+export func run() -> void {
+entry:
+  %one:i32 = 1
+  @debug.fake(%one)
+  return
+}

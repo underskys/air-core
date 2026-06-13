@@ -1,0 +1,8 @@
+module hallucinated_remote_http
+use "http://example.com/player.air"
+capabilities { }
+
+export func run() -> i32 {
+entry:
+  return 0
+}

@@ -1,0 +1,134 @@
+module color
+capabilities { }
+
+func clamp_u8(v: i32) -> i32 {
+entry:
+  %zero:i32 = 0
+  %hi:i32 = 255
+  %too_low:bool = i32.lt_s %v, %zero
+  %low:i32 = select.i32 %too_low, %zero, %v
+  %too_high:bool = i32.gt_s %low, %hi
+  %out:i32 = select.i32 %too_high, %hi, %low
+  return %out
+}
+
+func rgb_pack(r: i32, g: i32, b: i32) -> i32 {
+entry:
+  %cr:i32 = @clamp_u8(%r)
+  %cg:i32 = @clamp_u8(%g)
+  %cb:i32 = @clamp_u8(%b)
+  %r_shift:i32 = i32.shl %cr, 16
+  %g_shift:i32 = i32.shl %cg, 8
+  %rg:i32 = i32.or %r_shift, %g_shift
+  %out:i32 = i32.or %rg, %cb
+  return %out
+}
+
+func rgb_r(rgb: i32) -> i32 {
+entry:
+  %shift:i32 = i32.shr_u %rgb, 16
+  %out:i32 = i32.and %shift, 255
+  return %out
+}
+
+func rgb_g(rgb: i32) -> i32 {
+entry:
+  %shift:i32 = i32.shr_u %rgb, 8
+  %out:i32 = i32.and %shift, 255
+  return %out
+}
+
+func rgb_b(rgb: i32) -> i32 {
+entry:
+  %out:i32 = i32.and %rgb, 255
+  return %out
+}
+
+func lerp_channel(a: i32, b: i32, t: i32) -> i32 {
+entry:
+  %delta:i32 = sub %b, %a
+  %scaled:i32 = mul %delta, %t
+  %step:i32 = i32.div_s %scaled, 1000
+  %out:i32 = add %a, %step
+  return %out
+}
+
+func rgb_lerp_1000(a: i32, b: i32, t: i32) -> i32 {
+  requires param t >= 0
+  requires param t <= 1000
+entry:
+  %ar:i32 = @rgb_r(%a)
+  %ag:i32 = @rgb_g(%a)
+  %ab:i32 = @rgb_b(%a)
+  %br:i32 = @rgb_r(%b)
+  %bg:i32 = @rgb_g(%b)
+  %bb:i32 = @rgb_b(%b)
+  %r:i32 = @lerp_channel(%ar, %br, %t)
+  %g:i32 = @lerp_channel(%ag, %bg, %t)
+  %blue:i32 = @lerp_channel(%ab, %bb, %t)
+  %out:i32 = @rgb_pack(%r, %g, %blue)
+  return %out
+}
+
+func exposure_mul_1000(value: i32, exposure: i32) -> i32 {
+  requires param exposure >= 0
+entry:
+  %mul:i32 = mul %value, %exposure
+  %out:i32 = i32.div_s %mul, 1000
+  return %out
+}
+
+func bloom_gate(value: i32, threshold: i32) -> i32 {
+entry:
+  %on:bool = i32.ge_s %value, %threshold
+  %out:i32 = select.i32 %on, %value, 0
+  return %out
+}
+
+func hsv_to_rgb_approx(h: i32, s: i32, v: i32) -> i32 {
+  requires param h >= 0
+  requires param h <= 5999
+  requires param s >= 0
+  requires param s <= 1000
+  requires param v >= 0
+  requires param v <= 255
+entry:
+  %sector:i32 = i32.div_s %h, 1000
+  %h2:i32 = i32.rem_s %h, 2000
+  %delta:i32 = sub %h2, 1000
+  %zero:i32 = 0
+  %neg_delta:i32 = sub %zero, %delta
+  %neg:bool = i32.lt_s %delta, %zero
+  %abs_delta:i32 = select.i32 %neg, %neg_delta, %delta
+  %inv:i32 = sub 1000, %abs_delta
+  %c0:i32 = mul %v, %s
+  %c:i32 = i32.div_s %c0, 1000
+  %x0:i32 = mul %c, %inv
+  %x:i32 = i32.div_s %x0, 1000
+  %m:i32 = sub %v, %c
+  %s0:bool = i32.eq %sector, 0
+  %s1:bool = i32.eq %sector, 1
+  %s2:bool = i32.eq %sector, 2
+  %s3:bool = i32.eq %sector, 3
+  %s4:bool = i32.eq %sector, 4
+  %r4:i32 = select.i32 %s4, %x, %c
+  %r3:i32 = select.i32 %s3, %zero, %r4
+  %r2:i32 = select.i32 %s2, %zero, %r3
+  %r1:i32 = select.i32 %s1, %x, %r2
+  %r0:i32 = select.i32 %s0, %c, %r1
+  %g4:i32 = select.i32 %s4, %zero, %x
+  %g3:i32 = select.i32 %s3, %x, %g4
+  %g2:i32 = select.i32 %s2, %c, %g3
+  %g1:i32 = select.i32 %s1, %c, %g2
+  %g0:i32 = select.i32 %s0, %x, %g1
+  %b4:i32 = select.i32 %s4, %c, %c
+  %b3:i32 = select.i32 %s3, %c, %b4
+  %b2:i32 = select.i32 %s2, %x, %b3
+  %b1:i32 = select.i32 %s1, %zero, %b2
+  %b0:i32 = select.i32 %s0, %zero, %b1
+  %r:i32 = add %r0, %m
+  %g:i32 = add %g0, %m
+  %b:i32 = add %b0, %m
+  %out:i32 = @rgb_pack(%r, %g, %b)
+  return %out
+}

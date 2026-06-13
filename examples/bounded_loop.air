@@ -1,0 +1,17 @@
+module bounded_loop
+capabilities { }
+requires export run
+
+func step(value: i32) -> i32 {
+entry:
+  %one:i32 = 1
+  %next:i32 = add %value, %one
+  return %next
+}
+
+export func run() -> i32 {
+entry:
+  %seed:i32 = 10
+  %out:i32 = loop.fold.i32 @step, %seed, 5
+  return %out
+}

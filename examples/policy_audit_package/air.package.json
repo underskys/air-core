@@ -1,0 +1,25 @@
+{
+  "name": "policy-audit-package",
+  "version": "0.1.0",
+  "airAbi": "0.10",
+  "hostAbi": "0.10",
+  "entry": "main.air",
+  "capabilities": [],
+  "targetProfiles": ["cli", "verifier-only"],
+  "reviewPolicy": {
+    "profile": "policy-audit",
+    "pathClasses": {
+      "authored": ["*.air"]
+    },
+    "thresholds": {
+      "largeFunctionStatements": 40,
+      "largeEntryStatements": 80,
+      "mutableGlobalsPerModule": 4,
+      "repeatedLiteralCount": 4
+    },
+    "gates": {
+      "largeEntryFunction": "warn",
+      "debugMetricEventBus": "fail"
+    }
+  }
+}

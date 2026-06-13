@@ -1,0 +1,10 @@
+module ai_review_repeated_literal
+capabilities { }
+
+export func run(seed: i32) -> i32 {
+entry:
+  %a:i32 = i32.add %seed, 42
+  %b:i32 = i32.add %a, 42
+  %c:i32 = i32.add %b, 42
+  return %c
+}

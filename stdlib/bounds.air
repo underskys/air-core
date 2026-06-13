@@ -1,0 +1,193 @@
+module bounds
+capabilities { }
+
+struct BoundsAabb { min_x: i32, min_y: i32, min_z: i32, max_x: i32, max_y: i32, max_z: i32 }
+
+func min_i32(a: i32, b: i32) -> i32 {
+entry:
+  %take_a:bool = i32.lt_s %a, %b
+  %out:i32 = select.i32 %take_a, %a, %b
+  return %out
+}
+
+func max_i32(a: i32, b: i32) -> i32 {
+entry:
+  %take_a:bool = i32.gt_s %a, %b
+  %out:i32 = select.i32 %take_a, %a, %b
+  return %out
+}
+
+func abs_i32(value: i32) -> i32 {
+entry:
+  %zero:i32 = 0
+  %neg:i32 = sub %zero, %value
+  %is_neg:bool = i32.lt_s %value, %zero
+  %out:i32 = select.i32 %is_neg, %neg, %value
+  return %out
+}
+
+func clamp_i32(value: i32, min_value: i32, max_value: i32) -> i32 {
+entry:
+  %too_low:bool = i32.lt_s %value, %min_value
+  %low:i32 = select.i32 %too_low, %min_value, %value
+  %too_high:bool = i32.gt_s %low, %max_value
+  %out:i32 = select.i32 %too_high, %max_value, %low
+  return %out
+}
+
+func in_range_i32(value: i32, center: i32, radius: i32) -> bool {
+entry:
+  %delta:i32 = sub %value, %center
+  %distance:i32 = @abs_i32(%delta)
+  %zero:i32 = 0
+  %safe_radius:i32 = @max_i32(%radius, %zero)
+  %out:bool = i32.le_s %distance, %safe_radius
+  return %out
+}
+
+func point_in_aabb_center_i32(px: i32, py: i32, cx: i32, cy: i32, half_w: i32, half_h: i32) -> bool {
+  requires param half_w >= 0
+  requires param half_h >= 0
+entry:
+  %in_x:bool = @in_range_i32(%px, %cx, %half_w)
+  %in_y:bool = @in_range_i32(%py, %cy, %half_h)
+  %out:bool = bool.and %in_x, %in_y
+  return %out
+}
+
+func aabb_overlap_center_i32(ax: i32, ay: i32, half_aw: i32, half_ah: i32, bx: i32, by: i32, half_bw: i32, half_bh: i32) -> bool {
+  requires param half_aw >= 0
+  requires param half_ah >= 0
+  requires param half_bw >= 0
+  requires param half_bh >= 0
+entry:
+  %dx_raw:i32 = sub %ax, %bx
+  %dy_raw:i32 = sub %ay, %by
+  %dx:i32 = @abs_i32(%dx_raw)
+  %dy:i32 = @abs_i32(%dy_raw)
+  %sum_w:i32 = add %half_aw, %half_bw
+  %sum_h:i32 = add %half_ah, %half_bh
+  %x_ok:bool = i32.le_s %dx, %sum_w
+  %y_ok:bool = i32.le_s %dy, %sum_h
+  %out:bool = bool.and %x_ok, %y_ok
+  return %out
+}
+
+func aabb_from_center_size(cx: i32, cy: i32, cz: i32, sx: i32, sy: i32, sz: i32) -> BoundsAabb {
+  requires param sx >= 0
+  requires param sy >= 0
+  requires param sz >= 0
+entry:
+  %two:i32 = 2
+  %hx:i32 = i32.div_s %sx, %two
+  %hy:i32 = i32.div_s %sy, %two
+  %hz:i32 = i32.div_s %sz, %two
+  %min_x:i32 = sub %cx, %hx
+  %min_y:i32 = sub %cy, %hy
+  %min_z:i32 = sub %cz, %hz
+  %max_x:i32 = add %cx, %hx
+  %max_y:i32 = add %cy, %hy
+  %max_z:i32 = add %cz, %hz
+  %out:BoundsAabb = struct.new %min_x, %min_y, %min_z, %max_x, %max_y, %max_z
+  return %out
+}
+
+func aabb_merge(a: BoundsAabb, b: BoundsAabb) -> BoundsAabb {
+entry:
+  %a_min_x:i32 = struct.get.min_x %a
+  %a_min_y:i32 = struct.get.min_y %a
+  %a_min_z:i32 = struct.get.min_z %a
+  %a_max_x:i32 = struct.get.max_x %a
+  %a_max_y:i32 = struct.get.max_y %a
+  %a_max_z:i32 = struct.get.max_z %a
+  %b_min_x:i32 = struct.get.min_x %b
+  %b_min_y:i32 = struct.get.min_y %b
+  %b_min_z:i32 = struct.get.min_z %b
+  %b_max_x:i32 = struct.get.max_x %b
+  %b_max_y:i32 = struct.get.max_y %b
+  %b_max_z:i32 = struct.get.max_z %b
+  %min_x:i32 = @min_i32(%a_min_x, %b_min_x)
+  %min_y:i32 = @min_i32(%a_min_y, %b_min_y)
+  %min_z:i32 = @min_i32(%a_min_z, %b_min_z)
+  %max_x:i32 = @max_i32(%a_max_x, %b_max_x)
+  %max_y:i32 = @max_i32(%a_max_y, %b_max_y)
+  %max_z:i32 = @max_i32(%a_max_z, %b_max_z)
+  %out:BoundsAabb = struct.new %min_x, %min_y, %min_z, %max_x, %max_y, %max_z
+  return %out
+}
+
+func sphere_radius_sq_from_aabb(a: BoundsAabb) -> i32 {
+entry:
+  %min_x:i32 = struct.get.min_x %a
+  %min_y:i32 = struct.get.min_y %a
+  %min_z:i32 = struct.get.min_z %a
+  %max_x:i32 = struct.get.max_x %a
+  %max_y:i32 = struct.get.max_y %a
+  %max_z:i32 = struct.get.max_z %a
+  %dx:i32 = sub %max_x, %min_x
+  %dy:i32 = sub %max_y, %min_y
+  %dz:i32 = sub %max_z, %min_z
+  %dx2:i32 = mul %dx, %dx
+  %dy2:i32 = mul %dy, %dy
+  %dz2:i32 = mul %dz, %dz
+  %sum0:i32 = add %dx2, %dy2
+  %sum:i32 = add %sum0, %dz2
+  %out:i32 = i32.div_s %sum, 4
+  return %out
+}
+
+func sphere_visible_plane(cx: i32, cy: i32, cz: i32, radius: i32, nx: i32, ny: i32, nz: i32, d: i32) -> bool {
+  requires param radius >= 0
+entry:
+  %x_term:i32 = mul %cx, %nx
+  %y_term:i32 = mul %cy, %ny
+  %z_term:i32 = mul %cz, %nz
+  %sum0:i32 = add %x_term, %y_term
+  %sum1:i32 = add %sum0, %z_term
+  %dist:i32 = add %sum1, %d
+  %zero:i32 = 0
+  %neg_r:i32 = sub %zero, %radius
+  %out:bool = i32.ge_s %dist, %neg_r
+  return %out
+}
+
+func point_in_rect(px: i32, py: i32, x: i32, y: i32, w: i32, h: i32) -> bool {
+  requires param w >= 0
+  requires param h >= 0
+entry:
+  %max_x:i32 = add %x, %w
+  %max_y:i32 = add %y, %h
+  %ge_x:bool = i32.ge_s %px, %x
+  %lt_x:bool = i32.lt_s %px, %max_x
+  %in_x:bool = bool.and %ge_x, %lt_x
+  %ge_y:bool = i32.ge_s %py, %y
+  %lt_y:bool = i32.lt_s %py, %max_y
+  %in_y:bool = bool.and %ge_y, %lt_y
+  %out:bool = bool.and %in_x, %in_y
+  return %out
+}
+
+func point_in_circle_sq(px: i32, py: i32, cx: i32, cy: i32, radius: i32) -> bool {
+  requires param radius >= 0
+entry:
+  %dx:i32 = sub %px, %cx
+  %dy:i32 = sub %py, %cy
+  %dx2:i32 = mul %dx, %dx
+  %dy2:i32 = mul %dy, %dy
+  %dist_sq:i32 = add %dx2, %dy2
+  %r2:i32 = mul %radius, %radius
+  %out:bool = i32.le_s %dist_sq, %r2
+  return %out
+}
+
+func lod_band(distance_sq: i32, near_sq: i32, far_sq: i32) -> i32 {
+entry:
+  %near:bool = i32.le_s %distance_sq, %near_sq
+  %far:bool = i32.ge_s %distance_sq, %far_sq
+  %mid:i32 = 1
+  %far_id:i32 = 2
+  %near_id:i32 = 0
+  %non_near:i32 = select.i32 %far, %far_id, %mid
+  %out:i32 = select.i32 %near, %near_id, %non_near
+  return %out
+}

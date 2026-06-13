@@ -1,0 +1,17 @@
+module player_math
+capabilities { }
+
+export func run() -> f32 {
+entry:
+  %zero:f32 = 0.0
+  %one:f32 = 1.0
+  %neg_one:f32 = -1.0
+  %half:f32 = 0.5
+  %step:f32 = 2.0
+  %pos:vec3 = vec3.new %zero, %zero, %zero
+  %forward:vec3 = vec3.new %zero, %zero, %neg_one
+  %right:vec3 = vec3.new %one, %zero, %zero
+  %moved:vec3 = vec3.move_relative %pos, %forward, %right, %one, %half, %step
+  %distance_sq:f32 = vec3.len_sq %moved
+  return %distance_sq
+}

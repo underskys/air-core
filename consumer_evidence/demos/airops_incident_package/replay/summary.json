@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "kind": "air.consumerEvidenceReplayManifest",
+  "demoId": "airops_incident_package",
+  "replays": [
+    {
+      "id": "incident_policy_pass",
+      "status": "passed",
+      "fixture": "examples/airops_incident_package/traces/pass.json",
+      "evidence": "examples/airops_incident_package/README.md",
+      "summary": {
+        "capabilitiesChecked": [
+          "bounded facts",
+          "command buffer output intent"
+        ],
+        "deniedAuthoritiesChecked": [
+          "real incident system access",
+          "automatic remediation"
+        ],
+        "rawPrivateDataIncluded": false
+      }
+    }
+  ]
+}

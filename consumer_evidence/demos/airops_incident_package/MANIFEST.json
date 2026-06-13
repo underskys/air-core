@@ -1,0 +1,58 @@
+{
+  "schemaVersion": 1,
+  "id": "airops_incident_package",
+  "name": "AirOps-style incident package",
+  "category": "policy_ops_decision",
+  "status": "canonical-proof",
+  "owner": "AIR Core",
+  "source": "examples/airops_incident_package",
+  "airRole": "Evaluate bounded incident facts and produce deterministic incident policy intent.",
+  "hostRole": "Own incident systems, user-facing workflow, execution policy, and all real side effects.",
+  "airOwns": [
+    "bounded incident fact evaluation",
+    "deterministic policy recommendation",
+    "command buffer output intent"
+  ],
+  "hostOwns": [
+    "incident system access",
+    "user workflow",
+    "execution policy",
+    "all real side effects"
+  ],
+  "allowedCapabilities": [
+    "bounded facts",
+    "command buffer output intent",
+    "readonly host policy fixture"
+  ],
+  "deniedAuthorities": [
+    "real incident system access",
+    "secrets",
+    "raw host authority",
+    "automatic remediation"
+  ],
+  "proofTypes": [
+    "package-check",
+    "replay",
+    "evidence-summary"
+  ],
+  "proofFiles": {
+    "proofCard": "PROOF_CARD.md",
+    "prompts": "PROMPTS.md",
+    "capabilityBoundary": "reports/capability_boundary.md",
+    "replay": [
+      "replay/summary.json"
+    ],
+    "metrics": []
+  },
+  "pressureRouting": [
+    {
+      "pressure": "Canonical non-game package proof.",
+      "route": "Core",
+      "status": "accepted",
+      "notes": "Existing small canonical example."
+    }
+  ],
+  "privacySafetyNotes": [
+    "No real incident system access, secrets, credentials, or automatic remediation."
+  ]
+}

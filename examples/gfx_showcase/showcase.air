@@ -1,0 +1,70 @@
+module gfx_showcase
+capabilities { gpu, input }
+effects { gpu.* <= 9, input.* <= 6, memory.alloc <= 1, memory.free <= 1, memory.load <= 0, memory.store <= 16, memory.static_alloc_bytes <= 64, memory.dynamic_allocations <= 0 }
+requires capability gpu
+requires capability input
+
+extern input.axis(id: i32) -> f32
+extern input.button(id: i32) -> bool
+extern input.pointer_delta_x() -> f32
+extern input.pointer_delta_y() -> f32
+extern gpu.set_scene_time(time: i32) -> void
+extern gpu.set_camera(camera: i32) -> void
+extern gpu.set_camera_matrix(camera: i32, data: ptr, len: i32) -> void
+extern gpu.execute_render_graph(graph: i32) -> void
+
+export func frame(time_ms: i32) -> void {
+entry:
+  %orbit_axis:i32 = 1
+  %tilt_axis:i32 = 2
+  %zoom_axis:i32 = 3
+  %select_button:i32 = 4
+  %orbit:f32 = @input.axis(%orbit_axis)
+  %tilt:f32 = @input.axis(%tilt_axis)
+  %zoom:f32 = @input.axis(%zoom_axis)
+  %pointer_x:f32 = @input.pointer_delta_x()
+  %pointer_y:f32 = @input.pointer_delta_y()
+  %selected:bool = @input.button(%select_button)
+  %pointer_gain:f32 = 0.01
+  %px:f32 = mul %pointer_x, %pointer_gain
+  %py:f32 = mul %pointer_y, %pointer_gain
+  %yaw:f32 = add %orbit, %px
+  %pitch:f32 = add %tilt, %py
+  %distance_base:f32 = 7.0
+  %distance_gain:f32 = 2.0
+  %zoom_offset:f32 = mul %zoom, %distance_gain
+  %distance:f32 = add %distance_base, %zoom_offset
+  %eye_x:f32 = f32.sin %yaw
+  %eye_y_base:f32 = 2.2
+  %eye_y:f32 = add %eye_y_base, %pitch
+  %eye_z:f32 = f32.cos %distance
+  %zero:f32 = 0.0
+  %one:f32 = 1.0
+  %target_y:f32 = 0.8
+  %eye:vec3 = vec3.new %eye_x, %eye_y, %eye_z
+  %target:vec3 = vec3.new %zero, %target_y, %zero
+  %up:vec3 = vec3.new %zero, %one, %zero
+  %view:mat4 = mat4.look_at %eye, %target, %up
+  %fov:f32 = 64.0
+  %aspect:f32 = 1.777
+  %near:f32 = 0.05
+  %far:f32 = 180.0
+  %proj:mat4 = mat4.perspective %fov, %aspect, %near, %far
+  %vp:mat4 = mat4.mul %proj, %view
+  %matrix_bytes:i32 = 64
+  %matrix_ptr:ptr = alloc_region %matrix_bytes
+  %matrix_off:i32 = 0
+  mat4.store_f32 %vp, %matrix_ptr, %matrix_off
+  %selected_boost:i32 = 120
+  %no_boost:i32 = 0
+  %boost:i32 = select.i32 %selected, %selected_boost, %no_boost
+  %scene_time:i32 = add %time_ms, %boost
+  @gpu.set_scene_time(%scene_time)
+  %camera:i32 = 1
+  @gpu.set_camera_matrix(%camera, %matrix_ptr, %matrix_bytes)
+  @gpu.set_camera(%camera)
+  %graph:i32 = 1
+  @gpu.execute_render_graph(%graph)
+  free_region %matrix_ptr
+  return
+}

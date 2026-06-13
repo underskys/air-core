@@ -1,0 +1,40 @@
+module ui_network_dashboard
+capabilities { ui }
+effects { ui.* <= 12 }
+requires capability ui
+requires export render
+
+extern ui.begin_frame(width: i32, height: i32, time_ms: i32) -> void
+extern ui.panel(id: i32, x: i32, y: i32, w: i32, h: i32, style: i32) -> void
+extern ui.label(id: i32, x: i32, y: i32, label: i32, style: i32) -> void
+extern ui.metric(id: i32, x: i32, y: i32, label: i32, value: i32, unit: i32, style: i32) -> void
+extern ui.table(id: i32, x: i32, y: i32, w: i32, h: i32, rows: i32, cols: i32, data: i32, style: i32) -> void
+extern ui.chart(id: i32, x: i32, y: i32, w: i32, h: i32, series: i32, style: i32) -> void
+extern ui.status(id: i32, x: i32, y: i32, label: i32, severity: i32, style: i32) -> void
+extern ui.warning(id: i32, x: i32, y: i32, label: i32, severity: i32, style: i32) -> void
+extern ui.end_frame() -> void
+
+export func render(latency_ms: i32, packet_loss: i32, dns_code: i32, route_hops: i32) -> i32 {
+entry:
+  @ui.begin_frame(1280, 720, 0)
+  @ui.panel(1, 24, 24, 720, 420, 1)
+  @ui.label(2, 48, 48, 1000, 1)
+  @ui.metric(3, 48, 96, 1001, %latency_ms, 2001, 1)
+  @ui.metric(4, 280, 96, 1002, %packet_loss, 2002, 1)
+  @ui.table(5, 48, 156, 650, 160, 4, 3, 3001, 1)
+  @ui.chart(6, 48, 336, 420, 72, 4001, 1)
+  %latency_bad:bool = i32.gt_s %latency_ms, 150
+  %loss_bad:bool = i32.gt_s %packet_loss, 5
+  %route_bad:bool = i32.gt_s %route_hops, 12
+  %net_bad:bool = bool.or %latency_bad, %loss_bad
+  %any_bad:bool = bool.or %net_bad, %route_bad
+  %dns_bad:bool = i32.gt_s %dns_code, 0
+  %warn:bool = bool.or %any_bad, %dns_bad
+  %ok:i32 = 0
+  %warning:i32 = 2
+  %severity:i32 = select.i32 %warn, %warning, %ok
+  @ui.status(7, 500, 336, 1003, %severity, 1)
+  @ui.warning(8, 500, 384, 1004, %severity, 1)
+  @ui.end_frame()
+  return %severity
+}

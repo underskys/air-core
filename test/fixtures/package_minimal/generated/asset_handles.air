@@ -1,0 +1,31 @@
+# Generated file. Do not edit manually.
+# Generator: repo:bin/airc.js
+# Source: air.package.json
+# Source: assets/manifest.json
+# Manifest fingerprint: 2430cd6fd843e8bc
+module asset_handles
+capabilities { }
+
+export func audio_sfx_package_click() -> i32 {
+entry:
+  %id:i32 = const.i32 1
+  return %id
+}
+
+export func material_package_basic() -> i32 {
+entry:
+  %id:i32 = const.i32 2
+  return %id
+}
+
+export func shader_package_unlit() -> i32 {
+entry:
+  %id:i32 = const.i32 3
+  return %id
+}
+
+export func texture_package_checker() -> i32 {
+entry:
+  %id:i32 = const.i32 4
+  return %id
+}

@@ -1,0 +1,13 @@
+# Generated file. Do not edit manually.
+# Generator: repo:bin/airc.js
+# Source: air.package.json
+# Source: assets/manifest.json
+# Manifest fingerprint: 2430cd6fd843e8bc
+module material_handles
+capabilities { }
+
+export func mat_package_basic() -> i32 {
+entry:
+  %id:i32 = const.i32 1
+  return %id
+}

@@ -1,0 +1,22 @@
+{
+  "id": "mock-output-v011",
+  "name": "Mock Output Host v0.11",
+  "hostAbi": "0.11",
+  "supports": {
+    "capabilities": ["output"],
+    "hostImports": ["output.emit"],
+    "assetKinds": [],
+    "manifestKinds": []
+  },
+  "limits": {
+    "maxAssets": 0,
+    "maxTextureSize": 0,
+    "maxAudioFiles": 0
+  },
+  "diagnostics": {
+    "ciSafe": true,
+    "manualOnly": false,
+    "requiredReports": ["package-check --profile", "mock-host evidence"],
+    "unsupportedFeatureBehavior": "fail-with-diagnostic"
+  }
+}

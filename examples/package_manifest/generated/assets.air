@@ -1,0 +1,21 @@
+# Generated file. Do not edit manually.
+# Generator: repo:bin/airc.js
+# Source: air.package.json
+# Source: assets/manifest.json
+# Manifest fingerprint: 2430cd6fd843e8bc
+module assets
+const ASSET_COUNT:i32 = 4
+capabilities { }
+
+export func asset_count() -> i32 {
+entry:
+  return ASSET_COUNT
+}
+
+table asset_ids:i32[4] = [1, 2, 3, 4]
+
+export func asset_id(index: i32) -> i32 {
+entry:
+  %id:i32 = table.get asset_ids, %index
+  return %id
+}

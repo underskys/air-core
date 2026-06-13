@@ -1,0 +1,58 @@
+module network_tcp_flags
+capabilities { }
+
+func has_flag(value: i32, mask: i32) -> bool {
+entry:
+  %hit:i32 = i32.and %value, %mask
+  %out:bool = i32.ne %hit, 0
+  return %out
+}
+
+func has_syn(flags: i32) -> bool {
+entry:
+  %mask:i32 = 2
+  %out:bool = @has_flag(%flags, %mask)
+  return %out
+}
+
+func has_ack(flags: i32) -> bool {
+entry:
+  %mask:i32 = 16
+  %out:bool = @has_flag(%flags, %mask)
+  return %out
+}
+
+func has_rst(flags: i32) -> bool {
+entry:
+  %mask:i32 = 4
+  %out:bool = @has_flag(%flags, %mask)
+  return %out
+}
+
+func has_fin(flags: i32) -> bool {
+entry:
+  %mask:i32 = 1
+  %out:bool = @has_flag(%flags, %mask)
+  return %out
+}
+
+func has_psh(flags: i32) -> bool {
+entry:
+  %mask:i32 = 8
+  %out:bool = @has_flag(%flags, %mask)
+  return %out
+}
+
+export func run() -> i32 {
+entry:
+  %flags:i32 = 18
+  %syn:bool = @has_syn(%flags)
+  %ack:bool = @has_ack(%flags)
+  %psh:bool = @has_psh(%flags)
+  %syn_i:i32 = select.i32 %syn, 1, 0
+  %ack_i:i32 = select.i32 %ack, 10, 0
+  %psh_i:i32 = select.i32 %psh, 100, 0
+  %sum:i32 = add %syn_i, %ack_i
+  %out:i32 = add %sum, %psh_i
+  return %out
+}

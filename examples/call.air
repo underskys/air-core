@@ -1,0 +1,16 @@
+module call_demo
+capabilities { }
+
+func add_one(x: i32) -> i32 {
+entry:
+  %one:i32 = 1
+  %sum:i32 = add %x, %one
+  return %sum
+}
+
+func main(args: slice) -> i32 {
+entry:
+  %base:i32 = 41
+  %answer:i32 = @add_one(%base)
+  return %answer
+}

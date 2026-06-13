@@ -1,0 +1,20 @@
+{
+  "schemaVersion": "0.18",
+  "kind": "air.outputContract",
+  "outputs": [
+    {
+      "id": 2001,
+      "name": "incident_policy_decision_recorded",
+      "channel": "pipeline",
+      "capability": "incident.policy_decision",
+      "args": [
+        { "name": "incident_id", "type": "i32" },
+        { "name": "root_cause_kind_id", "type": "i32" },
+        { "name": "recommended_action_id", "type": "i32" },
+        { "name": "risk_score", "type": "i32" }
+      ],
+      "resources": [],
+      "profileConstraints": []
+    }
+  ]
+}

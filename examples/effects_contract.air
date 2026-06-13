@@ -1,0 +1,22 @@
+module effects_contract
+capabilities { debug }
+effects { debug.metric <= 1, memory.alloc <= 1, memory.free <= 1, memory.load <= 1, memory.store <= 1, memory.static_alloc_bytes <= 16, memory.dynamic_allocations <= 0 }
+requires capability debug
+ensures static_alloc_bytes <= 16
+ensures dynamic_allocations <= 0
+
+extern debug.metric(id: i32, value: i32) -> void
+
+export func run() -> void {
+entry:
+  %bytes:i32 = 16
+  %ptr:ptr = alloc_region %bytes
+  %off:i32 = 0
+  %value:i32 = 42
+  store.i32 %ptr, %off, %value
+  %loaded:i32 = load.i32 %ptr, %off
+  %id:i32 = 1
+  @debug.metric(%id, %loaded)
+  free_region %ptr
+  return
+}

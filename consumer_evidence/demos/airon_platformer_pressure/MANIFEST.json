@@ -1,0 +1,63 @@
+{
+  "schemaVersion": 1,
+  "id": "airon_platformer_pressure",
+  "name": "AIRON platformer pressure summary",
+  "category": "interactive_demo_pressure",
+  "status": "pressure-evidence",
+  "owner": "External demo / AIR Core triage",
+  "source": "docs/abi-requests/airon-platformer-pressure.md",
+  "airRole": "Record deterministic game logic pressure and authored package/tablegroup/pool pressure.",
+  "hostRole": "Own rendering, assets, browser/WebGPU, input, and demo-specific gameplay behavior.",
+  "airOwns": [
+    "deterministic game logic pressure",
+    "authored package/tablegroup/pool pressure",
+    "Core/kit/host-adapter boundary review"
+  ],
+  "hostOwns": [
+    "rendering",
+    "assets",
+    "browser/WebGPU",
+    "input",
+    "demo-specific gameplay behavior"
+  ],
+  "allowedCapabilities": [
+    "pressure routing",
+    "package-check evidence",
+    "review notes"
+  ],
+  "deniedAuthorities": [
+    "platformer-specific Core APIs",
+    "draw_actor",
+    "dynamic host object handles",
+    "GC/maps",
+    "debug.metric event bus"
+  ],
+  "proofTypes": [
+    "pressure-summary"
+  ],
+  "proofFiles": {
+    "proofCard": "PROOF_CARD.md",
+    "prompts": "PROMPTS.md",
+    "capabilityBoundary": "reports/capability_boundary.md",
+    "replay": [],
+    "metrics": []
+  },
+  "pressureRouting": [
+    {
+      "pressure": "Readonly grouped scalar tables for authored level data.",
+      "route": "Core",
+      "status": "deferred",
+      "notes": "Routed to bounded structured IO/tablegroup RFC pressure, not implementation."
+    },
+    {
+      "pressure": "Platformer gameplay and rendering behavior.",
+      "route": "demo-local",
+      "status": "rejected",
+      "notes": "Demo-specific behavior must not become Core API."
+    }
+  ],
+  "privacySafetyNotes": [
+    "Pressure summary only; no external demo source, media, browser output, or raw logs are imported."
+  ],
+  "pendingReason": "Replay and metrics are not required for this pressure-only entry."
+}

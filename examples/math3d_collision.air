@@ -1,0 +1,16 @@
+module math3d_collision
+capabilities { }
+
+export func run() -> i32 {
+entry:
+  %zero:f32 = 0.0
+  %one:f32 = 1.0
+  %one_half:f32 = 1.5
+  %a:vec3 = vec3.new %zero, %zero, %zero
+  %b:vec3 = vec3.new %one_half, %zero, %zero
+  %hit:bool = collision.sphere_sphere %a, %one, %b, %one
+  %yes:i32 = 1
+  %no:i32 = 0
+  %out:i32 = select.i32 %hit, %yes, %no
+  return %out
+}

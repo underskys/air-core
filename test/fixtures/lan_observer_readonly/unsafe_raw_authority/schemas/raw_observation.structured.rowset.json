@@ -1,0 +1,37 @@
+{
+  "schemaVersion": "0.32",
+  "kind": "air.structuredRowsetSchema",
+  "name": "raw_observation",
+  "maxRows": 8,
+  "privacyPolicy": {
+    "defaultClassification": "minimized",
+    "forbiddenByDefault": [
+      "raw_text",
+      "raw_url",
+      "private_text",
+      "token",
+      "secret",
+      "credential"
+    ]
+  },
+  "fields": [
+    {
+      "name": "device_id",
+      "type": "i32",
+      "privacy": "minimized",
+      "semantic": "id"
+    },
+    {
+      "name": "raw_runtime_payload",
+      "type": "json",
+      "privacy": "private",
+      "semantic": "payload"
+    },
+    {
+      "name": "host_object_handle",
+      "type": "object",
+      "privacy": "private",
+      "semantic": "handle"
+    }
+  ]
+}

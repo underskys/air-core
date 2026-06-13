@@ -1,0 +1,18 @@
+{
+  "schemaVersion": "0.32",
+  "kind": "air.aiAuthoringCapturedOutput",
+  "caseId": "output_emit_module",
+  "candidateSummary": "bounded output.emit package using generated OUTPUT_* handle",
+  "forbiddenSurface": false,
+  "hallucinationCategories": [],
+  "firstPass": {
+    "verify": {
+      "status": "passed",
+      "diagnostics": []
+    },
+    "packageCheck": {
+      "status": "passed",
+      "diagnostics": []
+    }
+  }
+}

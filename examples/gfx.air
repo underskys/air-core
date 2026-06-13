@@ -1,0 +1,18 @@
+module gfx_demo
+capabilities { gfx }
+
+extern gfx.begin_frame(t: i32) -> void
+extern gfx.draw_cube(x: i32, y: i32, z: i32, size: i32, rot: i32) -> void
+extern gfx.end_frame() -> void
+
+export func frame(t: i32) -> void {
+entry:
+  @gfx.begin_frame(%t)
+  %x:i32 = 0
+  %y:i32 = 0
+  %z:i32 = 0
+  %size:i32 = 1200
+  @gfx.draw_cube(%x, %y, %z, %size, %t)
+  @gfx.end_frame()
+  return
+}

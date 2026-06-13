@@ -1,0 +1,23 @@
+AIR / airlang Authors
+=====================
+
+Creator and maintainer:
+
+- Dmitriii
+
+AI-assisted development note:
+
+AIR is developed with AI assistance under human direction. Dmitriii created and
+directs the project: product direction, architecture constraints, acceptance
+criteria, review orchestration, evidence gates, release decisions, and the
+AI-orchestrated engineering process.
+
+AI tools may assist implementation, review, test generation, documentation, and
+release hygiene. Authorship, project direction, and release responsibility are
+not assigned to those tools.
+
+Contributor policy:
+
+External contributors may be added here after contribution process and license
+acceptance rules are finalized. Unless otherwise stated in a signed agreement,
+accepted contributions are submitted under the Apache License, Version 2.0.

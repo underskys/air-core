@@ -1,0 +1,14 @@
+module frustum_cull
+use std.bounds
+capabilities { }
+requires export run
+
+export func run() -> i32 {
+entry:
+  %near_visible:bool = @bounds.sphere_visible_plane(0, 0, 10, 2, 0, 0, 1, -1)
+  %far_visible:bool = @bounds.sphere_visible_plane(0, 0, -10, 2, 0, 0, 1, -1)
+  %near_i:i32 = select.i32 %near_visible, 1, 0
+  %far_i:i32 = select.i32 %far_visible, 1, 0
+  %out:i32 = add %near_i, %far_i
+  return %out
+}

@@ -1,0 +1,429 @@
+{
+  "generatedFiles": [
+    {
+      "fingerprint": "sha256:cb81d425d3cc0bddbddccadaddda6c1630ec95d8fd45d2797f9947983dc5da5b",
+      "path": "generated/structured_io_handles.air"
+    }
+  ],
+  "generator": "airc structured-io",
+  "handles": [
+    {
+      "field": "confidence_source",
+      "handle": "STRUCT_DEVICE_OBSERVATION_FIELD_CONFIDENCE_SOURCE_OFFSET",
+      "kind": "field_offset",
+      "schema": "device_observation",
+      "value": 8
+    },
+    {
+      "field": "confidence_source",
+      "handle": "STRUCT_DEVICE_OBSERVATION_FIELD_CONFIDENCE_SOURCE_TYPE",
+      "kind": "field_type",
+      "schema": "device_observation",
+      "value": 1
+    },
+    {
+      "field": null,
+      "handle": "STRUCT_DEVICE_OBSERVATION_FIELD_COUNT",
+      "kind": "field_count",
+      "schema": "device_observation",
+      "value": 10
+    },
+    {
+      "field": "device_id",
+      "handle": "STRUCT_DEVICE_OBSERVATION_FIELD_DEVICE_ID_OFFSET",
+      "kind": "field_offset",
+      "schema": "device_observation",
+      "value": 0
+    },
+    {
+      "field": "device_id",
+      "handle": "STRUCT_DEVICE_OBSERVATION_FIELD_DEVICE_ID_TYPE",
+      "kind": "field_type",
+      "schema": "device_observation",
+      "value": 1
+    },
+    {
+      "field": "dns_reachable",
+      "handle": "STRUCT_DEVICE_OBSERVATION_FIELD_DNS_REACHABLE_OFFSET",
+      "kind": "field_offset",
+      "schema": "device_observation",
+      "value": 5
+    },
+    {
+      "field": "dns_reachable",
+      "handle": "STRUCT_DEVICE_OBSERVATION_FIELD_DNS_REACHABLE_TYPE",
+      "kind": "field_type",
+      "schema": "device_observation",
+      "value": 1
+    },
+    {
+      "field": "gateway_reachable",
+      "handle": "STRUCT_DEVICE_OBSERVATION_FIELD_GATEWAY_REACHABLE_OFFSET",
+      "kind": "field_offset",
+      "schema": "device_observation",
+      "value": 4
+    },
+    {
+      "field": "gateway_reachable",
+      "handle": "STRUCT_DEVICE_OBSERVATION_FIELD_GATEWAY_REACHABLE_TYPE",
+      "kind": "field_type",
+      "schema": "device_observation",
+      "value": 1
+    },
+    {
+      "field": "interface_kind",
+      "handle": "STRUCT_DEVICE_OBSERVATION_FIELD_INTERFACE_KIND_OFFSET",
+      "kind": "field_offset",
+      "schema": "device_observation",
+      "value": 7
+    },
+    {
+      "field": "interface_kind",
+      "handle": "STRUCT_DEVICE_OBSERVATION_FIELD_INTERFACE_KIND_TYPE",
+      "kind": "field_type",
+      "schema": "device_observation",
+      "value": 1
+    },
+    {
+      "field": "latency_ms",
+      "handle": "STRUCT_DEVICE_OBSERVATION_FIELD_LATENCY_MS_OFFSET",
+      "kind": "field_offset",
+      "schema": "device_observation",
+      "value": 2
+    },
+    {
+      "field": "latency_ms",
+      "handle": "STRUCT_DEVICE_OBSERVATION_FIELD_LATENCY_MS_TYPE",
+      "kind": "field_type",
+      "schema": "device_observation",
+      "value": 1
+    },
+    {
+      "field": "link_status",
+      "handle": "STRUCT_DEVICE_OBSERVATION_FIELD_LINK_STATUS_OFFSET",
+      "kind": "field_offset",
+      "schema": "device_observation",
+      "value": 1
+    },
+    {
+      "field": "link_status",
+      "handle": "STRUCT_DEVICE_OBSERVATION_FIELD_LINK_STATUS_TYPE",
+      "kind": "field_type",
+      "schema": "device_observation",
+      "value": 1
+    },
+    {
+      "field": "observation_age_ms",
+      "handle": "STRUCT_DEVICE_OBSERVATION_FIELD_OBSERVATION_AGE_MS_OFFSET",
+      "kind": "field_offset",
+      "schema": "device_observation",
+      "value": 9
+    },
+    {
+      "field": "observation_age_ms",
+      "handle": "STRUCT_DEVICE_OBSERVATION_FIELD_OBSERVATION_AGE_MS_TYPE",
+      "kind": "field_type",
+      "schema": "device_observation",
+      "value": 1
+    },
+    {
+      "field": "packet_loss_x1000",
+      "handle": "STRUCT_DEVICE_OBSERVATION_FIELD_PACKET_LOSS_X1000_OFFSET",
+      "kind": "field_offset",
+      "schema": "device_observation",
+      "value": 3
+    },
+    {
+      "field": "packet_loss_x1000",
+      "handle": "STRUCT_DEVICE_OBSERVATION_FIELD_PACKET_LOSS_X1000_TYPE",
+      "kind": "field_type",
+      "schema": "device_observation",
+      "value": 1
+    },
+    {
+      "field": "recent_change_flag",
+      "handle": "STRUCT_DEVICE_OBSERVATION_FIELD_RECENT_CHANGE_FLAG_OFFSET",
+      "kind": "field_offset",
+      "schema": "device_observation",
+      "value": 6
+    },
+    {
+      "field": "recent_change_flag",
+      "handle": "STRUCT_DEVICE_OBSERVATION_FIELD_RECENT_CHANGE_FLAG_TYPE",
+      "kind": "field_type",
+      "schema": "device_observation",
+      "value": 1
+    },
+    {
+      "field": null,
+      "handle": "STRUCT_DEVICE_OBSERVATION_KIND",
+      "kind": "schema_kind",
+      "schema": "device_observation",
+      "value": 2
+    },
+    {
+      "field": null,
+      "handle": "STRUCT_DEVICE_OBSERVATION_MAX_ROWS",
+      "kind": "max_rows",
+      "schema": "device_observation",
+      "value": 8
+    },
+    {
+      "field": "confidence_x1000",
+      "handle": "STRUCT_DIAGNOSIS_SUMMARY_FIELD_CONFIDENCE_X1000_OFFSET",
+      "kind": "field_offset",
+      "schema": "diagnosis_summary",
+      "value": 3
+    },
+    {
+      "field": "confidence_x1000",
+      "handle": "STRUCT_DIAGNOSIS_SUMMARY_FIELD_CONFIDENCE_X1000_TYPE",
+      "kind": "field_type",
+      "schema": "diagnosis_summary",
+      "value": 1
+    },
+    {
+      "field": null,
+      "handle": "STRUCT_DIAGNOSIS_SUMMARY_FIELD_COUNT",
+      "kind": "field_count",
+      "schema": "diagnosis_summary",
+      "value": 5
+    },
+    {
+      "field": "diagnosis_code",
+      "handle": "STRUCT_DIAGNOSIS_SUMMARY_FIELD_DIAGNOSIS_CODE_OFFSET",
+      "kind": "field_offset",
+      "schema": "diagnosis_summary",
+      "value": 0
+    },
+    {
+      "field": "diagnosis_code",
+      "handle": "STRUCT_DIAGNOSIS_SUMMARY_FIELD_DIAGNOSIS_CODE_TYPE",
+      "kind": "field_type",
+      "schema": "diagnosis_summary",
+      "value": 1
+    },
+    {
+      "field": "recommended_action_id",
+      "handle": "STRUCT_DIAGNOSIS_SUMMARY_FIELD_RECOMMENDED_ACTION_ID_OFFSET",
+      "kind": "field_offset",
+      "schema": "diagnosis_summary",
+      "value": 2
+    },
+    {
+      "field": "recommended_action_id",
+      "handle": "STRUCT_DIAGNOSIS_SUMMARY_FIELD_RECOMMENDED_ACTION_ID_TYPE",
+      "kind": "field_type",
+      "schema": "diagnosis_summary",
+      "value": 1
+    },
+    {
+      "field": "requires_human_approval",
+      "handle": "STRUCT_DIAGNOSIS_SUMMARY_FIELD_REQUIRES_HUMAN_APPROVAL_OFFSET",
+      "kind": "field_offset",
+      "schema": "diagnosis_summary",
+      "value": 4
+    },
+    {
+      "field": "requires_human_approval",
+      "handle": "STRUCT_DIAGNOSIS_SUMMARY_FIELD_REQUIRES_HUMAN_APPROVAL_TYPE",
+      "kind": "field_type",
+      "schema": "diagnosis_summary",
+      "value": 1
+    },
+    {
+      "field": "severity",
+      "handle": "STRUCT_DIAGNOSIS_SUMMARY_FIELD_SEVERITY_OFFSET",
+      "kind": "field_offset",
+      "schema": "diagnosis_summary",
+      "value": 1
+    },
+    {
+      "field": "severity",
+      "handle": "STRUCT_DIAGNOSIS_SUMMARY_FIELD_SEVERITY_TYPE",
+      "kind": "field_type",
+      "schema": "diagnosis_summary",
+      "value": 1
+    },
+    {
+      "field": null,
+      "handle": "STRUCT_DIAGNOSIS_SUMMARY_KIND",
+      "kind": "schema_kind",
+      "schema": "diagnosis_summary",
+      "value": 3
+    }
+  ],
+  "kind": "air.generatedStructuredIO",
+  "schemaVersion": "0.32",
+  "schemas": [
+    {
+      "diagnostics": [],
+      "errors": [],
+      "exists": true,
+      "fieldCount": 10,
+      "fields": [
+        {
+          "classification": null,
+          "name": "device_id",
+          "privacy": "minimized",
+          "semantic": "id",
+          "type": "i32"
+        },
+        {
+          "classification": null,
+          "name": "link_status",
+          "privacy": "minimized",
+          "semantic": "enum",
+          "type": "i32"
+        },
+        {
+          "classification": null,
+          "name": "latency_ms",
+          "privacy": "minimized",
+          "semantic": "counter",
+          "type": "i32"
+        },
+        {
+          "classification": null,
+          "name": "packet_loss_x1000",
+          "privacy": "minimized",
+          "semantic": "score",
+          "type": "i32"
+        },
+        {
+          "classification": null,
+          "name": "gateway_reachable",
+          "privacy": "minimized",
+          "semantic": "flag",
+          "type": "i32"
+        },
+        {
+          "classification": null,
+          "name": "dns_reachable",
+          "privacy": "minimized",
+          "semantic": "flag",
+          "type": "i32"
+        },
+        {
+          "classification": null,
+          "name": "recent_change_flag",
+          "privacy": "minimized",
+          "semantic": "flag",
+          "type": "i32"
+        },
+        {
+          "classification": null,
+          "name": "interface_kind",
+          "privacy": "minimized",
+          "semantic": "enum",
+          "type": "i32"
+        },
+        {
+          "classification": null,
+          "name": "confidence_source",
+          "privacy": "minimized",
+          "semantic": "enum",
+          "type": "i32"
+        },
+        {
+          "classification": null,
+          "name": "observation_age_ms",
+          "privacy": "minimized",
+          "semantic": "counter",
+          "type": "i32"
+        }
+      ],
+      "fingerprint": "sha256:2ebca2969527d1218b2e60616541cf9b72e40e896faab6a18319aff02e26f09d",
+      "kind": "air.structuredRowsetSchema",
+      "maxRows": 8,
+      "name": "device_observation",
+      "ok": true,
+      "path": "schemas/device_observation.structured.rowset.json",
+      "privacyPolicy": {
+        "defaultClassification": "minimized",
+        "forbiddenByDefault": [
+          "raw_text",
+          "raw_url",
+          "private_text",
+          "token",
+          "secret",
+          "credential"
+        ]
+      },
+      "schemaVersion": "0.32",
+      "warnings": []
+    },
+    {
+      "diagnostics": [],
+      "errors": [],
+      "exists": true,
+      "fieldCount": 5,
+      "fields": [
+        {
+          "classification": null,
+          "name": "diagnosis_code",
+          "privacy": "minimized",
+          "semantic": "enum",
+          "type": "i32"
+        },
+        {
+          "classification": null,
+          "name": "severity",
+          "privacy": "minimized",
+          "semantic": "score",
+          "type": "i32"
+        },
+        {
+          "classification": null,
+          "name": "recommended_action_id",
+          "privacy": "minimized",
+          "semantic": "enum",
+          "type": "i32"
+        },
+        {
+          "classification": null,
+          "name": "confidence_x1000",
+          "privacy": "minimized",
+          "semantic": "score",
+          "type": "i32"
+        },
+        {
+          "classification": null,
+          "name": "requires_human_approval",
+          "privacy": "minimized",
+          "semantic": "flag",
+          "type": "i32"
+        }
+      ],
+      "fingerprint": "sha256:bb50500e0b4ecd17e9244b3d3b69ce62e7ce3fdcbdc98622fdee1ce44578e293",
+      "kind": "air.structuredOutputSummarySchema",
+      "maxRows": null,
+      "name": "diagnosis_summary",
+      "ok": true,
+      "path": "schemas/diagnosis_summary.structured.output.json",
+      "privacyPolicy": {
+        "defaultClassification": "minimized",
+        "forbiddenByDefault": [
+          "raw_text",
+          "raw_url",
+          "private_text",
+          "token",
+          "secret",
+          "credential"
+        ]
+      },
+      "schemaVersion": "0.32",
+      "warnings": []
+    }
+  ],
+  "sourceSchemas": [
+    {
+      "fingerprint": "sha256:2ebca2969527d1218b2e60616541cf9b72e40e896faab6a18319aff02e26f09d",
+      "path": "schemas/device_observation.structured.rowset.json"
+    },
+    {
+      "fingerprint": "sha256:bb50500e0b4ecd17e9244b3d3b69ce62e7ce3fdcbdc98622fdee1ce44578e293",
+      "path": "schemas/diagnosis_summary.structured.output.json"
+    }
+  ]
+}

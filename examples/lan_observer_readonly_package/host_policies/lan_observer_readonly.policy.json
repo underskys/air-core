@@ -1,0 +1,14 @@
+{
+  "schemaVersion": "0.25",
+  "kind": "air.mockHostPolicy",
+  "id": "lan-observer-readonly",
+  "allowOutputs": ["lan_observer_diagnosis_recorded"],
+  "denyOutputs": [],
+  "capabilities": {
+    "lan_observer.readonly_diagnosis": "allowed",
+    "network": "forbidden",
+    "packet_capture": "forbidden",
+    "secrets": "forbidden",
+    "writes": "forbidden"
+  }
+}

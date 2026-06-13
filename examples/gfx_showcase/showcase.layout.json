@@ -1,0 +1,61 @@
+{
+  "version": "0.1",
+  "kind": "air-gfx-scene-layout",
+  "module": "gfx_showcase",
+  "units": "meters",
+  "upAxis": "Y",
+  "coordinateSystem": "right-handed",
+  "skybox": {
+    "environment": "dusk_foundry",
+    "rotation": [0, 12, 0],
+    "exposure": 1.05
+  },
+  "instanceGroups": [
+    {
+      "key": "floor_ring",
+      "module": "showcase_block",
+      "material": "brushed_steel",
+      "repeat": { "kind": "rect_ring", "countPerSide": 5, "halfExtent": 5, "y": 0, "scale": [1.15, 0.18, 1.15] },
+      "collision": { "type": "box", "layer": "world", "size": [2.3, 0.36, 2.3] }
+    },
+    {
+      "key": "energy_pillars",
+      "module": "showcase_pillar",
+      "material": "emissive_glass",
+      "repeat": { "kind": "radial", "count": 8, "radius": 4.2, "y": 0.85, "scale": [0.42, 1.7, 0.42] },
+      "collision": { "type": "cylinder", "layer": "world", "radius": 0.42, "height": 3.4 }
+    },
+    {
+      "key": "focus_crystals",
+      "module": "showcase_crystal",
+      "material": "emissive_glass",
+      "transforms": [
+        { "position": [0, 1.25, 0], "rotation": [0, 0, 0], "scale": [0.7, 1.5, 0.7] },
+        { "position": [-1.4, 0.7, 1.2], "rotation": [35, 0, 0], "scale": [0.35, 0.8, 0.35] },
+        { "position": [1.5, 0.75, -1.0], "rotation": [-28, 0, 0], "scale": [0.4, 0.9, 0.4] }
+      ],
+      "collision": { "type": "sphere", "layer": "focus", "radius": 0.75 }
+    }
+  ],
+  "collision": {
+    "version": "0.1",
+    "layers": {
+      "world": { "solid": true },
+      "focus": { "selectable": true },
+      "trigger": { "triggerOnly": true }
+    },
+    "colliders": [
+      { "id": "showcase_bounds", "type": "box", "layer": "world", "size": [14, 4, 14], "center": [0, 1, 0] }
+    ],
+    "triggers": [
+      { "id": "center_focus_trigger", "kind": "selection", "shape": { "type": "sphere", "radius": 2.1 }, "target": "focus_crystals" }
+    ]
+  },
+  "pickups": [
+    { "id": "sample_pickup", "kind": "data-shard", "position": [0, 0.55, 3.2], "visual": "hud_glyph" }
+  ],
+  "triggers": [
+    { "id": "showcase_entry", "kind": "debug-zone", "target": "floor_ring" }
+  ],
+  "debug": true
+}

@@ -1,0 +1,31 @@
+module numeric_constraints
+use std.bounds
+use std.grid
+use std.easing
+capabilities { }
+requires export run
+ensures dynamic_allocations <= 0
+
+func bounded_score(value: i32) -> i32 {
+  ensures return >= 0
+entry:
+  %clamped:i32 = @bounds.clamp_i32(%value, 0, 1000)
+  %out:i32 = @easing.in_out_quad_1000(%clamped)
+  return %out
+}
+
+export func run(seed: i32) -> i32 {
+entry:
+  %cell:i32 = @grid.cell_trunc_i32(%seed, 4)
+  %center:i32 = @grid.cell_center_i32(%cell, 4)
+  %near:bool = @bounds.in_range_i32(%seed, %center, 3)
+  %inside:bool = @bounds.point_in_aabb_center_i32(%seed, %center, %center, %center, 8, 8)
+  %overlap:bool = @bounds.aabb_overlap_center_i32(%seed, %center, 2, 2, %center, %center, 3, 3)
+  %near_score:i32 = select.i32 %near, 100, 0
+  %inside_score:i32 = select.i32 %inside, 20, 0
+  %overlap_score:i32 = select.i32 %overlap, 7, 0
+  %sum0:i32 = add %near_score, %inside_score
+  %score:i32 = add %sum0, %overlap_score
+  %out:i32 = @bounded_score(%score)
+  return %out
+}

@@ -1,0 +1,81 @@
+module ui_tool
+capabilities { gpu, input }
+effects { gpu.* <= 9, input.* <= 6, memory.alloc <= 2, memory.free <= 2, memory.load <= 1, memory.store <= 20, memory.static_alloc_bytes <= 80, memory.dynamic_allocations <= 0 }
+requires capability input
+requires capability gpu
+
+extern input.axis(id: i32) -> f32
+extern input.button(id: i32) -> bool
+extern input.pointer_delta_x() -> f32
+extern input.pointer_delta_y() -> f32
+extern input.pointer_down() -> bool
+extern gpu.set_scene_time(time: i32) -> void
+extern gpu.set_camera(camera: i32) -> void
+extern gpu.set_camera_matrix(camera: i32, data: ptr, len: i32) -> void
+extern gpu.execute_render_graph(graph: i32) -> void
+
+func boost(value: f32) -> f32 {
+entry:
+  %gain:f32 = 1.25
+  %out:f32 = mul %value, %gain
+  return %out
+}
+
+export func frame(time_ms: i32) -> void {
+entry:
+  %orbit_axis:i32 = 1
+  %zoom_axis:i32 = 3
+  %orbit:f32 = @input.axis(%orbit_axis)
+  %zoom:f32 = @input.axis(%zoom_axis)
+  %pointer_x:f32 = @input.pointer_delta_x()
+  %pointer_y:f32 = @input.pointer_delta_y()
+  %down:bool = @input.pointer_down()
+  %zero:f32 = 0.0
+  %one:f32 = 1.0
+  %neg_one:f32 = -1.0
+  %clamped:f32 = clamp %orbit, %neg_one, %one
+  %smooth:f32 = lerp %zero, %clamped, %one
+  %angle:f32 = f32.sin %smooth
+  %distance:f32 = f32.cos %zoom
+  %active:f32 = select.f32 %down, %angle, %distance
+  %px:f32 = add %pointer_x, %active
+  %py:f32 = add %pointer_y, %zero
+  %eye:vec3 = vec3.new %px, %py, %distance
+  %target:vec3 = vec3.new %zero, %zero, %zero
+  %up:vec3 = vec3.new %zero, %one, %zero
+  %view:mat4 = mat4.look_at %eye, %target, %up
+  %fov:f32 = 65.0
+  %aspect:f32 = 1.777
+  %near:f32 = 0.1
+  %far:f32 = 100.0
+  %proj:mat4 = mat4.perspective %fov, %aspect, %near, %far
+  %vp:mat4 = mat4.mul %proj, %view
+  %matrix_bytes:i32 = 64
+  %matrix_ptr:ptr = alloc_region %matrix_bytes
+  %matrix_off:i32 = 0
+  mat4.store_f32 %vp, %matrix_ptr, %matrix_off
+  %state_bytes:i32 = 16
+  %state_ptr:ptr = alloc_region %state_bytes
+  %buf:buffer<f32,4> = buffer.from_ptr %state_ptr
+  %idx0:i32 = 0
+  %idx1:i32 = 1
+  %idx2:i32 = 2
+  %idx3:i32 = 3
+  buffer.store %buf, %idx0, %active
+  buffer.store %buf, %idx1, %zero
+  buffer.store %buf, %idx2, %zero
+  buffer.store %buf, %idx3, %zero
+  loop.buffer.f32 @boost, %buf, 4
+  %boosted:f32 = buffer.load %buf, %idx0
+  %boosted_i:i32 = i32.trunc_f32_s %boosted
+  %adjusted_time:i32 = add %time_ms, %boosted_i
+  @gpu.set_scene_time(%adjusted_time)
+  %camera:i32 = 1
+  @gpu.set_camera_matrix(%camera, %matrix_ptr, %matrix_bytes)
+  @gpu.set_camera(%camera)
+  %graph:i32 = 1
+  @gpu.execute_render_graph(%graph)
+  free_region %matrix_ptr
+  free_region %state_ptr
+  return
+}

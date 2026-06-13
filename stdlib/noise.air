@@ -1,0 +1,125 @@
+module noise
+capabilities { }
+
+func abs_i32(v: i32) -> i32 {
+entry:
+  %zero:i32 = 0
+  %neg:i32 = sub %zero, %v
+  %is_neg:bool = i32.lt_s %v, %zero
+  %out:i32 = select.i32 %is_neg, %neg, %v
+  return %out
+}
+
+func hash2_1000(x: i32, z: i32, seed: i32) -> i32 {
+entry:
+  %x_mul:i32 = mul %x, 7349
+  %z_mul:i32 = mul %z, 9151
+  %seed_mul:i32 = mul %seed, 1013
+  %mix0:i32 = add %x_mul, %z_mul
+  %mix1:i32 = add %mix0, %seed_mul
+  %mix2:i32 = mul %mix1, %mix1
+  %mix3:i32 = add %mix2, 1376312589
+  %abs:i32 = @abs_i32(%mix3)
+  %out:i32 = i32.rem_s %abs, 1000
+  return %out
+}
+
+func hash2(x: i32, z: i32, seed: i32) -> i32 {
+entry:
+  %out:i32 = @hash2_1000(%x, %z, %seed)
+  return %out
+}
+
+func hash2_mod(x: i32, z: i32, seed: i32, modulus: i32) -> i32 {
+  requires param modulus >= 1
+entry:
+  %x_mul:i32 = mul %x, 7349
+  %z_mul:i32 = mul %z, 9151
+  %seed_mul:i32 = mul %seed, 1013
+  %mix0:i32 = add %x_mul, %z_mul
+  %mix1:i32 = add %mix0, %seed_mul
+  %mix2:i32 = mul %mix1, %mix1
+  %mix3:i32 = add %mix2, 1376312589
+  %abs:i32 = @abs_i32(%mix3)
+  %out:i32 = i32.rem_s %abs, %modulus
+  return %out
+}
+
+func lerp_1000(a: i32, b: i32, t: i32) -> i32 {
+entry:
+  %too_low:bool = i32.lt_s %t, 0
+  %low:i32 = select.i32 %too_low, 0, %t
+  %too_high:bool = i32.gt_s %low, 1000
+  %safe_t:i32 = select.i32 %too_high, 1000, %low
+  %delta:i32 = sub %b, %a
+  %scaled:i32 = mul %delta, %safe_t
+  %step:i32 = i32.div_s %scaled, 1000
+  %out:i32 = add %a, %step
+  return %out
+}
+
+func value_noise2_1000(x: i32, z: i32, cell: i32, seed: i32) -> i32 {
+entry:
+  %bad_cell:bool = i32.lt_s %cell, 1
+  %safe_cell:i32 = select.i32 %bad_cell, 1, %cell
+  %gx:i32 = i32.div_s %x, %safe_cell
+  %gz:i32 = i32.div_s %z, %safe_cell
+  %rx0:i32 = i32.rem_s %x, %safe_cell
+  %rz0:i32 = i32.rem_s %z, %safe_cell
+  %rx_mul:i32 = mul %rx0, 1000
+  %rz_mul:i32 = mul %rz0, 1000
+  %tx:i32 = i32.div_s %rx_mul, %safe_cell
+  %tz:i32 = i32.div_s %rz_mul, %safe_cell
+  %gx1:i32 = add %gx, 1
+  %gz1:i32 = add %gz, 1
+  %h00:i32 = @hash2_1000(%gx, %gz, %seed)
+  %h10:i32 = @hash2_1000(%gx1, %gz, %seed)
+  %h01:i32 = @hash2_1000(%gx, %gz1, %seed)
+  %h11:i32 = @hash2_1000(%gx1, %gz1, %seed)
+  %a:i32 = @lerp_1000(%h00, %h10, %tx)
+  %b:i32 = @lerp_1000(%h01, %h11, %tx)
+  %out:i32 = @lerp_1000(%a, %b, %tz)
+  return %out
+}
+
+func fbm2_1000(x: i32, z: i32, cell: i32, seed: i32) -> i32 {
+entry:
+  %bad_cell:bool = i32.lt_s %cell, 1
+  %safe_cell:i32 = select.i32 %bad_cell, 1, %cell
+  %half:i32 = i32.div_s %safe_cell, 2
+  %safe_half:bool = i32.gt_s %half, 0
+  %cell2:i32 = select.i32 %safe_half, %half, 1
+  %seed2:i32 = add %seed, 17
+  %n0:i32 = @value_noise2_1000(%x, %z, %safe_cell, %seed)
+  %n1:i32 = @value_noise2_1000(%x, %z, %cell2, %seed2)
+  %n0w:i32 = mul %n0, 700
+  %n1w:i32 = mul %n1, 300
+  %sum:i32 = add %n0w, %n1w
+  %out:i32 = i32.div_s %sum, 1000
+  return %out
+}
+
+func ridge_cell(x: i32, z: i32, seed: i32) -> i32 {
+entry:
+  %h:i32 = @hash2_1000(%x, %z, %seed)
+  %centered:i32 = sub %h, 500
+  %abs:i32 = @abs_i32(%centered)
+  %ridge:i32 = sub 500, %abs
+  return %ridge
+}
+
+func height_cell(x: i32, z: i32, seed: i32) -> i32 {
+entry:
+  %base:i32 = @hash2_1000(%x, %z, %seed)
+  %ridge:i32 = @ridge_cell(%x, %z, 17)
+  %x_abs:i32 = @abs_i32(%x)
+  %z_abs:i32 = @abs_i32(%z)
+  %edge:i32 = add %x_abs, %z_abs
+  %edge_h:i32 = mul %edge, 170
+  %base_h:i32 = mul %base, 3
+  %ridge_h:i32 = mul %ridge, 5
+  %sum0:i32 = add %base_h, %ridge_h
+  %sum:i32 = add %sum0, %edge_h
+  %height:i32 = i32.div_s %sum, 4
+  return %height
+}

@@ -1,0 +1,10 @@
+module public_hallucinated_api_rejected
+capabilities { }
+requires export run
+
+export func run() -> i32 {
+entry:
+  %id:i32 = 1
+  %out:i32 = call @stdlib.magic_score(%id)
+  return %out
+}

@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "0.32",
+  "kind": "air.aiAuthoringCapturedOutput",
+  "caseId": "repairable_invalid_module",
+  "candidateSummary": "candidate uses an unsupported string field before repair",
+  "forbiddenSurface": true,
+  "hallucinationCategories": [
+    "string_payload"
+  ],
+  "firstPass": {
+    "verify": {
+      "status": "passed",
+      "diagnostics": []
+    },
+    "packageCheck": {
+      "status": "failed",
+      "diagnostics": [
+        {
+          "code": "air.structured_io.field_type_invalid",
+          "severity": "fail",
+          "message": "structured IO field type string is rejected"
+        }
+      ]
+    }
+  }
+}

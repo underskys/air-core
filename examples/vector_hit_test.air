@@ -1,0 +1,17 @@
+module vector_hit_test
+use std.bounds
+capabilities { }
+requires export run
+
+export func run() -> i32 {
+entry:
+  %rect:bool = @bounds.point_in_rect(12, 14, 10, 10, 20, 12)
+  %circle:bool = @bounds.point_in_circle_sq(3, 4, 0, 0, 5)
+  %miss:bool = @bounds.point_in_circle_sq(9, 9, 0, 0, 5)
+  %rect_i:i32 = select.i32 %rect, 1, 0
+  %circle_i:i32 = select.i32 %circle, 10, 0
+  %miss_i:i32 = select.i32 %miss, 100, 0
+  %sum0:i32 = add %rect_i, %circle_i
+  %out:i32 = add %sum0, %miss_i
+  return %out
+}

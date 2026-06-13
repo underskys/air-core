@@ -1,0 +1,9 @@
+module {{module}}
+capabilities { debug }
+extern debug.metric(id: i32, value: i32) -> void
+
+export func run() -> void {
+entry:
+  {{body}}
+  return
+}

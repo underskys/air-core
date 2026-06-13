@@ -1,0 +1,29 @@
+{
+  "schemaVersion": "0.16",
+  "kind": "air.conformance.trace",
+  "id": "policy-basic",
+  "package": "conformance-policy-fixture",
+  "profile": "cli",
+  "steps": [
+    {
+      "id": "allowed-service",
+      "call": {
+        "export": "service_allowed",
+        "args": [1]
+      },
+      "expect": {
+        "return": 1
+      }
+    },
+    {
+      "id": "policy-score",
+      "call": {
+        "export": "policy_score",
+        "args": [5]
+      },
+      "expect": {
+        "return": 15
+      }
+    }
+  ]
+}

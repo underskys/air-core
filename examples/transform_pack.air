@@ -1,0 +1,16 @@
+module transform_pack
+capabilities { }
+
+export func run() -> i32 {
+entry:
+  %bytes:i32 = 16
+  %ptr:ptr = alloc_region %bytes
+  %buf:buffer<f32,4> = buffer.from_ptr %ptr
+  %value:f32 = 9.0
+  %idx:i32 = 0
+  buffer.store %buf, %idx, %value
+  %loaded:f32 = buffer.load %buf, %idx
+  %out:i32 = i32.trunc_f32_s %loaded
+  free_region %ptr
+  return %out
+}

@@ -1,0 +1,11 @@
+module ai_review_frame_budget
+capabilities { }
+
+export func frame(seed: i32) -> i32 {
+entry:
+  %a:i32 = i32.add %seed, 2
+  %b:i32 = i32.add %a, 2
+  %c:i32 = i32.add %b, 2
+  %d:i32 = i32.add %c, 2
+  return %d
+}

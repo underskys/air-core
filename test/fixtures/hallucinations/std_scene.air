@@ -1,0 +1,8 @@
+module hallucinated_std_scene
+use std.scene
+capabilities { }
+
+export func run() -> i32 {
+entry:
+  return 0
+}
