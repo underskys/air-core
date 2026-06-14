@@ -5,6 +5,17 @@ Status: active policy
 Bundle kind determines source, contents, review expectations, and npm
 eligibility.
 
+Create working skeletons with:
+
+```sh
+npm run review:new -- --kind <bundle-kind> --id <path-safe-id>
+```
+
+The helper writes ignored working artifacts under `review_artifacts/active/`.
+Templates under `review_artifacts/templates/` stay tracked. Active artifacts are
+not npm contents and should only be committed when explicitly intended as
+release evidence.
+
 ## `core-release`
 
 Source repo:

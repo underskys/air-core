@@ -32,6 +32,7 @@ REVIEW_RESULTS/
 MOBILE_SUMMARY.md
 REVIEW_REQUEST.md
 CONSUMER_EVIDENCE_SUMMARY.md
+review_artifacts/active/
 
 # Local diagram exports. Keep source-controlled docs images explicitly named.
 docs/image.png

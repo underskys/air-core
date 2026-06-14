@@ -56,6 +56,25 @@ Demo/consumer pressure owner:
 
 No release decision may be chat-memory-only.
 
+## Creating Artifact Skeletons
+
+Use the local helper to create review artifact skeletons:
+
+```sh
+npm run review:new -- --kind core-release --id M45-S1-math-roadmap
+npm run review:new -- --kind consumer-demo --id airmatlab-pressure
+npm run review:new -- --kind core-hygiene --id package-identity-cleanup
+```
+
+The helper writes to `review_artifacts/active/<id>/`, copies only the templates
+required for the bundle kind, and creates a placeholder `BUNDLE_MANIFEST.json`.
+It does not include timestamps, secrets, prompts, snapshots, review zips, or npm
+publish authority.
+
+`review_artifacts/active/` is gitignored by default. Active artifacts are
+working artifacts, not npm package contents. They may be committed only when the
+release manager explicitly treats them as release evidence.
+
 ## Public Package Boundary
 
 Review bundles are artifacts, never npm package contents.
