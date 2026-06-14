@@ -8,8 +8,7 @@ The public npm package is `@underskys/air-core`, and the public CLI binary is
 
 ## Production/Public Source
 
-`/Users/sky/DEV/air-core` is the production and public source of truth for AIR
-release work.
+`air-core` is the production and public source of truth for AIR release work.
 
 All public release work happens only from this repository:
 
@@ -26,9 +25,11 @@ The canonical remote is:
 git@gitlab.com:fd.skyrealm/air-core.git
 ```
 
+All npm, tag, and public release work happens only from `air-core`.
+
 ## Dev/Private Reference
 
-`/Users/sky/DEV/airlang` is dev/private/reference-only.
+`airlang` is dev/private/reference-only.
 
 It may contain history, experiments, private notes, demo pressure, review
 bundles, prompts, generated archives, consumer evidence, or old package
@@ -36,7 +37,16 @@ identity. None of that makes it a release source.
 
 AIR must not be released from the dev/private repository.
 
+## Demos and Consumer Pressure
+
+Demos, demo branches, consumer evidence, host experiments, and project-specific
+showcases are consumer pressure. They may produce requests, QA evidence, or
+architecture questions, but they do not define AIR Core semantics, Host ABI
+authority, or release state.
+
 ## Transfer Rule
+
+Direct copying from `airlang` to `air-core` is forbidden.
 
 Content from `airlang` may be cherry-picked into `air-core` only through an
 explicit public-clean review. The copied diff must be minimal, reviewed in
@@ -53,4 +63,3 @@ Before any tag, publish, or protected merge, the AIR Release State Custodian
 must produce an explicit OK/STOP report from `air-core`.
 
 No release operation may start from `airlang`.
-

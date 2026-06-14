@@ -508,7 +508,7 @@ is_included() {
   case "$p" in
     AGENTS.md|README.md|WHY_AIR.md|METHOD.md|SECURITY.md|THREAT_MODEL.md|CONFORMANCE.md|SHOWCASE.md|VERSIONING.md|ROADMAP.md|CONTRIBUTING.md|CHANGELOG.md|LICENSE|NOTICE|NOTICE.md|AUTHORS|MOBILE_SUMMARY.md|REVIEW_REQUEST.md|CONSUMER_EVIDENCE_SUMMARY.md|package.json|package-lock.json|pnpm-lock.yaml|tsconfig.json|.gitlab-ci.yml|.gitignore|.npmignore) return 0 ;;
     REVIEW_RESULTS/*|REVIEW_RESULTS/**/*) return 0 ;;
-    spec/*.md|docs/*.md) return 0 ;;
+    spec/*.md|docs/*.md|docs/release/*.md|docs/release/*.json|docs/release/artifact_templates/*.md|docs/release/artifact_templates/*.json) return 0 ;;
     consumer_evidence/README.md|consumer_evidence/DEMO_REGISTRY.json|consumer_evidence/.gitignore) return 0 ;;
     consumer_evidence/schemas/*.json) return 0 ;;
     consumer_evidence/demos/*/MANIFEST.json|consumer_evidence/demos/*/PROOF_CARD.md|consumer_evidence/demos/*/PROMPTS.md) return 0 ;;

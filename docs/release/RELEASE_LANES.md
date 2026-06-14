@@ -5,6 +5,8 @@ Status: active policy
 This policy separates public release work, feature/demo pressure work, and
 private/internal research. It is intended to prevent accidental mixing of
 release bundles, demo pressure, private artifacts, and public npm/tag work.
+The artifact promotion rules are defined in
+[Artifact Review Protocol](ARTIFACT_REVIEW_PROTOCOL.md).
 
 AIR ABI remains `0.10`. Host ABI latest remains `0.11`, limited to bounded
 `output.emit`. This policy does not change compiler, verifier, AIR ABI, Host
@@ -15,6 +17,7 @@ ABI, or language behavior.
 Repository:
 
 - `git@gitlab.com:fd.skyrealm/air-core.git`
+- role: production/public release source.
 
 Branches:
 
@@ -55,6 +58,7 @@ Branches and repositories:
 - `demo/*`;
 - separate public or private demo repositories;
 - pressure/evidence branches that are not release-owned.
+- role: consumer pressure, not release source.
 
 Allowed work:
 
@@ -87,6 +91,7 @@ Repositories and worktrees:
 - private `airlang` repository;
 - local research worktrees;
 - private historical snapshots.
+- role: dev/private/reference source.
 
 Allowed work:
 
@@ -104,6 +109,15 @@ Rules:
 - sanitize private paths, raw prompts, private docs, large media, generated
   bundles, and credentials before any public transfer.
 
+## Internal Slice Rule
+
+Internal development slices use milestone slice ids such as `M45-S1`,
+`M45-S2`, and `M45-S3`. Public npm/git versions use semver-like release
+versions such as `0.45.0` and `0.45.1`.
+
+Do not spend npm patch versions on unpublished internal slices. Patch versions
+are for public release candidates or published public fixes.
+
 ## Release Ownership Rule
 
 Public npm/tag release must come from Lane A only:
@@ -114,6 +128,9 @@ Public npm/tag release must come from Lane A only:
 4. public checks are green;
 5. no forbidden root artifacts or stale private/package references exist;
 6. bundle kind is `core-release`.
+7. required review artifacts exist for the promoted change:
+   `CHANGESET_SUMMARY.md`, `QA_REPORT.md`, `RELEASE_DECISION.md`, and
+   `BUNDLE_MANIFEST.json`.
 
 If any condition fails, the bundle may still be useful for planning or pressure,
 but it is not release-allowed.

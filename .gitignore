@@ -6,6 +6,7 @@ build/
 dist/
 public/
 public_export/
+build/review-bundles/
 !examples/public/
 !examples/public/**
 test-artifacts/
@@ -16,6 +17,7 @@ chat_transcripts/
 *.log
 *.tmp
 *.zip
+*airlang-review*.zip
 *.tgz
 *.tar
 *.tar.gz

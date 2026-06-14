@@ -2,8 +2,8 @@
 
 Status: active release policy
 
-This policy controls any movement from `/Users/sky/DEV/airlang` into
-`/Users/sky/DEV/air-core`.
+This policy controls any movement from private/dev `airlang` state into public
+release `air-core` state.
 
 ## Allowed Transfer Classes
 
@@ -11,10 +11,11 @@ The following classes may be considered for transfer after review:
 
 - docs wording that is public-safe and does not expose private paths or review
   process notes;
-- public-safe scripts that only check repository hygiene or release surface;
-- tests that validate existing public behavior;
-- examples under public example boundaries;
+- public-safe tests that validate existing public behavior;
+- public examples under public example boundaries;
 - bugfixes after explicit review in `air-core`.
+- scripts after release review, limited to repository hygiene, package surface,
+  claims, QA, or release process checks.
 
 Allowed does not mean automatic. Every transfer still needs a scoped diff in
 `air-core` and release checks before merge.
@@ -27,13 +28,14 @@ The following classes must not be copied into `air-core` release state:
 - review bundles;
 - local paths;
 - private notes;
+- private pressure docs;
 - consumer evidence unless explicitly packaged and sanitized for public review;
-- demos and build outputs;
+- generated zip/tgz artifacts;
 - `node_modules`;
-- generated tarballs;
+- demo build outputs;
 - `MOBILE_SUMMARY.md` and `REVIEW_REQUEST.md`;
 - staging exports such as `public_export`;
-- generated zip archives and snapshot bundles.
+- snapshot bundles.
 
 ## Required Process
 
@@ -51,4 +53,3 @@ The following classes must not be copied into `air-core` release state:
 Stop and ask for a human decision if a candidate diff changes compiler,
 verifier, lowerer, AIR ABI, Host ABI, package identity, release authority,
 publish automation, demo semantics, or private/public boundaries.
-

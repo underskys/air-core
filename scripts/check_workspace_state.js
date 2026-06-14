@@ -94,6 +94,7 @@ function scanPublicDocs(prodPath) {
     const stalePatterns = [
       { label: "legacy verifier package identity", pattern: /\bair-verifier\b/ },
       { label: "dev package global install command", pattern: /npm\s+install\s+-g\s+airlang\b/ },
+      { label: "unscoped air-core global install command", pattern: /npm\s+install\s+-g\s+air-core(?:@|\b)/ },
     ];
     for (const stale of stalePatterns) {
       if (stale.pattern.test(text)) {
@@ -180,4 +181,3 @@ if (blockers.length > 0) {
 }
 
 console.log("OK: workspace state is release-safe for air-core local checks.");
-

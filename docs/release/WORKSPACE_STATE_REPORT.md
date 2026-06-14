@@ -4,10 +4,10 @@ Timestamp: 2026-06-14T13:24:54+03:00
 
 ## Repositories
 
-| Role | Path | Branch | HEAD |
+| Role | Repository | Branch | HEAD |
 | --- | --- | --- | --- |
-| Production/public | `/Users/sky/DEV/air-core` | `release/v0.44.x-hygiene` | `3d0f5ea89f857b2ac9a3ec799cdbc09b73104cba` |
-| Dev/private/reference | `/Users/sky/DEV/airlang` | `main` | `8ef8beb8d7d2223f6644ef9067df8432af5e8b0b` |
+| Production/public | `air-core` | `release/v0.44.x-hygiene` | `3d0f5ea89f857b2ac9a3ec799cdbc09b73104cba` |
+| Dev/private/reference | `airlang` | `main` | `8ef8beb8d7d2223f6644ef9067df8432af5e8b0b` |
 
 Production remote:
 
@@ -127,4 +127,3 @@ Human decisions remain required for:
 3. Produce a separate OK/STOP report before any tag or npm publish.
 4. Keep `airlang` read-only unless a specific public-clean cherry-pick review
    is requested.
-
