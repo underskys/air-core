@@ -132,3 +132,34 @@ Required fields:
 
 Acceptance criteria: decision is `merge`, `tag`, `publish`, or `block`; all
 gates are named; npm publish is explicitly yes/no.
+
+## BUNDLE_MANIFEST.json
+
+Purpose: record machine-readable bundle identity, source lane, package
+eligibility, public-clean status, included artifacts, excluded paths, and known
+limitations.
+
+Owner: Release Manager for `core-release` and `core-hygiene`; pressure owner or
+QA reviewer for `consumer-demo`; private owner for `internal-dev`.
+
+Created when: any release-adjacent, demo-pressure, or internal-dev bundle is
+handed off for review.
+
+Required fields:
+
+- bundle kind;
+- source repo;
+- target repo when applicable;
+- branch;
+- commit;
+- public-clean boolean;
+- npm-eligible boolean;
+- forbidden-content check;
+- artifact list;
+- AIR ABI status;
+- Host ABI status;
+- internal slice or public version when applicable.
+
+Acceptance criteria: bundle kind and repository role agree, required artifacts
+are listed, npm eligibility is false for pressure/internal bundles, and
+forbidden content is not listed as package contents.
