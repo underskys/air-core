@@ -50,6 +50,24 @@ or host profiles that rely on that change.
 Do not treat demo pressure as Core authority. Core changes require generalized
 mechanisms and must preserve AIR's verifier-first boundaries.
 
+## 3a. Repository Roles and Dev-to-Prod Sync
+
+Repository roles are defined in [REPO_ROLES.md](REPO_ROLES.md).
+
+Rules:
+
+- `air-core` is the public production release source of truth;
+- `airlang` is private/dev/reference/experimental and read-only by default for
+  release work;
+- demos are consumer pressure, not Core release source;
+- do not work directly on public `main` except explicit release-state tasks;
+- dev work from `airlang` must be converted into public-clean diffs before it
+  enters `air-core`;
+- do not copy raw private artifacts, prompts, snapshots, review zips, personal
+  notes, or private demo contents into `air-core`;
+- all pressure requests must enter the existing `requests/` ledger and pass
+  `scripts/check_request_ledger.js`.
+
 ## 4. Checks Before Commit
 
 Run task-appropriate checks before committing.

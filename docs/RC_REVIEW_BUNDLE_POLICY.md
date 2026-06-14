@@ -39,6 +39,19 @@ After RC checks complete, create the Core review bundle:
 bash scripts/make_review_bundle.sh
 ```
 
+Bundle kinds:
+
+| Kind | Source | Release allowed | Rule |
+| --- | --- | --- | --- |
+| `core-release` | `air-core` `main` or `release/*` | yes, if clean and checks pass | Public release candidate only. |
+| `core-hygiene` | `air-core` docs/npm/CI branch | merge candidate only | No feature, ABI, compiler, verifier, or lowerer changes. |
+| `consumer-demo` | demo branch or repo | no | Must include pressure report and route Core asks through `requests/`. |
+| `internal-dev` | `airlang` or private worktree | no | Must never be npm packaged or treated as release source. |
+
+Review bundles are never included in the npm package. They may be CI/GitLab
+artifacts, not package contents. Public package contents are controlled by the
+`package.json` `files` allowlist and `scripts/check_public_package_surface.js`.
+
 The bundle must include `REVIEW_RESULTS/` when it is used for Core RC review.
 If `REVIEW_RESULTS/` is missing, bundle generation warns and writes
 `REVIEW_RESULTS_MISSING.md` into the archive.

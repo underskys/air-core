@@ -26,6 +26,29 @@ release-hygiene focused.
 
 Milestone versions do not automatically change AIR ABI or Host ABI.
 
+## Internal Slices vs Public Package Versions
+
+Milestone versions such as `v0.45` and `v0.46` may be split into internal slice
+ids such as `M45-S1`, `M45-S2`, and `M45-S3`.
+
+Internal slices are not npm versions. Public package versions use package
+versions such as `0.45.0`, `0.45.1`, and later patch releases.
+
+Rules:
+
+- do not burn npm patch numbers for unpublished internal work;
+- patch versions are only for actual public package releases or release
+  candidates intended to become public package state;
+- semantic tightening needs migration notes and consumer replay where relevant.
+
+Example `v0.45` slices:
+
+- `M45-S1`: release hygiene and quickstart;
+- `M45-S2`: anti-hallucination demo;
+- `M45-S3`: MathLab consumer-demo pressure;
+- `M45-S4`: demo portfolio index;
+- `M45-S5`: external smoke and launch readiness.
+
 ## AIR ABI Version
 
 The AIR ABI version describes the executable AIR module/runtime contract.
