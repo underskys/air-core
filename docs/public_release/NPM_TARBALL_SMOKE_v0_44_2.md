@@ -22,7 +22,7 @@ Result: pass.
 | Package version | `0.44.2` |
 | Tarball file | `underskys-air-core-0.44.2.tgz` |
 | Included file count | `139` |
-| Tarball size | `302851` bytes |
+| Tarball size | `302869` bytes |
 | Install method | temp project local install from tarball |
 | Global install | not used; temp project install avoids changing system npm state |
 

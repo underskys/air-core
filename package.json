@@ -62,7 +62,8 @@
     "check:public-package-surface": "node scripts/check_public_package_surface.js",
     "build:grep": "node bin/airc.js build examples/grep.air --emit wat -o build/grep.wat",
     "build:wasm": "node bin/airc.js build examples/grep.air --emit wasm -o build/grep.wasm",
-    "check:request-ledger": "node scripts/check_request_ledger.js"
+    "check:request-ledger": "node scripts/check_request_ledger.js",
+    "check:release-lane": "node scripts/check_release_lane.js"
   },
   "config": {
     "reviewBundle": {

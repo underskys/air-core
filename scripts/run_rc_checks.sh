@@ -145,6 +145,7 @@ run_check "ABI request pipeline" "node scripts/check_abi_requests.js"
 run_check "request ledger" "npm run check:request-ledger"
 run_check "public claims" "npm run check:public-claims"
 run_check "public package surface" "node scripts/check_public_package_surface.js"
+run_check "release lane" "npm run check:release-lane"
 if [ -f "$ROOT/scripts/check_api_gates_v0_21.js" ] && [ -f "$ROOT/docs/FEATURE_STATUS_v0.21.md" ]; then
   run_check "v0.21 API gates" "npm run check:api-gates:v0.21"
 else

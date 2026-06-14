@@ -13,8 +13,8 @@ the public alpha package. No npm publication was performed.
 | Version | `0.44.2` |
 | Dry-run status | pass |
 | File count | 139 |
-| Package size | 302,851 bytes |
-| Unpacked size | 1,377,172 bytes |
+| Package size | 302,869 bytes |
+| Unpacked size | 1,377,236 bytes |
 | Tarball name | `underskys-air-core-0.44.2.tgz` |
 
 ## Included Top-Level Paths

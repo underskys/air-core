@@ -19,6 +19,8 @@
 - [Version and ABI Policy](VERSION_AND_ABI_POLICY.md)
 - [Changelog](../CHANGELOG.md)
 - [Public Release Audit](public_release/PUBLIC_CUT_AUDIT.md)
+- [Release Lanes](release/RELEASE_LANES.md)
+- [Bundle Policy](release/BUNDLE_POLICY.md)
 - [Project Identity](project-identity.md)
 - [AIR Overview](air-overview.md)
 - [Project Boundaries](PROJECT_BOUNDARIES.md)
