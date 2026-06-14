@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "air.review.changesetSummary",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "title",
+    "sourceRepo",
+    "sourceBranch",
+    "sourceCommit",
+    "transferMethod",
+    "bundleKind",
+    "filesChanged",
+    "packageSurfaceImpact",
+    "airAbiStatus",
+    "hostAbiStatus"
+  ],
+  "properties": {
+    "title": { "type": "string" },
+    "sourceRepo": { "type": "string" },
+    "sourceBranch": { "type": "string" },
+    "sourceCommit": { "type": "string" },
+    "transferMethod": { "type": "string" },
+    "bundleKind": { "enum": ["core-release", "core-hygiene", "consumer-demo", "internal-dev"] },
+    "filesChanged": { "type": "array", "items": { "type": "string" } },
+    "packageSurfaceImpact": { "type": "string" },
+    "airAbiStatus": { "type": "string" },
+    "hostAbiStatus": { "type": "string" }
+  }
+}

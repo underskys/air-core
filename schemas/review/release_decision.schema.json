@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "air.review.releaseDecision",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "title",
+    "publicVersion",
+    "repo",
+    "branch",
+    "commit",
+    "bundleKind",
+    "decision",
+    "airAbiStatus",
+    "hostAbiStatus",
+    "npmPackage",
+    "packageVersion",
+    "publishRunByCodex",
+    "gates",
+    "blockers"
+  ],
+  "properties": {
+    "title": { "type": "string" },
+    "publicVersion": { "type": "string" },
+    "internalSlice": { "type": "string" },
+    "repo": { "type": "string" },
+    "branch": { "type": "string" },
+    "commit": { "type": "string" },
+    "bundleKind": { "enum": ["core-release", "core-hygiene"] },
+    "decision": { "enum": ["merge", "tag", "publish", "block"] },
+    "releaseManager": { "type": "string" },
+    "airAbiStatus": { "type": "string" },
+    "hostAbiStatus": { "type": "string" },
+    "npmPackage": { "type": "string" },
+    "packageVersion": { "type": "string" },
+    "publishRunByCodex": { "enum": ["no"] },
+    "gates": { "type": "array", "items": { "type": "string" } },
+    "blockers": { "type": "array", "items": { "type": "string" } }
+  }
+}

@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "air.review.bundleManifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "bundleKind",
+    "repo",
+    "branch",
+    "commit",
+    "dirtyTree",
+    "releaseAllowed",
+    "npmPackage",
+    "packageVersion",
+    "airAbi",
+    "hostAbi",
+    "includedPaths",
+    "excludedPaths",
+    "checksRun",
+    "knownLimitations"
+  ],
+  "properties": {
+    "bundleKind": { "enum": ["core-release", "core-hygiene", "consumer-demo", "internal-dev"] },
+    "repo": { "type": "string" },
+    "branch": { "type": "string" },
+    "commit": { "type": "string" },
+    "dirtyTree": { "enum": ["yes", "no"] },
+    "releaseAllowed": { "enum": ["yes", "no"] },
+    "npmPackage": { "type": "string" },
+    "packageVersion": { "type": "string" },
+    "airAbi": { "type": "string" },
+    "hostAbi": { "type": "string" },
+    "internalSlice": { "type": "string" },
+    "publicVersion": { "type": "string" },
+    "includedPaths": { "type": "array", "items": { "type": "string" } },
+    "excludedPaths": { "type": "array", "items": { "type": "string" } },
+    "checksRun": { "type": "array", "items": { "type": "string" } },
+    "knownLimitations": { "type": "array", "items": { "type": "string" } }
+  }
+}

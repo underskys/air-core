@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "air.review.qaReport",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "title",
+    "repo",
+    "branch",
+    "commit",
+    "bundleKind",
+    "status",
+    "checksRun",
+    "findings",
+    "residualRisk",
+    "recommendation"
+  ],
+  "properties": {
+    "title": { "type": "string" },
+    "repo": { "type": "string" },
+    "branch": { "type": "string" },
+    "commit": { "type": "string" },
+    "bundleKind": { "enum": ["core-release", "core-hygiene", "consumer-demo", "internal-dev"] },
+    "status": { "enum": ["pass", "fail", "blocked"] },
+    "checksRun": { "type": "array", "items": { "type": "string" } },
+    "findings": { "type": "array", "items": { "type": "string" } },
+    "residualRisk": { "type": "string" },
+    "recommendation": { "enum": ["proceed", "block", "pressure-only", "hygiene-only"] }
+  }
+}
