@@ -32,8 +32,8 @@ post-publish verification plan.
 | Local install from tarball | Document local install/global install smoke path and cleanup. |
 | `bin/airc.js` smoke | Verify `airc version`, `airc check` on a public example, `airc package-check` on a public package example, `airc evidence report`, and `airc run-proof` when a public-clean proof fixture is available. |
 | Public repository visibility checklist | Confirm public docs, license metadata, versioning, conformance status, request ledger, and package surface are launch-safe. |
-| Release notes | Create public alpha release notes for `0.44.1`. |
-| Git tag plan | Define tag `v0.44.1` and pre-tag verification requirements. |
+| Release notes | Create public alpha release notes for `0.44.2`. |
+| Git tag plan | Define tag `v0.44.2` and pre-tag verification requirements. |
 | npm publish checklist | Manual publish only; no token in repo, Codex, logs, prompts, review bundles, or CI output. |
 | Post-publish verification plan | Define `npm view`, clean install, `npx` or local smoke, and package file re-check after publication. |
 
@@ -74,7 +74,7 @@ v0.44 is complete when:
 - local tarball smoke is recorded;
 - install and `bin/airc.js` smoke commands are recorded;
 - public repo visibility checklist is complete;
-- release notes for `0.44.1` exist;
+- release notes for `0.44.2` exist;
 - tag and publish checklists exist;
 - post-publish verification plan exists;
 - `node scripts/check_markdown_links.js` passes;
@@ -87,7 +87,7 @@ v0.44 is complete when:
 - [Feature Status v0.44](FEATURE_STATUS_v0.44.md)
 - [Public Alpha Packaging RFC](rfcs/v0.44-public-alpha-packaging.md)
 - [Publish Checklist](public_release/PUBLISH_CHECKLIST.md)
-- [Release Notes v0.44.1](public_release/RELEASE_NOTES_v0_44_1.md)
+- [Release Notes v0.44.2](public_release/RELEASE_NOTES_v0_44_2.md)
 - [npm Package Files Plan](public_release/NPM_PACKAGE_FILES_PLAN.md)
 - [npm Pack Dry-Run Summary](public_release/NPM_PACK_DRY_RUN_SUMMARY.md)
 - [Public Install Check](public_release/PUBLIC_INSTALL_CHECK.md)

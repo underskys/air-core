@@ -12,7 +12,7 @@ AIR is the project name. `@underskys/air-core` is the npm package. `airc` is the
 
 Current public alpha package version:
 
-- `@underskys/air-core@0.44.1`
+- `@underskys/air-core@0.44.2`
 
 Alpha releases may change behavior. Breaking semantic changes require a
 migration note. Publishing is a separate release action and is not implied by a
@@ -65,7 +65,7 @@ commit and commands used to reproduce them.
 
 | Product version | Milestone | AIR ABI | Host ABI | Spec | Conformance | Notes |
 | --- | --- | --- | --- | --- | --- | --- |
-| `@underskys/air-core@0.44.1` | `v0.44 active` | `0.10` | `0.11` latest, `0.10` baseline | `0.10` family | repository tests and fixtures | Public-alpha packaging and release-smoke checkpoint. Host ABI `0.11` is limited to bounded `output.emit`. |
+| `@underskys/air-core@0.44.2` | `v0.44 active` | `0.10` | `0.11` latest, `0.10` baseline | `0.10` family | repository tests and fixtures | Public-alpha packaging and release-smoke checkpoint. Host ABI `0.11` is limited to bounded `output.emit`. |
 
 ## Policy
 

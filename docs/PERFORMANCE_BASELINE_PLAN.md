@@ -7,14 +7,14 @@ tooling, package, and conformance costs.
 
 AIR performance should be measured before claims are made. The project should
 avoid global statements such as "AIR is faster than TypeScript/Rust/Python" and
-instead report scoped, reproducible results for small verified modules inside
+instead report scoped, reproducible results for small verifier-enforced modules inside
 host-owned applications.
 
 ## Evaluation Model
 
 AIR is evaluated as:
 
-- deterministic verified logic modules;
+- deterministic verifier-enforced modules;
 - bounded decision/action packages;
 - a small layer inside host-owned applications;
 - a source of verifier, report, conformance, and host-interaction evidence.

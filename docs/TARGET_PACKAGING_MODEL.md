@@ -59,7 +59,7 @@ Each step adds a different kind of responsibility:
 | --- | --- |
 | AIR source | Portable AIR code, capabilities, host imports, deterministic module logic. |
 | Verifier | Core validity, strict Host ABI signatures, capability checks, effect/resource checks. |
-| WASM / AIR module | Lowered or verified module artifact with no target deployment assumptions. |
+| WASM / AIR module | Lowered or verifier-checked module artifact with no target deployment assumptions. |
 | AIR package | Module, manifests, assets, metadata, capabilities, compatibility expectations. |
 | Target bundle | Host runtime plus package and target-specific glue. |
 | Deployable artifact | Static site, native app/archive, or CLI/WASI artifact. |

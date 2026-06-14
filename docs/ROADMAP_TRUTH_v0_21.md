@@ -3,7 +3,7 @@
 Status: public-claims alignment
 
 This document aligns v0.21+ roadmap language with current implementation
-reality. AIR remains an AI-first verified IR. It is not being repositioned as a
+reality. AIR remains an AI-first verifier-enforced IR. It is not being repositioned as a
 broad general-purpose language, and v0.21 does not add compiler features,
 Host ABI `0.11`, `output.emit`, tablegroups, optimizer passes, native
 installers, or package registry behavior.
@@ -33,5 +33,5 @@ installers, or package registry behavior.
   deterministic benchmark suite and results exist.
 - Do not describe tablegroups, Host ABI `0.11`, or `output.emit` as active
   v0.21 behavior.
-- Keep AIR framed as an AI-first verified IR with bounded, reviewable contracts,
+- Keep AIR framed as an AI-first verifier-enforced IR with bounded, reviewable contracts,
   not as a broad general-purpose language.

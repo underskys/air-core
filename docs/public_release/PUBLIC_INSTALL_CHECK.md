@@ -43,7 +43,7 @@ For a full local install smoke test:
 
 ```sh
 npm pack
-npm install -g ./underskys-air-core-0.44.1.tgz
+npm install -g ./underskys-air-core-0.44.2.tgz
 airc version --json
 airc check examples/public/safe_policy/module.air
 airc package-check examples/public/evidence_report --source-only --json
@@ -53,7 +53,7 @@ airc evidence report examples/public/evidence_report --format markdown -o eviden
 If feasible for the local npm version, also test `npx` from the local tarball:
 
 ```sh
-npx -y ./underskys-air-core-0.44.1.tgz airc version --json
+npx -y ./underskys-air-core-0.44.2.tgz airc version --json
 ```
 
 If `npx` cannot execute a local tarball consistently on the test platform,
@@ -77,9 +77,9 @@ repository conformance/evidence check rather than an npm install check.
 
 See [npm Pack Dry-Run Summary](NPM_PACK_DRY_RUN_SUMMARY.md).
 
-The v0.44.1 dry-run confirmed:
+The v0.44.2 dry-run confirmed:
 
-- package: `@underskys/air-core@0.44.1`;
+- package: `@underskys/air-core@0.44.2`;
 - file count: 139;
 - `bin/airc.js` included;
 - required public docs included;
@@ -88,7 +88,7 @@ The v0.44.1 dry-run confirmed:
 
 The local tarball smoke used a temporary npm prefix instead of modifying the
 user's global npm installation. `airc version --json` returned package version
-`0.44.1` and AIR ABI `0.10`.
+`0.44.2` and AIR ABI `0.10`.
 
 ## Expected CLI Checks
 

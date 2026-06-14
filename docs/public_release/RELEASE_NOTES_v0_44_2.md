@@ -1,10 +1,10 @@
-# AIR v0.44.1 Release Notes
+# AIR v0.44.2 Release Notes
 
-Status: release candidate for manual npm publish after v0.44 merge
+Status: release candidate for manual npm patch publish
 
-Package: `@underskys/air-core@0.44.1`
+Package: `@underskys/air-core@0.44.2`
 
-Planned tag: `v0.44.1`
+Planned tag: `v0.44.2`
 
 AIR is the project name. `@underskys/air-core` is the npm package. `airc` is the CLI.
 
@@ -18,20 +18,22 @@ Codex must not run publish and must not receive npm credentials.
 
 ## Summary
 
-This is the first public packaging candidate for AIR Core. It packages
-the reference CLI, parser/verifier/lowering implementation, spec files,
-stdlib, selected public examples, and public conformance fixtures.
+This is a public alpha patch for AIR Core package positioning and npm-rendered
+documentation. It packages the reference CLI, parser/verifier/lowering
+implementation, spec files, stdlib, selected public examples, and public
+conformance fixtures.
 
-AIR is a verifier-enforced IR/language for bounded deterministic modules.
-Hosts own real platform authority. AIR owns deterministic logic,
-capability/effect checks, bounded execution under the verifier model, and
-evidence reports for human review.
+AIR is a verifier-first programming language and toolchain for AI-authored
+deterministic components. Hosts own real platform authority. AIR owns
+deterministic logic, capability/effect checks, bounded execution under the
+verifier model, and evidence reports for human review.
 
 This release does not claim formal verification, compiler verification, or
 general-purpose language coverage.
 
 ## Included
 
+- updated README positioning and npm-rendered docs links;
 - `airc` CLI entrypoint through `bin/airc.js`;
 - package runtime data needed by profile-aware CLI checks under
   `data/host_profiles/`;
@@ -69,13 +71,13 @@ airc check <path-to-module.air>
 ```
 
 For one-off local testing before publish, use the local tarball workflow in
-[npm Tarball Smoke v0.44.1](NPM_TARBALL_SMOKE_v0_44_1.md).
+[npm Tarball Smoke v0.44.2](NPM_TARBALL_SMOKE_v0_44_2.md).
 
 ## Compatibility
 
 | Surface | Version / status |
 | --- | --- |
-| Package version | `0.44.1` |
+| Package version | `0.44.2` |
 | AIR ABI | `0.10` |
 | Host ABI latest | `0.11`, limited to bounded `output.emit` |
 | Host ABI baseline | `0.10` supported |
@@ -94,7 +96,7 @@ See [Conformance](../../CONFORMANCE.md) and [Conformance Reproduction Summary](C
 
 ## Local Tarball Smoke Result
 
-The v0.44 tarball smoke created `underskys-air-core-0.44.1.tgz`, inspected the
+The v0.44 tarball smoke created `underskys-air-core-0.44.2.tgz`, inspected the
 package contents, installed it into a temporary project, and ran the packaged
 `node_modules/.bin/airc` entrypoint.
 
@@ -110,7 +112,7 @@ Smoke commands covered:
 `run-proof` was not run from the npm tarball because no public-clean proof
 fixture with fixture/policy files is included in the public package surface.
 
-See [npm Tarball Smoke v0.44.1](NPM_TARBALL_SMOKE_v0_44_1.md).
+See [npm Tarball Smoke v0.44.2](NPM_TARBALL_SMOKE_v0_44_2.md).
 
 ## Before Publish
 
@@ -119,7 +121,7 @@ Before publication, a human maintainer should complete:
 - [Publish Checklist](PUBLISH_CHECKLIST.md)
 - [npm Package Files Plan](NPM_PACKAGE_FILES_PLAN.md)
 - [npm Pack Dry-Run Summary](NPM_PACK_DRY_RUN_SUMMARY.md)
-- [npm Tarball Smoke v0.44.1](NPM_TARBALL_SMOKE_v0_44_1.md)
+- [npm Tarball Smoke v0.44.2](NPM_TARBALL_SMOKE_v0_44_2.md)
 - [Public Install Check](PUBLIC_INSTALL_CHECK.md)
 
 Codex must not publish and must not handle npm credentials.

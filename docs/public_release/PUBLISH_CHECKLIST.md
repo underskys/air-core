@@ -8,9 +8,9 @@ must not receive npm credentials in prompts or files, and must not publish. The
 manual publish command below is listed only so the human maintainer can run it
 outside Codex after v0.44 is merged and the final checks pass.
 
-Target package: `@underskys/air-core@0.44.1`
+Target package: `@underskys/air-core@0.44.2`
 
-Planned git tag: `v0.44.1`
+Planned git tag: `v0.44.2`
 
 Planned npm dist-tag: `alpha`
 
@@ -20,10 +20,10 @@ Planned npm dist-tag: `alpha`
 - [ ] Checkout is clean.
 - [ ] `git status --short --branch` shows no dirty files and no unexpected
   ahead/behind state.
-- [ ] Planned tag `v0.44.1` does not already point to a different
+- [ ] Planned tag `v0.44.2` does not already point to a different
   commit.
 - [ ] The release commit has been reviewed and pushed.
-- [ ] `package.json` version is `0.44.1`.
+- [ ] `package.json` version is `0.44.2`.
 - [ ] `package.json` license is `Apache-2.0`.
 - [ ] `package.json` has no `private: true`.
 - [ ] `LICENSE`, `NOTICE`, and `AUTHORS` exist.
@@ -33,7 +33,7 @@ Planned npm dist-tag: `alpha`
   public repository reproduces it.
 - [ ] `REVIEW_RESULTS/RED_FLAGS.md` has no active red flags.
 - [ ] `docs/PROMISE_DEBT.md` exists and request ledger validation passes.
-- [ ] `docs/public_release/RELEASE_NOTES_v0_44_1.md` is ready for public
+- [ ] `docs/public_release/RELEASE_NOTES_v0_44_2.md` is ready for public
   release notes.
 - [ ] `README.md` install instructions are correct for the publish state.
 
@@ -61,7 +61,7 @@ git diff --check
 npm pack --dry-run --json
 npm pack
 mkdir -p build/public-smoke
-tar -tf underskys-air-core-0.44.1.tgz | sort > build/public-smoke/npm-pack-files.txt
+tar -tf underskys-air-core-0.44.2.tgz | sort > build/public-smoke/npm-pack-files.txt
 node ./bin/airc.js version --json
 node ./bin/airc.js check examples/public/safe_policy/module.air
 node ./bin/airc.js package-check examples/public/evidence_report --source-only --json
@@ -82,7 +82,7 @@ package smoke.
 Preferred:
 
 ```sh
-npm install -g ./underskys-air-core-0.44.1.tgz
+npm install -g ./underskys-air-core-0.44.2.tgz
 airc version --json
 airc check examples/public/safe_policy/module.air
 npm uninstall -g @underskys/air-core
@@ -94,7 +94,7 @@ limitation.
 Clean up before commit:
 
 ```sh
-rm -f underskys-air-core-0.44.1.tgz
+rm -f underskys-air-core-0.44.2.tgz
 rm -rf build/public-smoke
 ```
 
@@ -116,7 +116,7 @@ Codex must not run this step and must not receive the npm token.
 Human maintainer command:
 
 ```sh
-npm publish --access public --tag alpha ./underskys-air-core-0.44.1.tgz
+npm publish --access public --tag alpha ./underskys-air-core-0.44.2.tgz
 ```
 
 Use npm account 2FA and the intended package visibility. Confirm the package
@@ -127,10 +127,10 @@ name and dist-tag before publishing.
 Run this only after the human maintainer completes npm publish.
 
 ```sh
-npm view @underskys/air-core@0.44.1 name
-npm view @underskys/air-core@0.44.1 version
-npm view @underskys/air-core@0.44.1 license
-npm view @underskys/air-core@0.44.1 bin
+npm view @underskys/air-core@0.44.2 name
+npm view @underskys/air-core@0.44.2 version
+npm view @underskys/air-core@0.44.2 license
+npm view @underskys/air-core@0.44.2 bin
 npm install -g @underskys/air-core@alpha
 airc version --json
 airc --help

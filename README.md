@@ -1,14 +1,24 @@
 # AIR
 
-AIR is a verifier-enforced intermediate representation for small deterministic
-logic modules, especially modules authored or modified with AI assistance.
+AIR is a verifier-first programming language and toolchain for AI-authored deterministic components.
 
 AIR is the project name. `@underskys/air-core` is the npm package. `airc` is the CLI.
 
-AIR is not a general-purpose language and not a host runtime. AIR modules run
-inside a host-owned application boundary. The host owns platform authority; AIR
-owns bounded logic, declared capabilities/effects, package contracts, and
-reviewable evidence.
+It is designed for code that AI can write and machines can check: capabilities,
+effects, bounded execution, deterministic semantics, host boundaries, and
+evidence reports.
+
+AIR programs are written in a compact `.air` source format and compiled with
+`airc`. The reference backend targets Wasm today, while AIR's model is
+host-owned: the host controls rendering, IO, assets, UI, hardware, networking,
+and platform authority.
+
+AIR components can be small policy functions, but hosts can compose them into
+larger systems: tools, games, simulations, dashboards, robotics policies, and
+2D/3D scenes.
+
+> Note: AIR source files use the `.air` extension. This project is unrelated to
+> Adobe AIR.
 
 ## What AIR Is
 
@@ -23,16 +33,18 @@ AIR provides:
   reports for human review;
 - anti-hallucination checks that reject invented APIs before execution.
 
-AIR is for small policy, scoring, routing, validation, recommendation, and
-decision modules. It is not intended to replace Wasm, Rust, TypeScript, OPA,
-Starlark, eBPF, databases, browsers, renderers, or host application code.
+AIR is for bounded deterministic components such as policy, scoring, routing,
+validation, recommendation, control, and decision code. It is not intended to
+replace Wasm, Rust, TypeScript, OPA, Starlark, eBPF, databases, browsers,
+renderers, or host application code.
 
 ## Why AIR Exists
 
 AI-assisted code can be useful, but it can also invent APIs, drift across host
 boundaries, hide side effects, or create review work that does not scale.
 
-AIR reduces that surface by making the generated unit smaller and checkable:
+AIR reduces that surface by making generated components constrained and
+checkable:
 
 - the module declares what it can import and emit;
 - the verifier checks the module against AIR's bounded execution and capability
@@ -74,14 +86,12 @@ npm run agent:finish
 `agent:finish` runs Core checks, builds a review bundle, and writes local
 review artifacts. Those artifacts are for review workflow, not source of truth.
 
-After the public alpha is published, install the package with:
+Install the public alpha package with:
 
 ```sh
 npm install -g @underskys/air-core@alpha
 airc version --json
 ```
-
-Until then, use the repository checkout or local tarball smoke workflow.
 
 ## What AIR Rejects
 
@@ -103,7 +113,7 @@ These checks do not make a malicious host safe. They enforce the AIR module
 boundary under AIR's model. See [SECURITY.md](SECURITY.md) and
 [THREAT_MODEL.md](THREAT_MODEL.md).
 
-## Evidence Report Example
+## Evidence Reports
 
 For a small package:
 
@@ -132,12 +142,12 @@ shipped as public Core package authority.
 
 | Product/package | Milestone | AIR ABI | Host ABI | Spec | Conformance | Notes |
 | --- | --- | --- | --- | --- | --- | --- |
-| `0.44.1` | `v0.44 active` | `0.10` | `0.11` latest, `0.10` baseline | `0.10` family | repo test/conformance suite | Public-alpha packaging and release-smoke checkpoint. Host ABI `0.11` is limited to bounded `output.emit`. |
+| `0.44.2` | `v0.44 active` | `0.10` | `0.11` latest, `0.10` baseline | `0.10` family | repo test/conformance suite | Public-alpha packaging and release-smoke checkpoint. Host ABI `0.11` is limited to bounded `output.emit`. |
 
 Current active milestone:
 
 - Project milestone: `v0.44 active`
-- Package/product version: `0.44.1`
+- Package/product version: `0.44.2`
 - Active roadmap: [docs/V0_44_RELEASE_PLAN.md](docs/V0_44_RELEASE_PLAN.md)
 - Feature status: [docs/FEATURE_STATUS_v0.44.md](docs/FEATURE_STATUS_v0.44.md)
 
@@ -167,19 +177,19 @@ See [METHOD.md](METHOD.md).
 
 ## Docs Links
 
-- [Why AIR](WHY_AIR.md)
-- [Method](METHOD.md)
-- [Security](SECURITY.md)
-- [Threat Model](THREAT_MODEL.md)
-- [Conformance](CONFORMANCE.md)
-- [Showcase and benchmark evidence](SHOWCASE.md)
-- [Versioning](VERSIONING.md)
-- [Roadmap](ROADMAP.md)
-- [Contributing](CONTRIBUTING.md)
-- [Docs index](docs/README.md)
-- [AIR Strategy](docs/AIR_STRATEGY.md)
-- [Architecture Gates](docs/ARCHITECTURE_GATES.md)
-- [Version and ABI Policy](docs/VERSION_AND_ABI_POLICY.md)
-- [AIR Layer Manifest](spec/AIR_LAYER_MANIFEST.md)
-- [Public Release Audit](docs/public_release/PUBLIC_CUT_AUDIT.md)
-- [Changelog](CHANGELOG.md)
+- [Why AIR](https://gitlab.com/fd.skyrealm/air-core/-/blob/main/WHY_AIR.md)
+- [Method](https://gitlab.com/fd.skyrealm/air-core/-/blob/main/METHOD.md)
+- [Security](https://gitlab.com/fd.skyrealm/air-core/-/blob/main/SECURITY.md)
+- [Threat Model](https://gitlab.com/fd.skyrealm/air-core/-/blob/main/THREAT_MODEL.md)
+- [Conformance](https://gitlab.com/fd.skyrealm/air-core/-/blob/main/CONFORMANCE.md)
+- [Showcase and benchmark evidence](https://gitlab.com/fd.skyrealm/air-core/-/blob/main/SHOWCASE.md)
+- [Versioning](https://gitlab.com/fd.skyrealm/air-core/-/blob/main/VERSIONING.md)
+- [Roadmap](https://gitlab.com/fd.skyrealm/air-core/-/blob/main/ROADMAP.md)
+- [Contributing](https://gitlab.com/fd.skyrealm/air-core/-/blob/main/CONTRIBUTING.md)
+- [Docs index](https://gitlab.com/fd.skyrealm/air-core/-/blob/main/docs/README.md)
+- [AIR Strategy](https://gitlab.com/fd.skyrealm/air-core/-/blob/main/docs/AIR_STRATEGY.md)
+- [Architecture Gates](https://gitlab.com/fd.skyrealm/air-core/-/blob/main/docs/ARCHITECTURE_GATES.md)
+- [Version and ABI Policy](https://gitlab.com/fd.skyrealm/air-core/-/blob/main/docs/VERSION_AND_ABI_POLICY.md)
+- [AIR Layer Manifest](https://gitlab.com/fd.skyrealm/air-core/-/blob/main/spec/AIR_LAYER_MANIFEST.md)
+- [Public Release Audit](https://gitlab.com/fd.skyrealm/air-core/-/blob/main/docs/public_release/PUBLIC_CUT_AUDIT.md)
+- [Changelog](https://gitlab.com/fd.skyrealm/air-core/-/blob/main/CHANGELOG.md)

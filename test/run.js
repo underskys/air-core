@@ -248,7 +248,7 @@ entry:
 
   await test("compiler package version and AIR ABI report from one source", () => {
     assert.strictEqual(AIR_ABI_VERSION, "0.10");
-    assert.strictEqual(AIR_VERSION, "0.44.1");
+    assert.strictEqual(AIR_VERSION, "0.44.2");
     const pkg = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
     const lock = JSON.parse(fs.readFileSync(path.join(root, "package-lock.json"), "utf8"));
     assert.strictEqual(pkg.version, AIR_VERSION);
@@ -3427,7 +3427,7 @@ entry:
 
   await test("AIR layer manifest documents core, stdlib, host ABI, manifest, and project-kit boundaries", () => {
     const readme = fs.readFileSync(path.join(root, "README.md"), "utf8");
-    assert(readme.includes("[AIR Layer Manifest](spec/AIR_LAYER_MANIFEST.md)"));
+    assert(readme.includes("[AIR Layer Manifest](https://gitlab.com/fd.skyrealm/air-core/-/blob/main/spec/AIR_LAYER_MANIFEST.md)"));
     const spec = fs.readFileSync(path.join(root, "spec", "AIR_LAYER_MANIFEST.md"), "utf8");
     for (const section of ["## AIR Core", "## AIR Stdlib", "## Host ABIs", "## Manifests", "## Reusable Kits", "## Examples", "## Project Kits", "## Hosts", "## Promotion Rule"]) {
       assert(spec.includes(section), `${section} missing from AIR layer manifest`);

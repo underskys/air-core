@@ -18,14 +18,26 @@ compact format:
 
 ### Changed
 
+- Package version set to `0.44.2` for the public positioning and npm docs
+  patch.
+- Package description now presents AIR as a verifier-first programming
+  language and CLI for AI-authored deterministic components that hosts can
+  compose into tools, games, simulations, robotics policies, and 3D scenes.
+- README now clarifies AIR as a verifier-first programming language/toolchain
+  for AI-authored deterministic components.
+- README now states that `.air` source files are unrelated to Adobe AIR.
+- README top-level framing now uses bounded deterministic components and
+  host-composed systems instead of small/micro module positioning.
+- README Docs Links now use absolute GitLab URLs so they work from npm package
+  rendering.
 - README now uses strict anti-overclaim language for public alpha.
-- Package version set to `0.44.1` for the scoped public npm package identity.
 - Public npm package identity changed to `@underskys/air-core`; AIR remains the
-  project name and `airc` remains the CLI. Version `0.44.0` was kept as an
-  unpublished tag because npm blocked the unscoped `air-core` name as too
-  similar to an existing package.
+  project name and `airc` remains the CLI. Version `0.44.0` was kept as a tag
+  because npm blocked the unscoped `air-core` name as too similar to an
+  existing package.
 - Public-alpha governance docs now cover installability, conformance,
   package files, promise debt, and request ledger validation.
+- No compiler, verifier, AIR ABI, or Host ABI behavior changed.
 
 ### Fixed
 

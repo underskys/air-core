@@ -83,7 +83,7 @@ The dry-run output must be reviewed for:
 Current dry-run result:
 
 - [npm Pack Dry-Run Summary](NPM_PACK_DRY_RUN_SUMMARY.md)
-- `@underskys/air-core@0.44.1`
+- `@underskys/air-core@0.44.2`
 - 139 package files
 - `bin/airc.js` included
 - `data/host_profiles/` included for packaged profile-aware CLI checks

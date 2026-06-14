@@ -175,7 +175,7 @@ AIR must not gain hidden authority through convenience features.
 
 AIR is:
 
-- an AI-first verified IR;
+- an AI-first verifier-enforced IR;
 - a portable Wasm module source language;
 - a strict capability and Host ABI boundary;
 - a package/profile compatibility surface;

@@ -7,7 +7,7 @@ surface area.
 
 ## Why Gates Exist
 
-AIR is an AI-first verified IR. Useful features can still create slop if they:
+AIR is an AI-first verifier-enforced IR. Useful features can still create slop if they:
 
 - expand runtime authority;
 - create hidden ABI;

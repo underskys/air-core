@@ -12,7 +12,7 @@ does not optimize the compiler, change AIR ABI, change Host ABI, expand
 AIR should be evaluated as a small verified decision/action layer inside
 host-owned applications:
 
-- a language for deterministic verified logic modules;
+- a language for deterministic verifier-enforced modules;
 - not a universal app language;
 - not a replacement for host TypeScript, Swift, Rust, Python, or application
   frameworks;

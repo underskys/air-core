@@ -141,7 +141,7 @@ assert.deepStrictEqual(validEvidenceAgain, validEvidence);
 assert.strictEqual(validEvidence.schemaVersion, "0.20");
 assert.strictEqual(validEvidence.kind, "air.verificationEvidence");
 assert.strictEqual(validEvidence.status, "passed");
-assert.strictEqual(validEvidence.compilerVersion, "0.44.1");
+assert.strictEqual(validEvidence.compilerVersion, "0.44.2");
 assert.strictEqual(validEvidence.airAbi, "0.10");
 assert.strictEqual(validEvidence.hostAbi, "0.10");
 assert.strictEqual(validEvidence.packageName, "verification-evidence-package");

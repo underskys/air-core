@@ -1,10 +1,10 @@
-# npm Tarball Smoke v0.44.1
+# npm Tarball Smoke v0.44.2
 
 Status: implemented/P0 for v0.44 packaging smoke
 
-Package: `@underskys/air-core@0.44.1`
+Package: `@underskys/air-core@0.44.2`
 
-Tarball: `underskys-air-core-0.44.1.tgz`
+Tarball: `underskys-air-core-0.44.2.tgz`
 
 No npm publication was performed. No npm token was used or required.
 
@@ -19,10 +19,10 @@ Result: pass.
 
 | Field | Value |
 | --- | --- |
-| Package version | `0.44.1` |
-| Tarball file | `underskys-air-core-0.44.1.tgz` |
+| Package version | `0.44.2` |
+| Tarball file | `underskys-air-core-0.44.2.tgz` |
 | Included file count | `139` |
-| Tarball size | `302356` bytes |
+| Tarball size | `302851` bytes |
 | Install method | temp project local install from tarball |
 | Global install | not used; temp project install avoids changing system npm state |
 
@@ -70,7 +70,7 @@ Excluded critical paths:
 npm run check:public-package-surface
 npm pack --dry-run --json
 npm pack
-tar -tf underskys-air-core-0.44.1.tgz
+tar -tf underskys-air-core-0.44.2.tgz
 ```
 
 Tarball inspection verified required files were present and forbidden roots were
@@ -80,7 +80,7 @@ Temp project smoke:
 
 ```sh
 npm init -y
-npm install <repo>/underskys-air-core-0.44.1.tgz
+npm install <repo>/underskys-air-core-0.44.2.tgz
 node_modules/.bin/airc version --json
 node_modules/.bin/airc check node_modules/@underskys/air-core/examples/public/safe_policy/module.air
 node_modules/.bin/airc package-check node_modules/@underskys/air-core/examples/public/evidence_report --source-only --json
@@ -89,7 +89,7 @@ node_modules/.bin/airc evidence report node_modules/@underskys/air-core/examples
 
 Results:
 
-- `airc version --json`: pass, package version `0.44.1`, AIR ABI `0.10`.
+- `airc version --json`: pass, package version `0.44.2`, AIR ABI `0.10`.
 - `airc check`: pass.
 - `airc package-check --source-only`: pass.
 - `airc evidence report`: pass, wrote a non-empty Markdown report.
@@ -129,7 +129,7 @@ Codex must not run publish and must not receive npm credentials.
 The generated tarball must be removed before commit:
 
 ```sh
-rm -f underskys-air-core-0.44.1.tgz
+rm -f underskys-air-core-0.44.2.tgz
 ```
 
 ## ABI Status

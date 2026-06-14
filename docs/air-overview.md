@@ -1,6 +1,6 @@
 # AIR Architecture Overview
 
-AIR is a compact verified IR and package contract for AI-authored portable
+AIR is a compact verifier-enforced IR and package contract for AI-authored portable
 modules. AIR Core owns verified semantics, package contracts, and
 capability-scoped commands. Wasm/airpkg is the current primary backend
 artifact. Hosts own real platform devices and runtime integration.
