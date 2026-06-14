@@ -342,7 +342,7 @@ entry:
     }
     const out = execFileSync(process.execPath, [path.join(root, "scripts", "check_review_bundle.js"), "--keep", "--structure-only"], { encoding: "utf8" });
     assert.match(out, /Review bundle sanity check passed/);
-    assert.match(out, /\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}_airlang-review_(?:[a-f0-9]+|nogit)\.zip/);
+    assert.match(out, /\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}_airlang-review_(?:[a-f0-9]+|nogit)\.(?:zip|tar\.gz)/);
     const archive = out.match(/Archive: (.+\.zip|.+\.tar\.gz)/)?.[1]?.trim();
     assert(archive, "review bundle sanity gate must print archive path");
     try {
