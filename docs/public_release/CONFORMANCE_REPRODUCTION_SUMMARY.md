@@ -10,7 +10,7 @@ It does not claim results from external suites that are not included here.
 | Field | Value |
 | --- | --- |
 | Branch | `main` |
-| Package version | `0.44.0` |
+| Package version | `0.44.1` |
 | AIR ABI | `0.10` |
 | Host ABI | latest `0.11`, limited to bounded `output.emit`; baseline `0.10` supported |
 

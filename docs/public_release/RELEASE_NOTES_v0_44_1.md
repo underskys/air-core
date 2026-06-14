@@ -1,12 +1,12 @@
-# AIR v0.44.0 Release Notes
+# AIR v0.44.1 Release Notes
 
 Status: release candidate for manual npm publish after v0.44 merge
 
-Package: `air-core@0.44.0`
+Package: `@underskys/air-core@0.44.1`
 
-Planned tag: `v0.44.0`
+Planned tag: `v0.44.1`
 
-AIR is the project name. `air-core` is the npm package. `airc` is the CLI.
+AIR is the project name. `@underskys/air-core` is the npm package. `airc` is the CLI.
 
 Manual publish command, for the human maintainer only:
 
@@ -63,19 +63,19 @@ general-purpose language coverage.
 After the human maintainer publishes the package, install it with:
 
 ```sh
-npm install -g air-core@alpha
+npm install -g @underskys/air-core@alpha
 airc version --json
 airc check <path-to-module.air>
 ```
 
 For one-off local testing before publish, use the local tarball workflow in
-[npm Tarball Smoke v0.44.0](NPM_TARBALL_SMOKE_v0_44_0.md).
+[npm Tarball Smoke v0.44.1](NPM_TARBALL_SMOKE_v0_44_1.md).
 
 ## Compatibility
 
 | Surface | Version / status |
 | --- | --- |
-| Package version | `0.44.0` |
+| Package version | `0.44.1` |
 | AIR ABI | `0.10` |
 | Host ABI latest | `0.11`, limited to bounded `output.emit` |
 | Host ABI baseline | `0.10` supported |
@@ -94,7 +94,7 @@ See [Conformance](../../CONFORMANCE.md) and [Conformance Reproduction Summary](C
 
 ## Local Tarball Smoke Result
 
-The v0.44 tarball smoke created `air-core-0.44.0.tgz`, inspected the
+The v0.44 tarball smoke created `underskys-air-core-0.44.1.tgz`, inspected the
 package contents, installed it into a temporary project, and ran the packaged
 `node_modules/.bin/airc` entrypoint.
 
@@ -110,7 +110,7 @@ Smoke commands covered:
 `run-proof` was not run from the npm tarball because no public-clean proof
 fixture with fixture/policy files is included in the public package surface.
 
-See [npm Tarball Smoke v0.44.0](NPM_TARBALL_SMOKE_v0_44_0.md).
+See [npm Tarball Smoke v0.44.1](NPM_TARBALL_SMOKE_v0_44_1.md).
 
 ## Before Publish
 
@@ -119,7 +119,7 @@ Before publication, a human maintainer should complete:
 - [Publish Checklist](PUBLISH_CHECKLIST.md)
 - [npm Package Files Plan](NPM_PACKAGE_FILES_PLAN.md)
 - [npm Pack Dry-Run Summary](NPM_PACK_DRY_RUN_SUMMARY.md)
-- [npm Tarball Smoke v0.44.0](NPM_TARBALL_SMOKE_v0_44_0.md)
+- [npm Tarball Smoke v0.44.1](NPM_TARBALL_SMOKE_v0_44_1.md)
 - [Public Install Check](PUBLIC_INSTALL_CHECK.md)
 
 Codex must not publish and must not handle npm credentials.

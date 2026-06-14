@@ -13,11 +13,11 @@ File extension: `.air`
 
 CLI: `airc`
 
-AIR is the project name. `air-core` is the npm package. `airc` is the CLI.
+AIR is the project name. `@underskys/air-core` is the npm package. `airc` is the CLI.
 
-Public npm package name: `air-core`. The package is the transport; the
+Public npm package name: `@underskys/air-core`. The package is the transport; the
 project/product name is AIR and the CLI is `airc`. The package is named
-`air-core` (not `airlang`) to avoid brand/search collision with the
+`@underskys/air-core` (not `airlang`) to avoid brand/search collision with the
 unrelated active Rust project `airlang` ("Air", a minimalist language) on
 crates.io. The legacy `airlang` name may still appear in older branches,
 scripts, and review artifacts.

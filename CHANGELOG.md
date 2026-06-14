@@ -19,10 +19,11 @@ compact format:
 ### Changed
 
 - README now uses strict anti-overclaim language for public alpha.
-- Package version set to `0.44.0` for current milestone alpha
-  preparation.
-- Public npm package identity changed to `air-core`; AIR remains the
-  project name and `airc` remains the CLI.
+- Package version set to `0.44.1` for the scoped public npm package identity.
+- Public npm package identity changed to `@underskys/air-core`; AIR remains the
+  project name and `airc` remains the CLI. Version `0.44.0` was kept as an
+  unpublished tag because npm blocked the unscoped `air-core` name as too
+  similar to an existing package.
 - Public-alpha governance docs now cover installability, conformance,
   package files, promise debt, and request ledger validation.
 

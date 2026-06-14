@@ -1,6 +1,6 @@
 {
-  "name": "air-core",
-  "version": "0.44.0",
+  "name": "@underskys/air-core",
+  "version": "0.44.1",
   "description": "Verifier-enforced IR and CLI (AIR) for bounded, deterministic AI-authored modules with capability/effect checks and evidence reports.",
   "license": "Apache-2.0",
   "author": "Dmitriii",

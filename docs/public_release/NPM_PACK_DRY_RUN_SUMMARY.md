@@ -9,13 +9,13 @@ the public alpha package. No npm publication was performed.
 
 | Field | Value |
 | --- | --- |
-| Package | `air-core` |
-| Version | `0.44.0` |
+| Package | `@underskys/air-core` |
+| Version | `0.44.1` |
 | Dry-run status | pass |
 | File count | 139 |
-| Package size | 302,245 bytes |
-| Unpacked size | 1,375,145 bytes |
-| Tarball name | `air-core-0.44.0.tgz` |
+| Package size | 302,356 bytes |
+| Unpacked size | 1,375,270 bytes |
+| Tarball name | `underskys-air-core-0.44.1.tgz` |
 
 ## Included Top-Level Paths
 
@@ -79,10 +79,10 @@ the public alpha package:
 
 ## Local Tarball Smoke
 
-`npm pack` created `air-core-0.44.0.tgz`. The tarball was tested without
+`npm pack` created `underskys-air-core-0.44.1.tgz`. The tarball was tested without
 publishing:
 
-- `node ./bin/airc.js version --json` returned version `0.44.0` and AIR
+- `node ./bin/airc.js version --json` returned version `0.44.1` and AIR
   ABI `0.10`.
 - A temporary-prefix global-style install from the local tarball returned the
   same `airc version --json` result.

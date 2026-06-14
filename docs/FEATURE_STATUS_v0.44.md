@@ -2,7 +2,7 @@
 
 Status: active packaging/release-smoke status milestone
 
-Version target: v0.44 planning over package `0.44.0`
+Version target: v0.44 planning over package `0.44.1`
 
 v0.44 covers Public Alpha Packaging & Release Smoke. It is not a language,
 runtime, compiler-semantics, AIR ABI, or Host ABI milestone.
@@ -16,7 +16,7 @@ Related documents:
 - [AIR v0.44 Release Plan](V0_44_RELEASE_PLAN.md)
 - [Public Alpha Packaging RFC](rfcs/v0.44-public-alpha-packaging.md)
 - [Publish Checklist](public_release/PUBLISH_CHECKLIST.md)
-- [Release Notes v0.44.0](public_release/RELEASE_NOTES_v0_44_0.md)
+- [Release Notes v0.44.1](public_release/RELEASE_NOTES_v0_44_1.md)
 - [npm Package Files Plan](public_release/NPM_PACKAGE_FILES_PLAN.md)
 - [npm Pack Dry-Run Summary](public_release/NPM_PACK_DRY_RUN_SUMMARY.md)
 - [Public Install Check](public_release/PUBLIC_INSTALL_CHECK.md)
@@ -52,8 +52,8 @@ Related documents:
 | Local install from tarball | package/release checklist | Implemented/P0 using a temp project local install. |
 | `bin/airc.js` smoke commands | CLI/release checklist | Implemented/P0 for `version`, `check`, `package-check --source-only`, and `evidence report`; `run-proof` is not in the public npm package surface. |
 | Public repository visibility checklist | release checklist | Implemented/P0. |
-| Release notes for `0.44.0` | public release docs | Implemented/P0; release candidate for manual npm publish after v0.44 merge. |
-| Git tag plan `v0.44.0` | release checklist | Implemented/P0. |
+| Release notes for `0.44.1` | public release docs | Implemented/P0; release candidate for manual npm publish after v0.44 merge. |
+| Git tag plan `v0.44.1` | release checklist | Implemented/P0. |
 | npm publish checklist | release checklist | Implemented/P0; manual publish only by the human maintainer. |
 | Post-publish verification plan | release checklist | Implemented/P0. |
 
@@ -85,8 +85,8 @@ Related documents:
 ## Version Semantics
 
 - Project milestone: `v0.44`.
-- Package intended for smoke: `0.44.0`.
-- Planned git tag: `v0.44.0`.
+- Package intended for smoke: `0.44.1`.
+- Planned git tag: `v0.44.1`.
 - AIR ABI latest: remains `0.10`.
 - Host ABI latest: remains `0.11`.
 - Host ABI default/baseline: remains `0.10`.
