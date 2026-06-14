@@ -12,7 +12,8 @@ The package surface is allowlisted in `package.json`.
 The package surface is checked by:
 
 ```sh
-node scripts/check_public_package_surface.js
+npm run check:public-package-surface
+npm run check:review-protocol
 ```
 
 Adding new package content requires an explicit package-surface decision.
@@ -46,6 +47,10 @@ but generated review bundles never enter npm package contents.
 
 `BUNDLE_MANIFEST.json`, `QA_REPORT.md`, and `RELEASE_DECISION.md` are review
 artifacts. They are not automatically package contents.
+
+Current npm policy excludes `review_artifacts/templates/` as well as actual
+artifact instances. Packaging templates requires an explicit package-surface
+decision and corresponding update to `scripts/check_public_package_surface.js`.
 
 ## Release Rule
 

@@ -35,6 +35,8 @@ const forbiddenPathRules = [
   { label: "review results", test: (p) => p === "REVIEW_RESULTS" || p.startsWith("REVIEW_RESULTS/") },
   { label: "snapshot metadata", test: (p) => path.basename(p).startsWith("SNAPSHOT_") },
   { label: "bundle metadata", test: (p) => path.basename(p).startsWith("BUNDLE_") },
+  { label: "review artifact templates", test: (p) => p === "review_artifacts" || p.startsWith("review_artifacts/") },
+  { label: "review artifact instance", test: isReviewArtifactInstance },
   { label: "build output", test: (p) => p === "build" || p.startsWith("build/") || p.includes("/build/") },
   { label: "demo source", test: (p) => p === "demo" || p.startsWith("demo/") || p === "demos" || p.startsWith("demos/") },
   { label: "consumer evidence", test: (p) => p === "consumer_evidence" || p.startsWith("consumer_evidence/") },
@@ -45,10 +47,26 @@ const forbiddenPathRules = [
   { label: "host implementations", test: (p) => p === "hosts" || p.startsWith("hosts/") },
   { label: "kits", test: (p) => p === "kits" || p.startsWith("kits/") },
   { label: "generated archive", test: (p) => /\.(zip|tgz|tar|tar\.gz)$/i.test(p) },
+  { label: "airlang review archive", test: (p) => /(^|\/)[^/]*airlang-review[^/]*\.zip$/i.test(p) },
   { label: "generated wasm", test: (p) => /\.wasm$/i.test(p) },
   { label: "AppleDouble/macOS artifact", test: (p) => /(^|\/)\._|\.DS_Store$/i.test(p) },
   { label: "large media", test: (p) => /\.(mp4|mov|webm)$/i.test(p) }
 ];
+
+const reviewArtifactNames = new Set([
+  "PRESSURE_REQUEST.md",
+  "ARCHITECTURE_DECISION.md",
+  "CHANGESET_SUMMARY.md",
+  "QA_REPORT.md",
+  "RELEASE_DECISION.md",
+  "BUNDLE_MANIFEST.json",
+  "MOBILE_SUMMARY.md",
+  "REVIEW_REQUEST.md"
+]);
+
+function isReviewArtifactInstance(p) {
+  return reviewArtifactNames.has(path.basename(p));
+}
 
 const consumerNameRules = [
   "airdoom",

@@ -63,6 +63,29 @@ The alpha package must exclude:
 - generated `.wasm`/binaries unless explicitly required by a public
   reproducibility fixture.
 
+## Review Protocol Artifacts And npm Exclusion
+
+AIR release/review protocol documentation and schemas may be public repository
+docs. They are governance material, not runtime package inputs.
+
+Actual review artifact instances must not enter the npm package:
+
+- `PRESSURE_REQUEST.md`;
+- `ARCHITECTURE_DECISION.md`;
+- `CHANGESET_SUMMARY.md`;
+- `QA_REPORT.md`;
+- `RELEASE_DECISION.md`;
+- `BUNDLE_MANIFEST.json`;
+- `MOBILE_SUMMARY.md`;
+- `REVIEW_REQUEST.md`;
+- `*airlang-review*.zip`;
+- raw review bundles, snapshots, prompt logs, chat transcripts, and generated
+  tarballs.
+
+`review_artifacts/templates/` is also excluded from the current npm package
+surface. Templates may be packaged only after an explicit package-surface
+decision updates this plan and the package allowlist.
+
 ## Verification
 
 Required package-surface commands:
