@@ -3,10 +3,11 @@
 Status: implemented/P0 for v0.44; human-maintainer checklist for manual npm
 publish.
 
-This checklist is for a human maintainer. Codex must not receive npm tokens,
-must not receive npm credentials in prompts or files, and must not publish. The
-manual publish command below is listed only so the human maintainer can run it
-outside Codex after v0.44 is merged and the final checks pass.
+This checklist is for a human maintainer or protected GitLab CI release job.
+Codex must not receive npm tokens, must not receive npm credentials in prompts
+or files, and must not publish from a local checkout. Protected GitLab CI may
+use masked CI variables such as `NPM_TOKEN` after an explicit OK/STOP release
+decision and manual job start.
 
 Target package: `@underskys/air-core@0.44.2`
 
@@ -111,9 +112,28 @@ Do not commit generated tarballs.
 
 ## Manual Publish
 
-Codex must not run this step and must not receive the npm token.
+Codex must not run this step locally and must not receive the npm token.
 
-Human maintainer command:
+Preferred protected CI path:
+
+1. Ensure `NPM_TOKEN` is configured as a masked/protected GitLab CI variable.
+2. Run the manual `npm:auth:check` job to verify `npm ping`, `npm whoami`, and
+   `npm view` without publishing.
+3. For a tag release, create/run a tag pipeline where `CI_COMMIT_TAG` matches
+   `v<package.json version>`, then manually start `publish:npm`.
+4. For an explicit main-branch release, create a manual pipeline with
+   `AIR_NPM_PUBLISH=1`, `AIR_RELEASE_DECISION=OK`, and the intended
+   `AIR_NPM_DIST_TAG`, then manually start `publish:npm`.
+5. To update a dist-tag for an already published version, use `npm:dist-tag`
+   with `AIR_NPM_DIST_TAG_UPDATE=1`, `AIR_RELEASE_DECISION=OK`,
+   `AIR_NPM_VERSION`, and `AIR_NPM_DIST_TAG`.
+
+The CI publish job validates package identity, refuses to publish a version that
+already exists on npm, reruns public package/claims/review-bundle policy checks,
+performs `npm pack --dry-run --json`, creates a tarball, and then runs
+`npm publish` with the selected dist-tag.
+
+Fallback human maintainer command:
 
 ```sh
 npm publish --access public --tag alpha ./underskys-air-core-0.44.2.tgz
