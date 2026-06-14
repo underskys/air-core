@@ -234,7 +234,16 @@ if ! PREBUNDLE_GIT_RITUAL="$(run_prebundle_git_ritual)"; then
 fi
 
 SHA="$(git rev-parse --short HEAD 2>/dev/null || echo nogit)"
-BRANCH="$(git branch --show-current 2>/dev/null || echo unknown)"
+BRANCH="$(git branch --show-current 2>/dev/null || true)"
+if [ -z "$BRANCH" ]; then
+  BRANCH="${CI_COMMIT_REF_NAME:-}"
+fi
+if [ -z "$BRANCH" ]; then
+  BRANCH="$(git symbolic-ref --quiet --short HEAD 2>/dev/null || true)"
+fi
+if [ -z "$BRANCH" ]; then
+  BRANCH="unknown"
+fi
 GIT_STATUS_SHORT="$(core_git_status_short || true)"
 DIRTY_WORKTREE="no"
 if [ -n "$GIT_STATUS_SHORT" ]; then
