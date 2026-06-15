@@ -9,6 +9,12 @@ a bundle may be used for npm/tag release, committed, or npm-packaged.
 Bundle promotion follows [Artifact Review Protocol](ARTIFACT_REVIEW_PROTOCOL.md).
 Review bundles are artifacts; they are never npm package contents.
 
+Dev/review bundles produced from private `airlang` state are never npm package
+contents and are never public release sources by themselves. `air-core` release
+bundles are generated only from clean `air-core` release state, after the
+public repository role, promotion intake, package surface, and release checks
+have passed.
+
 ## Bundle Kinds
 
 | Bundle kind | Allowed source | Release allowed | Can be committed | Can be npm-packaged | Purpose |
@@ -183,3 +189,6 @@ The package surface must remain allowlisted and checked by
 
 Release bundles may be CI/GitLab artifacts, not npm contents. Review bundles
 are normally gitignored generated artifacts.
+
+Package surface checks must exclude bundles, review artifact directories,
+generated archive files, and private/dev promotion inputs.
