@@ -11,19 +11,46 @@ engineering direction, not a promise of dates or scope.
   `output.emit`.
 - Prepare public installability, conformance reproduction, request governance,
   demo migration, and consumer replay gates before widening public scope.
+- Keep public npm package identity on `@underskys/air-core`; private/dev review
+  bundles must not overwrite public package metadata.
 
 ## Milestone Gates
 
 | Milestone | Gate |
 | --- | --- |
 | v0.43 | Public installability plan, conformance public check, promise debt ledger, and request ledger validation. |
-| v0.44 | Playground and demo migration pass 1: migrate one grid/board demo to v0.41 pools; migrate one output/event demo to command buffer/output contract pattern. |
-| v0.45 | MCP sandbox demo and demo migration pass 2: pure-helper Wasm golden fixture convention plus reusable demo verify/replay command pattern. |
-| v0.46 | Consumer replay gate P0: replay lan-observer, AirOps, Airtris/Minesweeper if public-clean, FlowDesk policy fixture if public-clean, and the public air-tests suite when reproducible. |
-| v0.47 | Maintainer readiness: contributor path, diagnostics docs, and good first issues. |
-| v0.48 | Beta freeze: no new Core semantics unless needed for a release blocker. |
-| v0.49 | Release candidate. |
-| v1.0 | No unresolved demo pressure in public docs; all known requests accepted/rejected/archived; no demo-specific Host ABI or Core API; consumer replay gate exists; at least one demo migrated from workaround to released AIR feature. |
+| v0.44.x | Public release hygiene, npm docs, README/package description checks, package surface review, and install smoke. |
+| v0.45 | Math & Host Profile Planning/Audit milestone. Public sync requires public-clean cherry-pick; it is not an npm/public package release as-is. |
+| v0.46 | Deterministic Math Stabilization: first implementation slice for accepted existing math behavior, conformance coverage, and caveat documentation. |
+| v0.47 | AIR MathLab / host-composition demo: public-clean demo evidence that composes AIR deterministic logic with host-owned rendering/platform authority. |
+| v0.48 | Host profile first slice / consumer replay: profile documentation, first public-safe replay fixture, and consumer evidence gate. |
+| v0.49 | Beta/release readiness: release blocker review, package readiness, public claims audit, and freeze criteria. |
+| v1.0 | Stable supported subset: no unresolved demo pressure in public docs; all known requests accepted/rejected/archived; no demo-specific Host ABI or Core API; consumer replay gate exists; supported behavior is documented and covered. |
+
+## v0.45 Release Decision
+
+The v0.45 dev/private review bundle at commit `ef24919` is accepted as a
+completed planning/audit milestone for Math & Host Profile Roadmap. It is not
+approved as an npm/public package release as-is because the bundle package
+identity is stale (`air-core@0.44.0`) while public release state uses
+`@underskys/air-core`.
+
+Public v0.45 sync must be a scoped, public-clean cherry-pick into `air-core`.
+It must not copy private/review artifacts, overwrite public package metadata,
+change AIR ABI, change Host ABI, or claim implemented math operations that were
+only planned or audited.
+
+## v0.46 Math Stabilization Direction
+
+v0.46 is the recommended first executable math stabilization slice. It should
+stabilize and document already accepted math behavior before adding wider math
+surface area. Initial scope is existing `f32.sin`, `f32.cos`, and `f32.sqrt`
+semantics, deterministic conformance tests, approximation/range/error caveats,
+and optional `std.math` examples or wrappers only when they reuse existing
+semantics.
+
+`exp`, `log`, `pow`, Host ABI changes, AIR ABI changes, or new language
+features require separate review and are not part of the default v0.46 slice.
 
 ## v0.43 Public Alpha Governance
 
