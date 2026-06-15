@@ -25,9 +25,14 @@ Public npm versions name actual public package releases:
 - `0.45.2`
 
 Internal slices are not npm versions. Do not spend npm patch versions on
-unpublished internal work. Patch versions are only for actual public package
-releases or release candidates that are intended to become public package
-state.
+unpublished internal work. Patch versions are only for fixes to already
+published packages.
+
+`@underskys/air-core@0.44.1` remains the first published public alpha. Do not
+publish `0.44.2` unless an urgent package-breaking fix is required for
+`0.44.1`. Accumulate README/docs/positioning/roadmap/release-governance work as
+internal `v0.45` slices. The next planned npm public alpha is
+`@underskys/air-core@0.45.0` with dist-tag `alpha`.
 
 Breaking changes, semantic changes, AIR ABI changes, Host ABI changes, or
 behavior changes require release notes, compatibility review, and consumer
@@ -46,4 +51,3 @@ replay evidence before release.
 `v0.46` slices must be created as internal planning identifiers first. They
 must not reserve npm patch versions until a public release candidate exists and
 release notes identify the externally visible change.
-

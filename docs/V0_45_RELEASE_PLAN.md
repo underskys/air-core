@@ -13,8 +13,9 @@ bounded `output.emit`; Host ABI `0.10` remains supported.
 
 ## Purpose
 
-v0.44.x completed public packaging and release hygiene for
-`@underskys/air-core`. v0.45 should make the public story concrete:
+`@underskys/air-core@0.44.1` is the first published public alpha. v0.45 should
+make the public story concrete through internal slices (`M45-S1`, `M45-S2`,
+...) that accumulate toward public package `0.45.0`:
 
 - AIR rejects invented APIs and undeclared authority before execution.
 - AIR components remain bounded, deterministic, capability/effect checked, and
@@ -116,8 +117,11 @@ v0.45 is complete when:
 
 ## Versioning
 
-- Target release: `v0.45.0` after v0.44.x hygiene.
+- Internal slices: `M45-S1`, `M45-S2`, ...
+- Target public package release: `@underskys/air-core@0.45.0`.
 - npm dist-tag: `alpha`.
+- Do not publish `0.44.2` unless an urgent package-breaking fix is required
+  for the already-published `0.44.1` package.
 - No 1.0 compatibility promise yet.
 - AIR ABI remains `0.10`.
 - Host ABI latest remains `0.11`, limited to bounded `output.emit`.

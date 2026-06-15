@@ -21,7 +21,10 @@ into public package state.
 - v0.45 package identity in the dev bundle is stale: `air-core@0.44.0`.
 - Current public package identity is `@underskys/air-core`.
 - Current npm published package is `@underskys/air-core@0.44.1`.
-- Current public repository package state may already be `0.44.2`.
+- `0.44.2` is not a planned public npm release unless an urgent
+  package-breaking fix is required for the already published `0.44.1` package.
+- README/docs/positioning/roadmap/release-governance work should accumulate as
+  internal `v0.45` slices toward `@underskys/air-core@0.45.0`.
 - v0.45 states no release packaging or npm publish work.
 - v0.45 did not implement new math operations.
 - v0.45 contains no AIR ABI change.

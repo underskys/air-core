@@ -10,13 +10,22 @@ package metadata in `package.json`.
 
 AIR is the project name. `@underskys/air-core` is the npm package. `airc` is the CLI.
 
-Current public alpha package version:
+Published public alpha baseline:
 
-- `@underskys/air-core@0.44.2`
+- `@underskys/air-core@0.44.1`
+
+Next planned public alpha package version:
+
+- `@underskys/air-core@0.45.0` with npm dist-tag `alpha`
 
 Alpha releases may change behavior. Breaking semantic changes require a
 migration note. Publishing is a separate release action and is not implied by a
 version field change.
+
+`0.44.2` is not a planned public npm release. Use `0.44.2` only for an urgent
+package-breaking fix to the already published `0.44.1` package. Accumulate
+README, docs, positioning, roadmap, and release-governance work as internal
+`v0.45` slices until the next planned public alpha `0.45.0`.
 
 ## Milestone Version
 
@@ -32,13 +41,12 @@ Milestone versions such as `v0.45` and `v0.46` may be split into internal slice
 ids such as `M45-S1`, `M45-S2`, and `M45-S3`.
 
 Internal slices are not npm versions. Public package versions use package
-versions such as `0.45.0`, `0.45.1`, and later patch releases.
+versions such as `0.45.0` and later patch releases.
 
 Rules:
 
 - do not burn npm patch numbers for unpublished internal work;
-- patch versions are only for actual public package releases or release
-  candidates intended to become public package state;
+- patch versions are only for fixes to already-published packages;
 - semantic tightening needs migration notes and consumer replay where relevant.
 
 Example `v0.45` slices:
@@ -88,12 +96,15 @@ commit and commands used to reproduce them.
 
 | Product version | Milestone | AIR ABI | Host ABI | Spec | Conformance | Notes |
 | --- | --- | --- | --- | --- | --- | --- |
-| `@underskys/air-core@0.44.2` | `v0.44 active` | `0.10` | `0.11` latest, `0.10` baseline | `0.10` family | repository tests and fixtures | Public-alpha packaging and release-smoke checkpoint. Host ABI `0.11` is limited to bounded `output.emit`. |
+| `@underskys/air-core@0.44.1` | first published public alpha | `0.10` | `0.11` latest, `0.10` baseline | `0.10` family | repository tests and fixtures | Published public alpha baseline. |
+| `@underskys/air-core@0.45.0` | next planned public alpha | `0.10` unless explicitly reviewed | `0.11` latest, `0.10` baseline unless explicitly reviewed | `0.10` family | repository tests and fixtures plus release gates | Planned alpha for accumulated `M45-S*` documentation, positioning, roadmap, and release-governance slices. |
 
 ## Policy
 
 - Alpha releases can break behavior.
 - Breaking semantic changes require a changelog migration note.
+- Do not burn npm patch versions for unpublished internal work.
+- Patch versions are only for fixes to already-published packages.
 - AIR ABI changes require an explicit AIR ABI version bump.
 - Host ABI changes require compatibility matrix updates.
 - Evidence reports and conformance results should name the exact commit and

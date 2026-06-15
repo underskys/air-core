@@ -13,14 +13,20 @@ engineering direction, not a promise of dates or scope.
   demo migration, and consumer replay gates before widening public scope.
 - Keep public npm package identity on `@underskys/air-core`; private/dev review
   bundles must not overwrite public package metadata.
+- Treat `@underskys/air-core@0.44.1` as the first published public alpha.
+- Accumulate README/docs/positioning/roadmap/release-governance work as internal
+  `v0.45` slices (`M45-S1`, `M45-S2`, ...).
+- Plan the next npm public alpha as `@underskys/air-core@0.45.0` with dist-tag
+  `alpha`; do not publish `0.44.2` unless an urgent package-breaking fix is
+  required for `0.44.1`.
 
 ## Milestone Gates
 
 | Milestone | Gate |
 | --- | --- |
 | v0.43 | Public installability plan, conformance public check, promise debt ledger, and request ledger validation. |
-| v0.44.x | Public release hygiene, npm docs, README/package description checks, package surface review, and install smoke. |
-| v0.45 | Math & Host Profile Planning/Audit milestone. Public sync requires public-clean cherry-pick; it is not an npm/public package release as-is. |
+| v0.44.x | Historical public release hygiene around first published alpha `0.44.1`; `0.44.2` is emergency-only for urgent package-breaking fixes. |
+| v0.45 | Internal slices for README/docs/positioning/roadmap/release-governance plus Math & Host Profile Planning/Audit. Public sync requires public-clean cherry-pick; the next planned npm release is `0.45.0`. |
 | v0.46 | Deterministic Math Stabilization: first implementation slice for accepted existing math behavior, conformance coverage, and caveat documentation. |
 | v0.47 | AIR MathLab / host-composition demo: public-clean demo evidence that composes AIR deterministic logic with host-owned rendering/platform authority. |
 | v0.48 | Host profile first slice / consumer replay: profile documentation, first public-safe replay fixture, and consumer evidence gate. |
@@ -39,6 +45,17 @@ Public v0.45 sync must be a scoped, public-clean cherry-pick into `air-core`.
 It must not copy private/review artifacts, overwrite public package metadata,
 change AIR ABI, change Host ABI, or claim implemented math operations that were
 only planned or audited.
+
+## Public Version Policy
+
+`@underskys/air-core@0.44.1` remains the first published public alpha. Do not
+publish `0.44.2` unless there is an urgent package-breaking fix to the already
+published package.
+
+Use internal slice ids such as `M45-S1`, `M45-S2`, and later `M45-S*` entries
+for unpublished work. Public npm release versions are reserved for actual
+public packages. The next planned public alpha release is
+`@underskys/air-core@0.45.0` with dist-tag `alpha`.
 
 ## v0.46 Math Stabilization Direction
 

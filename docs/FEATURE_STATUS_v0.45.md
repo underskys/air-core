@@ -2,7 +2,7 @@
 
 Status: planning
 
-Version target: `v0.45.0` after v0.44.x public-release hygiene
+Version target: internal `M45-S*` slices toward public package `0.45.0`
 
 v0.45 covers Public Showcase & Host Composition. It is a showcase, docs,
 examples, evidence-polish, and bugfix milestone. It is not an AIR ABI, Host ABI,
@@ -85,8 +85,11 @@ Related documents:
 ## Version Semantics
 
 - Project milestone: `v0.45`.
-- Target package release: `v0.45.0` after v0.44.x hygiene.
+- Internal slices: `M45-S1`, `M45-S2`, ...
+- Target public package release: `@underskys/air-core@0.45.0`.
 - npm dist-tag: `alpha`.
+- Do not publish `0.44.2` unless an urgent package-breaking fix is required
+  for the already-published `0.44.1` package.
 - No 1.0 compatibility promise.
 - AIR ABI latest: remains `0.10`.
 - Host ABI latest: remains `0.11`.

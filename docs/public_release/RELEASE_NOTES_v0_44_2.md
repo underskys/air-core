@@ -1,14 +1,21 @@
 # AIR v0.44.2 Release Notes
 
-Status: release candidate for manual npm patch publish
+Status: historical release-candidate note; not the next planned npm publish.
+
+Version policy update: `@underskys/air-core@0.44.1` remains the first published
+public alpha. Do not publish `0.44.2` unless there is an urgent
+package-breaking fix to `0.44.1`. README/docs/positioning/roadmap and
+release-governance work now accumulates as internal `v0.45` slices for the next
+planned public npm alpha `@underskys/air-core@0.45.0` with dist-tag `alpha`.
 
 Package: `@underskys/air-core@0.44.2`
 
-Planned tag: `v0.44.2`
+Planned tag: none. Use `v0.44.2` only for an urgent patch; otherwise the next
+planned public tag is `v0.45.0`.
 
 AIR is the project name. `@underskys/air-core` is the npm package. `airc` is the CLI.
 
-Manual publish command, for the human maintainer only:
+Emergency-only manual publish command, for the human maintainer only:
 
 ```sh
 npm publish --access public --tag alpha
@@ -60,9 +67,9 @@ general-purpose language coverage.
 - VS Code extension;
 - external demo migration.
 
-## Installation After Publish
+## Installation Policy
 
-After the human maintainer publishes the package, install it with:
+For the normal alpha channel, install the published package with:
 
 ```sh
 npm install -g @underskys/air-core@alpha
@@ -70,8 +77,8 @@ airc version --json
 airc check <path-to-module.air>
 ```
 
-For one-off local testing before publish, use the local tarball workflow in
-[npm Tarball Smoke v0.44.2](NPM_TARBALL_SMOKE_v0_44_2.md).
+For historical one-off local testing of the abandoned `0.44.2` candidate, use
+the local tarball workflow in [npm Tarball Smoke v0.44.2](NPM_TARBALL_SMOKE_v0_44_2.md).
 
 ## Compatibility
 

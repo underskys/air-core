@@ -3,6 +3,11 @@
 Status: v0.43 public-alpha checkpoint. `npm pack --dry-run --json` and local
 tarball CLI smoke passed. No npm publication has been performed.
 
+Version policy update: the recorded `0.44.2` local install smoke is historical
+evidence only. Do not publish `0.44.2` unless an urgent package-breaking fix is
+required for `@underskys/air-core@0.44.1`. The next planned npm public alpha is
+`@underskys/air-core@0.45.0` with dist-tag `alpha`.
+
 This checklist defines the public installability proof for AIR alpha. It is a
 release checkpoint, not a language feature, AIR ABI change, or Host ABI change.
 
@@ -39,7 +44,7 @@ Then inspect the dry-run file list:
 - verify `README.md`, `LICENSE`, `NOTICE`, `AUTHORS`, `VERSIONING.md`,
   `CHANGELOG.md`, `SECURITY.md`, and `THREAT_MODEL.md` are present.
 
-For a full local install smoke test:
+For a historical `0.44.2` local install smoke test:
 
 ```sh
 npm pack

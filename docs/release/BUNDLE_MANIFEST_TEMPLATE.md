@@ -16,7 +16,7 @@ the actual bundle manifest so release tooling can validate it deterministically.
   "dirtyTree": "no",
   "releaseAllowed": "yes",
   "npmPackage": "@underskys/air-core",
-  "packageVersion": "0.44.2",
+  "packageVersion": "0.45.0",
   "airAbi": "0.10",
   "hostAbi": "0.11 latest, limited to bounded output.emit; 0.10 baseline supported",
   "internalSlice": "M45-S1",

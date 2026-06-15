@@ -18,8 +18,13 @@ compact format:
 
 ### Changed
 
-- Package version set to `0.44.2` for the public positioning and npm docs
-  patch.
+- Public version policy now keeps `@underskys/air-core@0.44.1` as the first
+  published public alpha and reserves `0.44.2` only for urgent fixes to that
+  already published package.
+- README/docs/positioning/roadmap/release-governance work now accumulates as
+  internal `v0.45` slices (`M45-S1`, `M45-S2`, ...) for the next planned npm
+  public alpha `@underskys/air-core@0.45.0` with dist-tag `alpha`.
+- Patch versions are no longer used for unpublished internal work.
 - Package description now presents AIR as a verifier-first programming
   language and CLI for AI-authored deterministic components that hosts can
   compose into tools, games, simulations, robotics policies, and 3D scenes.

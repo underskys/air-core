@@ -1,6 +1,11 @@
 # npm Tarball Smoke v0.44.2
 
-Status: implemented/P0 for v0.44 packaging smoke
+Status: historical v0.44 packaging smoke; not publish approval.
+
+Version policy update: `@underskys/air-core@0.44.1` remains the first published
+public alpha. Do not publish `0.44.2` unless there is an urgent
+package-breaking fix to `0.44.1`. The next planned npm public alpha is
+`@underskys/air-core@0.45.0` with dist-tag `alpha`.
 
 Package: `@underskys/air-core@0.44.2`
 
@@ -114,9 +119,10 @@ the public package surface checker allowlists it.
 This is package metadata/runtime-data hygiene only. It does not change compiler
 semantics, AIR ABI, or Host ABI.
 
-## Manual Publish Command
+## Emergency-Only Manual Publish Command
 
-Human maintainer only:
+Human maintainer only, and only for an urgent package-breaking fix to
+`@underskys/air-core@0.44.1`:
 
 ```sh
 npm publish --access public --tag alpha

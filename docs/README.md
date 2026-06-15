@@ -2,12 +2,12 @@
 
 ## Active guidance
 
-- [Feature Status v0.44](FEATURE_STATUS_v0.44.md)
-- [Release Plan v0.44](V0_44_RELEASE_PLAN.md)
+- [Feature Status v0.45](FEATURE_STATUS_v0.45.md)
+- [Release Plan v0.45](V0_45_RELEASE_PLAN.md)
+- [v0.45 Release Decision](release/V0_45_RELEASE_DECISION.md)
+- [v0.46 Math Stabilization Plan](release/V0_46_MATH_STABILIZATION_PLAN.md)
 - [Public Alpha Packaging RFC](rfcs/v0.44-public-alpha-packaging.md)
 - [Publish Checklist](public_release/PUBLISH_CHECKLIST.md)
-- [Release Notes v0.44.2](public_release/RELEASE_NOTES_v0_44_2.md)
-- [npm Tarball Smoke v0.44.2](public_release/NPM_TARBALL_SMOKE_v0_44_2.md)
 - [Public Install Check](public_release/PUBLIC_INSTALL_CHECK.md)
 - [Conformance Public Check](public_release/CONFORMANCE_PUBLIC_CHECK.md)
 - [npm Package Files Plan](public_release/NPM_PACKAGE_FILES_PLAN.md)

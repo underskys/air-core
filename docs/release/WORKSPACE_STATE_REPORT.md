@@ -2,6 +2,14 @@
 
 Timestamp: 2026-06-14T13:24:54+03:00
 
+Status: historical workspace snapshot. It predates the current public version
+policy.
+
+Current version policy: `@underskys/air-core@0.44.1` remains the first
+published public alpha. Do not publish `0.44.2` unless there is an urgent
+package-breaking fix to `0.44.1`. The next planned public npm alpha is
+`@underskys/air-core@0.45.0` with dist-tag `alpha`.
+
 ## Repositories
 
 | Role | Repository | Branch | HEAD |
@@ -36,8 +44,10 @@ dist-tags: alpha=0.44.1, latest=0.44.1
 published versions: 0.44.1
 ```
 
-Local `air-core` is prepared as `0.44.2`; npm still shows `0.44.1` published.
-No npm publish was run during this task.
+At the time of this historical snapshot, local `air-core` was prepared as
+`0.44.2`; npm still showed `0.44.1` published. No npm publish was run during
+that task. The current policy supersedes the `0.44.2` publish path except for
+urgent package-breaking fixes.
 
 ## Release Tags
 
@@ -55,9 +65,8 @@ are not production release tags.
 ## CI Status
 
 `air-core` has GitLab CI stages for test, pack, and protected manual npm
-publish. The CI configuration checks `@underskys/air-core`, version `0.44.2`,
-the `airc` binary, tests, bundle tests, public package surface, public claims,
-markdown links, and dry-run packaging.
+publish. Current release policy requires the next planned public alpha to be
+`@underskys/air-core@0.45.0`, with `0.44.2` reserved for emergency fixes only.
 
 No live remote pipeline status was queried in this local workspace report.
 
@@ -79,8 +88,9 @@ work.
 | --- | --- | --- | --- |
 | Package name `@underskys/air-core` | `air-core` | A | Already synced as production identity. |
 | Package name `air-core` | `airlang` | C | Dev/private historical identity; do not release from it. |
-| Package version `0.44.2` | `air-core` | A | Production candidate version; keep in release lane. |
-| Published npm version `0.44.1` | npm registry | F | Human release decision required before any `0.44.2` publish. |
+| Package version `0.44.2` | `air-core` | F | Historical local candidate only; do not publish unless urgent package-breaking fix is required for `0.44.1`. |
+| Published npm version `0.44.1` | npm registry | A | First published public alpha baseline. |
+| Planned npm version `0.45.0` | release policy | A | Next planned public alpha after internal `M45-S*` slices. |
 | README product positioning | `air-core` | A | Public AIR positioning is current. |
 | README install command | `air-core` | A | Uses `@underskys/air-core@alpha`. |
 | README old install wording | `airlang` | C | Historical/dev only. |
@@ -116,7 +126,8 @@ No `air-core` package identity blocker was found.
 Human decisions remain required for:
 
 - whether and when to merge `release/v0.44.x-hygiene` into `main`;
-- whether and when to publish `@underskys/air-core@0.44.2`;
+- whether an urgent `@underskys/air-core@0.44.2` package-breaking fix is
+  required; otherwise publish next as `@underskys/air-core@0.45.0`;
 - whether any locally ahead `airlang` commits contain public-safe candidates.
 
 ## Next Recommended Codex Tasks

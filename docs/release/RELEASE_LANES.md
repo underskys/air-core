@@ -116,7 +116,12 @@ Internal development slices use milestone slice ids such as `M45-S1`,
 versions such as `0.45.0` and `0.45.1`.
 
 Do not spend npm patch versions on unpublished internal slices. Patch versions
-are for public release candidates or published public fixes.
+are only for fixes to already-published packages.
+
+`@underskys/air-core@0.44.1` remains the first published public alpha. Do not
+publish `0.44.2` unless an urgent package-breaking fix is required for
+`0.44.1`. The next planned public npm alpha is
+`@underskys/air-core@0.45.0` with dist-tag `alpha`.
 
 ## Release Ownership Rule
 

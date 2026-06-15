@@ -1,7 +1,7 @@
 # AIR Public Alpha Publish Checklist
 
-Status: implemented/P0 for v0.44; human-maintainer checklist for manual npm
-publish.
+Status: active checklist for the next planned public alpha; human-maintainer
+checklist for manual npm publish.
 
 This checklist is for a human maintainer or protected GitLab CI release job.
 Codex must not receive npm tokens, must not receive npm credentials in prompts
@@ -9,11 +9,17 @@ or files, and must not publish from a local checkout. Protected GitLab CI may
 use masked CI variables such as `NPM_TOKEN` after an explicit OK/STOP release
 decision and manual job start.
 
-Target package: `@underskys/air-core@0.44.2`
+Target package: `@underskys/air-core@0.45.0`
 
-Planned git tag: `v0.44.2`
+Planned git tag: `v0.45.0`
 
 Planned npm dist-tag: `alpha`
+
+Version policy: `@underskys/air-core@0.44.1` remains the first published public
+alpha. Do not publish `0.44.2` unless there is an urgent package-breaking fix
+to `0.44.1`. README/docs/positioning/roadmap/release-governance work should
+accumulate as internal `v0.45` slices (`M45-S1`, `M45-S2`, ...) until the next
+planned npm public alpha `0.45.0`.
 
 ## Pre-Publish Repository Checks
 
@@ -21,10 +27,10 @@ Planned npm dist-tag: `alpha`
 - [ ] Checkout is clean.
 - [ ] `git status --short --branch` shows no dirty files and no unexpected
   ahead/behind state.
-- [ ] Planned tag `v0.44.2` does not already point to a different
+- [ ] Planned tag `v0.45.0` does not already point to a different
   commit.
 - [ ] The release commit has been reviewed and pushed.
-- [ ] `package.json` version is `0.44.2`.
+- [ ] `package.json` version is `0.45.0`.
 - [ ] `package.json` license is `Apache-2.0`.
 - [ ] `package.json` has no `private: true`.
 - [ ] `LICENSE`, `NOTICE`, and `AUTHORS` exist.
@@ -34,8 +40,7 @@ Planned npm dist-tag: `alpha`
   public repository reproduces it.
 - [ ] `REVIEW_RESULTS/RED_FLAGS.md` has no active red flags.
 - [ ] `docs/PROMISE_DEBT.md` exists and request ledger validation passes.
-- [ ] `docs/public_release/RELEASE_NOTES_v0_44_2.md` is ready for public
-  release notes.
+- [ ] Release notes for `0.45.0` are ready for public release notes.
 - [ ] `README.md` install instructions are correct for the publish state.
 
 ## Required Checks
@@ -62,7 +67,7 @@ git diff --check
 npm pack --dry-run --json
 npm pack
 mkdir -p build/public-smoke
-tar -tf underskys-air-core-0.44.2.tgz | sort > build/public-smoke/npm-pack-files.txt
+tar -tf underskys-air-core-0.45.0.tgz | sort > build/public-smoke/npm-pack-files.txt
 node ./bin/airc.js version --json
 node ./bin/airc.js check examples/public/safe_policy/module.air
 node ./bin/airc.js package-check examples/public/evidence_report --source-only --json
@@ -83,7 +88,7 @@ package smoke.
 Preferred:
 
 ```sh
-npm install -g ./underskys-air-core-0.44.2.tgz
+npm install -g ./underskys-air-core-0.45.0.tgz
 airc version --json
 airc check examples/public/safe_policy/module.air
 npm uninstall -g @underskys/air-core
@@ -95,7 +100,7 @@ limitation.
 Clean up before commit:
 
 ```sh
-rm -f underskys-air-core-0.44.2.tgz
+rm -f underskys-air-core-0.45.0.tgz
 rm -rf build/public-smoke
 ```
 
@@ -136,7 +141,7 @@ performs `npm pack --dry-run --json`, creates a tarball, and then runs
 Fallback human maintainer command:
 
 ```sh
-npm publish --access public --tag alpha ./underskys-air-core-0.44.2.tgz
+npm publish --access public --tag alpha ./underskys-air-core-0.45.0.tgz
 ```
 
 Use npm account 2FA and the intended package visibility. Confirm the package
@@ -147,10 +152,10 @@ name and dist-tag before publishing.
 Run this only after the human maintainer completes npm publish.
 
 ```sh
-npm view @underskys/air-core@0.44.2 name
-npm view @underskys/air-core@0.44.2 version
-npm view @underskys/air-core@0.44.2 license
-npm view @underskys/air-core@0.44.2 bin
+npm view @underskys/air-core@0.45.0 name
+npm view @underskys/air-core@0.45.0 version
+npm view @underskys/air-core@0.45.0 license
+npm view @underskys/air-core@0.45.0 bin
 npm install -g @underskys/air-core@alpha
 airc version --json
 airc --help

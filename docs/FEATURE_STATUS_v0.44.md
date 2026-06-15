@@ -1,8 +1,16 @@
 # AIR v0.44 Feature Status
 
-Status: active packaging/release-smoke status milestone
+Status: historical packaging/release-smoke status milestone
 
-Version target: v0.44 planning over package `0.44.2`
+Version target: v0.44 planning and package smoke. `0.44.2` is not the next
+planned npm release.
+
+Version policy update: `@underskys/air-core@0.44.1` remains the first published
+public alpha. Do not publish `0.44.2` unless an urgent package-breaking fix is
+required for that already published package. README/docs/positioning/roadmap
+and release-governance work now accumulates as internal `v0.45` slices
+(`M45-S1`, `M45-S2`, ...) toward the next planned public npm alpha
+`@underskys/air-core@0.45.0`.
 
 v0.44 covers Public Alpha Packaging & Release Smoke. It is not a language,
 runtime, compiler-semantics, AIR ABI, or Host ABI milestone.
@@ -52,8 +60,8 @@ Related documents:
 | Local install from tarball | package/release checklist | Implemented/P0 using a temp project local install. |
 | `bin/airc.js` smoke commands | CLI/release checklist | Implemented/P0 for `version`, `check`, `package-check --source-only`, and `evidence report`; `run-proof` is not in the public npm package surface. |
 | Public repository visibility checklist | release checklist | Implemented/P0. |
-| Release notes for `0.44.2` | public release docs | Implemented/P0; release candidate for manual npm publish after v0.44 merge. |
-| Git tag plan `v0.44.2` | release checklist | Implemented/P0. |
+| Release notes for `0.44.2` | public release docs | Historical smoke/release-candidate record; not a planned publish unless urgent package-breaking fix is required. |
+| Git tag plan `v0.44.2` | release checklist | Superseded by v0.45 release planning except emergency patch flow. |
 | npm publish checklist | release checklist | Implemented/P0; manual publish only by the human maintainer. |
 | Post-publish verification plan | release checklist | Implemented/P0. |
 
@@ -85,8 +93,12 @@ Related documents:
 ## Version Semantics
 
 - Project milestone: `v0.44`.
-- Package intended for smoke: `0.44.2`.
-- Planned git tag: `v0.44.2`.
+- First published public alpha: `@underskys/air-core@0.44.1`.
+- Package used for local smoke: `0.44.2`.
+- Planned next public npm alpha: `@underskys/air-core@0.45.0` with dist-tag
+  `alpha`.
+- Planned git tag: `v0.45.0`.
+- Emergency-only patch: `0.44.2`, only for urgent fixes to `0.44.1`.
 - AIR ABI latest: remains `0.10`.
 - Host ABI latest: remains `0.11`.
 - Host ABI default/baseline: remains `0.10`.

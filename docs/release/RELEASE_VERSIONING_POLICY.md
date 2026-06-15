@@ -23,7 +23,13 @@ Public versions name public package/release candidates or published releases:
 - `0.45.1`;
 - `0.45.2`.
 
-Do not use npm patch versions for unpublished internal slices.
+Do not use npm patch versions for unpublished internal slices. Patch versions
+are only for fixes to already-published packages.
+
+`@underskys/air-core@0.44.1` remains the first published public alpha. Do not
+publish `0.44.2` unless an urgent package-breaking fix is required for
+`0.44.1`. The next planned npm public alpha is
+`@underskys/air-core@0.45.0` with dist-tag `alpha`.
 
 Internal slices may be squashed or combined into one public version. For
 example, `M45-S1`, `M45-S2`, and `M45-S3` may all land as `0.45.0` if they are

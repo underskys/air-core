@@ -3,6 +3,11 @@
 Status: v0.43 public-alpha package surface plan with a passing dry-run summary.
 No npm publication has been performed.
 
+Version policy update: `@underskys/air-core@0.44.1` remains the first published
+public alpha. The `0.44.2` package-surface dry run is historical smoke evidence,
+not the next planned publish. The next planned npm public alpha is
+`@underskys/air-core@0.45.0` with dist-tag `alpha`.
+
 AIR's public npm package should expose Core/spec/CLI/conformance surfaces and
 small launch-safe examples only. Consumer evidence and demos remain repository
 pressure/intake unless explicitly allowlisted later.
@@ -103,10 +108,10 @@ The dry-run output must be reviewed for:
 - stale review artifacts;
 - large media or generated archives.
 
-Current dry-run result:
+Historical dry-run result:
 
 - [npm Pack Dry-Run Summary](NPM_PACK_DRY_RUN_SUMMARY.md)
-- `@underskys/air-core@0.44.2`
+- `@underskys/air-core@0.44.2` local smoke candidate, not planned publish
 - 139 package files
 - `bin/airc.js` included
 - `data/host_profiles/` included for packaged profile-aware CLI checks

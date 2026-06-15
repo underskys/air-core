@@ -5,6 +5,11 @@ Status: implemented/P0 for the v0.43 public-alpha checkpoint.
 This records the local `npm pack --dry-run --json` package-surface smoke for
 the public alpha package. No npm publication was performed.
 
+Version policy update: this `0.44.2` dry run is historical smoke evidence, not
+approval for the next npm publish. `@underskys/air-core@0.44.1` remains the
+first published public alpha, `0.44.2` is emergency-only, and the next planned
+public npm alpha is `@underskys/air-core@0.45.0`.
+
 ## Result
 
 | Field | Value |

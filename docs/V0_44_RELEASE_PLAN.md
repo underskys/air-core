@@ -1,12 +1,18 @@
 # AIR v0.44 Release Plan
 
-Status: active packaging/release-smoke status milestone
+Status: historical packaging/release-smoke status milestone
 
 Theme: Public Alpha Packaging & Release Smoke
 
-v0.44 turns the v0.43 public-alpha governance baseline into a publishable
-package and public repository release candidate. It is a packaging, smoke-test,
-and release-checklist milestone only.
+v0.44 turned the v0.43 public-alpha governance baseline into packaging,
+smoke-test, and release-checklist evidence. It is not the next planned npm
+publish target.
+
+Version policy update: `@underskys/air-core@0.44.1` remains the first published
+public alpha. Do not publish `0.44.2` unless there is an urgent
+package-breaking fix. Accumulate README/docs/positioning/roadmap and
+release-governance work as internal `v0.45` slices (`M45-S1`, `M45-S2`, ...)
+for the next planned public npm alpha `@underskys/air-core@0.45.0`.
 
 AIR ABI latest remains `0.10`. Host ABI latest remains `0.11`, limited to
 bounded `output.emit`; Host ABI `0.10` remains supported for packages that do
@@ -32,8 +38,8 @@ post-publish verification plan.
 | Local install from tarball | Document local install/global install smoke path and cleanup. |
 | `bin/airc.js` smoke | Verify `airc version`, `airc check` on a public example, `airc package-check` on a public package example, `airc evidence report`, and `airc run-proof` when a public-clean proof fixture is available. |
 | Public repository visibility checklist | Confirm public docs, license metadata, versioning, conformance status, request ledger, and package surface are launch-safe. |
-| Release notes | Create public alpha release notes for `0.44.2`. |
-| Git tag plan | Define tag `v0.44.2` and pre-tag verification requirements. |
+| Release notes | Preserve `0.44.2` release notes as historical/emergency patch material; prepare `0.45.0` release notes before the next planned npm publish. |
+| Git tag plan | Do not tag `v0.44.2` except for an urgent patch; next planned tag is `v0.45.0`. |
 | npm publish checklist | Manual publish only; no token in repo, Codex, logs, prompts, review bundles, or CI output. |
 | Post-publish verification plan | Define `npm view`, clean install, `npx` or local smoke, and package file re-check after publication. |
 
@@ -74,7 +80,7 @@ v0.44 is complete when:
 - local tarball smoke is recorded;
 - install and `bin/airc.js` smoke commands are recorded;
 - public repo visibility checklist is complete;
-- release notes for `0.44.2` exist;
+- release notes for the selected public release exist;
 - tag and publish checklists exist;
 - post-publish verification plan exists;
 - `node scripts/check_markdown_links.js` passes;

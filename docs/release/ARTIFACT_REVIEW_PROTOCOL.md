@@ -99,7 +99,12 @@ Public versions use npm/git release versions:
 - `0.45.2`
 
 Do not use npm patch versions for unpublished internal slices. Patch versions
-are reserved for public package/release candidates or published public fixes.
+are only for fixes to already-published packages.
+
+`@underskys/air-core@0.44.1` remains the first published public alpha. Do not
+publish `0.44.2` unless an urgent package-breaking fix is required for
+`0.44.1`. The next planned npm public alpha is
+`@underskys/air-core@0.45.0` with dist-tag `alpha`.
 
 ## Review Rule
 

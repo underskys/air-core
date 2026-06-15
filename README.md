@@ -142,14 +142,18 @@ shipped as public Core package authority.
 
 | Product/package | Milestone | AIR ABI | Host ABI | Spec | Conformance | Notes |
 | --- | --- | --- | --- | --- | --- | --- |
-| `0.44.2` | `v0.44 active` | `0.10` | `0.11` latest, `0.10` baseline | `0.10` family | repo test/conformance suite | Public-alpha packaging and release-smoke checkpoint. Host ABI `0.11` is limited to bounded `output.emit`. |
+| `@underskys/air-core@0.44.1` | first published public alpha | `0.10` | `0.11` latest, `0.10` baseline | `0.10` family | repo test/conformance suite | Published public alpha baseline. |
+| `@underskys/air-core@0.45.0` | next planned public alpha | `0.10` unless explicitly reviewed | `0.11` latest, `0.10` baseline unless explicitly reviewed | `0.10` family | repo test/conformance suite plus release gates | Planned alpha for accumulated README/docs/positioning/roadmap/release-governance work from internal `M45-S*` slices. |
 
 Current active milestone:
 
-- Project milestone: `v0.44 active`
-- Package/product version: `0.44.2`
+- Published package baseline: `@underskys/air-core@0.44.1`
+- Next planned npm public alpha: `@underskys/air-core@0.45.0` with dist-tag `alpha`
+- Internal planning slices: `M45-S1`, `M45-S2`, ...
 - Active roadmap: [docs/V0_44_RELEASE_PLAN.md](docs/V0_44_RELEASE_PLAN.md)
-- Feature status: [docs/FEATURE_STATUS_v0.44.md](docs/FEATURE_STATUS_v0.44.md)
+- Feature status: [docs/FEATURE_STATUS_v0.45.md](docs/FEATURE_STATUS_v0.45.md)
+- `0.44.2` is not a planned public npm release unless an urgent package-breaking
+  fix is required for the already published `0.44.1` package.
 
 Version axes are separate:
 

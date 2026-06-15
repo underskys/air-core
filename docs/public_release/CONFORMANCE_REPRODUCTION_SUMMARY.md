@@ -5,6 +5,11 @@ Status: implemented/P0 for the v0.43 public-alpha checkpoint.
 This summary records the conformance commands reproduced from this repository.
 It does not claim results from external suites that are not included here.
 
+Version policy update: the `0.44.2` package version below is historical local
+smoke evidence, not the next planned publish. The next planned npm public alpha
+is `@underskys/air-core@0.45.0`; `0.44.2` is reserved only for urgent fixes to
+the already published `0.44.1` package.
+
 ## Repository
 
 | Field | Value |
