@@ -84,7 +84,7 @@ npm pack
 Local tarball smoke must verify:
 
 ```sh
-npm install /Users/sky/DEV/air-core/underskys-air-core-0.45.0.tgz
+npm install <repo>/underskys-air-core-0.45.0.tgz
 ./node_modules/.bin/airc version --json
 ./node_modules/.bin/airc --help
 ```
