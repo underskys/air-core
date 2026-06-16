@@ -329,7 +329,9 @@ function trackedOrAllFiles() {
     });
     return out.split("\0").filter(Boolean).map(normalizeRel);
   } catch {
-    return listFiles(root).map(toRel);
+    return listFiles(root)
+      .map(toRel)
+      .filter((file) => !isGeneratedFallbackPath(file));
   }
 }
 
@@ -365,6 +367,10 @@ function isForbiddenTrackedContent(file) {
     /(^|\/)node_modules(\/|$)/i.test(file) ||
     /(^|\/)(build|dist|tmp)(\/|$)/i.test(file)
   );
+}
+
+function isGeneratedFallbackPath(file) {
+  return /(^|\/)(build|dist|tmp|node_modules|REVIEW_RESULTS|snapshots)(\/|$)/i.test(file);
 }
 
 function isForbiddenNpmContent(file) {
