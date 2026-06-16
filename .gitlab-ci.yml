@@ -28,7 +28,7 @@ variables:
 test:
   stage: test
   script:
-    - node -e "const p=require('./package.json'); if (p.name !== process.env.AIR_NPM_EXPECTED_NAME || p.version !== process.env.AIR_NPM_EXPECTED_VERSION || p.license !== 'Apache-2.0' || !p.bin || p.bin.airc !== './bin/airc.js' || p.private === true) { console.error(p); process.exit(1) }"
+    - node -e "const p=require('./package.json'); if (p.name !== process.env.AIR_NPM_EXPECTED_NAME || p.version !== process.env.AIR_NPM_EXPECTED_VERSION || p.license !== 'Apache-2.0' || !p.bin || p.bin.airc !== 'bin/airc.js' || p.private === true) { console.error(p); process.exit(1) }"
     - npm test
     - npm run test:bundle
     - npm run check:public-package-surface

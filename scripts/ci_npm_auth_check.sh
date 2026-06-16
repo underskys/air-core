@@ -20,7 +20,7 @@ export NPM_CONFIG_USERCONFIG="$USERCONFIG"
 
 node -e '
 const p = require("./package.json");
-if (p.name !== "@underskys/air-core" || p.private === true || !p.bin || p.bin.airc !== "./bin/airc.js") {
+if (p.name !== "@underskys/air-core" || p.private === true || !p.bin || p.bin.airc !== "bin/airc.js") {
   console.error(JSON.stringify({ name: p.name, private: p.private, bin: p.bin }, null, 2));
   process.exit(1);
 }

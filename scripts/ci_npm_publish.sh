@@ -24,7 +24,7 @@ PACKAGE_VERSION="$(node -p "require('./package.json').version")"
 
 node -e '
 const p = require("./package.json");
-if (p.name !== process.env.EXPECTED_NAME || p.version !== process.env.EXPECTED_VERSION || p.license !== "Apache-2.0" || p.private === true || !p.bin || p.bin.airc !== "./bin/airc.js") {
+if (p.name !== process.env.EXPECTED_NAME || p.version !== process.env.EXPECTED_VERSION || p.license !== "Apache-2.0" || p.private === true || !p.bin || p.bin.airc !== "bin/airc.js") {
   console.error(JSON.stringify({ name: p.name, version: p.version, license: p.license, private: p.private, bin: p.bin }, null, 2));
   process.exit(1);
 }

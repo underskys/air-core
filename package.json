@@ -6,11 +6,11 @@
   "author": "Dmitriii",
   "repository": {
     "type": "git",
-    "url": "https://gitlab.com/fd.skyrealm/air-core"
+    "url": "git+https://gitlab.com/fd.skyrealm/air-core.git"
   },
   "type": "commonjs",
   "bin": {
-    "airc": "./bin/airc.js"
+    "airc": "bin/airc.js"
   },
   "files": [
     "AUTHORS",
