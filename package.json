@@ -4,6 +4,10 @@
   "description": "Verifier-first programming language and CLI for AI-authored deterministic components that hosts can compose into tools, games, simulations, robotics policies, and 3D scenes.",
   "license": "Apache-2.0",
   "author": "Dmitriii",
+  "repository": {
+    "type": "git",
+    "url": "https://gitlab.com/fd.skyrealm/air-core"
+  },
   "type": "commonjs",
   "bin": {
     "airc": "./bin/airc.js"

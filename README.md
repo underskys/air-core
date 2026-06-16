@@ -54,9 +54,11 @@ checkable:
 - hosts decide whether emitted intents are allowed;
 - humans review reports and diffs instead of trusting raw generated code.
 
-See [WHY_AIR.md](WHY_AIR.md) for a careful comparison with adjacent systems.
+See [WHY_AIR.md](https://gitlab.com/fd.skyrealm/air-core/-/blob/main/WHY_AIR.md)
+for a careful comparison with adjacent systems.
 
-For benchmark and comparison evidence, see [SHOWCASE.md](SHOWCASE.md).
+For benchmark and comparison evidence, see
+[SHOWCASE.md](https://gitlab.com/fd.skyrealm/air-core/-/blob/main/SHOWCASE.md).
 AIR is not designed to be a faster general-purpose language. In the measured
 integer policy workload it runs in the Java/JS performance class, while adding
 verifier-enforced capabilities, effect budgets, bounded execution,
@@ -112,8 +114,10 @@ AIR's current public surface rejects or keeps out of scope:
   lifetime model.
 
 These checks do not make a malicious host safe. They enforce the AIR module
-boundary under AIR's model. See [SECURITY.md](SECURITY.md) and
-[THREAT_MODEL.md](THREAT_MODEL.md).
+boundary under AIR's model. See
+[SECURITY.md](https://gitlab.com/fd.skyrealm/air-core/-/blob/main/SECURITY.md)
+and
+[THREAT_MODEL.md](https://gitlab.com/fd.skyrealm/air-core/-/blob/main/THREAT_MODEL.md).
 
 ## Evidence Reports
 
@@ -154,8 +158,10 @@ Current active milestone:
 - Planned npm dist-tag: `alpha`
 - Internal planning slices: `M45-S1`, `M45-S2`, ...
 - Active install path after publish: `npm install -g @underskys/air-core@alpha`
-- Active roadmap: [docs/V0_45_RELEASE_PLAN.md](docs/V0_45_RELEASE_PLAN.md)
-- Feature status: [docs/FEATURE_STATUS_v0.45.md](docs/FEATURE_STATUS_v0.45.md)
+- Active roadmap:
+  [docs/V0_45_RELEASE_PLAN.md](https://gitlab.com/fd.skyrealm/air-core/-/blob/main/docs/V0_45_RELEASE_PLAN.md)
+- Feature status:
+  [docs/FEATURE_STATUS_v0.45.md](https://gitlab.com/fd.skyrealm/air-core/-/blob/main/docs/FEATURE_STATUS_v0.45.md)
 - `0.44.2` is not a planned public npm release unless an urgent package-breaking
   fix is required for the already published `0.44.1` package.
 
@@ -168,8 +174,10 @@ Version axes are separate:
 - spec version: documented language/package/spec surface;
 - conformance suite version: tests and fixtures used for compatibility checks.
 
-See [docs/VERSION_AND_ABI_POLICY.md](docs/VERSION_AND_ABI_POLICY.md).
-See [VERSIONING.md](VERSIONING.md) for the public release version axes.
+See
+[docs/VERSION_AND_ABI_POLICY.md](https://gitlab.com/fd.skyrealm/air-core/-/blob/main/docs/VERSION_AND_ABI_POLICY.md).
+See [VERSIONING.md](https://gitlab.com/fd.skyrealm/air-core/-/blob/main/VERSIONING.md)
+for the public release version axes.
 
 ## Development Method
 
@@ -181,7 +189,7 @@ AI-orchestrated engineering process.
 AI tools may assist implementation, tests, docs, and review hygiene. They do
 not replace authorship, ownership, acceptance, or release responsibility.
 
-See [METHOD.md](METHOD.md).
+See [METHOD.md](https://gitlab.com/fd.skyrealm/air-core/-/blob/main/METHOD.md).
 
 ## Docs Links
 

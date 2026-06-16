@@ -18,8 +18,8 @@ public alpha, `0.44.2` is emergency-only for urgent package-breaking fixes to
 | Version | `0.45.0` |
 | Dry-run status | pass |
 | File count | 139 |
-| Package size | 304,444 bytes |
-| Unpacked size | 1,383,057 bytes |
+| Package size | 304,514 bytes |
+| Unpacked size | 1,383,624 bytes |
 | Tarball name | `underskys-air-core-0.45.0.tgz` |
 
 ## Included Top-Level Paths
