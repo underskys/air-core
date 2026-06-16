@@ -10,6 +10,10 @@ if [ -z "${NPM_TOKEN:-}" ]; then
 fi
 
 DIST_TAG="${AIR_NPM_DIST_TAG:-alpha}"
+EXPECTED_NAME="${AIR_NPM_EXPECTED_NAME:-@underskys/air-core}"
+EXPECTED_VERSION="${AIR_NPM_EXPECTED_VERSION:-0.45.0}"
+EXPECTED_TAG="${AIR_NPM_EXPECTED_TAG:-v0.45.0}"
+export EXPECTED_NAME EXPECTED_VERSION EXPECTED_TAG
 if ! printf '%s' "$DIST_TAG" | grep -Eq '^[A-Za-z0-9][A-Za-z0-9._-]*$'; then
   echo "ERROR: AIR_NPM_DIST_TAG has invalid npm dist-tag syntax: $DIST_TAG" >&2
   exit 1
@@ -19,25 +23,21 @@ PACKAGE_NAME="$(node -p "require('./package.json').name")"
 PACKAGE_VERSION="$(node -p "require('./package.json').version")"
 
 node -e '
-const semver = /^[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/;
 const p = require("./package.json");
-if (p.name !== "@underskys/air-core" || !semver.test(p.version) || p.license !== "Apache-2.0" || p.private === true || !p.bin || p.bin.airc !== "./bin/airc.js") {
+if (p.name !== process.env.EXPECTED_NAME || p.version !== process.env.EXPECTED_VERSION || p.license !== "Apache-2.0" || p.private === true || !p.bin || p.bin.airc !== "./bin/airc.js") {
   console.error(JSON.stringify({ name: p.name, version: p.version, license: p.license, private: p.private, bin: p.bin }, null, 2));
   process.exit(1);
 }
 '
 
-if [ -n "${CI_COMMIT_TAG:-}" ]; then
-  EXPECTED_TAG="v${PACKAGE_VERSION}"
-  if [ "$CI_COMMIT_TAG" != "$EXPECTED_TAG" ]; then
-    echo "ERROR: CI_COMMIT_TAG must equal ${EXPECTED_TAG}; got ${CI_COMMIT_TAG}" >&2
-    exit 1
-  fi
-else
-  if [ "${CI_COMMIT_BRANCH:-}" != "main" ] || [ "${AIR_NPM_PUBLISH:-}" != "1" ] || [ "${AIR_RELEASE_DECISION:-}" != "OK" ]; then
-    echo "ERROR: branch publish requires CI_COMMIT_BRANCH=main, AIR_NPM_PUBLISH=1, and AIR_RELEASE_DECISION=OK." >&2
-    exit 1
-  fi
+if [ "${PACKAGE_NAME}" != "${EXPECTED_NAME}" ] || [ "${PACKAGE_VERSION}" != "${EXPECTED_VERSION}" ]; then
+  echo "ERROR: package identity must be ${EXPECTED_NAME}@${EXPECTED_VERSION}; got ${PACKAGE_NAME}@${PACKAGE_VERSION}" >&2
+  exit 1
+fi
+
+if [ "${CI_COMMIT_TAG:-}" != "$EXPECTED_TAG" ]; then
+  echo "ERROR: publish requires tag pipeline ${EXPECTED_TAG}; got ${CI_COMMIT_TAG:-<none>}" >&2
+  exit 1
 fi
 
 USERCONFIG="$(mktemp)"

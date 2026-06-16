@@ -1,4 +1,4 @@
-const AIR_VERSION = "0.44.2";
+const AIR_VERSION = "0.45.0";
 const AIR_ABI_VERSION = "0.10";
 
 module.exports = {

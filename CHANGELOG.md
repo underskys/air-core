@@ -9,21 +9,25 @@ compact format:
 - Security
 - Breaking / Migration
 
-## Unreleased
+## v0.45.0 - Public Release Candidate Preparation
 
 ### Added
 
 - Public launch documentation: `WHY_AIR.md`, `METHOD.md`, `SECURITY.md`,
   `THREAT_MODEL.md`, `CONFORMANCE.md`, and `ROADMAP.md`.
+- Release candidate notes and checklist updates for
+  `@underskys/air-core@0.45.0`.
 
 ### Changed
 
+- Package version prepared as `@underskys/air-core@0.45.0` for the next public
+  alpha release candidate.
 - Public version policy now keeps `@underskys/air-core@0.44.1` as the first
   published public alpha and reserves `0.44.2` only for urgent fixes to that
   already published package.
-- README/docs/positioning/roadmap/release-governance work now accumulates as
-  internal `v0.45` slices (`M45-S1`, `M45-S2`, ...) for the next planned npm
-  public alpha `@underskys/air-core@0.45.0` with dist-tag `alpha`.
+- README/docs/positioning/roadmap/release-governance work accumulated as
+  internal `v0.45` slices (`M45-S1`, `M45-S2`, ...) for the npm public alpha
+  release candidate `@underskys/air-core@0.45.0` with future dist-tag `alpha`.
 - Patch versions are no longer used for unpublished internal work.
 - Package description now presents AIR as a verifier-first programming
   language and CLI for AI-authored deterministic components that hosts can
@@ -42,7 +46,8 @@ compact format:
   existing package.
 - Public-alpha governance docs now cover installability, conformance,
   package files, promise debt, and request ledger validation.
-- No compiler, verifier, AIR ABI, or Host ABI behavior changed.
+- No compiler, verifier, AIR ABI, Host ABI, or math implementation behavior
+  changed.
 
 ### Fixed
 

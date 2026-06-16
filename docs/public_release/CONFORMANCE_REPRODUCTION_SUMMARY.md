@@ -6,16 +6,16 @@ This summary records the conformance commands reproduced from this repository.
 It does not claim results from external suites that are not included here.
 
 Version policy update: the `0.44.2` package version below is historical local
-smoke evidence, not the next planned publish. The next planned npm public alpha
-is `@underskys/air-core@0.45.0`; `0.44.2` is reserved only for urgent fixes to
-the already published `0.44.1` package.
+smoke evidence, not the active release candidate. The active npm public alpha
+release candidate is `@underskys/air-core@0.45.0`; `0.44.2` is reserved only
+for urgent fixes to the already published `0.44.1` package.
 
 ## Repository
 
 | Field | Value |
 | --- | --- |
 | Branch | `main` |
-| Package version | `0.44.2` |
+| Package version | historical `0.44.2`; active release candidate `0.45.0` |
 | AIR ABI | `0.10` |
 | Host ABI | latest `0.11`, limited to bounded `output.emit`; baseline `0.10` supported |
 

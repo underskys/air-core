@@ -48,7 +48,7 @@ function makeTempRoot() {
     dirtyTree: "no",
     releaseAllowed: "yes",
     npmPackage: "@underskys/air-core",
-    packageVersion: "0.44.2",
+    packageVersion: "0.45.0",
     airAbi: "0.10",
     hostAbi: "0.11",
     internalSlice: "M45-S1",

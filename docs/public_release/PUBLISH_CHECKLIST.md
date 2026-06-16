@@ -1,7 +1,7 @@
 # AIR Public Alpha Publish Checklist
 
-Status: active checklist for the next planned public alpha; human-maintainer
-checklist for manual npm publish.
+Status: active checklist for the `0.45.0` public alpha release candidate;
+human-maintainer checklist for manual npm publish.
 
 This checklist is for a human maintainer or protected GitLab CI release job.
 Codex must not receive npm tokens, must not receive npm credentials in prompts
@@ -17,9 +17,9 @@ Planned npm dist-tag: `alpha`
 
 Version policy: `@underskys/air-core@0.44.1` remains the first published public
 alpha. Do not publish `0.44.2` unless there is an urgent package-breaking fix
-to `0.44.1`. README/docs/positioning/roadmap/release-governance work should
-accumulate as internal `v0.45` slices (`M45-S1`, `M45-S2`, ...) until the next
-planned npm public alpha `0.45.0`.
+to `0.44.1`. README/docs/positioning/roadmap/release-governance work accumulated
+as internal `v0.45` slices (`M45-S1`, `M45-S2`, ...) for the active public
+alpha release candidate `0.45.0`.
 
 ## Pre-Publish Repository Checks
 
@@ -41,7 +41,9 @@ planned npm public alpha `0.45.0`.
 - [ ] `REVIEW_RESULTS/RED_FLAGS.md` has no active red flags.
 - [ ] `docs/PROMISE_DEBT.md` exists and request ledger validation passes.
 - [ ] Release notes for `0.45.0` are ready for public release notes.
-- [ ] `README.md` install instructions are correct for the publish state.
+- [ ] `README.md` install instructions use `npm install -g @underskys/air-core@alpha`.
+- [ ] `0.45.0` release notes state no AIR ABI change, no Host ABI change, and
+  no new math implementation.
 
 ## Required Checks
 
@@ -65,9 +67,10 @@ git diff --check
 
 ```sh
 npm pack --dry-run --json
-npm pack
+npm pack --json > npm-pack.json
+TARBALL="$(node -e 'const fs=require("fs"); const pack=JSON.parse(fs.readFileSync("npm-pack.json","utf8"))[0]; process.stdout.write(pack.filename);')"
 mkdir -p build/public-smoke
-tar -tf underskys-air-core-0.45.0.tgz | sort > build/public-smoke/npm-pack-files.txt
+tar -tf "$TARBALL" | sort > build/public-smoke/npm-pack-files.txt
 node ./bin/airc.js version --json
 node ./bin/airc.js check examples/public/safe_policy/module.air
 node ./bin/airc.js package-check examples/public/evidence_report --source-only --json
@@ -124,19 +127,18 @@ Preferred protected CI path:
 1. Ensure `NPM_TOKEN` is configured as a masked/protected GitLab CI variable.
 2. Run the manual `npm:auth:check` job to verify `npm ping`, `npm whoami`, and
    `npm view` without publishing.
-3. For a tag release, create/run a tag pipeline where `CI_COMMIT_TAG` matches
-   `v<package.json version>`, then manually start `publish:npm`.
-4. For an explicit main-branch release, create a manual pipeline with
-   `AIR_NPM_PUBLISH=1`, `AIR_RELEASE_DECISION=OK`, and the intended
-   `AIR_NPM_DIST_TAG`, then manually start `publish:npm`.
-5. To update a dist-tag for an already published version, use `npm:dist-tag`
+3. Create/run a protected tag pipeline where `CI_COMMIT_TAG` is exactly
+   `v0.45.0`, then manually start `publish:npm`.
+4. To update a dist-tag for an already published version, use `npm:dist-tag`
    with `AIR_NPM_DIST_TAG_UPDATE=1`, `AIR_RELEASE_DECISION=OK`,
    `AIR_NPM_VERSION`, and `AIR_NPM_DIST_TAG`.
 
-The CI publish job validates package identity, refuses to publish a version that
-already exists on npm, reruns public package/claims/review-bundle policy checks,
-performs `npm pack --dry-run --json`, creates a tarball, and then runs
-`npm publish` with the selected dist-tag.
+The CI publish job validates package identity as `@underskys/air-core@0.45.0`,
+requires tag pipeline `v0.45.0`, refuses to publish a version that already
+exists on npm, reruns public package/claims/review-bundle policy checks,
+performs `npm pack --dry-run --json`, creates a tarball, discovers the actual
+scoped tarball filename from `npm pack --json`, and then runs `npm publish
+--access public --tag alpha`.
 
 Fallback human maintainer command:
 

@@ -7,8 +7,9 @@ policy.
 
 Current version policy: `@underskys/air-core@0.44.1` remains the first
 published public alpha. Do not publish `0.44.2` unless there is an urgent
-package-breaking fix to `0.44.1`. The next planned public npm alpha is
-`@underskys/air-core@0.45.0` with dist-tag `alpha`.
+package-breaking fix to `0.44.1`. The active public alpha release candidate is
+`@underskys/air-core@0.45.0`, to be published later with dist-tag `alpha` only
+after a separate tag/release decision.
 
 ## Repositories
 
@@ -33,7 +34,7 @@ git@gitlab.com:fd.skyrealm/airlang.git
 
 | Repo | Package | Version | CLI | License |
 | --- | --- | --- | --- | --- |
-| `air-core` | `@underskys/air-core` | `0.44.2` | `airc` | `Apache-2.0` |
+| `air-core` | `@underskys/air-core` | `0.45.0` | `airc` | `Apache-2.0` |
 | `airlang` | `air-core` | `0.44.0` | `airc` | `Apache-2.0` |
 
 Observed npm package:
@@ -46,8 +47,8 @@ published versions: 0.44.1
 
 At the time of this historical snapshot, local `air-core` was prepared as
 `0.44.2`; npm still showed `0.44.1` published. No npm publish was run during
-that task. The current policy supersedes the `0.44.2` publish path except for
-urgent package-breaking fixes.
+that task. The current release candidate supersedes the `0.44.2` publish path
+except for urgent package-breaking fixes.
 
 ## Release Tags
 
@@ -65,8 +66,9 @@ are not production release tags.
 ## CI Status
 
 `air-core` has GitLab CI stages for test, pack, and protected manual npm
-publish. Current release policy requires the next planned public alpha to be
-`@underskys/air-core@0.45.0`, with `0.44.2` reserved for emergency fixes only.
+publish. Current release policy requires the active public alpha release
+candidate to be `@underskys/air-core@0.45.0`, with publish allowed only from a
+manual `v0.45.0` tag pipeline. `0.44.2` is reserved for emergency fixes only.
 
 No live remote pipeline status was queried in this local workspace report.
 
@@ -88,9 +90,9 @@ work.
 | --- | --- | --- | --- |
 | Package name `@underskys/air-core` | `air-core` | A | Already synced as production identity. |
 | Package name `air-core` | `airlang` | C | Dev/private historical identity; do not release from it. |
-| Package version `0.44.2` | `air-core` | F | Historical local candidate only; do not publish unless urgent package-breaking fix is required for `0.44.1`. |
+| Package version `0.44.2` | `air-core` history | F | Historical local candidate only; do not publish unless urgent package-breaking fix is required for `0.44.1`. |
 | Published npm version `0.44.1` | npm registry | A | First published public alpha baseline. |
-| Planned npm version `0.45.0` | release policy | A | Next planned public alpha after internal `M45-S*` slices. |
+| Release candidate package version `0.45.0` | `air-core` | A | Active public alpha release candidate after internal `M45-S*` slices. |
 | README product positioning | `air-core` | A | Public AIR positioning is current. |
 | README install command | `air-core` | A | Uses `@underskys/air-core@alpha`. |
 | README old install wording | `airlang` | C | Historical/dev only. |
@@ -108,7 +110,7 @@ work.
 | Generated review zip snapshots | `airlang` | C | Generated archive artifacts; never copy into release source. |
 | `node_modules/` | `airlang` | C | Dependency output; never copy. |
 | Dev repo ahead of origin by 4 commits | `airlang` | F | Human decision required if any history needs later review. |
-| Production current branch not `main` | `air-core` | F | This is a release hygiene branch; merge policy decision remains human-owned. |
+| Historical production branch not `main` | `air-core` snapshot | F | Historical snapshot context only; current release-candidate work is on `main`. |
 
 Classes:
 
@@ -125,16 +127,15 @@ No `air-core` package identity blocker was found.
 
 Human decisions remain required for:
 
-- whether and when to merge `release/v0.44.x-hygiene` into `main`;
 - whether an urgent `@underskys/air-core@0.44.2` package-breaking fix is
-  required; otherwise publish next as `@underskys/air-core@0.45.0`;
+  required before any `0.45.0` release action;
+- whether the prepared `@underskys/air-core@0.45.0` release candidate is ready
+  for the separate protected tag/publish task;
 - whether any locally ahead `airlang` commits contain public-safe candidates.
 
 ## Next Recommended Codex Tasks
 
 1. Run the full `air-core` release check set after these docs and scripts land.
-2. Merge the release hygiene branch according to the protected `air-core`
-   workflow.
-3. Produce a separate OK/STOP report before any tag or npm publish.
-4. Keep `airlang` read-only unless a specific public-clean cherry-pick review
+2. Produce a separate OK/STOP report before any tag or npm publish.
+3. Keep `airlang` read-only unless a specific public-clean cherry-pick review
    is requested.

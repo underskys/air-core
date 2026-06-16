@@ -1,26 +1,26 @@
 # npm Pack Dry-Run Summary
 
-Status: implemented/P0 for the v0.43 public-alpha checkpoint.
+Status: implemented for the `0.45.0` public-alpha release candidate.
 
 This records the local `npm pack --dry-run --json` package-surface smoke for
 the public alpha package. No npm publication was performed.
 
-Version policy update: this `0.44.2` dry run is historical smoke evidence, not
-approval for the next npm publish. `@underskys/air-core@0.44.1` remains the
-first published public alpha, `0.44.2` is emergency-only, and the next planned
-public npm alpha is `@underskys/air-core@0.45.0`.
+Version policy update: `@underskys/air-core@0.44.1` remains the first published
+public alpha, `0.44.2` is emergency-only for urgent package-breaking fixes to
+`0.44.1`, and the active public npm alpha release candidate is
+`@underskys/air-core@0.45.0`.
 
 ## Result
 
 | Field | Value |
 | --- | --- |
 | Package | `@underskys/air-core` |
-| Version | `0.44.2` |
+| Version | `0.45.0` |
 | Dry-run status | pass |
 | File count | 139 |
-| Package size | 302,869 bytes |
-| Unpacked size | 1,377,236 bytes |
-| Tarball name | `underskys-air-core-0.44.2.tgz` |
+| Package size | 304,444 bytes |
+| Unpacked size | 1,383,057 bytes |
+| Tarball name | `underskys-air-core-0.45.0.tgz` |
 
 ## Included Top-Level Paths
 
@@ -84,13 +84,13 @@ the public alpha package:
 
 ## Local Tarball Smoke
 
-`npm pack` created `underskys-air-core-0.44.2.tgz`. The tarball was tested without
-publishing:
+`npm pack` created `underskys-air-core-0.45.0.tgz`. The tarball was tested
+without publishing:
 
-- `node ./bin/airc.js version --json` returned version `0.44.2` and AIR
+- `node ./bin/airc.js version --json` returned version `0.45.0` and AIR
   ABI `0.10`.
-- A temporary-prefix global-style install from the local tarball returned the
-  same `airc version --json` result.
+- A temporary local npm project install from the local tarball returned the same
+  `airc version --json` result.
 - The generated tarball was removed after the smoke test and is ignored by
   repository/package exclusion rules.
 

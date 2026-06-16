@@ -120,8 +120,9 @@ are only for fixes to already-published packages.
 
 `@underskys/air-core@0.44.1` remains the first published public alpha. Do not
 publish `0.44.2` unless an urgent package-breaking fix is required for
-`0.44.1`. The next planned public npm alpha is
-`@underskys/air-core@0.45.0` with dist-tag `alpha`.
+`0.44.1`. The active public alpha release candidate is
+`@underskys/air-core@0.45.0`; publish it later with dist-tag `alpha` only from
+the protected `v0.45.0` tag pipeline after release approval.
 
 ## Release Ownership Rule
 

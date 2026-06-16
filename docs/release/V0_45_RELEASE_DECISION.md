@@ -1,7 +1,7 @@
 # v0.45 Release Decision
 
-Status: accepted as dev planning/audit milestone; not approved as npm/public
-package release as-is.
+Status: dev planning/audit milestone accepted; public-clean release candidate
+prepared separately as `@underskys/air-core@0.45.0`.
 
 Reference dev/private review bundle: commit `ef24919`.
 
@@ -10,10 +10,13 @@ Reference dev/private review bundle: commit `ef24919`.
 v0.45 is accepted as a completed planning/audit milestone for the Math & Host
 Profile Roadmap.
 
-v0.45 is not approved as an npm/public package release as-is. The dev/private
-review bundle passed bundle review checks for its own review purpose, but it is
-not directly public-release-ready and must not be published or merged wholesale
-into public package state.
+v0.45 is not approved as an npm/public package release from the dev/private
+bundle as-is. The dev/private review bundle passed bundle review checks for its
+own review purpose, but it is not directly public-release-ready and must not be
+published or merged wholesale into public package state.
+
+The public repository may prepare `@underskys/air-core@0.45.0` only from the
+current public-clean state and scoped public release decisions.
 
 ## Public Release Classification
 
@@ -23,9 +26,10 @@ into public package state.
 - Current npm published package is `@underskys/air-core@0.44.1`.
 - `0.44.2` is not a planned public npm release unless an urgent
   package-breaking fix is required for the already published `0.44.1` package.
-- README/docs/positioning/roadmap/release-governance work should accumulate as
+- README/docs/positioning/roadmap/release-governance work accumulated as
   internal `v0.45` slices toward `@underskys/air-core@0.45.0`.
-- v0.45 states no release packaging or npm publish work.
+- v0.45 public release candidate preparation is packaging/docs/governance work
+  only; npm publish and tag creation remain separate tasks.
 - v0.45 did not implement new math operations.
 - v0.45 contains no AIR ABI change.
 - v0.45 contains no Host ABI change.

@@ -1,12 +1,14 @@
 # Public Install Check
 
-Status: v0.43 public-alpha checkpoint. `npm pack --dry-run --json` and local
-tarball CLI smoke passed. No npm publication has been performed.
+Status: active install check for the `0.45.0` public alpha release candidate.
+`npm pack --dry-run --json` and local tarball CLI smoke must pass before tag.
+No npm publication has been performed.
 
 Version policy update: the recorded `0.44.2` local install smoke is historical
 evidence only. Do not publish `0.44.2` unless an urgent package-breaking fix is
-required for `@underskys/air-core@0.44.1`. The next planned npm public alpha is
-`@underskys/air-core@0.45.0` with dist-tag `alpha`.
+required for `@underskys/air-core@0.44.1`. The active public alpha release
+candidate is `@underskys/air-core@0.45.0`, to be published later with dist-tag
+`alpha`.
 
 This checklist defines the public installability proof for AIR alpha. It is a
 release checkpoint, not a language feature, AIR ABI change, or Host ABI change.
@@ -44,11 +46,11 @@ Then inspect the dry-run file list:
 - verify `README.md`, `LICENSE`, `NOTICE`, `AUTHORS`, `VERSIONING.md`,
   `CHANGELOG.md`, `SECURITY.md`, and `THREAT_MODEL.md` are present.
 
-For a historical `0.44.2` local install smoke test:
+For the active `0.45.0` local install smoke test:
 
 ```sh
 npm pack
-npm install -g ./underskys-air-core-0.44.2.tgz
+npm install -g ./underskys-air-core-0.45.0.tgz
 airc version --json
 airc check examples/public/safe_policy/module.air
 airc package-check examples/public/evidence_report --source-only --json
@@ -58,7 +60,7 @@ airc evidence report examples/public/evidence_report --format markdown -o eviden
 If feasible for the local npm version, also test `npx` from the local tarball:
 
 ```sh
-npx -y ./underskys-air-core-0.44.2.tgz airc version --json
+npx -y ./underskys-air-core-0.45.0.tgz airc version --json
 ```
 
 If `npx` cannot execute a local tarball consistently on the test platform,
@@ -82,18 +84,18 @@ repository conformance/evidence check rather than an npm install check.
 
 See [npm Pack Dry-Run Summary](NPM_PACK_DRY_RUN_SUMMARY.md).
 
-The v0.44.2 dry-run confirmed:
+The active `0.45.0` dry-run must confirm:
 
-- package: `@underskys/air-core@0.44.2`;
+- package: `@underskys/air-core@0.45.0`;
 - file count: 139;
 - `bin/airc.js` included;
 - required public docs included;
 - snapshots, raw review bundles, prompts, demos, consumer evidence, hosts,
   kits, and build outputs excluded.
 
-The local tarball smoke used a temporary npm prefix instead of modifying the
-user's global npm installation. `airc version --json` returned package version
-`0.44.2` and AIR ABI `0.10`.
+The local tarball smoke should use a temporary package directory instead of
+modifying the user's global npm installation. `airc version --json` must return
+package version `0.45.0` and AIR ABI `0.10`.
 
 ## Expected CLI Checks
 

@@ -14,7 +14,7 @@ Published public alpha baseline:
 
 - `@underskys/air-core@0.44.1`
 
-Next planned public alpha package version:
+Active public alpha release candidate:
 
 - `@underskys/air-core@0.45.0` with npm dist-tag `alpha`
 
@@ -24,8 +24,8 @@ version field change.
 
 `0.44.2` is not a planned public npm release. Use `0.44.2` only for an urgent
 package-breaking fix to the already published `0.44.1` package. Accumulate
-README, docs, positioning, roadmap, and release-governance work as internal
-`v0.45` slices until the next planned public alpha `0.45.0`.
+README, docs, positioning, roadmap, and release-governance work accumulated as
+internal `v0.45` slices for the public alpha release candidate `0.45.0`.
 
 ## Milestone Version
 
@@ -97,7 +97,7 @@ commit and commands used to reproduce them.
 | Product version | Milestone | AIR ABI | Host ABI | Spec | Conformance | Notes |
 | --- | --- | --- | --- | --- | --- | --- |
 | `@underskys/air-core@0.44.1` | first published public alpha | `0.10` | `0.11` latest, `0.10` baseline | `0.10` family | repository tests and fixtures | Published public alpha baseline. |
-| `@underskys/air-core@0.45.0` | next planned public alpha | `0.10` unless explicitly reviewed | `0.11` latest, `0.10` baseline unless explicitly reviewed | `0.10` family | repository tests and fixtures plus release gates | Planned alpha for accumulated `M45-S*` documentation, positioning, roadmap, and release-governance slices. |
+| `@underskys/air-core@0.45.0` | public alpha release candidate | `0.10` | `0.11` latest, `0.10` baseline | `0.10` family | repository tests and fixtures plus release gates | Release candidate for accumulated `M45-S*` documentation, positioning, roadmap, and release-governance slices. No new math implementation. |
 
 ## Policy
 

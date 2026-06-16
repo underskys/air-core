@@ -86,6 +86,8 @@ npm run agent:finish
 `agent:finish` runs Core checks, builds a review bundle, and writes local
 review artifacts. Those artifacts are for review workflow, not source of truth.
 
+## Installation
+
 Install the public alpha package with:
 
 ```sh
@@ -143,14 +145,16 @@ shipped as public Core package authority.
 | Product/package | Milestone | AIR ABI | Host ABI | Spec | Conformance | Notes |
 | --- | --- | --- | --- | --- | --- | --- |
 | `@underskys/air-core@0.44.1` | first published public alpha | `0.10` | `0.11` latest, `0.10` baseline | `0.10` family | repo test/conformance suite | Published public alpha baseline. |
-| `@underskys/air-core@0.45.0` | next planned public alpha | `0.10` unless explicitly reviewed | `0.11` latest, `0.10` baseline unless explicitly reviewed | `0.10` family | repo test/conformance suite plus release gates | Planned alpha for accumulated README/docs/positioning/roadmap/release-governance work from internal `M45-S*` slices. |
+| `@underskys/air-core@0.45.0` | public alpha release candidate | `0.10` | `0.11` latest, `0.10` baseline | `0.10` family | repo test/conformance suite plus release gates | Release candidate for public positioning/governance/roadmap cleanup from internal `M45-S*` slices; no new math implementation. |
 
 Current active milestone:
 
 - Published package baseline: `@underskys/air-core@0.44.1`
-- Next planned npm public alpha: `@underskys/air-core@0.45.0` with dist-tag `alpha`
+- Active public alpha release candidate: `@underskys/air-core@0.45.0`
+- Planned npm dist-tag: `alpha`
 - Internal planning slices: `M45-S1`, `M45-S2`, ...
-- Active roadmap: [docs/V0_44_RELEASE_PLAN.md](docs/V0_44_RELEASE_PLAN.md)
+- Active install path after publish: `npm install -g @underskys/air-core@alpha`
+- Active roadmap: [docs/V0_45_RELEASE_PLAN.md](docs/V0_45_RELEASE_PLAN.md)
 - Feature status: [docs/FEATURE_STATUS_v0.45.md](docs/FEATURE_STATUS_v0.45.md)
 - `0.44.2` is not a planned public npm release unless an urgent package-breaking
   fix is required for the already published `0.44.1` package.

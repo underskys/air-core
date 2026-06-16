@@ -2,9 +2,12 @@
 
 Status: proposed first executable math stabilization slice.
 
-v0.46 should turn the v0.45 Math & Host Profile Planning/Audit outcome into a
-small public implementation slice without widening AIR ABI or Host ABI by
-default.
+v0.46 should follow the v0.45 public release candidate. It should turn the
+v0.45 Math & Host Profile Planning/Audit outcome into a small public
+implementation slice without widening AIR ABI or Host ABI by default.
+
+`@underskys/air-core@0.45.0` does not include new math implementation. It
+prepares public positioning, governance, roadmap, and release hygiene.
 
 ## Scope
 
