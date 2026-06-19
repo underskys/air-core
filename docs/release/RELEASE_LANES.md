@@ -120,9 +120,10 @@ are only for fixes to already-published packages.
 
 `@underskys/air-core@0.44.1` remains the first published public alpha. Do not
 publish `0.44.2` unless an urgent package-breaking fix is required for
-`0.44.1`. The active public alpha release candidate is
-`@underskys/air-core@0.45.0`; publish it later with dist-tag `alpha` only from
-the protected `v0.45.0` tag pipeline after release approval.
+`0.44.1`. `@underskys/air-core@0.45.0` is the published public alpha. The
+active Show HN package presentation patch candidate is
+`@underskys/air-core@0.45.1`; publish it later with dist-tag `alpha` only from
+the protected `v0.45.1` tag pipeline after release approval.
 
 ## Release Ownership Rule
 

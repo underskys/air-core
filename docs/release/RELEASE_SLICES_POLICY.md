@@ -31,8 +31,9 @@ published packages.
 `@underskys/air-core@0.44.1` remains the first published public alpha. Do not
 publish `0.44.2` unless an urgent package-breaking fix is required for
 `0.44.1`. README/docs/positioning/roadmap/release-governance work accumulated
-as internal `v0.45` slices for the active public alpha release candidate
-`@underskys/air-core@0.45.0`.
+as internal `v0.45` slices and shipped as the published public alpha
+`@underskys/air-core@0.45.0`. `@underskys/air-core@0.45.1` is reserved for a
+Show HN README/package presentation patch only.
 
 Breaking changes, semantic changes, AIR ABI changes, Host ABI changes, or
 behavior changes require release notes, compatibility review, and consumer

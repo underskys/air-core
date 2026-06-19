@@ -48,11 +48,11 @@ function makeTempRoot() {
     dirtyTree: "no",
     releaseAllowed: "yes",
     npmPackage: "@underskys/air-core",
-    packageVersion: "0.45.0",
+    packageVersion: "0.45.1",
     airAbi: "0.10",
     hostAbi: "0.11",
     internalSlice: "M45-S1",
-    publicVersion: "0.45.0",
+    publicVersion: "0.45.1",
     includedPaths: ["README.md"],
     excludedPaths: ["REVIEW_RESULTS/"],
     checksRun: ["npm test"],
@@ -101,7 +101,7 @@ function validManifest(overrides = {}) {
     forbiddenContentCheck: "passed",
     artifacts: ["BUNDLE_MANIFEST.json", "CHANGESET_SUMMARY.md", "QA_REPORT.md", "RELEASE_DECISION.md"],
     internalSlice: "M45-S1",
-    publicVersion: "0.45.0",
+    publicVersion: "0.45.1",
     npmContents: ["README.md", "src/index.js"],
     ...overrides
   };

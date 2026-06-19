@@ -9,6 +9,33 @@ compact format:
 - Security
 - Breaking / Migration
 
+## v0.45.1 - Show HN Package Presentation Patch
+
+### Added
+
+- None.
+
+### Changed
+
+- README first screen is hardened for package/rendered Markdown presentation:
+  headings, paragraphs, bullets, and the Adobe AIR note are separated with
+  explicit Markdown spacing.
+- Package version prepared as `@underskys/air-core@0.45.1` for a presentation
+  patch to the already published `0.45.0` alpha.
+
+### Fixed
+
+- Show HN-facing package presentation now avoids collapsed heading/paragraph
+  rendering in strict package/public README views.
+
+### Security
+
+- None.
+
+### Breaking / Migration
+
+- None. No compiler, verifier, AIR ABI, Host ABI, or feature behavior changed.
+
 ## v0.45.0 - Public Release Candidate Preparation
 
 ### Added

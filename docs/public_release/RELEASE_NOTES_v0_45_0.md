@@ -1,15 +1,14 @@
 # AIR v0.45.0 Release Notes
 
-Status: public alpha release candidate. No npm publication has been performed
-from this document.
+Status: published public alpha.
 
 Package: `@underskys/air-core@0.45.0`
 
-Planned tag: `v0.45.0`
+Tag: `v0.45.0`
 
-Planned npm dist-tag: `alpha`
+Npm dist-tag: `alpha`
 
-Install after publish:
+Install:
 
 ```sh
 npm install -g @underskys/air-core@alpha
@@ -18,9 +17,9 @@ airc version --json
 
 ## Summary
 
-v0.45.0 prepares the next AIR Core public alpha from the public `air-core`
+v0.45.0 shipped the next AIR Core public alpha from the public `air-core`
 repository. It is a public positioning, governance, roadmap, README, npm
-metadata, package-surface, and release-hygiene release candidate.
+metadata, package-surface, and release-hygiene release.
 
 `@underskys/air-core@0.44.1` remains the first published public alpha. `0.44.2`
 is reserved only for an urgent package-breaking fix to `0.44.1`; it is not the
@@ -28,7 +27,7 @@ normal next public release.
 
 ## Included
 
-- Package identity prepared as `@underskys/air-core@0.45.0`.
+- Package identity shipped as `@underskys/air-core@0.45.0`.
 - CLI remains `airc`.
 - License remains `Apache-2.0`.
 - README first screen and npm-rendered docs links are release-ready.
@@ -36,14 +35,14 @@ normal next public release.
   package versions.
 - Release governance documents classify v0.45 as public-clean roadmap and
   positioning work.
-- Publish checklist and CI release path target `v0.45.0` and dist-tag `alpha`.
+- Publish checklist and CI release path targeted `v0.45.0` and dist-tag
+  `alpha`.
 - Package surface remains limited to Core/spec/CLI/conformance surfaces and
   launch-safe public examples.
 
 ## Not Included
 
-- No npm publish in this preparation task.
-- No git tag creation in this preparation task.
+- No compiler, verifier, or lowerer behavior change.
 - No AIR ABI change.
 - No Host ABI change.
 - No new math implementation.
@@ -64,7 +63,7 @@ normal next public release.
 
 ## Verification
 
-The release candidate must pass:
+The release passed:
 
 ```sh
 npm ci
@@ -81,7 +80,7 @@ npm pack --dry-run --json
 npm pack
 ```
 
-Local tarball smoke must verify:
+Local tarball smoke verified:
 
 ```sh
 npm install <repo>/underskys-air-core-0.45.0.tgz
@@ -89,14 +88,11 @@ npm install <repo>/underskys-air-core-0.45.0.tgz
 ./node_modules/.bin/airc --help
 ```
 
-## Release Blockers Before Tag
+## Release Blockers Cleared
 
-- Any failed release gate or package-surface check.
-- Any stale active install docs using an unscoped package name.
-- Any npm package surface that includes raw review bundles, prompts, private
-  notes, generated archives, demo build outputs, `public_export`, or
-  `node_modules`.
-- Any accidental AIR ABI or Host ABI delta.
-- Any claim that v0.45.0 adds new math behavior.
-
-Tag and npm publish require a separate OK/STOP release decision.
+- Release gates and package-surface checks passed before publication.
+- Active install docs used the scoped package name.
+- The npm package surface excluded raw review bundles, prompts, private notes,
+  generated archives, demo build outputs, `public_export`, and `node_modules`.
+- No AIR ABI or Host ABI delta was included.
+- v0.45.0 did not add new math behavior.

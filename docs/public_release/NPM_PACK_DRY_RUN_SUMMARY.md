@@ -1,26 +1,28 @@
 # npm Pack Dry-Run Summary
 
-Status: implemented for the `0.45.0` public-alpha release candidate.
+Status: implemented for the `0.45.1` Show HN package presentation patch
+candidate.
 
 This records the local `npm pack --dry-run --json` package-surface smoke for
 the public alpha package. No npm publication was performed.
 
 Version policy update: `@underskys/air-core@0.44.1` remains the first published
 public alpha, `0.44.2` is emergency-only for urgent package-breaking fixes to
-`0.44.1`, and the active public npm alpha release candidate is
-`@underskys/air-core@0.45.0`.
+`0.44.1`, `@underskys/air-core@0.45.0` is the published public alpha, and the
+active Show HN package presentation patch candidate is
+`@underskys/air-core@0.45.1`.
 
 ## Result
 
 | Field | Value |
 | --- | --- |
 | Package | `@underskys/air-core` |
-| Version | `0.45.0` |
+| Version | `0.45.1` |
 | Dry-run status | pass |
 | File count | 139 |
-| Package size | 304,518 bytes |
-| Unpacked size | 1,383,630 bytes |
-| Tarball name | `underskys-air-core-0.45.0.tgz` |
+| Package size | 305,003 bytes |
+| Unpacked size | 1,385,282 bytes |
+| Tarball name | `underskys-air-core-0.45.1.tgz` |
 
 ## Included Top-Level Paths
 
@@ -84,10 +86,10 @@ the public alpha package:
 
 ## Local Tarball Smoke
 
-`npm pack` created `underskys-air-core-0.45.0.tgz`. The tarball was tested
+`npm pack` created `underskys-air-core-0.45.1.tgz`. The tarball was tested
 without publishing:
 
-- `node ./bin/airc.js version --json` returned version `0.45.0` and AIR
+- `node ./bin/airc.js version --json` returned version `0.45.1` and AIR
   ABI `0.10`.
 - A temporary local npm project install from the local tarball returned the same
   `airc version --json` result.

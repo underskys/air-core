@@ -16,7 +16,11 @@ Published public alpha baseline:
 
 Active public alpha release candidate:
 
-- `@underskys/air-core@0.45.0` with npm dist-tag `alpha`
+- `@underskys/air-core@0.45.1` with npm dist-tag `alpha`
+
+Published public alpha:
+
+- `@underskys/air-core@0.45.0`
 
 Alpha releases may change behavior. Breaking semantic changes require a
 migration note. Publishing is a separate release action and is not implied by a
@@ -97,7 +101,8 @@ commit and commands used to reproduce them.
 | Product version | Milestone | AIR ABI | Host ABI | Spec | Conformance | Notes |
 | --- | --- | --- | --- | --- | --- | --- |
 | `@underskys/air-core@0.44.1` | first published public alpha | `0.10` | `0.11` latest, `0.10` baseline | `0.10` family | repository tests and fixtures | Published public alpha baseline. |
-| `@underskys/air-core@0.45.0` | public alpha release candidate | `0.10` | `0.11` latest, `0.10` baseline | `0.10` family | repository tests and fixtures plus release gates | Release candidate for accumulated `M45-S*` documentation, positioning, roadmap, and release-governance slices. No new math implementation. |
+| `@underskys/air-core@0.45.0` | published public alpha | `0.10` | `0.11` latest, `0.10` baseline | `0.10` family | repository tests and fixtures plus release gates | Public positioning, documentation, roadmap, and release-governance release. No new math implementation. |
+| `@underskys/air-core@0.45.1` | Show HN presentation patch candidate | `0.10` | `0.11` latest, `0.10` baseline | `0.10` family | package presentation and release gates | README/package presentation fix only. No compiler, verifier, AIR ABI, Host ABI, or feature behavior changed. |
 
 ## Policy
 

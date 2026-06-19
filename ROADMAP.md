@@ -19,6 +19,9 @@ engineering direction, not a promise of dates or scope.
 - Prepare `@underskys/air-core@0.45.0` as the active npm public alpha release
   candidate with future dist-tag `alpha`; do not publish `0.44.2` unless an
   urgent package-breaking fix is required for `0.44.1`.
+- Prepare `@underskys/air-core@0.45.1` only as a Show HN package presentation
+  patch to the already published `0.45.0` alpha; it changes README/package
+  presentation only.
 
 ## Milestone Gates
 
@@ -26,7 +29,7 @@ engineering direction, not a promise of dates or scope.
 | --- | --- |
 | v0.43 | Public installability plan, conformance public check, promise debt ledger, and request ledger validation. |
 | v0.44.x | Historical public release hygiene around first published alpha `0.44.1`; `0.44.2` is emergency-only for urgent package-breaking fixes. |
-| v0.45 | Release candidate for README/docs/positioning/roadmap/release-governance plus Math & Host Profile Planning/Audit. Public sync requires public-clean cherry-pick; npm release target is `0.45.0`. |
+| v0.45 | Release candidate for README/docs/positioning/roadmap/release-governance plus Math & Host Profile Planning/Audit. Public sync requires public-clean cherry-pick; npm release target was `0.45.0`; `0.45.1` is a Show HN presentation patch only. |
 | v0.46 | Deterministic Math Stabilization: first implementation slice for accepted existing math behavior, conformance coverage, and caveat documentation. |
 | v0.47 | AIR MathLab / host-composition demo: public-clean demo evidence that composes AIR deterministic logic with host-owned rendering/platform authority. |
 | v0.48 | Host profile first slice / consumer replay: profile documentation, first public-safe replay fixture, and consumer evidence gate. |
@@ -54,9 +57,10 @@ published package.
 
 Use internal slice ids such as `M45-S1`, `M45-S2`, and later `M45-S*` entries
 for unpublished work. Public npm release versions are reserved for actual
-public packages. The active public alpha release candidate is
-`@underskys/air-core@0.45.0`; publish later with dist-tag `alpha` only after a
-separate tag/release decision.
+public packages. `@underskys/air-core@0.45.0` is the published public alpha;
+`@underskys/air-core@0.45.1` is reserved for the Show HN package presentation
+patch. Publish later with dist-tag `alpha` only after a separate tag/release
+decision.
 
 ## v0.46 Math Stabilization Direction
 

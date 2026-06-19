@@ -7,7 +7,9 @@ v0.45 Math & Host Profile Planning/Audit outcome into a small public
 implementation slice without widening AIR ABI or Host ABI by default.
 
 `@underskys/air-core@0.45.0` does not include new math implementation. It
-prepares public positioning, governance, roadmap, and release hygiene.
+shipped public positioning, governance, roadmap, and release hygiene.
+`@underskys/air-core@0.45.1` is a README/package presentation patch candidate
+only and also does not include new math implementation.
 
 ## Scope
 

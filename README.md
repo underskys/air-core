@@ -2,16 +2,22 @@
 
 AIR is a verifier-first programming language and toolchain for AI-authored deterministic components.
 
-AIR is the project name. `@underskys/air-core` is the npm package. `airc` is the CLI.
+AIR is the project name.
+
+`@underskys/air-core` is the npm package.
+
+`airc` is the CLI.
 
 It is designed for code that AI can write and machines can check: capabilities,
 effects, bounded execution, deterministic semantics, host boundaries, and
 evidence reports.
 
 AIR programs are written in a compact `.air` source format and compiled with
-`airc`. The reference backend targets Wasm today, while AIR's model is
-host-owned: the host controls rendering, IO, assets, UI, hardware, networking,
-and platform authority.
+`airc`.
+
+The reference backend targets Wasm today, while AIR's model is host-owned:
+the host controls rendering, IO, assets, UI, hardware, networking, and
+platform authority.
 
 AIR components can be small policy functions, but hosts can compose them into
 larger systems: tools, games, simulations, dashboards, robotics policies, and
@@ -19,6 +25,13 @@ larger systems: tools, games, simulations, dashboards, robotics policies, and
 
 > Note: AIR source files use the `.air` extension. This project is unrelated to
 > Adobe AIR.
+
+Public package identity:
+
+- Product: AIR
+- npm package: `@underskys/air-core`
+- CLI: `airc`
+- Source format: `.air`
 
 ## What AIR Is
 
@@ -149,12 +162,14 @@ shipped as public Core package authority.
 | Product/package | Milestone | AIR ABI | Host ABI | Spec | Conformance | Notes |
 | --- | --- | --- | --- | --- | --- | --- |
 | `@underskys/air-core@0.44.1` | first published public alpha | `0.10` | `0.11` latest, `0.10` baseline | `0.10` family | repo test/conformance suite | Published public alpha baseline. |
-| `@underskys/air-core@0.45.0` | public alpha release candidate | `0.10` | `0.11` latest, `0.10` baseline | `0.10` family | repo test/conformance suite plus release gates | Release candidate for public positioning/governance/roadmap cleanup from internal `M45-S*` slices; no new math implementation. |
+| `@underskys/air-core@0.45.0` | published public alpha | `0.10` | `0.11` latest, `0.10` baseline | `0.10` family | repo test/conformance suite plus release gates | Published public positioning/governance/roadmap release; no new math implementation. |
+| `@underskys/air-core@0.45.1` | Show HN presentation patch candidate | `0.10` | `0.11` latest, `0.10` baseline | `0.10` family | package presentation and release gates | README/package presentation fix only; no compiler, verifier, AIR ABI, Host ABI, or feature change. |
 
 Current active milestone:
 
 - Published package baseline: `@underskys/air-core@0.44.1`
-- Active public alpha release candidate: `@underskys/air-core@0.45.0`
+- Published public alpha: `@underskys/air-core@0.45.0`
+- Active Show HN presentation patch candidate: `@underskys/air-core@0.45.1`
 - Planned npm dist-tag: `alpha`
 - Internal planning slices: `M45-S1`, `M45-S2`, ...
 - Active install path after publish: `npm install -g @underskys/air-core@alpha`

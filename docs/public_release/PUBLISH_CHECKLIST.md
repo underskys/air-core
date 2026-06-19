@@ -1,7 +1,7 @@
 # AIR Public Alpha Publish Checklist
 
-Status: active checklist for the `0.45.0` public alpha release candidate;
-human-maintainer checklist for manual npm publish.
+Status: active checklist for the `0.45.1` Show HN package presentation patch
+candidate; human-maintainer checklist for manual npm publish.
 
 This checklist is for a human maintainer or protected GitLab CI release job.
 Codex must not receive npm tokens, must not receive npm credentials in prompts
@@ -9,17 +9,17 @@ or files, and must not publish from a local checkout. Protected GitLab CI may
 use masked CI variables such as `NPM_TOKEN` after an explicit OK/STOP release
 decision and manual job start.
 
-Target package: `@underskys/air-core@0.45.0`
+Target package: `@underskys/air-core@0.45.1`
 
-Planned git tag: `v0.45.0`
+Planned git tag: `v0.45.1`
 
 Planned npm dist-tag: `alpha`
 
 Version policy: `@underskys/air-core@0.44.1` remains the first published public
-alpha. Do not publish `0.44.2` unless there is an urgent package-breaking fix
-to `0.44.1`. README/docs/positioning/roadmap/release-governance work accumulated
-as internal `v0.45` slices (`M45-S1`, `M45-S2`, ...) for the active public
-alpha release candidate `0.45.0`.
+alpha. `@underskys/air-core@0.45.0` is the published public alpha. Do not
+publish `0.44.2` unless there is an urgent package-breaking fix to `0.44.1`.
+`@underskys/air-core@0.45.1` is reserved for a Show HN README/package
+presentation patch only.
 
 ## Pre-Publish Repository Checks
 
@@ -27,10 +27,10 @@ alpha release candidate `0.45.0`.
 - [ ] Checkout is clean.
 - [ ] `git status --short --branch` shows no dirty files and no unexpected
   ahead/behind state.
-- [ ] Planned tag `v0.45.0` does not already point to a different
+- [ ] Planned tag `v0.45.1` does not already point to a different
   commit.
 - [ ] The release commit has been reviewed and pushed.
-- [ ] `package.json` version is `0.45.0`.
+- [ ] `package.json` version is `0.45.1`.
 - [ ] `package.json` license is `Apache-2.0`.
 - [ ] `package.json` has no `private: true`.
 - [ ] `LICENSE`, `NOTICE`, and `AUTHORS` exist.
@@ -40,9 +40,9 @@ alpha release candidate `0.45.0`.
   public repository reproduces it.
 - [ ] `REVIEW_RESULTS/RED_FLAGS.md` has no active red flags.
 - [ ] `docs/PROMISE_DEBT.md` exists and request ledger validation passes.
-- [ ] Release notes for `0.45.0` are ready for public release notes.
+- [ ] Release notes for `0.45.1` are ready for public release notes.
 - [ ] `README.md` install instructions use `npm install -g @underskys/air-core@alpha`.
-- [ ] `0.45.0` release notes state no AIR ABI change, no Host ABI change, and
+- [ ] `0.45.1` release notes state no AIR ABI change, no Host ABI change, and
   no new math implementation.
 
 ## Required Checks
@@ -91,7 +91,7 @@ package smoke.
 Preferred:
 
 ```sh
-npm install -g ./underskys-air-core-0.45.0.tgz
+npm install -g ./underskys-air-core-0.45.1.tgz
 airc version --json
 airc check examples/public/safe_policy/module.air
 npm uninstall -g @underskys/air-core
@@ -103,7 +103,7 @@ limitation.
 Clean up before commit:
 
 ```sh
-rm -f underskys-air-core-0.45.0.tgz
+rm -f underskys-air-core-0.45.1.tgz
 rm -rf build/public-smoke
 ```
 
@@ -128,13 +128,13 @@ Preferred protected CI path:
 2. Run the manual `npm:auth:check` job to verify `npm ping`, `npm whoami`, and
    `npm view` without publishing.
 3. Create/run a protected tag pipeline where `CI_COMMIT_TAG` is exactly
-   `v0.45.0`, then manually start `publish:npm`.
+   `v0.45.1`, then manually start `publish:npm`.
 4. To update a dist-tag for an already published version, use `npm:dist-tag`
    with `AIR_NPM_DIST_TAG_UPDATE=1`, `AIR_RELEASE_DECISION=OK`,
    `AIR_NPM_VERSION`, and `AIR_NPM_DIST_TAG`.
 
-The CI publish job validates package identity as `@underskys/air-core@0.45.0`,
-requires tag pipeline `v0.45.0`, refuses to publish a version that already
+The CI publish job validates package identity as `@underskys/air-core@0.45.1`,
+requires tag pipeline `v0.45.1`, refuses to publish a version that already
 exists on npm, reruns public package/claims/review-bundle policy checks,
 performs `npm pack --dry-run --json`, creates a tarball, discovers the actual
 scoped tarball filename from `npm pack --json`, and then runs `npm publish
@@ -143,7 +143,7 @@ scoped tarball filename from `npm pack --json`, and then runs `npm publish
 Fallback human maintainer command:
 
 ```sh
-npm publish --access public --tag alpha ./underskys-air-core-0.45.0.tgz
+npm publish --access public --tag alpha ./underskys-air-core-0.45.1.tgz
 ```
 
 Use npm account 2FA and the intended package visibility. Confirm the package
@@ -154,10 +154,10 @@ name and dist-tag before publishing.
 Run this only after the human maintainer completes npm publish.
 
 ```sh
-npm view @underskys/air-core@0.45.0 name
-npm view @underskys/air-core@0.45.0 version
-npm view @underskys/air-core@0.45.0 license
-npm view @underskys/air-core@0.45.0 bin
+npm view @underskys/air-core@0.45.1 name
+npm view @underskys/air-core@0.45.1 version
+npm view @underskys/air-core@0.45.1 license
+npm view @underskys/air-core@0.45.1 bin
 npm install -g @underskys/air-core@alpha
 airc version --json
 airc --help

@@ -1,7 +1,7 @@
 # v0.45 Release Decision
 
-Status: dev planning/audit milestone accepted; public-clean release candidate
-prepared separately as `@underskys/air-core@0.45.0`.
+Status: dev planning/audit milestone accepted; public-clean release shipped
+separately as `@underskys/air-core@0.45.0`.
 
 Reference dev/private review bundle: commit `ef24919`.
 
@@ -23,13 +23,14 @@ current public-clean state and scoped public release decisions.
 - v0.45 public sync requires a scoped public-clean cherry-pick.
 - v0.45 package identity in the dev bundle is stale: `air-core@0.44.0`.
 - Current public package identity is `@underskys/air-core`.
-- Current npm published package is `@underskys/air-core@0.44.1`.
+- Current npm published package is `@underskys/air-core@0.45.0`.
 - `0.44.2` is not a planned public npm release unless an urgent
   package-breaking fix is required for the already published `0.44.1` package.
 - README/docs/positioning/roadmap/release-governance work accumulated as
-  internal `v0.45` slices toward `@underskys/air-core@0.45.0`.
-- v0.45 public release candidate preparation is packaging/docs/governance work
-  only; npm publish and tag creation remain separate tasks.
+  internal `v0.45` slices and shipped as `@underskys/air-core@0.45.0`.
+- `@underskys/air-core@0.45.1` is a Show HN README/package presentation patch
+  candidate only.
+- v0.45 public release preparation was packaging/docs/governance work only.
 - v0.45 did not implement new math operations.
 - v0.45 contains no AIR ABI change.
 - v0.45 contains no Host ABI change.

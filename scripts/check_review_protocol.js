@@ -126,7 +126,7 @@ function validatePolicyDocs() {
     ],
     "docs/release/RELEASE_VERSIONING_POLICY.md": [
       "M45-S1",
-      "0.45.0",
+      "0.45.1",
       "Do not use npm patch versions for unpublished internal slices",
       "AIR ABI and Host ABI are independent version axes"
     ],

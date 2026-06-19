@@ -88,7 +88,7 @@ function buildManifest(kind, id, artifacts) {
     forbiddenContentCheck: "pending",
     artifacts,
     internalSlice: "M45-S1",
-    publicVersion: kind === "core-release" ? "0.45.0" : undefined,
+    publicVersion: kind === "core-release" ? "0.45.1" : undefined,
     npmPackage: "@underskys/air-core",
     packageVersion: "<package-version>",
     airAbi: "0.10",

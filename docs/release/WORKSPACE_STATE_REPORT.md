@@ -7,9 +7,9 @@ policy.
 
 Current version policy: `@underskys/air-core@0.44.1` remains the first
 published public alpha. Do not publish `0.44.2` unless there is an urgent
-package-breaking fix to `0.44.1`. The active public alpha release candidate is
-`@underskys/air-core@0.45.0`, to be published later with dist-tag `alpha` only
-after a separate tag/release decision.
+package-breaking fix to `0.44.1`. `@underskys/air-core@0.45.0` is the
+published public alpha. `@underskys/air-core@0.45.1` is reserved for a Show HN
+README/package presentation patch only.
 
 ## Repositories
 
@@ -40,15 +40,15 @@ git@gitlab.com:fd.skyrealm/airlang.git
 Observed npm package:
 
 ```text
-@underskys/air-core@alpha = 0.44.1
-dist-tags: alpha=0.44.1, latest=0.44.1
-published versions: 0.44.1
+@underskys/air-core@alpha = 0.45.0
+dist-tags: alpha=0.45.0, latest=0.45.0
+published versions: 0.44.1, 0.45.0
 ```
 
-At the time of this historical snapshot, local `air-core` was prepared as
-`0.44.2`; npm still showed `0.44.1` published. No npm publish was run during
-that task. The current release candidate supersedes the `0.44.2` publish path
-except for urgent package-breaking fixes.
+At the time of the original historical snapshot, local `air-core` was prepared
+as `0.44.2`; npm still showed `0.44.1` published. That path is superseded by
+the published `0.45.0` alpha except for urgent package-breaking fixes to
+already published packages.
 
 ## Release Tags
 
@@ -66,9 +66,10 @@ are not production release tags.
 ## CI Status
 
 `air-core` has GitLab CI stages for test, pack, and protected manual npm
-publish. Current release policy requires the active public alpha release
-candidate to be `@underskys/air-core@0.45.0`, with publish allowed only from a
-manual `v0.45.0` tag pipeline. `0.44.2` is reserved for emergency fixes only.
+publish. Current release policy treats `@underskys/air-core@0.45.0` as the
+published public alpha and reserves `@underskys/air-core@0.45.1` for the Show HN
+README/package presentation patch, with publish allowed only from a manual
+`v0.45.1` tag pipeline. `0.44.2` is reserved for emergency fixes only.
 
 No live remote pipeline status was queried in this local workspace report.
 
@@ -92,7 +93,8 @@ work.
 | Package name `air-core` | `airlang` | C | Dev/private historical identity; do not release from it. |
 | Package version `0.44.2` | `air-core` history | F | Historical local candidate only; do not publish unless urgent package-breaking fix is required for `0.44.1`. |
 | Published npm version `0.44.1` | npm registry | A | First published public alpha baseline. |
-| Release candidate package version `0.45.0` | `air-core` | A | Active public alpha release candidate after internal `M45-S*` slices. |
+| Published package version `0.45.0` | npm registry | A | Published public alpha after internal `M45-S*` slices. |
+| Release candidate package version `0.45.1` | `air-core` | A | Show HN README/package presentation patch candidate only. |
 | README product positioning | `air-core` | A | Public AIR positioning is current. |
 | README install command | `air-core` | A | Uses `@underskys/air-core@alpha`. |
 | README old install wording | `airlang` | C | Historical/dev only. |
@@ -129,7 +131,7 @@ Human decisions remain required for:
 
 - whether an urgent `@underskys/air-core@0.44.2` package-breaking fix is
   required before any `0.45.0` release action;
-- whether the prepared `@underskys/air-core@0.45.0` release candidate is ready
+- whether the prepared `@underskys/air-core@0.45.1` presentation patch is ready
   for the separate protected tag/publish task;
 - whether any locally ahead `airlang` commits contain public-safe candidates.
 
