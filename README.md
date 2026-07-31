@@ -2,6 +2,9 @@
 
 **Created and directed by [Dmitriy Shtro](https://www.linkedin.com/in/dmitrii-sky-64024810a/?skipRedirect=true).**
 
+**Creator and maintainer:** Dmitriy Shtro. AIR is an independent open-source
+project; its public source and release package are maintained at the links below.
+
 AIR is a verifier-first programming language and toolchain for AI-authored deterministic components.
 
 AIR is the project name.
@@ -167,15 +170,16 @@ shipped as public Core package authority.
 | `@underskys/air-core@0.44.1` | first published public alpha | `0.10` | `0.11` latest, `0.10` baseline | `0.10` family | repo test/conformance suite | Published public alpha baseline. |
 | `@underskys/air-core@0.45.0` | published public alpha | `0.10` | `0.11` latest, `0.10` baseline | `0.10` family | repo test/conformance suite plus release gates | Published public positioning/governance/roadmap release; no new math implementation. |
 | `@underskys/air-core@0.45.1` | Show HN presentation patch candidate | `0.10` | `0.11` latest, `0.10` baseline | `0.10` family | package presentation and release gates | README/package presentation fix only; no compiler, verifier, AIR ABI, Host ABI, or feature change. |
+| `@underskys/air-core@0.50.0` | published public release | `0.10`, with opt-in `0.11` borrowed slices | `0.10` | `0.50` public surface | repo test/conformance suite plus release gates | Refinement types, provenance flow, resource certificates, semantic patches, bounded tool gate, region bounds, and opt-in borrowed slices. |
 
 Current active milestone:
 
-- Published package baseline: `@underskys/air-core@0.44.1`
-- Published public alpha: `@underskys/air-core@0.45.0`
-- Active Show HN presentation patch candidate: `@underskys/air-core@0.45.1`
-- Planned npm dist-tag: `alpha`
-- Internal planning slices: `M45-S1`, `M45-S2`, ...
-- Active install path after publish: `npm install -g @underskys/air-core@alpha`
+- Current public package: `@underskys/air-core@0.50.0`
+- npm `latest`: `0.50.0`
+- Install path: `npm install -g @underskys/air-core`
+- AIR ABI compatibility: existing `0.10` modules remain supported; borrowed
+  slices are opt-in `0.11`.
+- Host ABI: not redefined by `0.50.0`.
 - Active roadmap:
   [docs/V0_45_RELEASE_PLAN.md](https://gitlab.com/fd.skyrealm/air-core/-/blob/main/docs/V0_45_RELEASE_PLAN.md)
 - Feature status:
