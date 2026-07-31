@@ -21,9 +21,14 @@ assert.strictEqual(init.length, 1);
 assert.strictEqual(init[0].result.capabilities.textDocumentSync.openClose, true);
 assert.strictEqual(init[0].result.capabilities.textDocumentSync.change, 1);
 assert.strictEqual(init[0].result.capabilities.textDocumentSync.save.includeText, false);
-assert.deepStrictEqual(Object.keys(init[0].result.capabilities).sort(), ["textDocumentSync"]);
+assert.deepStrictEqual(Object.keys(init[0].result.capabilities).sort(), [
+  "documentFormattingProvider",
+  "hoverProvider",
+  "textDocumentSync"
+]);
+assert.strictEqual(init[0].result.capabilities.documentFormattingProvider, true);
+assert.strictEqual(init[0].result.capabilities.hoverProvider, true);
 assert.strictEqual(init[0].result.capabilities.codeActionProvider, undefined);
-assert.strictEqual(init[0].result.capabilities.hoverProvider, undefined);
 assert.strictEqual(init[0].result.capabilities.definitionProvider, undefined);
 assert.strictEqual(init[0].result.capabilities.documentSymbolProvider, undefined);
 
@@ -52,13 +57,84 @@ capabilities { }
 
 export func run() -> i32 {
 entry:
-  %ok:i32 = 1
+  %ok:i32 = const.i32 1
   return %ok
 }
 `
   }]
 });
 assert.deepStrictEqual(diagnosticsFor(published, syntaxUri), []);
+
+const formatting = request(session, 2, "textDocument/formatting", {
+  textDocument: { uri: syntaxUri },
+  options: { tabSize: 2, insertSpaces: true }
+});
+assert.strictEqual(formatting.length, 1);
+assert.strictEqual(formatting[0].result.length, 1);
+assert.strictEqual(formatting[0].result[0].newText, `module syntax_error
+capabilities { }
+
+export func run() -> i32 {
+entry:
+  %ok:i32 = 1
+  return %ok
+}
+`);
+
+const hoverUri = filePathToUri(path.join(tmp, "hover.air"));
+notify(session, "textDocument/didOpen", {
+  textDocument: {
+    uri: hoverUri,
+    languageId: "air",
+    version: 1,
+    text: `module hover_surface
+capabilities { debug }
+effects { cpu.instructions <= 12 }
+
+export func run() -> i32 {
+entry:
+  %ok:i32 = 1
+  return %ok
+}
+`
+  }
+});
+const capabilityHover = request(session, 3, "textDocument/hover", {
+  textDocument: { uri: hoverUri },
+  position: { line: 1, character: 17 }
+});
+assert.match(capabilityHover[0].result.contents.value, /`debug`/);
+assert.match(capabilityHover[0].result.contents.value, /do not grant host authority/);
+const effectHover = request(session, 4, "textDocument/hover", {
+  textDocument: { uri: hoverUri },
+  position: { line: 2, character: 14 }
+});
+assert.match(effectHover[0].result.contents.value, /`cpu\.instructions <= 12`/);
+
+const commentUri = filePathToUri(path.join(tmp, "comment.air"));
+notify(session, "textDocument/didOpen", {
+  textDocument: {
+    uri: commentUri,
+    languageId: "air",
+    version: 1,
+    text: `module comment_safe
+# Preserve this review note.
+capabilities { }
+
+export func run() -> i32 {
+entry:
+  %ok:i32 = 1
+  return %ok
+}
+`
+  }
+});
+const commentFormatting = request(session, 5, "textDocument/formatting", {
+  textDocument: { uri: commentUri },
+  options: { tabSize: 2, insertSpaces: true }
+});
+assert.strictEqual(commentFormatting[0].error.code, -32603);
+assert.match(commentFormatting[0].error.message, /air\.format\.comments_not_preserved/);
 
 published = notify(session, "textDocument/didClose", {
   textDocument: { uri: syntaxUri }
