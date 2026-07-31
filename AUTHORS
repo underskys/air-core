@@ -1,16 +1,16 @@
-AIR / airlang Authors
-=====================
+AIR Authors
+===========
 
 Creator and maintainer:
 
-- Dmitriii
+- [Dmitriy Shtro](https://www.linkedin.com/in/dmitrii-sky-64024810a/?skipRedirect=true)
 
 AI-assisted development note:
 
-AIR is developed with AI assistance under human direction. Dmitriii created and
-directs the project: product direction, architecture constraints, acceptance
-criteria, review orchestration, evidence gates, release decisions, and the
-AI-orchestrated engineering process.
+AIR was created and is directed by Dmitriy Shtro. AIR is developed with AI
+assistance under human direction: product direction, architecture constraints,
+acceptance criteria, review orchestration, evidence gates, release decisions,
+and the AI-assisted engineering process.
 
 AI tools may assist implementation, review, test generation, documentation, and
 release hygiene. Authorship, project direction, and release responsibility are

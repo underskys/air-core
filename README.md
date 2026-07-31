@@ -1,5 +1,7 @@
 # AIR
 
+**Created and directed by [Dmitriy Shtro](https://www.linkedin.com/in/dmitrii-sky-64024810a/?skipRedirect=true).**
+
 AIR is a verifier-first programming language and toolchain for AI-authored deterministic components.
 
 AIR is the project name.
@@ -32,6 +34,7 @@ Public package identity:
 - npm package: `@underskys/air-core`
 - CLI: `airc`
 - Source format: `.air`
+- Author and project lead: [Dmitriy Shtro](https://www.linkedin.com/in/dmitrii-sky-64024810a/?skipRedirect=true)
 
 ## What AIR Is
 
@@ -196,10 +199,10 @@ for the public release version axes.
 
 ## Development Method
 
-AIR is developed with AI assistance under human direction. Dmitriii created and
-directs the project: product direction, architecture constraints, acceptance
-criteria, review orchestration, evidence gates, release decisions, and the
-AI-orchestrated engineering process.
+AIR was created by [Dmitriy Shtro](https://www.linkedin.com/in/dmitrii-sky-64024810a/?skipRedirect=true),
+who directs the product, language architecture, acceptance criteria, review
+orchestration, evidence gates, release decisions, and the AI-assisted
+engineering process.
 
 AI tools may assist implementation, tests, docs, and review hygiene. They do
 not replace authorship, ownership, acceptance, or release responsibility.

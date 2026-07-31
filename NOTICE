@@ -1,14 +1,14 @@
-AIR / airlang
-Copyright 2026 Dmitriii
+AIR
+Copyright 2026 Dmitriy Shtro
 
 This product includes AIR Core compiler/verifier/CLI, specification,
 conformance suite, and public examples distributed under the Apache License,
 Version 2.0.
 
-AIR is developed with AI assistance under human direction. Dmitriii created and
-directs the project: product direction, architecture constraints, acceptance
-criteria, review orchestration, evidence gates, release decisions, and the
-AI-orchestrated engineering process.
+AIR was created and is directed by Dmitriy Shtro. AIR is developed with AI
+assistance under human direction: product direction, architecture constraints,
+acceptance criteria, review orchestration, evidence gates, release decisions,
+and the AI-assisted engineering process.
 
 Third-party dependency notices:
 

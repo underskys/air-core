@@ -2,7 +2,7 @@
 
 AIR is developed with AI assistance under human direction.
 
-Dmitriii created and directs the project: product direction, architecture
+Dmitriy Shtro created and directs the project: product direction, architecture
 constraints, acceptance criteria, review orchestration, evidence gates, release
 decisions, and the AI-orchestrated engineering process.
 

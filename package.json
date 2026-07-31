@@ -3,7 +3,10 @@
   "version": "0.45.1",
   "description": "Verifier-first programming language and CLI for AI-authored deterministic components that hosts can compose into tools, games, simulations, robotics policies, and 3D scenes.",
   "license": "Apache-2.0",
-  "author": "Dmitriii",
+  "author": {
+    "name": "Dmitriy Shtro",
+    "url": "https://www.linkedin.com/in/dmitrii-sky-64024810a/?skipRedirect=true"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://gitlab.com/fd.skyrealm/air-core.git"
@@ -73,7 +76,11 @@
     "build:grep": "node bin/airc.js build examples/grep.air --emit wat -o build/grep.wat",
     "build:wasm": "node bin/airc.js build examples/grep.air --emit wasm -o build/grep.wasm",
     "check:request-ledger": "node scripts/check_request_ledger.js",
-    "check:release-lane": "node scripts/check_release_lane.js"
+    "check:release-lane": "node scripts/check_release_lane.js",
+    "demo:tetris:check": "node scripts/check_demo_showcases.js air-tetris",
+    "demo:voxel:check": "node scripts/check_demo_showcases.js air-voxel",
+    "demo:world:check": "node scripts/check_demo_showcases.js air-world",
+    "demo:check": "node scripts/check_demo_showcases.js"
   },
   "config": {
     "reviewBundle": {

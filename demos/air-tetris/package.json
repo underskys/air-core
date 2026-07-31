@@ -1,0 +1,9 @@
+{
+  "name": "@underskys/air-demo-tetris",
+  "version": "0.0.0-alpha",
+  "private": true,
+  "description": "Public-clean AIR Tetris demo layout and boundary contract.",
+  "scripts": {
+    "check": "node ../../scripts/check_demo_showcases.js air-tetris"
+  }
+}

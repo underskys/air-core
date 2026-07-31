@@ -1,0 +1,9 @@
+{
+  "name": "@underskys/air-demo-voxel",
+  "version": "0.0.0-alpha",
+  "private": true,
+  "description": "Public-clean AIR Voxel demo layout and boundary contract.",
+  "scripts": {
+    "check": "node ../../scripts/check_demo_showcases.js air-voxel"
+  }
+}

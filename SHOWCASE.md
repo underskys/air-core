@@ -22,6 +22,47 @@ passing checks, 0 failures, and 0 findings. Those checks live outside the
 public npm package surface and should be reproduced separately before making
 release claims about the external suite.
 
+## Host-Composed Demos
+
+Status: alpha/experimental showcase layout. These demos are host-composed
+examples, not AIR Core semantics, AIR ABI, Host ABI, compiler behavior, or npm
+package authority.
+
+AIR owns bounded deterministic logic, capabilities/effects, evidence, and
+output intents. The host owns rendering, IO, UI, assets, network,
+GPU/WebGPU/WebGL, audio, hardware, and platform authority. AIR is not a game
+engine, a 3D engine, or a replacement for TypeScript, Python, Rust, or host
+application code.
+
+- [AIR Tetris](demos/air-tetris/README.md) — deterministic game rules with host
+  rendering/input. Status: alpha layout; primary showcase candidate; public
+  source promotion and smoke evidence pending.
+- [AIR Voxel](demos/air-voxel/README.md) — bounded voxel/scene logic with host
+  rendering. Status: alpha layout; visual/3D host-composition candidate; public
+  source promotion and smoke evidence pending.
+- [AIR World](demos/air-world/README.md) — semantic object/world representation
+  experiment. Status: experimental alpha layout; public source promotion and
+  smoke evidence pending.
+
+Run the lightweight public layout check:
+
+```sh
+npm run demo:check
+```
+
+The current AIR Core npm package does not include demo source trees, screenshots,
+generated bundles, heavy assets, or private review artifacts.
+
+## Visual Host-Composed Demos
+
+The visual showcase gallery lives in
+[docs/showcase/README.md](docs/showcase/README.md). It is the public-clean
+place for AIR Control Plane, Airon, AIR Tetris, AIR Voxel, AIR World, TimeRift,
+and other host-composed demo screenshots after media safety review.
+
+Do not duplicate screenshots in this root showcase file unless the images are
+small, stable, public-safe, and explicitly approved for the npm package surface.
+
 ## What Was Measured
 
 The `air-tests` suite compares AIR against hand-written control programs on a
