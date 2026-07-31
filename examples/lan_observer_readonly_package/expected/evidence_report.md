@@ -9,6 +9,15 @@
 | Required Host ABI | 0.10 |
 | Package hash | sha256:d59768d7a395c4db8581df715fbf15ab0c71e7b1b09bd3c8399c2fcb583f32e7 |
 
+## Review Summary
+
+| Field | Value |
+| --- | --- |
+| Outcome | passed |
+| Next action | Review claims and host-boundary evidence. |
+| Authority boundary | AIR evidence only; the host retains side-effect authority. |
+| Determinism | No timestamps or absolute paths. |
+
 ## Capabilities
 
 | Field | Value |
