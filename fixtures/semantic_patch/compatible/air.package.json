@@ -1,0 +1,16 @@
+{
+  "airAbi": "0.10",
+  "capabilities": [],
+  "commandBuffers": [],
+  "entry": "module.air",
+  "factSchemas": [],
+  "generatedModules": [],
+  "hostAbi": "0.10",
+  "name": "semantic-patch-fixture",
+  "outputContracts": [],
+  "structuredIO": [],
+  "targetProfiles": [
+    "cli"
+  ],
+  "version": "0.1.0"
+}

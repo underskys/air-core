@@ -1,0 +1,13 @@
+module level
+tablegroup level_sections len 2 {
+  x:i32 = [12, 34]
+  y:i32 = [5, 8]
+  solid:bool = [true, false]
+}
+capabilities { }
+
+export func section_x(index: i32) -> i32 {
+entry:
+  %x:i32 = tablegroup.get.i32 @level_sections.x, %index
+  return %x
+}

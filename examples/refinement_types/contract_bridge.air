@@ -1,0 +1,16 @@
+module contract_bridge
+capabilities { }
+
+func bounded_source() -> i32 {
+  ensures return >= 0
+  ensures return <= 10
+entry:
+  %value:i32 = 5
+  return %value
+}
+
+export func run() -> i32<0..10> {
+entry:
+  %bounded:i32<0..10> = @bounded_source()
+  return %bounded
+}

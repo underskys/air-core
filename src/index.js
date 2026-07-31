@@ -34,6 +34,7 @@ module.exports = {
   ...require("./package_diff"),
   ...require("./evidence_report"),
   ...require("./sdk"),
+  ...require("./run_package"),
   ...require("./host_abi"),
   ...require("./lower_wasm")
 };

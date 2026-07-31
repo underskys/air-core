@@ -1,0 +1,27 @@
+module region_bounds_dynamic_loop
+
+capabilities { }
+requires export write_frames
+
+export func write_frames(frames: i32) -> i32 {
+entry:
+  %bytes:i32 = 16
+  %ptr:ptr = alloc_region %bytes
+  %zero:i32 = 0
+  br loop
+loop:
+  %i:i32 = phi.i32 entry:%zero, body:%next
+  %done:bool = i32.ge_s %i, %frames
+  br_if %done, exit, body
+body:
+  %width:i32 = 4
+  %offset:i32 = mul %i, %width
+  %value:i32 = 99
+  store.i32 %ptr, %offset, %value
+  %one:i32 = 1
+  %next:i32 = add %i, %one
+  br loop
+exit:
+  free_region %ptr
+  return %i
+}

@@ -227,3 +227,4 @@ See [METHOD.md](https://gitlab.com/fd.skyrealm/air-core/-/blob/main/METHOD.md).
 - [AIR Layer Manifest](https://gitlab.com/fd.skyrealm/air-core/-/blob/main/spec/AIR_LAYER_MANIFEST.md)
 - [Public Release Audit](https://gitlab.com/fd.skyrealm/air-core/-/blob/main/docs/public_release/PUBLIC_CUT_AUDIT.md)
 - [Changelog](https://gitlab.com/fd.skyrealm/air-core/-/blob/main/CHANGELOG.md)
+- [Release Notes v0.50.0](https://gitlab.com/fd.skyrealm/air-core/-/blob/main/docs/RELEASE_NOTES_0_50_0.md)

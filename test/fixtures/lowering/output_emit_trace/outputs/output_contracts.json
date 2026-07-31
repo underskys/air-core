@@ -1,0 +1,30 @@
+{
+  "schemaVersion": "0.18",
+  "kind": "air.outputContract",
+  "outputs": [
+    {
+      "id": 1,
+      "name": "notify_status_recorded",
+      "channel": "policy",
+      "capability": "output.emit",
+      "args": [
+        {
+          "name": "arg0",
+          "type": "i32"
+        },
+        {
+          "name": "arg1",
+          "type": "i32"
+        },
+        {
+          "name": "arg2",
+          "type": "i32"
+        },
+        {
+          "name": "arg3",
+          "type": "i32"
+        }
+      ]
+    }
+  ]
+}

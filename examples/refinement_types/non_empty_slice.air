@@ -1,0 +1,7 @@
+module non_empty_slice
+capabilities { }
+
+export func keep_non_empty(data: slice<len=1..64>) -> slice<len=1..64> {
+entry:
+  return %data
+}

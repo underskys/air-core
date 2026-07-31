@@ -248,7 +248,7 @@ entry:
 
   await test("compiler package version and AIR ABI report from one source", () => {
     assert.strictEqual(AIR_ABI_VERSION, "0.10");
-    assert.strictEqual(AIR_VERSION, "0.45.1");
+    assert.strictEqual(AIR_VERSION, "0.50.0");
     const pkg = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
     const lock = JSON.parse(fs.readFileSync(path.join(root, "package-lock.json"), "utf8"));
     assert.strictEqual(pkg.version, AIR_VERSION);
@@ -2120,7 +2120,7 @@ entry:
     const bad = source.replace("%bytes:i32 = 64", "%bytes:i32 = 16");
     assert.throws(
       () => verifyModule(parseAir(bad, "bad_mat4_store_demo.air")),
-      /static memory access out of region bounds: offset 0, width 64, region size 16/
+      /air\.memory\.region_bounds_static: raw memory access out of region bounds: offset 0, width 64, region size 16/
     );
   });
 

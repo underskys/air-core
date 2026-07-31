@@ -1,0 +1,47 @@
+{
+  "tolerance": {
+    "sqrt": 0,
+    "trig": 0.003
+  },
+  "results": [
+    {
+      "export": "sqrt_positive",
+      "expected": 2,
+      "tolerance": 0
+    },
+    {
+      "export": "sqrt_zero",
+      "expected": 0,
+      "tolerance": 0
+    },
+    {
+      "export": "sqrt_negative",
+      "expected": "NaN"
+    },
+    {
+      "export": "sin_zero",
+      "expected": 0,
+      "tolerance": 0.003
+    },
+    {
+      "export": "sin_half_pi",
+      "expected": 1,
+      "tolerance": 0.003
+    },
+    {
+      "export": "sin_tau",
+      "expected": 0,
+      "tolerance": 0.003
+    },
+    {
+      "export": "cos_zero",
+      "expected": 1,
+      "tolerance": 0.003
+    },
+    {
+      "export": "cos_pi",
+      "expected": -1,
+      "tolerance": 0.003
+    }
+  ]
+}

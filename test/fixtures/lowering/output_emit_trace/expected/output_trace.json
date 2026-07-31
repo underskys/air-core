@@ -1,0 +1,14 @@
+{
+  "export": "run",
+  "args": [],
+  "return": 0,
+  "outputEmits": [
+    {
+      "output_id": 1,
+      "arg0": 7,
+      "arg1": 0,
+      "arg2": 0,
+      "arg3": 0
+    }
+  ]
+}

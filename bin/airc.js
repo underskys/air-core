@@ -2,8 +2,10 @@
 
 const fs = require("fs");
 const path = require("path");
+const crypto = require("crypto");
 const { parseAir } = require("../src/parser");
-const { verifyModule, VerificationError } = require("../src/verifier");
+const { assertWasmTargetSupport, verifyModule, VerificationError } = require("../src/verifier");
+const { ProvenanceFlowError } = require("../src/provenance_flow");
 const { formatModule } = require("../src/format");
 const { explainModule } = require("../src/explain");
 const { auditModule } = require("../src/audit");
@@ -35,8 +37,15 @@ const { createPackageVerificationEvidence, stableStringify: stableEvidenceString
 const { createMockHostInteractionEvidence, stableStringify: stableMockHostStringify } = require("../src/mock_host_policy");
 const { createBenchmarkReport, stableStringify: stableBenchmarkStringify } = require("../src/benchmark_report");
 const { createAiAuthoringEvalReport, createAiAuthoringEvalImportReport, createAiAuthoringEvalRegressionReport, stableStringify: stableAiEvalStringify } = require("../src/ai_authoring_eval");
+const { createAiAuthoringBenchmarkReport, runAiAuthoringBenchmarkAdapter, stableStringify: stableAiBenchmarkStringify } = require("../src/ai_authoring_benchmark");
 const { createVerifierSafetyFuzzReport, stableStringify: stableSafetyFuzzStringify } = require("../src/verifier_safety_fuzz");
 const { createPackageDiff, stableStringify: stablePackageDiffStringify } = require("../src/package_diff");
+const {
+  applySemanticPatch,
+  createSemanticPatch,
+  inspectSemanticPatch,
+  stableStringify: stableSemanticPatchStringify
+} = require("../src/semantic_patch");
 const { createE2eProofReport, stableStringify: stableE2eProofStringify } = require("../src/e2e_proof");
 const { createEvidenceMarkdownReport } = require("../src/evidence_report");
 const { AIR_VERSION, AIR_ABI_VERSION } = require("../src/version");
@@ -108,14 +117,16 @@ async function main(argv) {
     const built = !(rest.includes("--source-only") || rest.includes("--no-built"));
     const releaseCandidate = rest.includes("--release-candidate");
     if (!profile) {
-      const result = validatePackageDir(file, { built });
-      if (json) {
-        process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
-      } else {
-        console.log(`ok: ${file}`);
-        console.log(JSON.stringify(result));
+      const validation = validatePackageDir(file, { built });
+      if (!validation.executionProfile) {
+        if (json) {
+          process.stdout.write(`${JSON.stringify(validation, null, 2)}\n`);
+        } else {
+          console.log(`ok: ${file}`);
+          console.log(JSON.stringify(validation));
+        }
+        return 0;
       }
-      return 0;
     }
     const result = checkPackageDir(file, { profile, built, releaseCandidate });
     if (json) {
@@ -164,6 +175,55 @@ async function main(argv) {
     return result.status === "failed" ? 1 : 0;
   }
 
+  if (command === "semantic-patch") {
+    const action = file;
+    if (action === "generate") {
+      const basePackageDir = rest.shift();
+      const resultPackageDir = rest.shift();
+      const output = readOption(rest, "-o") || readOption(rest, "--output");
+      if (!basePackageDir || !resultPackageDir || !output) {
+        throw new Error("usage: airc semantic-patch generate <base-package> <result-package> -o <patch.json>");
+      }
+      const patch = createSemanticPatch(basePackageDir, resultPackageDir, {
+        policyMode: readOption(rest, "--mode") || "strict",
+        authoritySource: readOption(rest, "--authority-source"),
+        actor: readOption(rest, "--actor"),
+        humanForced: rest.includes("--human-forced"),
+        humanReasonCode: readOption(rest, "--reason")
+      });
+      fs.mkdirSync(path.dirname(path.resolve(output)), { recursive: true });
+      fs.writeFileSync(output, stableSemanticPatchStringify(patch));
+      if (rest.includes("--json")) process.stdout.write(stableSemanticPatchStringify(patch));
+      else console.log(`wrote ${output}`);
+      return 0;
+    }
+    if (action === "inspect" || action === "verify") {
+      const patchFile = rest.shift();
+      if (!patchFile) throw new Error(`usage: airc semantic-patch ${action} <patch.json> [--strict] --json`);
+      const evidence = inspectSemanticPatch(patchFile, {
+        strict: rest.includes("--strict") ? true : undefined
+      });
+      if (rest.includes("--json")) process.stdout.write(stableSemanticPatchStringify(evidence));
+      else printSemanticPatchSummary(evidence);
+      return evidence.status === "accepted" ? 0 : 1;
+    }
+    if (action === "apply") {
+      const patchFile = rest.shift();
+      const basePackageDir = rest.shift();
+      const output = readOption(rest, "-o") || readOption(rest, "--output");
+      if (!patchFile || !basePackageDir || !output) {
+        throw new Error("usage: airc semantic-patch apply <patch.json> <base-package> -o <result-package> [--strict]");
+      }
+      const result = applySemanticPatch(basePackageDir, patchFile, output, {
+        strict: rest.includes("--strict") ? true : undefined
+      });
+      if (rest.includes("--json")) process.stdout.write(stableSemanticPatchStringify(result));
+      else console.log(`semantic patch applied: ${result.outputPackageDigest}`);
+      return 0;
+    }
+    throw new Error("unsupported semantic-patch action; expected generate, inspect, verify, or apply");
+  }
+
   if (command === "evidence" && file === "report") {
     const packageDir = rest.find((arg) => !arg.startsWith("-"));
     if (!packageDir) throw new Error("missing package directory: airc evidence report <package-dir> --format markdown -o <file>");
@@ -176,7 +236,9 @@ async function main(argv) {
       hostEvidence: readOption(rest, "--host-evidence"),
       conformance: readOption(rest, "--conformance"),
       e2eProof: readOption(rest, "--e2e-proof"),
-      benchmark: readOption(rest, "--benchmark")
+      benchmark: readOption(rest, "--benchmark"),
+      semanticPatch: readOption(rest, "--semantic-patch"),
+      semanticPatchStrict: rest.includes("--semantic-patch-strict")
     });
     fs.mkdirSync(path.dirname(path.resolve(output)), { recursive: true });
     fs.writeFileSync(output, markdown);
@@ -337,7 +399,9 @@ async function main(argv) {
       const evidence = createPackageVerificationEvidence(packageDir, {
         profile: readOption(rest, "--profile"),
         releaseCandidate: rest.includes("--release-candidate"),
-        hostEvidence: readOption(rest, "--host-evidence")
+        hostEvidence: readOption(rest, "--host-evidence"),
+        semanticPatch: readOption(rest, "--semantic-patch"),
+        semanticPatchStrict: rest.includes("--semantic-patch-strict")
       });
       process.stdout.write(stableEvidenceStringify(evidence));
       return evidence.status === "failed" ? 1 : 0;
@@ -495,6 +559,27 @@ async function main(argv) {
 
   if (command === "eval-ai") {
     const args = [file, ...rest].filter(Boolean);
+    if (file === "benchmark") {
+      const benchmarkDir = rest.find((arg) => !arg.startsWith("-"));
+      if (!benchmarkDir) throw new Error("missing benchmark directory: airc eval-ai benchmark <dir> --import <capture-dir> --json");
+      const adapterConfig = readOption(rest, "--adapter-config");
+      const captureDir = readOption(rest, "--import");
+      if (Boolean(adapterConfig) === Boolean(captureDir)) {
+        throw new Error("choose exactly one benchmark source: --import <capture-dir> or --adapter-config <file>");
+      }
+      const result = adapterConfig
+        ? await runAiAuthoringBenchmarkAdapter(benchmarkDir, adapterConfig, { cwd: process.cwd() })
+        : createAiAuthoringBenchmarkReport(benchmarkDir, { captureDir, cwd: process.cwd() });
+      if (rest.includes("--json")) {
+        process.stdout.write(stableAiBenchmarkStringify(result));
+      } else {
+        console.log(`eval-ai benchmark: ${result.corpusId || "-"}`);
+        console.log(`mode: ${result.mode || "-"}`);
+        console.log(`status: ${result.status}`);
+        console.log(`recommendation: ${result.recommendation}`);
+      }
+      return result.status === "failed" ? 1 : 0;
+    }
     if (file === "import") {
       const captureDir = rest.find((arg) => !arg.startsWith("-"));
       if (!captureDir) throw new Error("missing capture directory: airc eval-ai import <capture-dir> --json");
@@ -547,10 +632,14 @@ async function main(argv) {
     return result.status === "failed" ? 1 : 0;
   }
 
+  if (command === "format") {
+    return runFormatCommand([file, ...rest].filter(Boolean));
+  }
+
   const source = fs.readFileSync(file, "utf8");
   const mod = parseAir(source, file);
 
-  if (command === "fmt") {
+  if (command === "fmt" || command === "format") {
     process.stdout.write(formatModule(mod));
     return 0;
   }
@@ -641,6 +730,7 @@ async function main(argv) {
 
   if (command === "build") {
     verifyModule(mod);
+    assertWasmTargetSupport(mod);
     const emit = readOption(rest, "--emit") || "wat";
     const output = readOption(rest, "-o") || readOption(rest, "--output");
     if (!["wat", "wasm"].includes(emit)) {
@@ -685,6 +775,123 @@ async function buildConformanceFixture(name, outDir) {
   const fixture = fixtures[name];
   if (!fixture) throw new Error(`unknown fixture '${name}'; expected ${Object.keys(fixtures).sort().join(", ")}`);
   return buildPackage({ ...fixture, out: outDir });
+}
+
+function runFormatCommand(args) {
+  const opts = parseFormatArgs(args);
+  const source = opts.stdin ? fs.readFileSync(0, "utf8") : fs.readFileSync(opts.file, "utf8");
+  const inputKind = opts.stdin ? "stdin" : "file";
+  const diagnostics = [];
+  let canonical = "";
+
+  try {
+    const mod = parseAir(source, opts.file || "<stdin>");
+    canonical = formatModule(mod);
+  } catch (err) {
+    diagnostics.push(formatDiagnostic("air.format.parse_failed", "fail", sanitizeDiagnosticMessage(err && err.message ? err.message : String(err))));
+    return finishFormatResult({ opts, inputKind, changed: false, canonical: "", diagnostics });
+  }
+
+  const changed = source !== canonical;
+  if (opts.write && hasAirComment(source)) {
+    diagnostics.push(formatDiagnostic(
+      "air.format.comments_not_preserved",
+      "fail",
+      "format --write refuses comment-bearing input until comment preservation is implemented"
+    ));
+    return finishFormatResult({ opts, inputKind, changed, canonical, diagnostics });
+  }
+  if (opts.check && changed) {
+    diagnostics.push(formatDiagnostic("air.format.not_canonical", "fail", "AIR source is not canonical"));
+  }
+  if (opts.write && !diagnostics.length && changed) {
+    try {
+      writeFileAtomic(opts.file, canonical);
+    } catch (err) {
+      diagnostics.push(formatDiagnostic("air.format.write_failed", "fail", sanitizeDiagnosticMessage(err && err.message ? err.message : String(err))));
+    }
+  }
+
+  return finishFormatResult({ opts, inputKind, changed, canonical, diagnostics });
+}
+
+function parseFormatArgs(args) {
+  const stdin = args.includes("--stdin");
+  const opts = {
+    check: args.includes("--check"),
+    write: args.includes("--write"),
+    stdin,
+    json: args.includes("--json"),
+    canonical: args.includes("--canonical"),
+    file: null
+  };
+  const target = args.find((arg) => !arg.startsWith("-"));
+  if (stdin && target) throw new Error("format --stdin does not accept a file argument");
+  if (stdin && opts.write) throw new Error("format --stdin does not support --write");
+  if (!stdin && !target) throw new Error("missing file: airc format <file>");
+  opts.file = stdin ? "<stdin>" : target;
+  return opts;
+}
+
+function finishFormatResult({ opts, inputKind, changed, canonical, diagnostics }) {
+  const status = diagnostics.some((diag) => diag.severity === "fail") ? "fail" : "pass";
+  const result = {
+    kind: "air.formatResult",
+    status,
+    changed,
+    diagnostics,
+    inputKind,
+    outputHash: canonical ? sha256(canonical) : null
+  };
+  if (opts.json) {
+    process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+  } else if (status === "fail") {
+    for (const diagnostic of diagnostics) {
+      process.stderr.write(`${diagnostic.code}: ${diagnostic.message}\n`);
+    }
+  } else if (!opts.check && !opts.write) {
+    process.stdout.write(canonical);
+  }
+  return status === "fail" ? 1 : 0;
+}
+
+function formatDiagnostic(code, severity, message) {
+  return { code, severity, message };
+}
+
+function hasAirComment(source) {
+  for (const line of source.split(/\r?\n/)) {
+    let inString = false;
+    let escape = false;
+    for (const ch of line) {
+      if (inString) {
+        if (escape) escape = false;
+        else if (ch === "\\") escape = true;
+        else if (ch === "\"") inString = false;
+        continue;
+      }
+      if (ch === "\"") inString = true;
+      else if (ch === "#") return true;
+    }
+  }
+  return false;
+}
+
+function writeFileAtomic(file, text) {
+  const dir = path.dirname(path.resolve(file));
+  const tmp = path.join(dir, `.${path.basename(file)}.${process.pid}.tmp`);
+  fs.writeFileSync(tmp, text);
+  fs.renameSync(tmp, file);
+}
+
+function sha256(text) {
+  return `sha256:${crypto.createHash("sha256").update(text).digest("hex")}`;
+}
+
+function sanitizeDiagnosticMessage(message) {
+  return String(message)
+    .split(path.resolve(__dirname, "..")).join(".")
+    .split(process.cwd()).join(".");
 }
 
 function readOption(args, name) {
@@ -760,6 +967,15 @@ function printPackageGraphSummary(result) {
   for (const error of result.errors) console.error(`error: ${error}`);
 }
 
+function printSemanticPatchSummary(evidence) {
+  console.log(`semantic patch: ${evidence.status}`);
+  console.log(`mode: ${evidence.mode}`);
+  console.log(`classification: ${(evidence.classifications || []).join(",") || "unknown_unproven"}`);
+  console.log(`operations: ${evidence.operationCount}`);
+  console.log(`patch digest: ${evidence.patchDigest || "-"}`);
+  for (const reason of evidence.rejectedReasons || []) console.log(`rejected: ${reason}`);
+}
+
 function joinList(values) {
   return values && values.length ? values.join(",") : "-";
 }
@@ -795,6 +1011,12 @@ function printHelp() {
 
 Commands:
   fmt      Print canonical AIR
+  format <file> [--check|--write|--json]
+           Print, check, or write canonical AIR
+  format --stdin [--json]
+           Read AIR from stdin and print canonical AIR
+  format --canonical <file>
+           Compatibility spelling for canonical AIR output
   verify   Run parser and verifier (--library allows no entrypoint)
   explain  Print a human behavior summary
   audit    Print capabilities, imports, and memory risks
@@ -804,9 +1026,18 @@ Commands:
   check    Print LSP-lite diagnostics for a file or package (--lsp-json)
   diff package <old-dir> <new-dir> --json
            Print deterministic package evidence diff metadata
+  semantic-patch generate <base-dir> <result-dir> -o <patch.json>
+           Generate a digest-bound canonical semantic patch
+  semantic-patch inspect <patch.json> [--strict] --json
+           Inspect classification, compatibility, and non-expansion evidence
+  semantic-patch verify <patch.json> --strict --json
+           Fail closed unless strict non-expansion is proven
+  semantic-patch apply <patch.json> <base-dir> -o <result-dir> [--strict]
+           Apply operations to the exact bound base and verify the result digest
   evidence report <dir> --format markdown -o <file>
            Write human-readable package evidence report
            Optional: --host-evidence <json> --conformance <json> --e2e-proof <json> --benchmark <json>
+           Optional: --semantic-patch <json> [--semantic-patch-strict]
   lsp      Run diagnostics-only JSON-RPC LSP server (--stdio)
   audio-check Validate host/project audio authority declarations
   wit      Print WIT-compatible interface metadata
@@ -823,6 +1054,7 @@ Commands:
   package-manifest-check Validate air.package.json in an AIR package directory
   verify package <dir> Verify an AIR package authored module graph (--json emits verification evidence)
                        Use --host-evidence <json> to attach host interaction evidence summary
+                       Use --semantic-patch <json> to attach deterministic semantic patch evidence
   report package <dir> Print package authored module graph report (--json)
                        Use --review-baseline to emit air.review.baseline.json
                        Use --compare-baseline <path> to add trend diagnostics
@@ -847,6 +1079,9 @@ Commands:
            Run deterministic end-to-end execution proof (--json)
   eval-ai import <dir>
            Import sanitized external AI eval captures from files (--json)
+  eval-ai benchmark <dir> --import <capture-dir>
+           Compare paired readable AIR and TypeScript authoring results (--json)
+           Use --adapter-config <file> for one explicit external adapter call per pair
   build    Emit WAT or WASM
   build package <dir> --linked-wasm -o <output.wasm>
            Emit first-slice deterministic linked package WAT/Wasm plus sidecar report
@@ -881,6 +1116,13 @@ main(process.argv.slice(2)).then((code) => {
 }).catch((err) => {
   if (err instanceof VerificationError) {
     console.error(err.message);
+  } else if (err instanceof ProvenanceFlowError) {
+    for (const diagnostic of err.diagnostics || []) {
+      const location = diagnostic.file
+        ? `${diagnostic.file}${diagnostic.line ? `:${diagnostic.line}` : ""}`
+        : "<module>";
+      console.error(`${diagnostic.severity.toUpperCase()} ${diagnostic.code} ${location}: ${diagnostic.message}`);
+    }
   } else {
     console.error(err && err.stack ? err.stack : String(err));
   }

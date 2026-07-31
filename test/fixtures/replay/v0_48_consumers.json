@@ -1,0 +1,33 @@
+{
+  "kind": "air.v0_48.consumerCorpus",
+  "version": "0.1",
+  "consumers": [
+    {
+      "consumerId": "airops-incident-package",
+      "fixture": "examples/airops_incident_package",
+      "entry": "module.air",
+      "loweringStatus": {
+        "lowerWasm": "not-exercised",
+        "linkedWasm": "partial"
+      }
+    },
+    {
+      "consumerId": "flowdesk-structured-io",
+      "fixture": "test/fixtures/structured_io/flowdesk_task_summary",
+      "entry": "main.air",
+      "loweringStatus": {
+        "lowerWasm": "not-exercised",
+        "linkedWasm": "partial"
+      }
+    },
+    {
+      "consumerId": "lan-observer-readonly",
+      "fixture": "examples/lan_observer_readonly_package",
+      "entry": "module.air",
+      "loweringStatus": {
+        "lowerWasm": "not-exercised",
+        "linkedWasm": "partial"
+      }
+    }
+  ]
+}

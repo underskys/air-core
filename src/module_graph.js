@@ -7,6 +7,7 @@ const { scalarByteWidth } = require("./types");
 const { tableGroupMetadata, tableStorageByteWidth } = require("./table_metadata");
 const { stateSegmentMetadata } = require("./state_metadata");
 const { poolMetadata } = require("./pool_metadata");
+const { analyzeProvenancePackage } = require("./provenance_flow");
 
 const STDLIB_DIR = path.resolve(__dirname, "..", "stdlib");
 const REJECTED_STDLIB_IMPORTS = {
@@ -41,7 +42,7 @@ class ModuleGraphError extends Error {
   }
 }
 
-function analyzePackageModuleGraph(packageRoot, entry) {
+function analyzePackageModuleGraph(packageRoot, entry, options = {}) {
   const root = path.resolve(packageRoot);
   const rootReal = fs.existsSync(root) ? fs.realpathSync(root) : root;
   const entryErrors = [];
@@ -57,6 +58,24 @@ function analyzePackageModuleGraph(packageRoot, entry) {
   if (entryRef) visit(entryRef, []);
 
   validateCrossModuleCalls();
+  const provenanceFlow = analyzeProvenancePackage(
+    order.map((relative) => {
+      const item = modulesByPath.get(relative);
+      return {
+        path: relative,
+        mod: item.mod,
+        imports: item.imports.map((importRef) => ({
+          alias: importRef.alias || (modulesByPath.get(importRef.relative) && modulesByPath.get(importRef.relative).mod.name) || null,
+          relative: importRef.relative
+        }))
+      };
+    }),
+    options.provenancePolicy || null,
+    options.provenanceContext || {}
+  );
+  for (const diagnostic of provenanceFlow.diagnostics || []) {
+    if (diagnostic.severity === "fail") errors.push(`${diagnostic.code}: ${diagnostic.message}`);
+  }
   const moduleDiagnostics = groupModuleDiagnostics(rawModuleDiagnostics);
   for (const diagnostic of moduleDiagnostics) errors.push(formatModuleDiagnostic(diagnostic));
 
@@ -96,6 +115,7 @@ function analyzePackageModuleGraph(packageRoot, entry) {
     authorityChains,
     importClassifications: importClassifications.slice().sort(compareImportClassification),
     moduleDiagnostics,
+    provenanceFlow,
     effectUsageOrigins,
     effectComposition: {
       status: "per-module-only",
@@ -180,7 +200,11 @@ function analyzePackageModuleGraph(packageRoot, entry) {
     }
 
     try {
-      verifyModule(mod, { library: ref.relative !== entryRef.relative, externalFunctions: externalFunctionStubs(ref.relative) });
+      verifyModule(mod, {
+        library: ref.relative !== entryRef.relative,
+        externalFunctions: externalFunctionStubs(ref.relative),
+        skipProvenance: true
+      });
     } catch (err) {
       errors.push(errorMessage(err));
     }

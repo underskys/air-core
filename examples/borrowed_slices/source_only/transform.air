@@ -1,0 +1,15 @@
+module borrowed_slice_transform_source
+
+capabilities { }
+requires export transform
+
+export func transform(src: borrowed_slice<readonly,len<=1024,align=4>, dst: borrowed_slice<writeonly,len<=1024,align=4>, count: i32) -> i32 {
+  requires checked param count >= 0
+  requires checked param count <= 256
+  requires checked bytes src >= param count * 4
+  requires checked bytes dst >= param count * 4
+entry:
+  %value:f32 = slice.load.f32 %src, 0
+  slice.store.f32 %dst, 0, %value
+  return %count
+}

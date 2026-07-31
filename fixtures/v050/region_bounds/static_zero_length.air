@@ -1,0 +1,13 @@
+module region_bounds_static_zero_length
+
+capabilities { }
+
+func main(args: slice) -> i32 {
+entry:
+  %bytes:i32 = 0
+  %ptr:ptr = alloc_region %bytes
+  %offset:i32 = 0
+  %value:i32 = load.i32 %ptr, %offset
+  free_region %ptr
+  return %value
+}

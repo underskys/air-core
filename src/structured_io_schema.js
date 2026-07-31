@@ -16,6 +16,7 @@ const STRUCTURED_IO_GENERATED_KIND = "air.generatedStructuredIO";
 
 const STABLE_NAME_RE = /^[A-Za-z_][A-Za-z0-9_]{0,127}$/;
 const ALLOWED_FIELD_TYPES = new Set(["i32", "bool"]);
+const FLOW_LABELS = new Set(["public", "internal", "sensitive", "restricted"]);
 const FORBIDDEN_RUNTIME_JSON_TYPE_RE = /json|payload/i;
 const FORBIDDEN_OBJECT_TYPE_RE = /object|map|any|record|array|list|dict/i;
 const FORBIDDEN_KEY_RE = /(^|[_-])(raw_text|raw_url|private_text|token|secret|credential|password|payload|json|object|map|any|nested|children|properties|items|data|values|rows)([_-]|$)|token|secret|credential|password/i;
@@ -98,6 +99,9 @@ function validateFields(fields, diagnostics, errors, relativePath) {
       if (field[key] !== undefined && !validClassification(field[key])) {
         addDiagnostic(diagnostics, errors, "air.structured_io.privacy_violation", `structured IO field ${name || index} ${key} is not allowed`, { path: relativePath, field: name || null, [key]: String(field[key]) });
       }
+    }
+    if (field.flowLabel !== undefined && !FLOW_LABELS.has(field.flowLabel)) {
+      addDiagnostic(diagnostics, errors, "air.flow.label_invalid", `structured IO field ${name || index} flowLabel must use the fixed provenance lattice`, { path: relativePath, field: name || null, flowLabel: field.flowLabel });
     }
   }
 }
@@ -318,7 +322,8 @@ function schemaSummary(report) {
       type: field.type,
       privacy: field.privacy || null,
       classification: field.classification || null,
-      semantic: field.semantic || null
+      semantic: field.semantic || null,
+      flowLabel: field.flowLabel || null
     })),
     privacyPolicy: report.privacyPolicy || null,
     diagnostics: (report.diagnostics || []).map((item) => stableObject({ code: item.code, severity: item.severity, message: item.message, fields: item.fields || {} })).sort((a, b) => String(a.code).localeCompare(String(b.code)) || String(a.message).localeCompare(String(b.message))),
@@ -393,7 +398,8 @@ function normalizeField(field) {
     type: field.type || null,
     privacy: field.privacy || null,
     classification: field.classification || null,
-    semantic: field.semantic || null
+    semantic: field.semantic || null,
+    flowLabel: field.flowLabel || null
   };
 }
 
@@ -551,6 +557,7 @@ module.exports = {
   STRUCTURED_IO_ROWSET_KIND,
   checkGeneratedStructuredIoHandles,
   generateStructuredIoHandles,
+  validateStructuredIoSchema,
   validateStructuredIoSchemaFile,
   verifyGeneratedStructuredIoHandles,
   writeGeneratedStructuredIoHandles

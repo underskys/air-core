@@ -90,6 +90,8 @@ const REPAIR_HINTS_BY_CODE = Object.freeze({
   "air.generated.state_handles_mismatch": "Regenerate state handles from state declarations; generated files are derived artifacts.",
   "air.generated.state_handles_stale": "Regenerate state handles from state declarations; do not edit generated handles by hand.",
   "air.generated.state_metadata_invalid": "Regenerate state handle metadata from state declarations.",
+  "air.memory.region_bounds_runtime": "Keep runtime offsets and access widths inside the exact allocated region boundary.",
+  "air.memory.region_bounds_static": "Keep offset non-negative and prove offset plus access width is within the allocated region, or use a verifier-bounded dynamic offset.",
   "air.memory.region_leak": "Call free_region on all paths before returning from the function.",
   "air.output_emit.host_abi_unsupported": `Use Host ABI 0.11 only for bounded ${OUT_EMIT_LABEL} packages, or remove ${OUT_EMIT_LABEL}.`,
   "air.output_emit.output_handle_required": "Use the generated OUTPUT_* handle constant for canonical bounded output authoring.",
@@ -105,6 +107,33 @@ const REPAIR_HINTS_BY_CODE = Object.freeze({
   ["air.structured_io." + "runtime_json_rejected"]: "Use a bounded scalar structured IO schema instead of unbounded payload data.",
   "air.structured_io.schema_invalid": "Fix structured IO schema shape with stable names, scalar fields, privacy classification, and fixed bounds.",
   ["air.structured_io." + "unbounded_rowset"]: "Add a fixed positive maxRows bound to the schema.",
+  "air.abi.borrowed_slice_lowering_unavailable": "Keep slices internal until Borrowed Slices define exported pointer-and-length metadata, or expose explicit scalar ABI fields.",
+  "air.abi.borrowed_slice_requires_0_11": "Select AIR ABI 0.11 for packages with borrowed-slice exports; AIR ABI 0.10 remains the legacy scalar/handle ABI.",
+  "air.abi.borrowed_slice_interface_mismatch": "Use the interface descriptor and AIR ABI selected for the exact module; do not pass a borrowed tuple to a legacy export.",
+  "air.borrow.syntax_invalid": "Use borrowed_slice<ACCESS,len<=MAX,align=ALIGNMENT> with an explicit access mode, finite byte length, and supported alignment.",
+  "air.borrow.mode_invalid": "Use readonly, writeonly, or readwrite.",
+  "air.borrow.mode_violation": "Use only operations permitted by the declared mode and preserve the mode across sub-slices.",
+  "air.borrow.length_invalid": "Use a finite byte-length range within the parent borrow and 0..2147483647.",
+  "air.borrow.length_out_of_range": "Pass a non-negative actual byte length within the declared borrowed-slice range.",
+  "air.borrow.pointer_out_of_bounds": "Bind the borrowed pointer and byte length entirely within Wasm linear memory.",
+  "air.borrow.alignment_mismatch": "Use a pointer aligned to the borrowed-slice declaration.",
+  "air.borrow.mutable_overlap": "Use disjoint non-empty ranges whenever either borrowed slice is mutable.",
+  "air.borrow.entry_relation_failed": "Satisfy every checked scalar and borrowed-length entry relation.",
+  "air.borrow.entry_arithmetic_overflow": "Keep checked scalar multiplication inside signed i32 before comparing it with a borrowed byte length.",
+  "air.borrow.async_forbidden": "Do not retain or forward an invocation-scoped borrow across asynchronous work.",
+  "air.borrow.reentrant_invocation": "Finish the active invocation before binding borrowed memory to the same instance again.",
+  "air.borrow.invocation_reused": "Prepare a new invocation so every borrow is revalidated against current memory and descriptors.",
+  "air.borrow.memory_changed": "Recreate and revalidate borrowed views after WebAssembly.Memory grows or changes identity.",
+  "air.borrow.buffer_stale": "Create a fresh host view and repeat validation before invoking.",
+  "air.borrow.buffer_detached": "Use an attached TypedArray backing buffer and repeat validation.",
+  "air.borrow.unbounded": "Declare a finite maximum byte length.",
+  "air.borrow.alignment_invalid": "Use alignment 1, 2, 4, 8, or 16 and keep typed accesses and subslices aligned.",
+  "air.borrow.escape_return": "Keep the borrowed value invocation-scoped; return a scalar status or write through an authorized borrowed output.",
+  "air.borrow.escape_storage": "Do not store a borrowed value in globals, state, pools, structs, or retained handles.",
+  "air.borrow.free_forbidden": "Borrowed memory is host-owned and cannot be freed or grown by AIR.",
+  "air.borrow.extern_opaque": "Keep the borrow inside statically verified local calls; opaque extern forwarding is unsupported.",
+  "air.borrow.call_mismatch": "Match the callee borrow access, length range, and alignment without expanding authority.",
+  "air.borrow.reinterpret_forbidden": "Preserve the explicit borrowed_slice descriptor; do not reinterpret it as a legacy slice.",
   "air.tablegroup.field_type_invalid": "Use readonly tablegroup fields with supported scalar types: i32 or bool.",
   "air.tablegroup.length_mismatch": "Make every tablegroup field initializer length match the declared fixed len.",
   "air.tablegroup.mutable_rejected": "Use readonly tablegroup.get access only; mutable pools require a separate accepted feature.",
@@ -121,6 +150,30 @@ const REPAIR_HINTS_BY_CODE = Object.freeze({
   "air.pool.pointer_escape": "Use pool.get/pool.set only; pool pointers, slices, references, and exports must not escape.",
   "air.pool.loop_budget_exceeded": "Keep pool loops within verifier-visible static loop budgets.",
   "air.pool.mutable_tablegroup_rejected": "Use a declared pool for mutable repeated state; readonly tablegroups cannot be mutated.",
+  "air.refinement.syntax_invalid": "Use i32<MIN..MAX>, slice<len<=N>, slice<len=MIN..MAX>, or slice<nonempty>.",
+  "air.refinement.bound_out_of_range": "Keep i32 bounds inside signed 32-bit limits and slice lengths inside 0..2147483647.",
+  "air.refinement.range_invalid": "Make the lower bound less than or equal to the upper bound.",
+  "air.refinement.assignment_out_of_range": "Widen the destination refinement or produce a value whose proven range fits it.",
+  "air.refinement.call_argument_out_of_range": "Pass a value whose proven range fits the parameter refinement, or add a bounded fact that proves it.",
+  "air.refinement.return_out_of_range": "Return a value whose proven range fits the declared return refinement.",
+  "air.refinement.slice_length_out_of_range": "Use a slice with a statically proven length inside the declared refinement.",
+  "air.refinement.extern_parameter_unsupported": "Keep extern parameters at their current Host ABI base types and narrow values before the call.",
+  "air.refinement.extern_return_unsupported": "Keep host-produced return values unrefined, then validate or narrow them inside AIR with existing explicit operations.",
+  "air.flow.label_invalid": "Use one fixed provenance label: public, internal, sensitive, or restricted.",
+  "air.flow.policy_invalid": "Use exactly one 'flow policy required' declaration and a valid package provenanceFlow policy.",
+  "air.flow.source_missing": "Declare the exact exported parameter or extern return source and bind schema-backed sources in package policy.",
+  "air.flow.source_unresolved": "Correct the source declaration or schema binding so it resolves to one exact package boundary.",
+  "air.flow.sink_missing": "Declare an explicit return, extern argument, print, or output-contract sink ceiling.",
+  "air.flow.sink_unresolved": "Correct the sink declaration so it resolves to one exact return, extern argument, or output contract.",
+  "air.flow.storage_label_missing": "Declare an explicit storage ceiling for every mutable global, state segment, and pool field.",
+  "air.flow.forbidden": "Remove the prohibited dependency, raise the sink ceiling only through reviewed policy, or use an exact authorized declassifier.",
+  "air.flow.control_forbidden": "Remove the secret-dependent effect/control path or keep the effect within an equal-or-higher sink.",
+  "air.flow.declassification_unauthorized": "Add an exact matching package-policy authority for the local pure declassifier.",
+  "air.flow.declassification_mismatch": "Match function, labels, purity, scalar type, and public auxiliary arguments to the authorized declassifier.",
+  "air.flow.alias_unsupported": "Use a statically resolved whole aggregate or region alias; per-element and unknown alias tracking are outside this MVP.",
+  "air.flow.operation_unsupported": "Use a supported bounded AIR operation or request an architecture scope revision.",
+  "air.flow.analysis_budget_exceeded": "Reduce the provenance graph or request an architecture revision; evidence is never silently truncated.",
+  "air.flow.package_binding_mismatch": "Make the module declaration, schema flowLabel, and package source/declassifier policy match exactly.",
   "air.verify.host_object_handle_rejected": "Use scalar package or manifest ids; host-owned objects must stay outside AIR."
 });
 
@@ -136,7 +189,64 @@ function diagnosticHintsFromMessage(message) {
   const text = String(message || "");
   const loc = parseLeadingLocation(text);
 
-  let match = text.match(/air\.call\.recursion_rejected: local function call cycle ([^\n]+)/);
+  let match = text.match(/air\.flow\.([a-z_]+): ([^\n]+)/);
+  if (match) {
+    const suffix = match[1];
+    return withLocation(loc, {
+      legacyId: `flow-${suffix.replace(/_/g, "-")}`,
+      code: `air.flow.${suffix}`,
+      severity: "error",
+      fields: {
+        detail: match[2],
+        path: loc.file
+      }
+    });
+  }
+
+  match = text.match(/air\.refinement\.([a-z_]+): ([^\n]+)/);
+  if (match) {
+    const suffix = match[1];
+    return withLocation(loc, {
+      legacyId: `refinement-${suffix.replace(/_/g, "-")}`,
+      code: `air.refinement.${suffix}`,
+      severity: "error",
+      fields: {
+        detail: match[2],
+        path: loc.file
+      }
+    });
+  }
+
+  match = text.match(/air\.borrow\.([a-z_]+): ([^\n]+)/);
+  if (match) {
+    const suffix = match[1];
+    return withLocation(loc, {
+      legacyId: `borrow-${suffix.replace(/_/g, "-")}`,
+      code: `air.borrow.${suffix}`,
+      severity: "error",
+      fields: {
+        detail: match[2],
+        path: loc.file
+      }
+    });
+  }
+
+  match = text.match(/air\.abi\.borrowed_slice_lowering_unavailable: exported function '([^']+)' parameter '([^']+)' ([^\n]+)/);
+  if (match) {
+    return withLocation(loc, {
+      legacyId: "abi-borrowed-slice-lowering-unavailable",
+      code: "air.abi.borrowed_slice_lowering_unavailable",
+      severity: "error",
+      fields: {
+        function: match[1],
+        parameter: match[2],
+        detail: match[3],
+        path: loc.file
+      }
+    });
+  }
+
+  match = text.match(/air\.call\.recursion_rejected: local function call cycle ([^\n]+)/);
   if (match) {
     const cyclePath = match[1].trim();
     return withLocation(loc, {
@@ -161,6 +271,19 @@ function diagnosticHintsFromMessage(message) {
         region: match[1],
         allocationLine: match[2] === undefined ? null : Number(match[2]),
         returnBlock: match[3],
+        path: loc.file
+      }
+    });
+  }
+
+  match = text.match(/air\.memory\.region_bounds_static: ([^\n]+)/);
+  if (match) {
+    return withLocation(loc, {
+      legacyId: "memory-region-bounds-static",
+      code: "air.memory.region_bounds_static",
+      severity: "error",
+      fields: {
+        detail: match[1],
         path: loc.file
       }
     });

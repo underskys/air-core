@@ -98,6 +98,8 @@ const allowedExact = new Set([
   "THREAT_MODEL.md",
   "VERSIONING.md",
   "WHY_AIR.md",
+  "docs/README.md",
+  "docs/RELEASE_NOTES_0_50_0.md",
   "package.json",
   "package-lock.json"
 ]);
@@ -109,6 +111,13 @@ const allowedPrefixes = [
   "spec/",
   "stdlib/",
   "examples/public/",
+  "examples/borrowed_memory_conformance/",
+  "examples/borrowed_slices/",
+  "examples/provenance_flow/",
+  "examples/realtime_safe/",
+  "examples/refinement_types/",
+  "examples/resource_certificate/",
+  "examples/tool_gate/",
   "test/fixtures/conformance_policy/",
   "test/fixtures/conformance_state/",
   "test/fixtures/profiles/"

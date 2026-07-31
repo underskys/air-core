@@ -1,0 +1,9 @@
+module semantic_patch_fixture
+capabilities { }
+requires export run
+
+export func run() -> i32 {
+entry:
+  %value:i32 = const.i32 2
+  return %value
+}

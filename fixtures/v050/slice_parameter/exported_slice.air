@@ -1,0 +1,10 @@
+module air_player_downmix_slice
+
+capabilities { }
+requires export downmix
+
+export func downmix(src: slice, dst: slice, frames: i32) -> i32 {
+entry:
+  %src_len:i32 = slice.len %src
+  return %src_len
+}

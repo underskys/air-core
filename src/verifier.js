@@ -1,3 +1,5 @@
+const crypto = require("crypto");
+const fs = require("fs");
 const {
   PRIMITIVES,
   typeOfConstOp,
@@ -5,11 +7,56 @@ const {
   parseBufferType,
   isStructName,
   isCompositeType,
-  scalarByteWidth
+  scalarByteWidth,
+  refinementContains,
+  SLICE_LEN_MAX,
+  I32_MIN,
+  I32_MAX
 } = require("./types");
 const { KNOWN_CAPABILITIES, requiredCapabilityForExtern } = require("./capabilities");
 const { hostSignature, isStrictHostModule } = require("./host_abi");
 const { validateUseBundles, bundleForExtern } = require("./bundles");
+const { AIR_VERSION } = require("./version");
+const { analyzeProvenanceModule, assertProvenanceFlow } = require("./provenance_flow");
+const {
+  REGION_BOUNDS_STATIC_CODE,
+  classifyRegionAccess,
+  classifyRegionSize
+} = require("./region_bounds");
+const {
+  BORROWED_SLICE_TYPE,
+  borrowedAccessAllows,
+  borrowedArgumentCompatible,
+  requiredAirAbiForModule,
+  parseBorrowedSliceType
+} = require("./borrowed_slices");
+
+const RESOURCE_CERTIFICATE_SCHEMA_VERSION = "1.0";
+const RESOURCE_CERTIFICATE_KIND = "air.verifiedResourceCertificate";
+const RESOURCE_CERTIFICATE_DOMAIN = "AIR_VERIFIED_RESOURCE_CERTIFICATE_V1";
+const RESOURCE_PACKAGE_DOMAIN = "AIR_VERIFIED_RESOURCE_PACKAGE_V1";
+const RESOURCE_VERIFIER_DOMAIN = "AIR_VERIFIER_IDENTITY_V1";
+const BORROWED_MEMORY_CERTIFICATE_DOMAIN = "AIR_VERIFIED_BORROWED_MEMORY_V1";
+const BORROWED_MEMORY_ALIAS_POLICY = "deny_mutable_overlap";
+const BORROWED_MEMORY_FEATURE = "borrowed-slice-v1";
+const BORROWED_MEMORY_TRANSFER_MODES = Object.freeze(["copied_into_wasm", "wasm_memory_view"]);
+const BORROWED_HOST_VALIDATIONS_PER_PARAMETER = 9;
+const REALTIME_SAFE_MODE = "realtime_safe";
+const REALTIME_SAFE_REQUIRED_BOUNDS = Object.freeze([
+  "borrowedMemory",
+  "effects",
+  "hostCalls",
+  "loops",
+  "memory"
+]);
+const RESOURCE_BOUND_CATEGORIES = new Set(["borrowedMemory", "loops", "memory", "hostCalls", "effects"]);
+const RESOURCE_CERTIFICATE_VALIDATION_OPTION_KEYS = new Set([
+  "certificateDigest",
+  "packageDigest",
+  "packageName",
+  "required",
+  "verifierDigest"
+]);
 
 class VerificationError extends Error {
   constructor(message, loc) {
@@ -45,7 +92,10 @@ function verifyModule(mod, options = {}) {
     if (tableGroups.has(struct.name)) fail(`struct '${struct.name}' conflicts with tablegroup '${struct.name}'`, struct.loc);
     if (states.has(struct.name)) fail(`struct '${struct.name}' conflicts with state '${struct.name}'`, struct.loc);
     if (pools.has(struct.name)) fail(`struct '${struct.name}' conflicts with pool '${struct.name}'`, struct.loc);
-    for (const field of struct.fields) ensureKnownType(field.type, types, struct.loc);
+    for (const field of struct.fields) {
+      rejectBorrowedStorage(field.type, `struct '${struct.name}' field '${field.name}'`, struct.loc);
+      ensureKnownType(field.type, types, struct.loc);
+    }
   }
   for (const global of mod.globals || []) {
     if (constants.has(global.name)) fail(`global '${global.name}' conflicts with constant '${global.name}'`, global.loc);
@@ -54,6 +104,7 @@ function verifyModule(mod, options = {}) {
     if (states.has(global.name)) fail(`global '${global.name}' conflicts with state '${global.name}'`, global.loc);
     if (pools.has(global.name)) fail(`global '${global.name}' conflicts with pool '${global.name}'`, global.loc);
     if (globals.has(global.name)) fail(`duplicate global '${global.name}'`, global.loc);
+    rejectBorrowedStorage(global.type, `global '${global.name}'`, global.loc);
     ensureKnownType(global.type, types, global.loc);
     const constType = typeOfConstOp(global.init.op);
     if (!constType) fail(`global '${global.name}' initializer must be const.*`, global.loc);
@@ -69,6 +120,20 @@ function verifyModule(mod, options = {}) {
     if (pools.has(ex.name)) fail(`extern '${ex.name}' conflicts with pool '${ex.name}'`, ex.loc);
     if (functions.has(ex.name)) fail(`duplicate function '${ex.name}'`, ex.loc);
     validateSignatureTypes(ex, types);
+    rejectBorrowedExternSignature(ex);
+    const refinedExternParam = ex.params.find((param) => param.refinement);
+    if (refinedExternParam) {
+      fail(
+        `air.refinement.extern_parameter_unsupported: extern '${ex.name}' param '${refinedExternParam.name}' cannot declare a refinement at the current Host ABI boundary`,
+        ex.loc
+      );
+    }
+    if (ex.returnRefinement) {
+      fail(
+        `air.refinement.extern_return_unsupported: extern '${ex.name}' cannot declare a refined return because the current Host ABI cannot prove the host-produced bound`,
+        ex.loc
+      );
+    }
     rejectBoundaryComposites(ex, `extern '${ex.name}'`);
     const capability = requiredCapabilityForExtern(ex.name);
     if (!capability) fail(`extern '${ex.name}' must be capability-qualified as module.function`, ex.loc);
@@ -99,9 +164,11 @@ function verifyModule(mod, options = {}) {
     if (pools.has(fn.name)) fail(`function '${fn.name}' conflicts with pool '${fn.name}'`, fn.loc);
     if (functions.has(fn.name)) fail(`duplicate function '${fn.name}'`, fn.loc);
     validateSignatureTypes(fn, types);
+    rejectBorrowedReturn(fn);
     if (fn.exported || fn.name === "main") rejectBoundaryComposites(fn, `function '${fn.name}'`);
     functions.set(fn.name, fn);
   }
+  assertWasmTargetSupport(mod, { allowBorrowedSliceSource: true });
   const main = functions.get("main");
   const hasExport = mod.functions.some((fn) => fn.exported);
   if (!options.library && !main && !hasExport) fail("missing required function 'main' or exported host entrypoint");
@@ -114,7 +181,171 @@ function verifyModule(mod, options = {}) {
   }
   rejectLocalCallCycles(mod);
   for (const fn of mod.functions) verifyFunction(mod, fn, functions, globals, types, constants, tables, states, pools);
+  if (!options.skipProvenance) {
+    const provenanceFlow = analyzeProvenanceModule(mod, {
+      path: options.modulePath,
+      policy: options.provenancePolicy,
+      context: options.provenanceContext
+    });
+    mod.provenanceFlowEvidence = provenanceFlow;
+    assertProvenanceFlow(provenanceFlow);
+  }
   return true;
+}
+
+function assertRealtimeSafeProfile(mod, profile, certificate) {
+  const failProfile = (code, message, loc = mod && mod.loc) => {
+    fail(`${code}: ${message}`, loc);
+  };
+  if (!profile || profile.mode !== REALTIME_SAFE_MODE) {
+    failProfile("air.realtime.profile_invalid", "execution profile must be realtime_safe");
+  }
+  if (profile.airAbi !== "0.11" || profile.feature !== BORROWED_MEMORY_FEATURE) {
+    failProfile(
+      "air.realtime.abi_feature_mismatch",
+      "realtime_safe requires AIR ABI 0.11 with borrowed-slice-v1"
+    );
+  }
+  if (!Number.isSafeInteger(profile.maximumFuel) || profile.maximumFuel <= 0) {
+    failProfile("air.realtime.fuel_invalid", "maximumFuel must be a positive safe integer");
+  }
+  if ((mod.capabilities && mod.capabilities.size) || (mod.generatedCapabilities && mod.generatedCapabilities.size)) {
+    failProfile("air.realtime.capability_forbidden", "realtime_safe modules must declare no capabilities");
+  }
+  if ((mod.externs || []).length) {
+    failProfile("air.realtime.host_call_forbidden", "realtime_safe modules must declare no host imports");
+  }
+  if ((mod.effects || []).length || (mod.functions || []).some((fn) => (fn.effects || []).length)) {
+    failProfile("air.realtime.effect_forbidden", "realtime_safe modules must declare no effects");
+  }
+  if ((mod.globals || []).length || (mod.states || []).length || (mod.pools || []).length) {
+    failProfile(
+      "air.realtime.hidden_state_forbidden",
+      "persistent realtime state must use explicit mutable borrowed parameters"
+    );
+  }
+  const entry = (mod.functions || []).find((fn) => fn.name === profile.entrypoint);
+  if (!entry || !entry.exported) {
+    failProfile(
+      "air.realtime.entrypoint_invalid",
+      `entrypoint '${profile.entrypoint || "-"}' must name an exported function`
+    );
+  }
+  const borrowedParams = (entry.params || []).filter((param) => param.type === BORROWED_SLICE_TYPE);
+  if (!borrowedParams.length) {
+    failProfile("air.realtime.borrowed_boundary_required", "entrypoint must expose borrowed memory");
+  }
+  for (const param of entry.params || []) {
+    if (param.type === "slice" || isCompositeType(param.type)) {
+      failProfile(
+        "air.realtime.borrowed_boundary_required",
+        `entrypoint parameter '${param.name}' must use borrowed_slice at a memory boundary`,
+        param.loc || entry.loc
+      );
+    }
+  }
+  const borrowedByName = new Map(borrowedParams.map((param) => [param.name, param]));
+  for (const name of profile.stateParameters || []) {
+    const param = borrowedByName.get(name);
+    if (!param || !param.borrow || param.borrow.access !== "readwrite") {
+      failProfile(
+        "air.realtime.state_parameter_invalid",
+        `state parameter '${name}' must be an entrypoint readwrite borrowed_slice`,
+        entry.loc
+      );
+    }
+  }
+  const usage = collectEffectUsage(mod);
+  if ((usage.get("stdio.print") || 0) > 0) {
+    failProfile("air.realtime.logging_forbidden", "print and logging are forbidden during realtime invocation");
+  }
+  if ((usage.get("memory.alloc") || 0) > 0 || (usage.get("memory.dynamic_allocations") || 0) > 0) {
+    failProfile("air.realtime.allocation_forbidden", "allocation is forbidden during realtime invocation");
+  }
+  if ((usage.get("memory.free") || 0) > 0) {
+    failProfile("air.realtime.free_forbidden", "free is forbidden during realtime invocation");
+  }
+  if ((usage.get("effects.dynamic") || 0) > 0 || (usage.get("cpu.recursive_calls") || 0) > 0) {
+    failProfile("air.realtime.unbounded_work_forbidden", "unbounded or recursive work is forbidden");
+  }
+  for (const fn of mod.functions || []) {
+    for (const block of fn.blocks || []) {
+      for (const ins of block.instructions || []) {
+        if (ins.op === "io.poll_bounded" || ins.op === "loop.poll") {
+          failProfile("air.realtime.async_forbidden", "async and polling work are forbidden", ins.loc);
+        }
+        if (String(ins.op || "").includes("indirect")) {
+          failProfile("air.realtime.indirect_call_forbidden", "indirect calls are unsupported", ins.loc);
+        }
+      }
+    }
+  }
+  const validation = validateVerifiedResourceCertificate(certificate, {
+    required: true,
+    packageDigest: certificate && certificate.package && certificate.package.digest
+  });
+  if (!validation.ok || !certificate || certificate.mode !== "required" ||
+      certificate.status !== "verified" ||
+      certificate.requiredBoundsSatisfied !== true) {
+    failProfile("air.realtime.certificate_invalid", "a complete verified resource certificate is required");
+  }
+  const requiredBounds = new Set(certificate.requiredBounds || []);
+  for (const category of REALTIME_SAFE_REQUIRED_BOUNDS) {
+    if (!requiredBounds.has(category)) {
+      failProfile(
+        "air.realtime.certificate_invalid",
+        `resource certificate must require '${category}'`
+      );
+    }
+  }
+  const bounds = certificate.bounds || {};
+  if (!bounds.hostCalls || bounds.hostCalls.totalUpperBound !== 0) {
+    failProfile("air.realtime.host_call_forbidden", "certificate host-call bound must be zero");
+  }
+  if (!bounds.memory || bounds.memory.dynamicAllocationSites !== 0 ||
+      bounds.memory.dynamicAllocationBytesUpperBound !== 0) {
+    failProfile("air.realtime.allocation_forbidden", "certificate dynamic allocation bound must be zero");
+  }
+  const effectBounds = bounds.effects && bounds.effects.upperBounds || [];
+  const forbiddenEffect = effectBounds.find((item) =>
+    item.key !== "exports" &&
+    !String(item.key || "").startsWith("cpu.") &&
+    !String(item.key || "").startsWith("memory.") &&
+    !String(item.key || "").startsWith("borrowed.") &&
+    item.upperBound > 0);
+  if (forbiddenEffect) {
+    failProfile(
+      "air.realtime.effect_forbidden",
+      `certificate effect '${forbiddenEffect.key}' must have a zero upper bound`
+    );
+  }
+  const instructionRecord = effectBounds.find((item) => item.key === "cpu.instructions");
+  const instructionUpperBound = instructionRecord && instructionRecord.upperBound;
+  const loops = bounds.loops || {};
+  const loopFuelUpperBound =
+    Number(loops.totalStaticallyBoundedIterations || 0) +
+    Number(loops.totalDynamicLoopFuelUpperBound || 0);
+  if (!Number.isSafeInteger(instructionUpperBound) || instructionUpperBound < 0 ||
+      !Number.isSafeInteger(loopFuelUpperBound) || loopFuelUpperBound < 0) {
+    failProfile("air.realtime.fuel_unproven", "instruction and loop fuel must be statically bounded");
+  }
+  if (instructionUpperBound > profile.maximumFuel || loopFuelUpperBound > profile.maximumFuel) {
+    failProfile(
+      "air.realtime.fuel_exceeded",
+      `verified instruction/fuel bounds exceed maximumFuel ${profile.maximumFuel}`
+    );
+  }
+  return stableCertificateObject({
+    mode: REALTIME_SAFE_MODE,
+    entrypoint: entry.name,
+    stateParameters: (profile.stateParameters || []).slice().sort(),
+    instructionUpperBound,
+    loopFuelUpperBound,
+    certificateDigest: certificate.certificateDigest,
+    packageDigest: certificate.package.digest,
+    airAbi: profile.airAbi,
+    feature: profile.feature
+  });
 }
 
 function collectEffectUsage(mod, constants = constantValuesForModule(mod)) {
@@ -133,6 +364,839 @@ function collectEffectUsage(mod, constants = constantValuesForModule(mod)) {
     usage.set("pool.static_bytes", poolBytes);
   }
   return usage;
+}
+
+function createVerifiedResourceCertificate(input, options = {}) {
+  const entries = normalizeCertificateModules(input, options);
+  const verifier = resourceVerifierIdentity();
+  const moduleRecords = entries.map((entry) => {
+    const facts = resourceFactsForModule(entry.mod);
+    return stableCertificateObject({
+      path: entry.path,
+      name: entry.mod.name || null,
+      digest: entry.digest || hashWithDomain("AIR_VERIFIED_RESOURCE_MODULE_V1", moduleDigestInput(entry.mod)),
+      digestSource: entry.digest ? "source-bytes" : "canonical-module-facts",
+      facts
+    });
+  }).sort((a, b) => String(a.path).localeCompare(String(b.path)));
+  const manifestDigest = validSha256(options.manifestDigest) ? options.manifestDigest : null;
+  const packageDigest = validSha256(options.packageDigest)
+    ? options.packageDigest
+    : hashWithDomain(RESOURCE_PACKAGE_DOMAIN, {
+      manifestDigest,
+      modules: moduleRecords.map((item) => ({ path: item.path, digest: item.digest }))
+    });
+  const bounds = combineResourceBounds(moduleRecords);
+  const normalizedPolicy = normalizeCertificatePolicy(options.policy, options.mode);
+  const policy = bounds.borrowedMemory.borrowedParameterCount > 0 && normalizedPolicy.mode === "required"
+    ? {
+        ...normalizedPolicy,
+        requiredBounds: Array.from(new Set(
+          normalizedPolicy.requiredBounds.concat("borrowedMemory")
+        )).sort()
+      }
+    : normalizedPolicy;
+  const unknown = unknownResourceReasons(bounds);
+  const unsupported = [
+    {
+      code: "host_enforcement_separate",
+      category: "hostEnforcement",
+      reason: "The certificate proves AIR verifier bounds; whether a host enforces those bounds is a separate host responsibility."
+    },
+    {
+      code: "wall_clock_time_not_proven",
+      category: "timing",
+      reason: "Wall-clock duration, scheduler delay, and external service latency are outside this certificate."
+    },
+    {
+      code: "native_stack_usage_not_proven",
+      category: "memory",
+      reason: "Native host stack usage and host allocator behavior are outside AIR static memory accounting."
+    }
+  ];
+  const requiredUnknown = unknown.filter((item) => policy.requiredBounds.includes(item.category));
+  const declared = moduleRecords.flatMap((item) =>
+    (item.facts.effectBudgets || []).map((budget) => ({
+      module: item.path,
+      category: "effects",
+      key: budget.key,
+      op: budget.op,
+      limit: budget.limit,
+      scope: budget.scope
+    })));
+  const payload = stableCertificateObject({
+    schemaVersion: RESOURCE_CERTIFICATE_SCHEMA_VERSION,
+    kind: RESOURCE_CERTIFICATE_KIND,
+    status: requiredUnknown.length ? "incomplete" : "verified",
+    mode: policy.mode,
+    verifier,
+    package: {
+      name: options.packageName || moduleRecords[0]?.name || null,
+      digest: packageDigest,
+      manifestDigest
+    },
+    modules: moduleRecords,
+    bounds,
+    classifications: {
+      verified: verifiedResourceClassifications(bounds),
+      declared,
+      unknown,
+      unsupported
+    },
+    requiredBounds: policy.requiredBounds,
+    requiredBoundsSatisfied: requiredUnknown.length === 0,
+    hostEnforcement: "separate"
+  });
+  return stableCertificateObject({
+    ...payload,
+    certificateDigest: hashWithDomain(RESOURCE_CERTIFICATE_DOMAIN, payload)
+  });
+}
+
+function validateVerifiedResourceCertificate(certificate, options = {}) {
+  const diagnostics = [];
+  const normalizedOptions = validateResourceCertificateOptions(options, diagnostics);
+  if (!certificate || typeof certificate !== "object" || Array.isArray(certificate)) {
+    diagnostics.push(resourceCertificateDiagnostic("air.resource_certificate.invalid", "certificate must be an object"));
+    return resourceCertificateValidation(diagnostics);
+  }
+  if (certificate.schemaVersion !== RESOURCE_CERTIFICATE_SCHEMA_VERSION) {
+    diagnostics.push(resourceCertificateDiagnostic(
+      "air.resource_certificate.schema_mismatch",
+      `certificate schemaVersion must be ${RESOURCE_CERTIFICATE_SCHEMA_VERSION}`
+    ));
+  }
+  if (certificate.kind !== RESOURCE_CERTIFICATE_KIND) {
+    diagnostics.push(resourceCertificateDiagnostic(
+      "air.resource_certificate.kind_mismatch",
+      `certificate kind must be ${RESOURCE_CERTIFICATE_KIND}`
+    ));
+  }
+  const { certificateDigest, ...payload } = certificate;
+  const expectedSelfDigest = hashWithDomain(RESOURCE_CERTIFICATE_DOMAIN, stableCertificateObject(payload));
+  if (certificateDigest !== expectedSelfDigest) {
+    diagnostics.push(resourceCertificateDiagnostic(
+      "air.resource_certificate.digest_mismatch",
+      "certificate payload does not match certificateDigest"
+    ));
+  }
+  validateBorrowedMemoryCertificateSection(certificate, diagnostics);
+  compareCertificateExpectation(diagnostics, "package.digest", certificate.package && certificate.package.digest, normalizedOptions.packageDigest, "air.resource_certificate.package_substitution");
+  compareCertificateExpectation(diagnostics, "package.name", certificate.package && certificate.package.name, normalizedOptions.packageName, "air.resource_certificate.package_substitution");
+  compareCertificateExpectation(diagnostics, "verifier.digest", certificate.verifier && certificate.verifier.digest, normalizedOptions.verifierDigest, "air.resource_certificate.verifier_mismatch");
+  compareCertificateExpectation(diagnostics, "certificateDigest", certificateDigest, normalizedOptions.certificateDigest, "air.resource_certificate.manifest_mismatch");
+  if (normalizedOptions.required && certificate.requiredBoundsSatisfied !== true) {
+    diagnostics.push(resourceCertificateDiagnostic(
+      "air.resource_certificate.required_bound_unknown",
+      "certificate-required mode has unknown required bounds"
+    ));
+  }
+  return resourceCertificateValidation(diagnostics);
+}
+
+function validateBorrowedMemoryCertificateSection(certificate, diagnostics) {
+  const bounds = certificate && certificate.bounds && certificate.bounds.borrowedMemory;
+  if (!bounds || typeof bounds !== "object" || Array.isArray(bounds)) {
+    diagnostics.push(resourceCertificateDiagnostic(
+      "air.resource_certificate.borrowed_memory_invalid",
+      "certificate bounds.borrowedMemory must be an object"
+    ));
+    return;
+  }
+  const { digest, ...payload } = bounds;
+  if (digest !== hashWithDomain(BORROWED_MEMORY_CERTIFICATE_DOMAIN, stableCertificateObject(payload))) {
+    diagnostics.push(resourceCertificateDiagnostic(
+      "air.resource_certificate.borrowed_memory_digest_mismatch",
+      "borrowed-memory bounds do not match their digest"
+    ));
+  }
+  const identities = new Set();
+  const parameters = Array.isArray(bounds.parameters) ? bounds.parameters : [];
+  if (!Array.isArray(bounds.parameters)) {
+    diagnostics.push(resourceCertificateDiagnostic(
+      "air.resource_certificate.borrowed_memory_invalid",
+      "borrowed-memory parameters must be an array"
+    ));
+  }
+  for (const parameter of parameters) {
+    if (!parameter || typeof parameter !== "object" || Array.isArray(parameter)) {
+      diagnostics.push(resourceCertificateDiagnostic(
+        "air.resource_certificate.borrowed_memory_invalid",
+        "borrowed-memory parameter records must be objects"
+      ));
+      continue;
+    }
+    const expectedIdentity = `${parameter.module}::${parameter.function}::${parameter.parameter}`;
+    if (parameter.identity !== expectedIdentity || identities.has(parameter.identity)) {
+      diagnostics.push(resourceCertificateDiagnostic(
+        "air.resource_certificate.borrowed_parameter_identity_mismatch",
+        "borrowed-memory parameter identity is invalid or duplicated",
+        { actual: parameter.identity || null, expected: expectedIdentity }
+      ));
+    }
+    identities.add(parameter.identity);
+  }
+  const modules = Array.isArray(certificate.modules) ? certificate.modules : [];
+  for (const moduleRecord of modules) {
+    const facts = moduleRecord && moduleRecord.facts && moduleRecord.facts.borrowedMemory;
+    if (!facts || typeof facts !== "object" || Array.isArray(facts)) {
+      diagnostics.push(resourceCertificateDiagnostic(
+        "air.resource_certificate.borrowed_memory_invalid",
+        `module '${moduleRecord && moduleRecord.path || "-"}' is missing borrowed-memory facts`
+      ));
+      continue;
+    }
+    const { digest: moduleDigest, ...modulePayload } = facts;
+    if (moduleDigest !== hashWithDomain(BORROWED_MEMORY_CERTIFICATE_DOMAIN, stableCertificateObject(modulePayload))) {
+      diagnostics.push(resourceCertificateDiagnostic(
+        "air.resource_certificate.borrowed_memory_digest_mismatch",
+        `module '${moduleRecord.path}' borrowed-memory facts do not match their digest`
+      ));
+    }
+  }
+  if (modules.length) {
+    let recomputed = null;
+    try {
+      recomputed = combineBorrowedMemoryBounds(modules);
+    } catch (_) {
+      diagnostics.push(resourceCertificateDiagnostic(
+        "air.resource_certificate.borrowed_memory_aggregate_mismatch",
+        "package borrowed-memory bounds cannot be recomputed from malformed module facts"
+      ));
+    }
+    if (recomputed && stableCertificateStringify(recomputed) !== stableCertificateStringify(bounds)) {
+      diagnostics.push(resourceCertificateDiagnostic(
+        "air.resource_certificate.borrowed_memory_aggregate_mismatch",
+        "package borrowed-memory bounds do not match module facts"
+      ));
+    }
+  }
+}
+
+function validateResourceCertificateOptions(options, diagnostics) {
+  if (!options || typeof options !== "object" || Array.isArray(options)) {
+    diagnostics.push(resourceCertificateDiagnostic(
+      "air.resource_certificate.option_unknown",
+      "certificate validation options must be an object"
+    ));
+    return {};
+  }
+  const normalized = {};
+  for (const rawKey of Reflect.ownKeys(options)) {
+    const key = typeof rawKey === "string" ? rawKey : String(rawKey);
+    if (typeof rawKey !== "string" || !RESOURCE_CERTIFICATE_VALIDATION_OPTION_KEYS.has(key)) {
+      diagnostics.push(resourceCertificateDiagnostic(
+        "air.resource_certificate.option_unknown",
+        `unsupported certificate validation option '${key}'`,
+        { option: key }
+      ));
+      continue;
+    }
+    normalized[key] = options[rawKey];
+  }
+  for (const key of RESOURCE_CERTIFICATE_VALIDATION_OPTION_KEYS) {
+    if (Object.prototype.hasOwnProperty.call(options, key) || !(key in options)) continue;
+    diagnostics.push(resourceCertificateDiagnostic(
+      "air.resource_certificate.option_unknown",
+      `certificate validation option '${key}' must be an own property`,
+      { option: key }
+    ));
+  }
+  for (const key in options) {
+    if (Object.prototype.hasOwnProperty.call(options, key) ||
+        RESOURCE_CERTIFICATE_VALIDATION_OPTION_KEYS.has(key)) continue;
+    diagnostics.push(resourceCertificateDiagnostic(
+      "air.resource_certificate.option_unknown",
+      `certificate validation option '${key}' must be an own property`,
+      { option: key }
+    ));
+  }
+  return normalized;
+}
+
+function resourceVerifierIdentity() {
+  const source = fs.readFileSync(__filename);
+  return {
+    version: AIR_VERSION,
+    digest: hashWithDomain(RESOURCE_VERIFIER_DOMAIN, source)
+  };
+}
+
+function resourceFactsForModule(mod) {
+  const usage = collectEffectUsage(mod);
+  const loops = loopCertificateFacts(mod, usage);
+  const memory = memoryCertificateFacts(usage);
+  const hostCalls = hostCallCertificateFacts(mod, usage);
+  const effects = Array.from(usage.entries())
+    .filter(([, value]) => Number.isFinite(value) && value !== 0)
+    .map(([key, upperBound]) => ({ key, upperBound }))
+    .sort((a, b) => a.key.localeCompare(b.key));
+  return stableCertificateObject({
+    loops,
+    memory,
+    hostCalls,
+    borrowedMemory: borrowedMemoryCertificateFacts(mod),
+    effects,
+    effectBudgets: effectBudgetFacts(mod)
+  });
+}
+
+function borrowedMemoryCertificateFacts(mod) {
+  const functions = functionMapForUsage(mod);
+  const constants = buildConstantEnv(mod);
+  const exports = [];
+  const parameters = [];
+  const relations = [];
+  const unsupportedUnprovenReasons = [];
+
+  for (const fn of mod.functions || []) {
+    if (!fn.exported) continue;
+    const borrowedParams = (fn.params || []).filter((param) => param.type === BORROWED_SLICE_TYPE);
+    if (!borrowedParams.length) continue;
+    const usage = collectFunctionUsage(fn, functions, [], constants);
+    const relationRecords = (fn.requires || [])
+      .filter((contract) => contract.kind === "checked_borrow_length")
+      .map((contract) => stableCertificateObject({
+        identity: `${fn.name}::relation::${contract.borrow}::${contract.parameter}::${contract.multiplier}`,
+        function: fn.name,
+        borrow: contract.borrow,
+        parameter: contract.parameter,
+        multiplier: contract.multiplier,
+        op: contract.op,
+        unit: contract.unit
+      }))
+      .sort((a, b) => a.identity.localeCompare(b.identity));
+    const parameterRecords = borrowedParams.map((param) => {
+      if (!param.borrow || !param.borrow.length) {
+        unsupportedUnprovenReasons.push({
+          code: "borrowed_parameter_metadata_unavailable",
+          category: "borrowedMemory",
+          identity: `${fn.name}::${param.name}`,
+          reason: "Borrowed parameter metadata is incomplete."
+        });
+      }
+      const borrow = param.borrow || {};
+      const length = borrow.length || {};
+      const access = borrow.access || null;
+      return stableCertificateObject({
+        identity: `${fn.name}::${param.name}`,
+        function: fn.name,
+        parameter: param.name,
+        access,
+        memoryDomain: "wasm-linear",
+        minimumByteLength: numberOrNull(length.min),
+        maximumByteLength: numberOrNull(length.max),
+        requiredAlignment: numberOrNull(borrow.alignment),
+        aliasPolicy: BORROWED_MEMORY_ALIAS_POLICY,
+        noescape: borrow.noescape === true,
+        inPlaceAllowed: false,
+        copyInAllowed: access === "readonly" || access === "readwrite",
+        copyOutAllowed: access === "writeonly" || access === "readwrite",
+        entryRelations: relationRecords.filter((item) => item.borrow === param.name)
+      });
+    }).sort((a, b) => a.identity.localeCompare(b.identity));
+    const maximumTotalBorrowedBytes = sumKnown(parameterRecords.map((item) => item.maximumByteLength));
+    const maximumReadableBytes = sumKnown(parameterRecords
+      .filter((item) => item.access === "readonly" || item.access === "readwrite")
+      .map((item) => item.maximumByteLength));
+    const maximumWritableBytes = sumKnown(parameterRecords
+      .filter((item) => item.access === "writeonly" || item.access === "readwrite")
+      .map((item) => item.maximumByteLength));
+    const typedReads = usage.get("borrowed.typed_reads") || 0;
+    const typedWrites = usage.get("borrowed.typed_writes") || 0;
+    const typedReadBytes = usage.get("borrowed.typed_read_bytes") || 0;
+    const typedWriteBytes = usage.get("borrowed.typed_write_bytes") || 0;
+    const dynamicBoundsChecks = usage.get("borrowed.dynamic_bounds_checks") || 0;
+    const aliasComparisons = borrowedParams.length * (borrowedParams.length - 1) / 2;
+    const hostBindingValidationOperations =
+      borrowedParams.length * BORROWED_HOST_VALIDATIONS_PER_PARAMETER +
+      aliasComparisons +
+      relationRecords.length;
+    const entry = stableCertificateObject({
+      function: fn.name,
+      borrowedParameterCount: borrowedParams.length,
+      maximumTotalBorrowedBytes,
+      maximumReadableBytes,
+      maximumWritableBytes,
+      maximumCopyInBytes: maximumReadableBytes,
+      maximumCopyOutBytes: maximumWritableBytes,
+      maximumTypedReads: typedReads,
+      maximumTypedWrites: typedWrites,
+      maximumReadBytes: typedReadBytes,
+      maximumWriteBytes: typedWriteBytes,
+      maximumDynamicBoundsChecks: dynamicBoundsChecks,
+      maximumRelationChecks: relationRecords.length,
+      maximumHostBindingValidationOperations: hostBindingValidationOperations,
+      loopFuelContribution: (usage.get("cpu.loop_iterations") || 0) +
+        (usage.get("cpu.loop_iterations_upper_bound") || 0),
+      parameters: parameterRecords,
+      entryRelations: relationRecords
+    });
+    exports.push(entry);
+    parameters.push(...parameterRecords);
+    relations.push(...relationRecords);
+  }
+
+  const usesBorrowedMemory = parameters.length > 0;
+  const payload = stableCertificateObject({
+    status: unsupportedUnprovenReasons.length ? "unknown" : "verified",
+    airAbi: usesBorrowedMemory ? requiredAirAbiForModule(mod) : null,
+    feature: usesBorrowedMemory ? BORROWED_MEMORY_FEATURE : null,
+    memoryDomains: usesBorrowedMemory ? ["wasm-linear"] : [],
+    supportedTransferModes: usesBorrowedMemory ? BORROWED_MEMORY_TRANSFER_MODES : [],
+    aliasPolicy: BORROWED_MEMORY_ALIAS_POLICY,
+    borrowedParameterCount: parameters.length,
+    maximumParametersPerInvocation: maximumOf(exports, "borrowedParameterCount"),
+    maximumTotalBorrowedBytes: maximumOf(exports, "maximumTotalBorrowedBytes"),
+    maximumReadableBytes: maximumOf(exports, "maximumReadableBytes"),
+    maximumWritableBytes: maximumOf(exports, "maximumWritableBytes"),
+    maximumCopyInBytes: maximumOf(exports, "maximumCopyInBytes"),
+    maximumCopyOutBytes: maximumOf(exports, "maximumCopyOutBytes"),
+    maximumTypedReads: maximumOf(exports, "maximumTypedReads"),
+    maximumTypedWrites: maximumOf(exports, "maximumTypedWrites"),
+    maximumReadBytes: maximumOf(exports, "maximumReadBytes"),
+    maximumWriteBytes: maximumOf(exports, "maximumWriteBytes"),
+    maximumDynamicBoundsChecks: maximumOf(exports, "maximumDynamicBoundsChecks"),
+    maximumRelationChecks: maximumOf(exports, "maximumRelationChecks"),
+    maximumHostBindingValidationOperations: maximumOf(exports, "maximumHostBindingValidationOperations"),
+    loopFuelContribution: maximumOf(exports, "loopFuelContribution"),
+    parameters: parameters.sort((a, b) => a.identity.localeCompare(b.identity)),
+    entryRelations: relations.sort((a, b) => a.identity.localeCompare(b.identity)),
+    exports: exports.sort((a, b) => a.function.localeCompare(b.function)),
+    unsupportedUnprovenReasons: unsupportedUnprovenReasons.sort((a, b) =>
+      String(a.identity).localeCompare(String(b.identity)))
+  });
+  return stableCertificateObject({
+    ...payload,
+    digest: hashWithDomain(BORROWED_MEMORY_CERTIFICATE_DOMAIN, payload)
+  });
+}
+
+function maximumOf(items, key) {
+  const values = (items || []).map((item) => item[key]);
+  if (values.some((value) => value === null)) return null;
+  return Math.max(0, ...values);
+}
+
+function sumKnown(values) {
+  if ((values || []).some((value) => value === null)) return null;
+  return (values || []).reduce((sum, value) => sum + value, 0);
+}
+
+function numberOrNull(value) {
+  return typeof value === "number" && Number.isSafeInteger(value) && value >= 0 ? value : null;
+}
+
+function loopCertificateFacts(mod, usage) {
+  let maximumStatic = 0;
+  let maximumDynamicFuel = 0;
+  let staticLoops = 0;
+  let dynamicLoops = 0;
+  const constants = constantValuesForModule(mod);
+  for (const fn of mod.functions || []) {
+    const consts = new Map();
+    for (const [name, value] of constants.entries()) consts.set(name, value.constValue);
+    const valueTypes = new Map((fn.params || []).map((param) => [param.name, param.type]));
+    for (const block of fn.blocks || []) {
+      for (const ins of block.instructions || []) {
+        if (ins.result && ins.op === "const.i32" && ins.args[0] && ins.args[0].kind === "number") {
+          consts.set(ins.result, ins.args[0].value);
+        }
+        if (ins.op.startsWith("loop.") || ins.op === "io.poll_bounded") {
+          const countArg = ins.op === "io.poll_bounded" ? ins.args[1] : ins.args[2];
+          const count = constNumberForArg(countArg, consts);
+          if (count === undefined) {
+            dynamicLoops += 1;
+            maximumDynamicFuel = Math.max(maximumDynamicFuel, ins.op === "io.poll_bounded" ? 4096 : loopIterationUpperBound(ins, valueTypes));
+          } else {
+            staticLoops += 1;
+            maximumStatic = Math.max(maximumStatic, count);
+          }
+        }
+        if (ins.result) valueTypes.set(ins.result, ins.resultType);
+      }
+    }
+  }
+  return {
+    status: "verified",
+    staticLoopCount: staticLoops,
+    dynamicLoopCount: dynamicLoops,
+    maximumStaticallyBoundedIterations: maximumStatic,
+    totalStaticallyBoundedIterations: usage.get("cpu.loop_iterations") || 0,
+    maximumDynamicLoopFuel: maximumDynamicFuel,
+    totalDynamicLoopFuelUpperBound: usage.get("cpu.loop_iterations_upper_bound") || 0
+  };
+}
+
+function memoryCertificateFacts(usage) {
+  const dynamicAllocationSites = usage.get("memory.dynamic_allocations") || 0;
+  const staticReadonlyBytes = usage.get("memory.static_readonly_bytes") || 0;
+  const staticStateBytes = usage.get("memory.static_state_bytes") || 0;
+  const staticPoolBytes = usage.get("memory.static_pool_bytes") || 0;
+  const staticAllocationBytes = usage.get("memory.static_alloc_bytes") || 0;
+  return {
+    status: dynamicAllocationSites > 0 ? "unknown" : "verified",
+    staticReadonlyBytes,
+    staticStateBytes,
+    staticPoolBytes,
+    staticAllocationBytes,
+    totalStaticBytesUpperBound: staticReadonlyBytes + staticStateBytes + staticPoolBytes + staticAllocationBytes,
+    dynamicAllocationSites,
+    dynamicAllocationBytesUpperBound: dynamicAllocationSites > 0 ? null : 0
+  };
+}
+
+function hostCallCertificateFacts(mod, usage) {
+  const byEffect = (mod.externs || []).map((ex) => {
+    const upperBound = usage.get(ex.name) || 0;
+    return {
+      effect: ex.name,
+      capability: requiredCapabilityForExtern(ex.name),
+      upperBound,
+      dynamicBoundUsed: usage.has(`${ex.name}.dynamic`)
+    };
+  }).filter((item) => item.upperBound > 0)
+    .sort((a, b) => a.effect.localeCompare(b.effect));
+  const capabilityTotals = new Map();
+  for (const item of byEffect) {
+    const capability = item.capability || "unknown";
+    capabilityTotals.set(capability, (capabilityTotals.get(capability) || 0) + item.upperBound);
+  }
+  return {
+    status: "verified",
+    totalUpperBound: byEffect.reduce((sum, item) => sum + item.upperBound, 0),
+    byEffect,
+    byCapability: Array.from(capabilityTotals.entries())
+      .map(([capability, upperBound]) => ({ capability, upperBound }))
+      .sort((a, b) => a.capability.localeCompare(b.capability))
+  };
+}
+
+function effectBudgetFacts(mod) {
+  const budgets = [];
+  for (const budget of mod.effects || []) {
+    budgets.push({ scope: "module", key: budget.key, op: budget.op || "<=", limit: budget.limit });
+  }
+  for (const fn of mod.functions || []) {
+    for (const budget of fn.effects || []) {
+      budgets.push({ scope: `function:${fn.name}`, key: budget.key, op: budget.op || "<=", limit: budget.limit });
+    }
+  }
+  return budgets.sort((a, b) =>
+    a.scope.localeCompare(b.scope) || a.key.localeCompare(b.key) || a.op.localeCompare(b.op) || a.limit - b.limit);
+}
+
+function combineResourceBounds(modules) {
+  const loopFacts = modules.map((item) => item.facts.loops);
+  const memoryFacts = modules.map((item) => item.facts.memory);
+  const hostEffects = new Map();
+  const hostCapabilities = new Map();
+  for (const item of modules) {
+    for (const call of item.facts.hostCalls.byEffect || []) {
+      const key = `${call.effect}\0${call.capability || ""}`;
+      const current = hostEffects.get(key) || {
+        effect: call.effect,
+        capability: call.capability,
+        upperBound: 0,
+        dynamicBoundUsed: false
+      };
+      current.upperBound += call.upperBound;
+      current.dynamicBoundUsed = current.dynamicBoundUsed || call.dynamicBoundUsed;
+      hostEffects.set(key, current);
+    }
+    for (const call of item.facts.hostCalls.byCapability || []) {
+      hostCapabilities.set(call.capability, (hostCapabilities.get(call.capability) || 0) + call.upperBound);
+    }
+  }
+  const dynamicAllocationSites = memoryFacts.reduce((sum, item) => sum + item.dynamicAllocationSites, 0);
+  return stableCertificateObject({
+    borrowedMemory: combineBorrowedMemoryBounds(modules),
+    loops: {
+      status: "verified",
+      maximumStaticallyBoundedIterations: Math.max(0, ...loopFacts.map((item) => item.maximumStaticallyBoundedIterations)),
+      totalStaticallyBoundedIterations: loopFacts.reduce((sum, item) => sum + item.totalStaticallyBoundedIterations, 0),
+      maximumDynamicLoopFuel: Math.max(0, ...loopFacts.map((item) => item.maximumDynamicLoopFuel)),
+      totalDynamicLoopFuelUpperBound: loopFacts.reduce((sum, item) => sum + item.totalDynamicLoopFuelUpperBound, 0)
+    },
+    memory: {
+      status: dynamicAllocationSites > 0 ? "unknown" : "verified",
+      staticReadonlyBytes: memoryFacts.reduce((sum, item) => sum + item.staticReadonlyBytes, 0),
+      staticStateBytes: memoryFacts.reduce((sum, item) => sum + item.staticStateBytes, 0),
+      staticPoolBytes: memoryFacts.reduce((sum, item) => sum + item.staticPoolBytes, 0),
+      staticAllocationBytes: memoryFacts.reduce((sum, item) => sum + item.staticAllocationBytes, 0),
+      totalStaticBytesUpperBound: memoryFacts.reduce((sum, item) => sum + item.totalStaticBytesUpperBound, 0),
+      dynamicAllocationSites,
+      dynamicAllocationBytesUpperBound: dynamicAllocationSites > 0 ? null : 0
+    },
+    hostCalls: {
+      status: "verified",
+      totalUpperBound: Array.from(hostEffects.values()).reduce((sum, item) => sum + item.upperBound, 0),
+      byEffect: Array.from(hostEffects.values()).sort((a, b) => a.effect.localeCompare(b.effect)),
+      byCapability: Array.from(hostCapabilities.entries())
+        .map(([capability, upperBound]) => ({ capability, upperBound }))
+        .sort((a, b) => a.capability.localeCompare(b.capability))
+    },
+    outputs: outputCertificateFacts(modules, hostEffects),
+    effects: {
+      status: "verified",
+      upperBounds: combineEffectUpperBounds(modules)
+    }
+  });
+}
+
+function combineBorrowedMemoryBounds(modules) {
+  const records = [];
+  const parameters = [];
+  const relations = [];
+  const unsupportedUnprovenReasons = [];
+  for (const moduleRecord of modules || []) {
+    const facts = moduleRecord.facts && moduleRecord.facts.borrowedMemory;
+    if (!facts) {
+      unsupportedUnprovenReasons.push({
+        code: "borrowed_module_facts_missing",
+        category: "borrowedMemory",
+        identity: moduleRecord.path,
+        reason: "Module borrowed-memory facts are absent."
+      });
+      continue;
+    }
+    records.push(facts);
+    for (const parameter of facts.parameters || []) {
+      parameters.push(stableCertificateObject({
+        ...parameter,
+        identity: `${moduleRecord.path}::${parameter.identity}`,
+        module: moduleRecord.path
+      }));
+    }
+    for (const relation of facts.entryRelations || []) {
+      relations.push(stableCertificateObject({
+        ...relation,
+        identity: `${moduleRecord.path}::${relation.identity}`,
+        module: moduleRecord.path
+      }));
+    }
+    for (const reason of facts.unsupportedUnprovenReasons || []) {
+      unsupportedUnprovenReasons.push(stableCertificateObject({
+        ...reason,
+        identity: `${moduleRecord.path}::${reason.identity || reason.code}`,
+        module: moduleRecord.path
+      }));
+    }
+  }
+  const usesBorrowedMemory = parameters.length > 0;
+  const airAbiValues = Array.from(new Set(records.map((item) => item.airAbi).filter(Boolean))).sort();
+  const features = Array.from(new Set(records.map((item) => item.feature).filter(Boolean))).sort();
+  const memoryDomains = Array.from(new Set(records.flatMap((item) => item.memoryDomains || []))).sort();
+  const supportedTransferModes = Array.from(new Set(
+    records.flatMap((item) => item.supportedTransferModes || [])
+  )).sort();
+  if (airAbiValues.length > 1) {
+    unsupportedUnprovenReasons.push({
+      code: "borrowed_air_abi_inconsistent",
+      category: "borrowedMemory",
+      identity: "package",
+      reason: "Borrowed modules disagree on AIR ABI identity."
+    });
+  }
+  if (features.length > 1) {
+    unsupportedUnprovenReasons.push({
+      code: "borrowed_feature_inconsistent",
+      category: "borrowedMemory",
+      identity: "package",
+      reason: "Borrowed modules disagree on feature identity."
+    });
+  }
+  const payload = stableCertificateObject({
+    status: unsupportedUnprovenReasons.length ? "unknown" : "verified",
+    airAbi: usesBorrowedMemory ? airAbiValues[0] || null : null,
+    feature: usesBorrowedMemory ? features[0] || null : null,
+    memoryDomains,
+    supportedTransferModes,
+    aliasPolicy: BORROWED_MEMORY_ALIAS_POLICY,
+    borrowedParameterCount: parameters.length,
+    maximumParametersPerInvocation: maximumOf(records, "maximumParametersPerInvocation"),
+    maximumTotalBorrowedBytes: maximumOf(records, "maximumTotalBorrowedBytes"),
+    maximumReadableBytes: maximumOf(records, "maximumReadableBytes"),
+    maximumWritableBytes: maximumOf(records, "maximumWritableBytes"),
+    maximumCopyInBytes: maximumOf(records, "maximumCopyInBytes"),
+    maximumCopyOutBytes: maximumOf(records, "maximumCopyOutBytes"),
+    maximumTypedReads: maximumOf(records, "maximumTypedReads"),
+    maximumTypedWrites: maximumOf(records, "maximumTypedWrites"),
+    maximumReadBytes: maximumOf(records, "maximumReadBytes"),
+    maximumWriteBytes: maximumOf(records, "maximumWriteBytes"),
+    maximumDynamicBoundsChecks: maximumOf(records, "maximumDynamicBoundsChecks"),
+    maximumRelationChecks: maximumOf(records, "maximumRelationChecks"),
+    maximumHostBindingValidationOperations: maximumOf(records, "maximumHostBindingValidationOperations"),
+    loopFuelContribution: maximumOf(records, "loopFuelContribution"),
+    parameters: parameters.sort((a, b) => a.identity.localeCompare(b.identity)),
+    entryRelations: relations.sort((a, b) => a.identity.localeCompare(b.identity)),
+    unsupportedUnprovenReasons: unsupportedUnprovenReasons.sort((a, b) =>
+      String(a.identity).localeCompare(String(b.identity)))
+  });
+  return stableCertificateObject({
+    ...payload,
+    digest: hashWithDomain(BORROWED_MEMORY_CERTIFICATE_DOMAIN, payload)
+  });
+}
+
+function outputCertificateFacts(modules, hostEffects) {
+  const hostCallUpperBounds = Array.from(hostEffects.values())
+    .filter((item) => String(item.effect || "").startsWith("output."))
+    .sort((a, b) => a.effect.localeCompare(b.effect));
+  const declaredBudgets = modules.flatMap((item) =>
+    (item.facts.effectBudgets || [])
+      .filter((budget) => String(budget.key || "").startsWith("output."))
+      .map((budget) => ({ module: item.path, ...budget })))
+    .sort((a, b) =>
+      a.module.localeCompare(b.module) ||
+      a.scope.localeCompare(b.scope) ||
+      a.key.localeCompare(b.key));
+  return {
+    status: "verified",
+    totalHostCallUpperBound: hostCallUpperBounds.reduce((sum, item) => sum + item.upperBound, 0),
+    hostCallUpperBounds,
+    declaredBudgets
+  };
+}
+
+function combineEffectUpperBounds(modules) {
+  const totals = new Map();
+  for (const item of modules) {
+    for (const effect of item.facts.effects || []) {
+      totals.set(effect.key, (totals.get(effect.key) || 0) + effect.upperBound);
+    }
+  }
+  return Array.from(totals.entries())
+    .map(([key, upperBound]) => ({ key, upperBound }))
+    .sort((a, b) => a.key.localeCompare(b.key));
+}
+
+function unknownResourceReasons(bounds) {
+  const unknown = [];
+  if (bounds.memory.dynamicAllocationSites > 0) {
+    unknown.push({
+      code: "dynamic_allocation_size_unknown",
+      category: "memory",
+      reason: `${bounds.memory.dynamicAllocationSites} dynamic allocation site(s) do not have a package-level byte upper bound`
+    });
+  }
+  for (const reason of bounds.borrowedMemory && bounds.borrowedMemory.unsupportedUnprovenReasons || []) {
+    unknown.push(stableCertificateObject(reason));
+  }
+  return unknown;
+}
+
+function verifiedResourceClassifications(bounds) {
+  return [
+    { category: "borrowedMemory", status: bounds.borrowedMemory.status },
+    { category: "loops", status: bounds.loops.status },
+    { category: "memory", status: bounds.memory.status },
+    { category: "hostCalls", status: bounds.hostCalls.status },
+    { category: "outputs", status: bounds.outputs.status },
+    { category: "effects", status: bounds.effects.status }
+  ].filter((item) => item.status === "verified");
+}
+
+function normalizeCertificateModules(input, options) {
+  const source = Array.isArray(input) ? input : [{ mod: input, path: options.modulePath, digest: options.moduleDigest }];
+  if (!source.length) throw new Error("resource certificate requires at least one AIR module");
+  return source.map((entry, index) => {
+    const normalized = entry && entry.mod ? entry : { mod: entry };
+    if (!normalized.mod || typeof normalized.mod !== "object") throw new Error(`resource certificate module ${index} is invalid`);
+    return {
+      mod: normalized.mod,
+      path: normalized.path || normalized.mod.name || `module-${index}`,
+      digest: validSha256(normalized.digest) ? normalized.digest : null
+    };
+  });
+}
+
+function normalizeCertificatePolicy(policy, modeOverride) {
+  const source = policy && typeof policy === "object" && !Array.isArray(policy) ? policy : {};
+  const mode = modeOverride || source.mode || "optional";
+  const requiredBounds = Array.isArray(source.requiredBounds) && source.requiredBounds.length
+    ? Array.from(new Set(source.requiredBounds.filter((item) => RESOURCE_BOUND_CATEGORIES.has(item)))).sort()
+    : Array.from(RESOURCE_BOUND_CATEGORIES).sort();
+  return {
+    mode: mode === "required" ? "required" : "optional",
+    requiredBounds
+  };
+}
+
+function moduleDigestInput(mod) {
+  return {
+    name: mod.name || null,
+    capabilities: Array.from(mod.capabilities || []).sort(),
+    effects: effectBudgetFacts(mod),
+    externs: (mod.externs || []).map((ex) => ({
+      name: ex.name,
+      params: ex.params,
+      returnType: ex.returnType
+    })).sort((a, b) => a.name.localeCompare(b.name)),
+    functions: (mod.functions || []).map((fn) => ({
+      name: fn.name,
+      exported: Boolean(fn.exported),
+      params: fn.params,
+      returnType: fn.returnType,
+      blocks: (fn.blocks || []).map((block) => ({
+        label: block.label,
+        instructions: (block.instructions || []).map((ins) => ({
+          result: ins.result || null,
+          resultType: ins.resultType || null,
+          op: ins.op,
+          callee: ins.callee || null,
+          args: ins.args || []
+        }))
+      }))
+    })).sort((a, b) => a.name.localeCompare(b.name))
+  };
+}
+
+function compareCertificateExpectation(diagnostics, field, actual, expected, code) {
+  if (expected == null) return;
+  if (actual !== expected) {
+    diagnostics.push(resourceCertificateDiagnostic(code, `${field} does not match the expected package or manifest value`, {
+      field,
+      expected,
+      actual: actual == null ? null : actual
+    }));
+  }
+}
+
+function resourceCertificateDiagnostic(code, message, fields = {}) {
+  return { code, severity: "fail", message, fields: stableCertificateObject(fields) };
+}
+
+function resourceCertificateValidation(diagnostics) {
+  return stableCertificateObject({
+    ok: diagnostics.length === 0,
+    status: diagnostics.length === 0 ? "pass" : "fail",
+    diagnostics
+  });
+}
+
+function hashWithDomain(domain, value) {
+  const hash = crypto.createHash("sha256");
+  hash.update(`${domain}\0`, "utf8");
+  if (Buffer.isBuffer(value)) hash.update(value);
+  else hash.update(stableCertificateStringify(value), "utf8");
+  return `sha256:${hash.digest("hex")}`;
+}
+
+function validSha256(value) {
+  return /^sha256:[a-f0-9]{64}$/.test(String(value || ""));
+}
+
+function stableCertificateStringify(value) {
+  return JSON.stringify(stableCertificateObject(value));
+}
+
+function stableCertificateObject(value) {
+  if (Array.isArray(value)) return value.map(stableCertificateObject);
+  if (!value || typeof value !== "object") return value;
+  const out = {};
+  for (const key of Object.keys(value).sort()) out[key] = stableCertificateObject(value[key]);
+  return out;
 }
 
 function functionMapForUsage(mod) {
@@ -161,6 +1225,7 @@ function buildTableEnv(mod, constants = new Map()) {
   for (const table of mod.tables || []) {
     if (constants.has(table.name)) fail(`table '${table.name}' conflicts with constant '${table.name}'`, table.loc);
     if (tables.has(table.name)) fail(`duplicate table '${table.name}'`, table.loc);
+    rejectBorrowedStorage(table.type, `table '${table.name}'`, table.loc);
     if (!["i32", "i64", "f32", "f64", "bool", "u8", "u16", "i16"].includes(table.type)) {
       fail(`table '${table.name}' element type '${table.type}' is not supported in static scalar tables`, table.loc);
     }
@@ -188,6 +1253,7 @@ function buildTableGroupEnv(mod, tables = new Map(), constants = new Map()) {
     const fields = new Map();
     for (const field of group.fields || []) {
       if (fields.has(field.name)) fail(`tablegroup '${group.name}' duplicate field '${field.name}'`, field.loc || group.loc);
+      rejectBorrowedStorage(field.type, `tablegroup '${group.name}' field '${field.name}'`, field.loc || group.loc);
       if (!["i32", "bool"].includes(field.type)) {
         fail(`tablegroup '${group.name}' field '${field.name}' type '${field.type}' is not supported; first slice supports i32 and bool only`, field.loc || group.loc);
       }
@@ -216,6 +1282,7 @@ function buildStateEnv(mod, constants = new Map(), tables = new Map(), tableGrou
     if (tables.has(state.name)) fail(`state '${state.name}' conflicts with table '${state.name}'`, state.loc);
     if (tableGroups.has(state.name)) fail(`state '${state.name}' conflicts with tablegroup '${state.name}'`, state.loc);
     if (states.has(state.name)) fail(`duplicate state '${state.name}'`, state.loc);
+    rejectBorrowedStorage(state.type, `state '${state.name}'`, state.loc);
     if (state.type !== "i32") {
       fail(`state '${state.name}' cell type '${state.type}' is not supported; first slice supports i32 only`, state.loc);
     }
@@ -244,6 +1311,7 @@ function buildPoolEnv(mod, constants = new Map(), tables = new Map(), tableGroup
     const fields = new Map();
     for (const field of pool.fields || []) {
       if (fields.has(field.name)) fail(`air.pool.invalid: pool '${pool.name}' duplicate field '${field.name}'`, field.loc || pool.loc);
+      rejectBorrowedStorage(field.type, `pool '${pool.name}' field '${field.name}'`, field.loc || pool.loc);
       if (!["i32", "bool"].includes(field.type)) {
         fail(`air.pool.field_type_invalid: pool '${pool.name}' field '${field.name}' type '${field.type}' is not supported; first slice supports i32 and bool only`, field.loc || pool.loc);
       }
@@ -433,6 +1501,18 @@ function collectFunctionUsage(fn, functions = new Map(), stack = [], constants =
       if (ins.op === "free_region") add("memory.free");
       if (ins.op.startsWith("load.") || ins.op === "buffer.load" || ins.op.startsWith("slice.load.")) add("memory.load");
       if (ins.op.startsWith("store.") || ins.op === "buffer.store" || ins.op.startsWith("slice.store.")) add("memory.store");
+      if (ins.op.startsWith("slice.load.") && valueTypeForArg(ins.args[0], valueTypes) === BORROWED_SLICE_TYPE) {
+        const width = scalarByteWidth(ins.op.slice("slice.load.".length));
+        add("borrowed.typed_reads");
+        add("borrowed.typed_read_bytes", width);
+        add("borrowed.dynamic_bounds_checks");
+      }
+      if (ins.op.startsWith("slice.store.") && valueTypeForArg(ins.args[0], valueTypes) === BORROWED_SLICE_TYPE) {
+        const width = scalarByteWidth(ins.op.slice("slice.store.".length));
+        add("borrowed.typed_writes");
+        add("borrowed.typed_write_bytes", width);
+        add("borrowed.dynamic_bounds_checks");
+      }
       if (ins.op === "mat4.store_f32") add("memory.store", 16);
       if (isTableGetOp(ins.op) || isTableGroupGetOp(ins.op)) add("memory.table_read");
       if (ins.op === "state.get") {
@@ -469,6 +1549,11 @@ function collectNestedFunctionUsage(fn, functions, stack, constants) {
     return usage;
   }
   return collectFunctionUsage(fn, functions, stack, constants);
+}
+
+function valueTypeForArg(arg, valueTypes) {
+  if (!arg || arg.kind !== "value") return null;
+  return valueTypes.get(arg.name) || valueTypes.get(String(arg.name).replace(/^%/, "")) || null;
 }
 
 function rejectLocalCallCycles(mod) {
@@ -654,6 +1739,11 @@ function verifyFunctionEffectsAndContracts(mod, fn, usage) {
 
 function validateFunctionContractDeclarations(mod, fn) {
   const params = new Map(fn.params.map((param) => [param.name, param]));
+  for (const contract of fn.ensures || []) {
+    if (contract.kind === "checked_param" || contract.kind === "checked_borrow_length") {
+      fail("air.borrow.syntax_invalid: checked entry contracts are valid only in requires declarations", contract.loc);
+    }
+  }
   for (const contract of [...(fn.requires || []), ...(fn.ensures || [])]) {
     if (contract.kind === "param") {
       const param = params.get(contract.name);
@@ -665,6 +1755,43 @@ function validateFunctionContractDeclarations(mod, fn) {
     if (contract.kind === "return") {
       if (!["i32", "i64", "f32", "f64"].includes(fn.returnType)) {
         fail(`function '${fn.name}' return contract requires numeric return type`, contract.loc);
+      }
+    }
+    if (contract.kind === "checked_param") {
+      const param = params.get(contract.parameter);
+      if (!fn.exported) {
+        fail("air.borrow.syntax_invalid: checked entry contracts require an exported function", contract.loc);
+      }
+      if (!param || param.type !== "i32") {
+        fail(
+          `air.borrow.syntax_invalid: checked param '${contract.parameter}' must reference an i32 exported parameter`,
+          contract.loc
+        );
+      }
+      if (!Number.isSafeInteger(contract.literal) || contract.literal < I32_MIN || contract.literal > I32_MAX) {
+        fail("air.borrow.syntax_invalid: checked param literal must fit signed i32", contract.loc);
+      }
+    }
+    if (contract.kind === "checked_borrow_length") {
+      const borrow = params.get(contract.borrow);
+      const parameter = params.get(contract.parameter);
+      if (!fn.exported) {
+        fail("air.borrow.syntax_invalid: checked entry contracts require an exported function", contract.loc);
+      }
+      if (!borrow || borrow.type !== BORROWED_SLICE_TYPE || !borrow.borrow) {
+        fail(
+          `air.borrow.syntax_invalid: checked bytes '${contract.borrow}' must reference a borrowed_slice parameter`,
+          contract.loc
+        );
+      }
+      if (!parameter || parameter.type !== "i32") {
+        fail(
+          `air.borrow.syntax_invalid: checked bytes parameter '${contract.parameter}' must reference an i32 parameter`,
+          contract.loc
+        );
+      }
+      if (!Number.isSafeInteger(contract.multiplier) || contract.multiplier <= 0 || contract.multiplier > I32_MAX) {
+        fail("air.borrow.syntax_invalid: checked byte multiplier must be a positive i32 literal", contract.loc);
       }
     }
   }
@@ -729,6 +1856,21 @@ function validateCallPreconditions(callee, values, args, loc) {
   }
 }
 
+function validateCallRefinements(callee, values, args, loc) {
+  for (let idx = 0; idx < (callee.params || []).length; idx += 1) {
+    const param = callee.params[idx];
+    if (!param.refinement) continue;
+    const actual = refinementRangeOf(values, args[idx], param.refinement.kind);
+    if (!actual || !refinementContains(param.refinement, actual)) {
+      const known = actual ? formatRange(actual) : "unknown";
+      fail(
+        `air.refinement.call_argument_out_of_range: call @${callee.name} argument '${param.name}' known range ${known} is not within ${formatRefinementRange(param.refinement)}`,
+        loc
+      );
+    }
+  }
+}
+
 function preconditionFactHint(arg, contract) {
   const required = `requires param ${contract.name} ${contract.op || "<="} ${contract.value}`;
   if (arg && arg.kind === "value") {
@@ -745,6 +1887,18 @@ function validateReturnContracts(fn, values, arg, loc) {
     if (!compareMetric(actual, contract.op || "<=", contract.value)) {
       fail(`function '${fn.name}' violates postcondition return ${contract.op || "<="} ${contract.value}: ${actual}`, loc);
     }
+  }
+}
+
+function validateReturnRefinement(fn, values, arg, loc) {
+  if (!fn.returnRefinement) return;
+  const actual = refinementRangeOf(values, arg, fn.returnRefinement.kind);
+  if (!actual || !refinementContains(fn.returnRefinement, actual)) {
+    const known = actual ? formatRange(actual) : "unknown";
+    fail(
+      `air.refinement.return_out_of_range: function '${fn.name}' return known range ${known} is not within ${formatRefinementRange(fn.returnRefinement)}`,
+      loc
+    );
   }
 }
 
@@ -785,7 +1939,21 @@ function verifyFunction(mod, fn, functions, globals, types, constants = new Map(
     });
   }
   for (const param of fn.params) {
-    values.set(`%${param.name}`, { type: param.type, loc: fn.loc, range: initialRangeForParam(fn, param) });
+    values.set(`%${param.name}`, {
+      type: param.type,
+      loc: fn.loc,
+      range: initialRangeForParam(fn, param),
+      borrow: param.borrow || undefined,
+      sliceRange: param.borrow
+        ? {
+            kind: "slice_length",
+            min: param.borrow.length.min,
+            max: param.borrow.length.max
+          }
+        : param.refinement && param.refinement.kind === "slice_length"
+        ? { ...param.refinement }
+        : (param.type === "slice" ? { kind: "slice_length", min: 0, max: SLICE_LEN_MAX } : undefined)
+    });
   }
 
   for (const block of fn.blocks) {
@@ -798,17 +1966,28 @@ function verifyFunction(mod, fn, functions, globals, types, constants = new Map(
       if (ins.result) {
         const constValue = constValueForInstruction(ins, values, tables);
         const baseRange = rangeForInstruction(ins, values, tables);
+        const numericRange = rangeForCallPostconditions(ins, functions, baseRange);
+        const slice = sliceMetadataForInstruction(ins, values);
+        const sliceRange = sliceRangeForInstruction(ins, functions, values, slice);
+        validateAssignedRefinement(ins, numericRange, sliceRange);
         values.set(ins.result, {
           type: ins.resultType,
           loc: ins.loc,
           constValue,
-          range: rangeForCallPostconditions(ins, functions, baseRange),
-          slice: sliceMetadataForInstruction(ins, values)
+          range: numericRange,
+          borrow: borrowMetadataForInstruction(ins, functions, values),
+          slice,
+          sliceRange: narrowedRefinementRange(ins.refinement, sliceRange)
         });
       }
       if (ins.result && ins.resultType === "ptr" && ins.op === "alloc_region") {
         const size = constValueOf(values, ins.args[0]);
-        regions.set(ins.result, { live: true, loc: ins.loc, size });
+        regions.set(ins.result, {
+          live: true,
+          loc: ins.loc,
+          size,
+          sizeRange: rangeOf(values, ins.args[0])
+        });
       }
       trackAsyncBufferSafety(ins, pendingAsyncBuffers, asyncRequestBuffers, readyAsyncRequests);
     }
@@ -1086,8 +2265,12 @@ function verifyInstruction(mod, fn, ins, functions, globals, labels, values, reg
       if (ins.args.length !== 0) fail("void function must return without value", ins.loc);
     } else {
       expectArgCount(ins, 1);
+      if (borrowedValue(values, ins.args[0])) {
+        fail("air.borrow.escape_return: an invocation-scoped borrowed slice cannot be returned", ins.loc);
+      }
       expectType(values, ins.args[0], fn.returnType, ins.loc);
       validateReturnContracts(fn, values, ins.args[0], ins.loc);
+      validateReturnRefinement(fn, values, ins.args[0], ins.loc);
     }
     return;
   }
@@ -1123,6 +2306,10 @@ function verifyInstruction(mod, fn, ins, functions, globals, labels, values, reg
   if (ins.op === "print") {
     expectArgCount(ins, 1);
     if (!mod.capabilities.has("stdio")) fail("print requires capability 'stdio'", ins.loc);
+    const value = inferType(values, ins.args[0], ins.loc);
+    if (value.type === BORROWED_SLICE_TYPE) {
+      fail("air.borrow.extern_opaque: borrowed slices cannot be forwarded to print or another opaque host boundary", ins.loc);
+    }
     expectType(values, ins.args[0], "slice", ins.loc);
     return;
   }
@@ -1137,7 +2324,24 @@ function verifyInstruction(mod, fn, ins, functions, globals, labels, values, reg
     if (callee.params.length !== ins.args.length) {
       fail(`call @${ins.callee} expects ${callee.params.length} args, got ${ins.args.length}`, ins.loc);
     }
-    callee.params.forEach((param, idx) => expectType(values, ins.args[idx], param.type, ins.loc));
+    callee.params.forEach((param, idx) => {
+      const actual = inferType(values, ins.args[idx], ins.loc);
+      if (actual.type === BORROWED_SLICE_TYPE || param.type === BORROWED_SLICE_TYPE) {
+        const actualBorrow = borrowedValue(values, ins.args[idx]);
+        if (callee.external || callee.packageExternal) {
+          fail(`air.borrow.extern_opaque: borrowed slice argument ${idx} cannot be passed to opaque extern @${ins.callee}`, ins.loc);
+        }
+        if (!param.borrow || !actualBorrow || !borrowedArgumentCompatible(param.borrow, actualBorrow)) {
+          fail(
+            `air.borrow.call_mismatch: argument ${idx} for @${ins.callee} is not compatible with ${param.declaredType || param.type}`,
+            ins.loc
+          );
+        }
+        return;
+      }
+      expectType(values, ins.args[idx], param.type, ins.loc);
+    });
+    validateCallRefinements(callee, values, ins.args, ins.loc);
     if (ins.callee === "output.emit" && !isStaticOutputEmitIdArg(ins.args[0], values)) {
       fail("output.emit output_id must be a statically resolvable i32 literal or module constant in v0.26", ins.loc);
     }
@@ -1422,7 +2626,6 @@ function verifyInstruction(mod, fn, ins, functions, globals, labels, values, reg
     requireUse(mod, "math.fixed", ins);
     return;
   }
-
   if (ins.op === "fixed.lerp_i32") {
     requireResult(ins);
     if (ins.resultType !== "i32") fail("fixed.lerp_i32 produces i32", ins.loc);
@@ -1574,7 +2777,7 @@ function verifyInstruction(mod, fn, ins, functions, globals, labels, values, reg
     expectType(values, ins.args[0], "mat4", ins.loc);
     const region = expectLivePtr(values, regions, ins.args[1], ins.loc);
     expectType(values, ins.args[2], "i32", ins.loc);
-    expectStaticBounds(region, constValueOf(values, ins.args[2]), 64, ins.loc);
+    ins.regionBoundsCheck = expectRegionBounds(region, rangeOf(values, ins.args[2]), 64, ins.loc);
     return;
   }
 
@@ -1876,19 +3079,31 @@ function verifyInstruction(mod, fn, ins, functions, globals, labels, values, reg
     requireResult(ins);
     if (ins.resultType !== "i32") fail("slice.len produces i32", ins.loc);
     expectArgCount(ins, 1);
-    expectType(values, ins.args[0], "slice", ins.loc);
+    expectSliceLike(values, ins.args[0], ins.loc);
     return;
   }
 
   if (ins.op === "slice.sub") {
     requireResult(ins);
-    if (ins.resultType !== "slice") fail("slice.sub produces slice", ins.loc);
     expectArgCount(ins, 3);
-    expectType(values, ins.args[0], "slice", ins.loc);
+    const source = expectSliceLike(values, ins.args[0], ins.loc);
+    if (source.type === BORROWED_SLICE_TYPE) {
+      validateBorrowedSubslice(ins, source.borrow, values);
+    } else if (ins.resultType !== "slice") {
+      fail("slice.sub from a legacy slice produces slice", ins.loc);
+    }
     expectType(values, ins.args[1], "i32", ins.loc);
     expectType(values, ins.args[2], "i32", ins.loc);
     expectStaticSliceBounds(values, ins.args[0], constValueOf(values, ins.args[1]), constValueOf(values, ins.args[2]), ins.loc);
     return;
+  }
+
+  if (ins.op === "slice.grow") {
+    expectArgCount(ins, 2);
+    if (borrowedValue(values, ins.args[0])) {
+      fail("air.borrow.free_forbidden: host-owned borrowed memory cannot be grown by AIR", ins.loc);
+    }
+    fail("slice.grow is unsupported for legacy slices", ins.loc);
   }
 
   if (ins.op === "slice.load.i32" || ins.op === "slice.load.f32") {
@@ -1896,7 +3111,8 @@ function verifyInstruction(mod, fn, ins, functions, globals, labels, values, reg
     requireResult(ins);
     if (ins.resultType !== loadType) fail(`${ins.op} produces ${loadType}`, ins.loc);
     expectArgCount(ins, 2);
-    expectType(values, ins.args[0], "slice", ins.loc);
+    const source = expectSliceLike(values, ins.args[0], ins.loc);
+    validateBorrowedAccess(source.borrow, "read", scalarByteWidth(loadType), ins, values);
     expectType(values, ins.args[1], "i32", ins.loc);
     expectStaticSliceBounds(values, ins.args[0], constValueOf(values, ins.args[1]), scalarByteWidth(loadType), ins.loc);
     return;
@@ -1905,7 +3121,8 @@ function verifyInstruction(mod, fn, ins, functions, globals, labels, values, reg
   if (ins.op === "slice.store.i32" || ins.op === "slice.store.f32") {
     const storeType = ins.op.slice("slice.store.".length);
     expectArgCount(ins, 3);
-    expectType(values, ins.args[0], "slice", ins.loc);
+    const source = expectSliceLike(values, ins.args[0], ins.loc);
+    validateBorrowedAccess(source.borrow, "write", scalarByteWidth(storeType), ins, values);
     expectType(values, ins.args[1], "i32", ins.loc);
     expectType(values, ins.args[2], storeType, ins.loc);
     expectStaticSliceBounds(values, ins.args[0], constValueOf(values, ins.args[1]), scalarByteWidth(storeType), ins.loc);
@@ -1915,6 +3132,9 @@ function verifyInstruction(mod, fn, ins, functions, globals, labels, values, reg
   if (ins.op === "global.set") {
     expectArgCount(ins, 2);
     const global = expectGlobal(globals, ins.args[0], ins.loc);
+    if (borrowedValue(values, ins.args[1])) {
+      fail(`air.borrow.escape_storage: borrowed slice cannot be stored in global '${global.name}'`, ins.loc);
+    }
     expectType(values, ins.args[1], global.type, ins.loc);
     return;
   }
@@ -1924,11 +3144,19 @@ function verifyInstruction(mod, fn, ins, functions, globals, labels, values, reg
     if (ins.resultType !== "ptr") fail("alloc_region produces ptr", ins.loc);
     expectArgCount(ins, 1);
     expectType(values, ins.args[0], "i32", ins.loc);
+    const classification = classifyRegionSize(rangeOf(values, ins.args[0]));
+    if (classification.status === "invalid") {
+      fail(`${REGION_BOUNDS_STATIC_CODE}: alloc_region ${classification.detail}`, ins.loc);
+    }
+    ins.regionSizeCheck = classification.status;
     return;
   }
 
   if (ins.op === "free_region") {
     expectArgCount(ins, 1);
+    if (borrowedValue(values, ins.args[0])) {
+      fail("air.borrow.free_forbidden: host-owned borrowed memory cannot be freed by AIR", ins.loc);
+    }
     const ptr = expectType(values, ins.args[0], "ptr", ins.loc);
     const region = regions.get(ptr);
     if (!region) fail(`cannot free non-live region ${ptr}`, ins.loc);
@@ -1942,7 +3170,8 @@ function verifyInstruction(mod, fn, ins, functions, globals, labels, values, reg
     if (![1, 2].includes(ins.args.length)) fail(`${ins.op} expects 1 or 2 args, got ${ins.args.length}`, ins.loc);
     const region = expectLivePtr(values, regions, ins.args[0], ins.loc);
     if (ins.args[1]) expectType(values, ins.args[1], "i32", ins.loc);
-    expectStaticBounds(region, constValueOf(values, ins.args[1]) || 0, scalarByteWidth(loadType), ins.loc);
+    const offsetRange = ins.args[1] ? rangeOf(values, ins.args[1]) : { min: 0, max: 0 };
+    ins.regionBoundsCheck = expectRegionBounds(region, offsetRange, scalarByteWidth(loadType), ins.loc);
     return;
   }
 
@@ -1952,11 +3181,11 @@ function verifyInstruction(mod, fn, ins, functions, globals, labels, values, reg
     const region = expectLivePtr(values, regions, ins.args[0], ins.loc);
     if (ins.args.length === 2) {
       expectType(values, ins.args[1], storeType, ins.loc);
-      expectStaticBounds(region, 0, scalarByteWidth(storeType), ins.loc);
+      ins.regionBoundsCheck = expectRegionBounds(region, { min: 0, max: 0 }, scalarByteWidth(storeType), ins.loc);
     } else {
       expectType(values, ins.args[1], "i32", ins.loc);
       expectType(values, ins.args[2], storeType, ins.loc);
-      expectStaticBounds(region, constValueOf(values, ins.args[1]), scalarByteWidth(storeType), ins.loc);
+      ins.regionBoundsCheck = expectRegionBounds(region, rangeOf(values, ins.args[1]), scalarByteWidth(storeType), ins.loc);
     }
     return;
   }
@@ -2007,11 +3236,12 @@ function expectLivePtr(values, regions, arg, loc) {
   return region;
 }
 
-function expectStaticBounds(region, offset, width, loc) {
-  if (region.size === undefined || offset === undefined) return;
-  if (offset < 0 || offset + width > region.size) {
-    fail(`static memory access out of region bounds: offset ${offset}, width ${width}, region size ${region.size}`, loc);
+function expectRegionBounds(region, offsetRange, width, loc) {
+  const classification = classifyRegionAccess(region.sizeRange, offsetRange, width);
+  if (classification.status === "invalid") {
+    fail(`${REGION_BOUNDS_STATIC_CODE}: raw memory access out of region bounds: ${classification.detail}`, loc);
   }
+  return classification.status;
 }
 
 function expectStaticSliceBounds(values, sliceArg, offset, width, loc) {
@@ -2093,9 +3323,73 @@ function ensureKnownType(type, types, loc) {
   fail(`unknown type '${type}'`, loc);
 }
 
+function rejectBorrowedStorage(type, label, loc) {
+  if (type === BORROWED_SLICE_TYPE || parseBorrowedSliceType(type)) {
+    fail(`air.borrow.escape_storage: ${label} cannot store an invocation-scoped borrowed slice`, loc);
+  }
+}
+
+function rejectBorrowedExternSignature(fn) {
+  const param = (fn.params || []).find((item) => item.type === BORROWED_SLICE_TYPE || item.borrow);
+  if (param) {
+    fail(
+      `air.borrow.extern_opaque: extern '${fn.name}' parameter '${param.name}' cannot accept an invocation-scoped borrowed slice`,
+      param.loc || fn.loc
+    );
+  }
+  if (fn.returnType === BORROWED_SLICE_TYPE || fn.returnBorrow) {
+    fail(`air.borrow.extern_opaque: extern '${fn.name}' cannot return an invocation-scoped borrowed slice`, fn.loc);
+  }
+}
+
+function rejectBorrowedReturn(fn) {
+  if (fn.returnType === BORROWED_SLICE_TYPE || fn.returnBorrow) {
+    fail(`air.borrow.escape_return: function '${fn.name}' cannot return an invocation-scoped borrowed slice`, fn.loc);
+  }
+}
+
 function validateSignatureTypes(fn, types) {
   for (const param of fn.params || []) ensureKnownType(param.type, types, fn.loc);
   ensureKnownType(fn.returnType, types, fn.loc);
+}
+
+function assertWasmTargetSupport(mod, options = {}) {
+  const requiredAirAbi = requiredAirAbiForModule(mod);
+  if (
+    requiredAirAbi &&
+    (mod.functions || []).some((fn) => fn.exported && fn.name === "__air_abi_feature_borrowed_slice_v1")
+  ) {
+    fail(
+      `air.abi.borrowed_slice_interface_mismatch: module '${mod.name}' reserves export '__air_abi_feature_borrowed_slice_v1' for the AIR ABI feature marker`,
+      mod.loc
+    );
+  }
+  if (requiredAirAbi && options.airAbi && options.airAbi !== requiredAirAbi) {
+    fail(
+      `air.abi.borrowed_slice_requires_0_11: module '${mod.name}' uses borrowed-slice exports and requires AIR ABI ${requiredAirAbi}, not ${options.airAbi}`,
+      mod.loc
+    );
+  }
+  if (!requiredAirAbi && options.airAbi === "0.11") {
+    fail(
+      `air.abi.borrowed_slice_interface_mismatch: module '${mod.name}' has no borrowed-slice export and cannot be invoked through the borrowed-slice-v1 interface`,
+      mod.loc
+    );
+  }
+  for (const fn of mod.functions || []) {
+    if (!fn.exported) continue;
+    for (const param of fn.params || []) {
+      if (param.type === BORROWED_SLICE_TYPE) {
+        continue;
+      }
+      if (param.type !== "slice") continue;
+      fail(
+        `air.abi.borrowed_slice_lowering_unavailable: exported function '${fn.name}' parameter '${param.name}' uses slice without ABI length metadata; the current Wasm target cannot lower this boundary`,
+        param.loc || fn.loc
+      );
+    }
+  }
+  return true;
 }
 
 function rejectBoundaryComposites(fn, label) {
@@ -2134,12 +3428,106 @@ function expectType(values, arg, type, loc) {
   return actual.name;
 }
 
+function borrowedValue(values, arg) {
+  if (!arg || arg.kind !== "value") return undefined;
+  const found = values.get(arg.name);
+  return found ? found.borrow : undefined;
+}
+
+function expectSliceLike(values, arg, loc) {
+  const actual = inferType(values, arg, loc);
+  if (actual.type !== "slice" && actual.type !== BORROWED_SLICE_TYPE) {
+    fail(`expected slice or borrowed_slice, got ${actual.type}`, loc);
+  }
+  return actual;
+}
+
+function validateBorrowedAccess(borrow, operation, width, ins, values) {
+  if (!borrow) return;
+  if (!borrowedAccessAllows(borrow.access, operation)) {
+    fail(`air.borrow.mode_violation: ${borrow.access} borrowed slice does not permit ${operation} access`, ins.loc);
+  }
+  if (width > borrow.alignment) {
+    fail(
+      `air.borrow.alignment_invalid: ${ins.op} requires ${width}-byte alignment, but the borrowed slice declares ${borrow.alignment}`,
+      ins.loc
+    );
+  }
+  const offset = constValueOf(values, ins.args[1]);
+  if (offset !== undefined && (offset < 0 || offset > I32_MAX - width || offset + width > borrow.length.max)) {
+    fail(
+      `air.borrow.length_invalid: ${ins.op} offset ${offset} and width ${width} cannot fit maximum ${borrow.length.max}`,
+      ins.loc
+    );
+  }
+  if (offset !== undefined && offset % width !== 0) {
+    fail(`air.borrow.alignment_invalid: ${ins.op} offset ${offset} is not aligned to ${width} bytes`, ins.loc);
+  }
+}
+
+function validateBorrowedSubslice(ins, parent, values) {
+  if (ins.resultType !== BORROWED_SLICE_TYPE || !ins.borrow) {
+    fail(
+      "air.borrow.reinterpret_forbidden: slice.sub of a borrowed slice must preserve an explicit borrowed_slice type",
+      ins.loc
+    );
+  }
+  if (parent.access !== ins.borrow.access) {
+    fail(`air.borrow.mode_violation: slice.sub must preserve ${parent.access} access mode`, ins.loc);
+  }
+  if (ins.borrow.length.max > parent.length.max) {
+    fail(
+      `air.borrow.length_invalid: subslice maximum ${ins.borrow.length.max} exceeds parent maximum ${parent.length.max}`,
+      ins.loc
+    );
+  }
+  const requested = rangeOf(values, ins.args[2]);
+  if (
+    requested &&
+    (requested.min < ins.borrow.length.min || requested.max > ins.borrow.length.max)
+  ) {
+    fail(
+      `air.borrow.length_invalid: slice.sub requested length ${formatRange(requested)} does not fit declared range ${formatRange(ins.borrow.length)}`,
+      ins.loc
+    );
+  }
+  if (ins.borrow.alignment !== parent.alignment) {
+    fail(
+      `air.borrow.alignment_invalid: slice.sub must preserve declared alignment ${parent.alignment}`,
+      ins.loc
+    );
+  }
+  const offset = constValueOf(values, ins.args[1]);
+  const requestedLength = constValueOf(values, ins.args[2]);
+  if (
+    offset !== undefined &&
+    requestedLength !== undefined &&
+    (
+      offset < 0 ||
+      requestedLength < 0 ||
+      offset > I32_MAX - requestedLength ||
+      offset + requestedLength > parent.length.max
+    )
+  ) {
+    fail(
+      `air.borrow.length_invalid: slice.sub offset ${offset} and length ${requestedLength} cannot fit parent maximum ${parent.length.max}`,
+      ins.loc
+    );
+  }
+  if (offset !== undefined && offset % parent.alignment !== 0) {
+    fail(
+      `air.borrow.alignment_invalid: slice.sub offset ${offset} does not preserve ${parent.alignment}-byte alignment`,
+      ins.loc
+    );
+  }
+}
+
 function inferType(values, arg, loc) {
   if (!arg) fail("missing operand", loc);
   if (arg.kind === "value") {
     const found = values.get(arg.name);
     if (!found) fail(`use of undefined value ${arg.name}`, loc);
-    return { type: found.type, name: arg.name };
+    return { type: found.type, name: arg.name, borrow: found.borrow };
   }
   if (arg.kind === "symbol") {
     const found = values.get(arg.name);
@@ -2155,13 +3543,21 @@ function constValueForInstruction(ins, values, tables = new Map()) {
   if (ins.op === "const.i32" && ins.args[0] && ins.args[0].kind === "number") return ins.args[0].value;
   if (ins.op === "const.f32" && ins.args[0] && ins.args[0].kind === "number") return ins.args[0].value;
   if (ins.op === "const.bool" && ins.args[0] && ins.args[0].kind === "bool") return ins.args[0].value ? 1 : 0;
-  if (ins.op === "i32.add" || ins.op === "i32.sub" || ins.op === "i32.mul" || ins.op === "f32.add" || ins.op === "f32.sub" || ins.op === "f32.mul") {
+  if (ins.op === "i32.add" || ins.op === "i32.sub" || ins.op === "i32.mul") {
     const left = constValueOf(values, ins.args[0]);
     const right = constValueOf(values, ins.args[1]);
     if (left === undefined || right === undefined) return undefined;
-    if (ins.op.endsWith(".add")) return left + right;
-    if (ins.op.endsWith(".sub")) return left - right;
-    if (ins.op.endsWith(".mul")) return left * right;
+    if (ins.op === "i32.add") return (left + right) | 0;
+    if (ins.op === "i32.sub") return (left - right) | 0;
+    return Math.imul(left, right);
+  }
+  if (ins.op === "f32.add" || ins.op === "f32.sub" || ins.op === "f32.mul") {
+    const left = constValueOf(values, ins.args[0]);
+    const right = constValueOf(values, ins.args[1]);
+    if (left === undefined || right === undefined) return undefined;
+    if (ins.op === "f32.add") return left + right;
+    if (ins.op === "f32.sub") return left - right;
+    return left * right;
   }
   if (ins.op === "select.i32") {
     const cond = constValueOf(values, ins.args[0]);
@@ -2196,18 +3592,39 @@ function rangeForInstruction(ins, values, tables = new Map()) {
     const hi = constValueOf(values, ins.args[2]);
     if (lo !== undefined && hi !== undefined) return { min: Math.min(lo, hi), max: Math.max(lo, hi) };
   }
+  if (ins.op === "slice.len") {
+    const length = sliceRangeOf(values, ins.args[0]);
+    if (length) return { min: length.min, max: length.max };
+  }
   if (ins.op === "i32.and") {
     const left = rangeOf(values, ins.args[0]);
     const right = constValueOf(values, ins.args[1]);
     if (right !== undefined && right >= 0) return { min: 0, max: right };
     if (left && left.min >= 0 && left.max >= 0) return { min: 0, max: Math.max(left.max, 0) };
   }
-  if (ins.op === "i32.add") {
+  if (ins.op === "i32.add" || ins.op === "i32.sub" || ins.op === "i32.mul") {
     const left = rangeOf(values, ins.args[0]);
     const right = rangeOf(values, ins.args[1]);
-    if (left && right) return { min: left.min + right.min, max: left.max + right.max };
+    if (left && right) {
+      if (ins.op === "i32.add") return checkedI32Range(left.min + right.min, left.max + right.max);
+      if (ins.op === "i32.sub") return checkedI32Range(left.min - right.max, left.max - right.min);
+      const products = [
+        left.min * right.min,
+        left.min * right.max,
+        left.max * right.min,
+        left.max * right.max
+      ];
+      return checkedI32Range(Math.min(...products), Math.max(...products));
+    }
   }
   return fullRangeForType(ins.resultType);
+}
+
+function checkedI32Range(min, max) {
+  if (!Number.isSafeInteger(min) || !Number.isSafeInteger(max) || min < I32_MIN || max > I32_MAX) {
+    return { min: I32_MIN, max: I32_MAX };
+  }
+  return { min, max };
 }
 
 function rangeOf(values, arg) {
@@ -2225,6 +3642,68 @@ function rangeOf(values, arg) {
   return undefined;
 }
 
+function sliceRangeOf(values, arg) {
+  if (!arg) return undefined;
+  if (arg.kind === "string") {
+    const length = Buffer.byteLength(arg.value, "utf8");
+    return { kind: "slice_length", min: length, max: length };
+  }
+  if (arg.kind === "value") {
+    const found = values.get(arg.name);
+    if (!found) return undefined;
+    if (found.slice && found.slice.length !== undefined) {
+      return { kind: "slice_length", min: found.slice.length, max: found.slice.length };
+    }
+    return found.sliceRange;
+  }
+  if (arg.kind === "symbol") {
+    const found = values.get(arg.name);
+    return found && found.constant ? found.sliceRange : undefined;
+  }
+  return undefined;
+}
+
+function refinementRangeOf(values, arg, kind) {
+  if (kind === "i32_range") {
+    const range = rangeOf(values, arg);
+    return range ? { kind, min: range.min, max: range.max } : undefined;
+  }
+  if (kind === "slice_length") return sliceRangeOf(values, arg);
+  return undefined;
+}
+
+function validateAssignedRefinement(ins, numericRange, sliceRange) {
+  if (!ins.refinement) return;
+  const actual = ins.refinement.kind === "i32_range"
+    ? (numericRange ? { kind: "i32_range", min: numericRange.min, max: numericRange.max } : undefined)
+    : sliceRange;
+  if (!actual || !refinementContains(ins.refinement, actual)) {
+    const known = actual ? formatRange(actual) : "unknown";
+    const code = ins.refinement.kind === "slice_length"
+      ? "air.refinement.slice_length_out_of_range"
+      : "air.refinement.assignment_out_of_range";
+    fail(
+      `${code}: assignment to ${ins.result}:${ins.declaredType || ins.resultType} has known range ${known}, expected ${formatRefinementRange(ins.refinement)}`,
+      ins.loc
+    );
+  }
+}
+
+function narrowedRefinementRange(refinement, actual) {
+  if (!actual) return undefined;
+  if (!refinement || refinement.kind !== "slice_length") return actual;
+  return {
+    kind: "slice_length",
+    min: Math.max(actual.min, refinement.min),
+    max: Math.min(actual.max, refinement.max)
+  };
+}
+
+function formatRefinementRange(refinement) {
+  const label = refinement.kind === "slice_length" ? "slice length" : "i32";
+  return `${label} ${formatRange(refinement)}`;
+}
+
 function rangeForConstant(constant) {
   if (constant.constValue !== undefined && Number.isFinite(constant.constValue)) {
     return { min: constant.constValue, max: constant.constValue };
@@ -2233,10 +3712,19 @@ function rangeForConstant(constant) {
 }
 
 function initialRangeForParam(fn, param) {
-  let range = fullRangeForType(param.type);
+  let range = param.refinement && param.refinement.kind === "i32_range"
+    ? { min: param.refinement.min, max: param.refinement.max }
+    : fullRangeForType(param.type);
   for (const contract of fn.requires || []) {
     if (contract.kind !== "param" || contract.name !== param.name) continue;
-    range = applySimpleContractRange(range, contract, param.type, `function '${fn.name}' precondition`, contract.loc);
+    range = applySimpleContractRange(
+      range,
+      contract,
+      param.type,
+      `function '${fn.name}' precondition`,
+      contract.loc,
+      param.refinement ? "air.refinement.range_invalid" : null
+    );
   }
   return range;
 }
@@ -2245,7 +3733,9 @@ function rangeForCallPostconditions(ins, functions, baseRange) {
   if (ins.op !== "call") return baseRange;
   const callee = functions.get(ins.callee);
   if (!callee || callee.external) return baseRange;
-  let range = baseRange;
+  let range = callee.returnRefinement && callee.returnRefinement.kind === "i32_range"
+    ? { min: callee.returnRefinement.min, max: callee.returnRefinement.max }
+    : baseRange;
   for (const contract of callee.ensures || []) {
     if (contract.kind !== "return") continue;
     range = applySimpleContractRange(range, contract, callee.returnType, `function '${callee.name}' postcondition`, contract.loc || ins.loc);
@@ -2253,7 +3743,7 @@ function rangeForCallPostconditions(ins, functions, baseRange) {
   return range;
 }
 
-function applySimpleContractRange(range, contract, type, label, loc) {
+function applySimpleContractRange(range, contract, type, label, loc, errorCode = null) {
   if (!range) return range;
   if (type !== "i32") return range;
   if (!Number.isInteger(contract.value)) return range;
@@ -2263,7 +3753,10 @@ function applySimpleContractRange(range, contract, type, label, loc) {
   else if (op === "<=") next = { min: range.min, max: Math.min(range.max, contract.value) };
   else if (op === "==") next = { min: contract.value, max: contract.value };
   else return range;
-  if (next.min > next.max) fail(`${label} ${contract.kind === "param" ? `param ${contract.name} ` : "return "}${op} ${contract.value} is unsatisfiable with known range ${formatRange(range)}`, loc);
+  if (next.min > next.max) {
+    const prefix = errorCode ? `${errorCode}: ` : "";
+    fail(`${prefix}${label} ${contract.kind === "param" ? `param ${contract.name} ` : "return "}${op} ${contract.value} is unsatisfiable with known range ${formatRange(range)}`, loc);
+  }
   return next;
 }
 
@@ -2285,6 +3778,9 @@ function formatRange(range) {
 }
 
 function sliceMetadataForInstruction(ins, values) {
+  if (ins.op === "const.str" && ins.args[0] && ins.args[0].kind === "string") {
+    return { length: Buffer.byteLength(ins.args[0].value, "utf8") };
+  }
   if (ins.op === "slice.from_region") {
     return { base: ins.args[0].kind === "value" ? ins.args[0].name : undefined, length: constValueOf(values, ins.args[1]) };
   }
@@ -2296,6 +3792,54 @@ function sliceMetadataForInstruction(ins, values) {
     };
   }
   return undefined;
+}
+
+function borrowMetadataForInstruction(ins, functions, values) {
+  if (ins.borrow) return ins.borrow;
+  if (ins.op === "slice.sub") return borrowedValue(values, ins.args[0]);
+  if (ins.op === "call") {
+    const callee = functions.get(ins.callee);
+    return callee && callee.returnBorrow ? callee.returnBorrow : undefined;
+  }
+  return undefined;
+}
+
+function sliceRangeForInstruction(ins, functions, values, metadata) {
+  if (metadata && metadata.length !== undefined) {
+    return { kind: "slice_length", min: metadata.length, max: metadata.length };
+  }
+  if (ins.op === "slice.from_region") {
+    const length = rangeOf(values, ins.args[1]);
+    return length ? {
+      kind: "slice_length",
+      min: Math.max(0, length.min),
+      max: Math.min(SLICE_LEN_MAX, length.max)
+    } : undefined;
+  }
+  if (ins.op === "slice.sub") {
+    const length = rangeOf(values, ins.args[2]);
+    return length ? {
+      kind: "slice_length",
+      min: Math.max(0, length.min),
+      max: Math.min(SLICE_LEN_MAX, length.max)
+    } : undefined;
+  }
+  if (ins.op === "call") {
+    const callee = functions.get(ins.callee);
+    if (callee && !callee.external && callee.returnRefinement && callee.returnRefinement.kind === "slice_length") {
+      return { ...callee.returnRefinement };
+    }
+  }
+  if (ins.borrow) {
+    return {
+      kind: "slice_length",
+      min: ins.borrow.length.min,
+      max: ins.borrow.length.max
+    };
+  }
+  return ins.resultType === "slice"
+    ? { kind: "slice_length", min: 0, max: SLICE_LEN_MAX }
+    : undefined;
 }
 
 function constValueOf(values, arg) {
@@ -2486,4 +4030,16 @@ const KNOWN_INSTRUCTIONS = [
   "br_if"
 ];
 
-module.exports = { verifyModule, VerificationError, collectEffectUsage };
+module.exports = {
+  RESOURCE_CERTIFICATE_KIND,
+  RESOURCE_CERTIFICATE_SCHEMA_VERSION,
+  VerificationError,
+  collectEffectUsage,
+  createVerifiedResourceCertificate,
+  assertRealtimeSafeProfile,
+  resourceVerifierIdentity,
+  stableCertificateStringify,
+  assertWasmTargetSupport,
+  validateVerifiedResourceCertificate,
+  verifyModule
+};

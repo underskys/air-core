@@ -1,0 +1,10 @@
+module replay_scalar
+capabilities { }
+
+export func run() -> i32 {
+entry:
+  %left:i32 = const.i32 20
+  %right:i32 = const.i32 22
+  %sum:i32 = i32.add %left, %right
+  return %sum
+}

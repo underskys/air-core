@@ -1,0 +1,15 @@
+module region_bounds_dynamic_mat4
+
+capabilities { }
+requires export write_at
+
+export func write_at(offset: i32) -> i32 {
+entry:
+  %bytes:i32 = 64
+  %ptr:ptr = alloc_region %bytes
+  %matrix:mat4 = mat4.identity
+  mat4.store_f32 %matrix, %ptr, %offset
+  free_region %ptr
+  %ok:i32 = 1
+  return %ok
+}

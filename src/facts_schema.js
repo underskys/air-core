@@ -11,6 +11,7 @@ const FORBIDDEN_PRIVACY_MARKERS = new Set(["raw_text", "raw_url", "token", "secr
 const STORAGE_HINTS = new Set(["u8", "u16", "i16", "i32", "bool"]);
 const STORAGE_HINT_BYTES = Object.freeze({ bool: 1, u8: 1, u16: 2, i16: 2, i32: 4 });
 const STABLE_NAME_RE = /^[A-Za-z_][A-Za-z0-9_]{0,127}$/;
+const FLOW_LABELS = new Set(["public", "internal", "sensitive", "restricted"]);
 
 class FactsSchemaError extends Error {
   constructor(errors, report = null) {
@@ -187,12 +188,14 @@ function validateRowsetColumn(value, label, diagnostics, context = {}) {
   const storageHint = validateStorageHint(value.storageHint, `${label}.storageHint`, diagnostics, { ...context, column: name });
   const range = validateRange(value.range, `${label}.range`, diagnostics, { ...context, column: name });
   const privacy = validateOptionalPrivacy(value.privacy, `${label}.privacy`, diagnostics, { ...context, column: name, codePrefix: "air.rowset" });
+  const flowLabel = validateOptionalFlowLabel(value.flowLabel, `${label}.flowLabel`, diagnostics, { ...context, column: name });
   return name && type ? {
     name,
     type,
     enum: typeof value.enum === "string" ? value.enum : null,
     storageHint,
     privacy,
+    flowLabel,
     range
   } : null;
 }
@@ -277,8 +280,18 @@ function validateColumn(value, label, diagnostics, context = {}) {
     type,
     semantic: typeof value.semantic === "string" ? value.semantic : null,
     enum: typeof value.enum === "string" ? value.enum : null,
-    privacy: validateOptionalPrivacy(value.privacy, `${label}.privacy`, diagnostics, { ...context, column: name })
+    privacy: validateOptionalPrivacy(value.privacy, `${label}.privacy`, diagnostics, { ...context, column: name }),
+    flowLabel: validateOptionalFlowLabel(value.flowLabel, `${label}.flowLabel`, diagnostics, { ...context, column: name })
   } : null;
+}
+
+function validateOptionalFlowLabel(value, label, diagnostics, context = {}) {
+  if (value === undefined || value === null) return null;
+  if (typeof value !== "string" || !FLOW_LABELS.has(value)) {
+    addDiagnostic(diagnostics, "air.flow.label_invalid", `${label} must be one of: ${Array.from(FLOW_LABELS).join(", ")}`, { ...context, field: label, value });
+    return null;
+  }
+  return value;
 }
 
 function validatePrivacyPolicy(value, diagnostics, context = {}) {

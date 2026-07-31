@@ -1,0 +1,10 @@
+module borrowed_slice_zero_length
+
+capabilities { }
+requires export inspect
+
+export func inspect(src: borrowed_slice<readonly,len<=0,align=1>) -> i32 {
+entry:
+  %length:i32 = slice.len %src
+  return %length
+}

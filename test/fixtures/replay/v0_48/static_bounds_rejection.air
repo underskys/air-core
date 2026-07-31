@@ -1,0 +1,9 @@
+module replay_static_bounds_rejection
+table xs:i32[2] = [1, 2]
+capabilities { }
+
+export func run() -> i32 {
+entry:
+  %value:i32 = table.get xs, 2
+  return %value
+}

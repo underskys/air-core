@@ -1,0 +1,22 @@
+module verified_resource_certificate_example
+capabilities { debug }
+effects { debug.metric <= 1, cpu.loops <= 1, cpu.loop_iterations <= 4, memory.dynamic_allocations <= 0 }
+requires export run
+
+extern debug.metric(id: i32, value: i32) -> void
+
+func increment(value: i32) -> i32 {
+entry:
+  %one:i32 = 1
+  %next:i32 = add %value, %one
+  return %next
+}
+
+export func run() -> i32 {
+entry:
+  %seed:i32 = 0
+  %total:i32 = loop.fold.i32 @increment, %seed, 4
+  %metric_id:i32 = 1
+  @debug.metric(%metric_id, %total)
+  return %total
+}

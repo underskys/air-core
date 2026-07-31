@@ -1,0 +1,34 @@
+module borrowed_memory_vector_affine
+
+capabilities { }
+requires export affine
+
+export func affine(src: borrowed_slice<readonly,len<=16,align=4>, dst: borrowed_slice<writeonly,len<=16,align=4>, count: i32, scale: f32, bias: f32) -> i32 {
+  requires checked param count == 4
+  requires checked bytes src >= param count * 4
+  requires checked bytes dst >= param count * 4
+entry:
+  %value0:f32 = slice.load.f32 %src, 0
+  %scaled0:f32 = mul %value0, %scale
+  %output0:f32 = add %scaled0, %bias
+  slice.store.f32 %dst, 0, %output0
+  %value1:f32 = slice.load.f32 %src, 4
+  %scaled1:f32 = mul %value1, %scale
+  %output1:f32 = add %scaled1, %bias
+  slice.store.f32 %dst, 4, %output1
+  %value2:f32 = slice.load.f32 %src, 8
+  %scaled2:f32 = mul %value2, %scale
+  %output2:f32 = add %scaled2, %bias
+  slice.store.f32 %dst, 8, %output2
+  %value3:f32 = slice.load.f32 %src, 12
+  %scaled3:f32 = mul %value3, %scale
+  %output3:f32 = add %scaled3, %bias
+  slice.store.f32 %dst, 12, %output3
+  return %count
+}
+
+export func affine_empty(src: borrowed_slice<readonly,len<=0,align=4>, dst: borrowed_slice<writeonly,len<=0,align=4>, count: i32, scale: f32, bias: f32) -> i32 {
+  requires checked param count == 0
+entry:
+  return %count
+}

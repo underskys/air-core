@@ -1,0 +1,14 @@
+module region_bounds_static_one_byte_beyond
+
+capabilities { }
+
+func main(args: slice) -> i32 {
+entry:
+  %bytes:i32 = 16
+  %ptr:ptr = alloc_region %bytes
+  %offset:i32 = 13
+  %value:i32 = 5
+  store.i32 %ptr, %offset, %value
+  free_region %ptr
+  return %value
+}

@@ -64,6 +64,46 @@ Domain helpers may be implemented by the current verifier/lowerer for performanc
 - `ptr`, `slice` lower to raw Wasm `i32` handles. `slice.from_region` carries dynamic length metadata inside AIR locals, but ABI metadata still treats slices as handles.
 - `void` is allowed only as a function return type.
 
+### Bounded refinement types
+
+AIR accepts a deliberately narrow refinement layer over the existing `i32`
+range analysis and slice-length metadata:
+
+```air
+i32<-10..10>
+slice<len<=64>
+slice<len=1..64>
+slice<nonempty>
+```
+
+`slice<nonempty>` is an input alias. Canonical formatting emits
+`slice<len=1..2147483647>`. A zero-based range such as
+`slice<len=0..64>` formats as `slice<len<=64>`.
+
+Refinements are inclusive, verifier-only facts. They are permitted on function
+parameters, function returns, and SSA result declarations. Calls, returns, and
+narrowing assignments must have a statically proven range contained by the
+declared refinement. Widening from a refined value to its unrefined base type
+is allowed. Simple `requires param` facts intersect with parameter refinements,
+and simple `ensures return` facts continue to narrow local call results.
+Refined extern parameters and returns are rejected because the current Host
+ABI carries only base types and cannot prove a host-produced bound without a
+new runtime contract.
+
+Refinements erase to their current runtime base representation:
+
+- `i32<MIN..MAX>` lowers exactly as `i32`;
+- every refined slice lowers exactly as `slice`, which remains an `i32` handle
+  at the current AIR and Host ABI boundaries.
+
+No runtime representation, lowering rule, AIR ABI, or Host ABI changes.
+Overflowing `i32` range operations are handled conservatively unless the
+verifier can evaluate the exact wrapping constant result.
+
+This MVP does not include arbitrary predicates, dependent types,
+cross-variable refinements, SMT solving, generics, heap refinements, implicit
+runtime checks, or inferred ambient authority.
+
 ## ABI Boundary Rule
 
 Composite values are internal-only. If a generated module tries to export or import `vec3`, `mat4`, `struct`, `array<T,N>`, or `buffer<T,N>`, the verifier rejects it with a repair hint. Use scalar ABI fields such as `x:f32, y:f32, z:f32`, deterministic fixed-point fields such as `x_i32/y_i32/z_i32`, or pass an explicit output `ptr`/`slice`/buffer handle and keep the composite layout inside AIR.
@@ -264,6 +304,94 @@ AIR includes a small deterministic physics module for AI-authored player control
 
 These are intentionally small building blocks rather than a hidden game engine. AIR code still owns level geometry, triggers, jump pads, teleport rules, collision proxy selection, and camera behavior.
 
+## Borrowed Slices
+
+`borrowed_slice` is a distinct, backend-neutral type for host-owned memory
+borrowed by one synchronous exported invocation:
+
+```text
+borrowed_slice<readonly,len<=1024,align=4>
+borrowed_slice<writeonly,len=64..64,align=4>
+borrowed_slice<readwrite,len<=256,align=8>
+```
+
+Lengths and offsets are bytes. Access is exactly `readonly`, `writeonly`, or
+`readwrite`; the finite inclusive length range and alignment are mandatory.
+The canonical AST retains access, byte range, alignment, invocation lifetime,
+and noescape/ownership flags.
+
+A borrowed slice cannot be returned, stored, retained, freed, grown, converted
+to `ptr` or legacy `slice`, or passed through an opaque extern. Local synchronous
+helpers may accept compatible borrowed descriptors. Loads and stores must obey
+the declared access mode and alignment.
+
+Checked entry relationships use:
+
+```air
+requires checked param count >= 0
+requires checked bytes src >= param count * 4
+```
+
+Task 04 accepts and verifies this source model but does not lower borrowed
+exports. Wasm build preflight rejects them deterministically with
+`air.abi.borrowed_slice_lowering_unavailable`. The scalar tuple ABI, executable
+memory-domain binding, and checked entry code belong to later v0.50 tasks.
+Legacy `slice` semantics are unchanged.
+
 ## Success Criteria
 
 AIR succeeds when small AI-generated plugins are easier to generate correctly, review, sandbox, and run across hosts than equivalent ad hoc TypeScript/Rust/Zig snippets.
+
+## Bounded Provenance Flow
+
+Packages may opt into a fail-closed provenance-flow check with
+`provenanceFlow.mode = "required"` in `air.package.json`. Every participating
+module then declares exactly one `flow policy required` line and explicit
+labels for exported parameters, exported returns, used extern boundaries, and
+mutable storage.
+
+The fixed lattice is:
+
+```text
+public < internal < sensitive < restricted
+```
+
+Canonical declarations include:
+
+```air
+flow policy required
+flow source param decide.secret sensitive
+flow source param decide.score from fact request.score internal
+flow source extern random.u32 return internal
+flow source global seed internal
+flow sink return decide public
+flow sink extern debug.metric arg 1 internal
+flow sink print arg 0 public
+flow storage global cache sensitive
+flow storage state board internal
+flow storage pool objects.owner sensitive
+flow declassifier redact_sensitive function redact from sensitive to public
+```
+
+Facts, structured-input fields, and output-contract arguments use the same
+four labels through `flowLabel`. Schema-backed sources require an exact
+package-policy binding. A declassifier is accepted only when its module
+declaration and package authority match exactly and the local function passes
+the bounded purity checks.
+
+The verifier propagates whole-value labels through supported assignments,
+arithmetic, selects, arrays and regions, local and package-local calls,
+returns, bounded loop operations, and the accepted structured-phi loop. A
+non-public branch condition raises the control label of successor blocks.
+Writes and effects must not exceed their declared sink or storage ceiling.
+
+Evidence is deterministic and digest-bound. It records source identities,
+sinks, accepted and rejected dependency paths, authorized declassifications,
+analysis limits, diagnostics, policy/analyzer digests, and the explicit
+unsupported-channel list. Runtime secret values are never included.
+
+This MVP does not claim timing-channel, termination-channel, covert-channel,
+microarchitectural, or host-side flow protection. It also does not provide
+per-element array labels or per-byte region labels. Unsupported aliasing,
+recursion, unresolved boundaries, or exceeded analysis limits fail closed in
+required mode. Packages without required mode retain the previous behavior.

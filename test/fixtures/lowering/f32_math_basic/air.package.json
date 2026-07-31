@@ -1,0 +1,53 @@
+{
+  "name": "lowering-f32-math-basic",
+  "version": "0.1.0",
+  "airAbi": "0.10",
+  "hostAbi": "0.10",
+  "entry": "module.air",
+  "capabilities": [],
+  "targetProfiles": [
+    "cli"
+  ],
+  "packageExports": [
+    {
+      "name": "sqrt_positive",
+      "module": "module.air",
+      "function": "sqrt_positive"
+    },
+    {
+      "name": "sqrt_zero",
+      "module": "module.air",
+      "function": "sqrt_zero"
+    },
+    {
+      "name": "sqrt_negative",
+      "module": "module.air",
+      "function": "sqrt_negative"
+    },
+    {
+      "name": "sin_zero",
+      "module": "module.air",
+      "function": "sin_zero"
+    },
+    {
+      "name": "sin_half_pi",
+      "module": "module.air",
+      "function": "sin_half_pi"
+    },
+    {
+      "name": "sin_tau",
+      "module": "module.air",
+      "function": "sin_tau"
+    },
+    {
+      "name": "cos_zero",
+      "module": "module.air",
+      "function": "cos_zero"
+    },
+    {
+      "name": "cos_pi",
+      "module": "module.air",
+      "function": "cos_pi"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+module agent_tool_gate
+const OUT_TOOL_INTENT:i32 = 4101
+capabilities { output }
+effects { output.emit <= 1, cpu.branches <= 1 }
+requires export decide
+
+extern output.emit(output_id: i32, arg0: i32, arg1: i32, arg2: i32, arg3: i32) -> i32
+
+export func decide(amount: i32, amount_limit: i32, quota_used: i32, quota_limit: i32, rate_used: i32, rate_limit: i32, target_id: i32, allowed_target_id: i32, now: i32, expires_at: i32, redaction_flag: i32) -> i32 {
+entry:
+  %amount_ok:bool = i32.le_s %amount, %amount_limit
+  %quota_ok:bool = i32.lt_s %quota_used, %quota_limit
+  %rate_ok:bool = i32.lt_s %rate_used, %rate_limit
+  %target_ok:bool = i32.eq %target_id, %allowed_target_id
+  %time_ok:bool = i32.le_s %now, %expires_at
+  %limits_ok:bool = bool.and %amount_ok, %quota_ok
+  %authority_ok:bool = bool.and %rate_ok, %target_ok
+  %bounded_ok:bool = bool.and %limits_ok, %authority_ok
+  %allowed:bool = bool.and %bounded_ok, %time_ok
+  br_if %allowed, emit, denied
+emit:
+  %zero:i32 = 0
+  %intent_target:i32 = add %target_id, %zero
+  %intent_amount:i32 = add %amount, %zero
+  %intent_redaction:i32 = add %redaction_flag, %zero
+  %intent_quota:i32 = add %quota_used, %zero
+  %status:i32 = @output.emit(OUT_TOOL_INTENT, %intent_target, %intent_amount, %intent_redaction, %intent_quota)
+  %allow:i32 = 1
+  return %allow
+denied:
+  %deny:i32 = 0
+  return %deny
+}

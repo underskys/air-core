@@ -1,0 +1,13 @@
+module region_bounds_static_overflow
+
+capabilities { }
+
+func main(args: slice) -> i32 {
+entry:
+  %bytes:i32 = 16
+  %ptr:ptr = alloc_region %bytes
+  %offset:i32 = 2147483647
+  %value:i32 = load.i32 %ptr, %offset
+  free_region %ptr
+  return %value
+}

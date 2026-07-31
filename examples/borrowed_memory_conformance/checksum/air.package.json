@@ -1,0 +1,30 @@
+{
+  "name": "borrowed-memory-checksum",
+  "version": "0.50.0",
+  "airAbi": "0.11",
+  "hostAbi": "0.11",
+  "entry": "module.air",
+  "wasm": "module.wasm",
+  "capabilities": [],
+  "targetProfiles": [],
+  "resourceCertificate": {
+    "mode": "required",
+    "requiredBounds": [
+      "borrowedMemory",
+      "effects",
+      "hostCalls",
+      "loops",
+      "memory"
+    ]
+  },
+  "executionProfile": {
+    "mode": "realtime_safe",
+    "entrypoint": "checksum",
+    "maximumFuel": 512,
+    "airAbi": "0.11",
+    "feature": "borrowed-slice-v1",
+    "stateParameters": [
+      "state"
+    ]
+  }
+}

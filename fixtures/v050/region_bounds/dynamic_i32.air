@@ -1,0 +1,15 @@
+module region_bounds_dynamic_i32
+
+capabilities { }
+requires export write_at
+
+export func write_at(offset: i32) -> i32 {
+entry:
+  %bytes:i32 = 16
+  %ptr:ptr = alloc_region %bytes
+  %value:i32 = 99
+  store.i32 %ptr, %offset, %value
+  %loaded:i32 = load.i32 %ptr, %offset
+  free_region %ptr
+  return %loaded
+}

@@ -1,0 +1,58 @@
+module f32_math_basic
+capabilities { }
+
+export func sqrt_positive() -> f32 {
+entry:
+  %value:f32 = const.f32 4.0
+  %out:f32 = f32.sqrt %value
+  return %out
+}
+
+export func sqrt_zero() -> f32 {
+entry:
+  %value:f32 = const.f32 0.0
+  %out:f32 = f32.sqrt %value
+  return %out
+}
+
+export func sqrt_negative() -> f32 {
+entry:
+  %value:f32 = const.f32 -1.0
+  %out:f32 = f32.sqrt %value
+  return %out
+}
+
+export func sin_zero() -> f32 {
+entry:
+  %value:f32 = const.f32 0.0
+  %out:f32 = f32.sin %value
+  return %out
+}
+
+export func sin_half_pi() -> f32 {
+entry:
+  %value:f32 = const.f32 1.5707964
+  %out:f32 = f32.sin %value
+  return %out
+}
+
+export func sin_tau() -> f32 {
+entry:
+  %value:f32 = const.f32 6.2831855
+  %out:f32 = f32.sin %value
+  return %out
+}
+
+export func cos_zero() -> f32 {
+entry:
+  %value:f32 = const.f32 0.0
+  %out:f32 = f32.cos %value
+  return %out
+}
+
+export func cos_pi() -> f32 {
+entry:
+  %value:f32 = const.f32 3.1415927
+  %out:f32 = f32.cos %value
+  return %out
+}

@@ -1,7 +1,10 @@
 const fs = require("fs");
 const path = require("path");
 const { KNOWN_CAPABILITIES } = require("./capabilities");
-const { AIR_ABI_VERSION } = require("./version");
+const {
+  BORROWED_SLICES_AIR_ABI_VERSION,
+  SUPPORTED_AIR_ABI_VERSIONS
+} = require("./version");
 const { listHostProfileIds } = require("./host_profiles");
 
 const PACKAGE_MANIFEST_FILE = "air.package.json";
@@ -9,6 +12,18 @@ const HOST_ABI_VERSION = "0.10";
 const SUPPORTED_HOST_ABI_VERSIONS = new Set([
   HOST_ABI_VERSION,
   "0.11"
+]);
+const RESOURCE_CERTIFICATE_MODES = new Set(["optional", "required"]);
+const RESOURCE_CERTIFICATE_BOUNDS = new Set(["borrowedMemory", "loops", "memory", "hostCalls", "effects"]);
+const PROVENANCE_FLOW_LABELS = new Set(["public", "internal", "sensitive", "restricted"]);
+const EXECUTION_PROFILE_MODES = new Set(["realtime_safe"]);
+const EXECUTION_PROFILE_KEYS = new Set([
+  "airAbi",
+  "entrypoint",
+  "feature",
+  "maximumFuel",
+  "mode",
+  "stateParameters"
 ]);
 
 class PackageManifestError extends Error {
@@ -50,6 +65,9 @@ function validatePackageManifest(packageDir, options = {}) {
     packageExports: [],
     aiReview: null,
     reviewPolicy: null,
+    resourceCertificate: null,
+    provenanceFlow: null,
+    executionProfile: null,
     manifests: {},
     warnings,
     errors
@@ -66,8 +84,8 @@ function validatePackageManifest(packageDir, options = {}) {
   result.airAbi = validateRequiredString(manifest.airAbi, "airAbi", errors);
   result.hostAbi = validateRequiredString(manifest.hostAbi, "hostAbi", errors);
 
-  if (result.airAbi && result.airAbi !== AIR_ABI_VERSION) {
-    errors.push(`unsupported airAbi ${JSON.stringify(result.airAbi)}; expected ${AIR_ABI_VERSION}`);
+  if (result.airAbi && !SUPPORTED_AIR_ABI_VERSIONS.includes(result.airAbi)) {
+    errors.push(`unsupported airAbi ${JSON.stringify(result.airAbi)}; expected one of ${SUPPORTED_AIR_ABI_VERSIONS.join(", ")}`);
   }
   if (result.hostAbi && !SUPPORTED_HOST_ABI_VERSIONS.has(result.hostAbi)) {
     errors.push(`unsupported hostAbi ${JSON.stringify(result.hostAbi)}; expected one of ${Array.from(SUPPORTED_HOST_ABI_VERSIONS).sort().join(", ")}`);
@@ -191,6 +209,15 @@ function validatePackageManifest(packageDir, options = {}) {
   if (manifest.reviewPolicy !== undefined) {
     result.reviewPolicy = validateReviewPolicy(manifest.reviewPolicy, errors);
   }
+  if (manifest.resourceCertificate !== undefined) {
+    result.resourceCertificate = validateResourceCertificatePolicy(manifest.resourceCertificate, errors);
+  }
+  if (manifest.provenanceFlow !== undefined) {
+    result.provenanceFlow = validateProvenanceFlowPolicy(manifest.provenanceFlow, errors);
+  }
+  if (manifest.executionProfile !== undefined) {
+    result.executionProfile = validateExecutionProfile(manifest.executionProfile, errors);
+  }
 
   if (manifest.manifests !== undefined) {
     if (!manifest.manifests || typeof manifest.manifests !== "object" || Array.isArray(manifest.manifests)) {
@@ -245,11 +272,191 @@ function normalizePackageMetadata(raw) {
     packageExports: normalizePackageExports(metadata.packageExports),
     aiReview: normalizeReviewPolicy(metadata.reviewPolicy || metadata.aiReview),
     reviewPolicy: normalizeReviewPolicy(metadata.reviewPolicy || metadata.aiReview),
+    resourceCertificate: normalizeResourceCertificatePolicy(metadata.resourceCertificate),
+    provenanceFlow: normalizeProvenanceFlowPolicy(metadata.provenanceFlow),
+    executionProfile: normalizeExecutionProfile(metadata.executionProfile),
     manifests,
     manifest: metadata.manifest || (manifests.gfx && manifests.gfx.path) || null,
     imports: Array.isArray(metadata.imports) ? metadata.imports.slice() : [],
     exports: Array.isArray(metadata.exports) ? metadata.exports.slice() : [],
     raw: metadata
+  };
+}
+
+function validateResourceCertificatePolicy(value, errors) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    errors.push("resourceCertificate must be an object when present");
+    return null;
+  }
+  const policy = normalizeResourceCertificatePolicy(value);
+  if (!RESOURCE_CERTIFICATE_MODES.has(policy.mode)) {
+    errors.push("resourceCertificate.mode must be optional or required");
+  }
+  if (value.requiredBounds !== undefined) {
+    if (!Array.isArray(value.requiredBounds) || value.requiredBounds.length === 0) {
+      errors.push("resourceCertificate.requiredBounds must be a non-empty array when present");
+    } else {
+      for (const item of value.requiredBounds) {
+        if (!RESOURCE_CERTIFICATE_BOUNDS.has(item)) {
+          errors.push(`resourceCertificate.requiredBounds contains unsupported category: ${item}`);
+        }
+      }
+    }
+  }
+  for (const field of ["verifierDigest", "packageDigest", "certificateDigest"]) {
+    if (value[field] !== undefined && !validSha256(value[field])) {
+      errors.push(`resourceCertificate.${field} must be sha256:<64 lowercase hex>`);
+    }
+  }
+  return policy;
+}
+
+function normalizeResourceCertificatePolicy(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return {
+      mode: "optional",
+      requiredBounds: Array.from(RESOURCE_CERTIFICATE_BOUNDS).sort(),
+      verifierDigest: null,
+      packageDigest: null,
+      certificateDigest: null
+    };
+  }
+  return {
+    mode: typeof value.mode === "string" ? value.mode : "optional",
+    requiredBounds: Array.isArray(value.requiredBounds) && value.requiredBounds.length
+      ? Array.from(new Set(value.requiredBounds)).sort()
+      : Array.from(RESOURCE_CERTIFICATE_BOUNDS).sort(),
+    verifierDigest: typeof value.verifierDigest === "string" ? value.verifierDigest : null,
+    packageDigest: typeof value.packageDigest === "string" ? value.packageDigest : null,
+    certificateDigest: typeof value.certificateDigest === "string" ? value.certificateDigest : null
+  };
+}
+
+function validateExecutionProfile(value, errors) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    errors.push("executionProfile must be an object when present");
+    return null;
+  }
+  const unknown = Object.keys(value).filter((key) => !EXECUTION_PROFILE_KEYS.has(key)).sort();
+  for (const key of unknown) errors.push(`executionProfile.${key} is not supported`);
+  const profile = normalizeExecutionProfile(value);
+  if (!EXECUTION_PROFILE_MODES.has(profile.mode)) {
+    errors.push("executionProfile.mode must be realtime_safe");
+  }
+  if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(profile.entrypoint || "")) {
+    errors.push("executionProfile.entrypoint must be a stable AIR function identifier");
+  }
+  if (!Number.isSafeInteger(profile.maximumFuel) || profile.maximumFuel <= 0) {
+    errors.push("executionProfile.maximumFuel must be a positive safe integer");
+  }
+  if (profile.airAbi !== BORROWED_SLICES_AIR_ABI_VERSION) {
+    errors.push(`executionProfile.airAbi must be ${BORROWED_SLICES_AIR_ABI_VERSION}`);
+  }
+  if (profile.feature !== "borrowed-slice-v1") {
+    errors.push("executionProfile.feature must be borrowed-slice-v1");
+  }
+  if (!Array.isArray(value.stateParameters)) {
+    errors.push("executionProfile.stateParameters must be an array");
+  } else {
+    const seen = new Set();
+    for (let index = 0; index < value.stateParameters.length; index += 1) {
+      const name = value.stateParameters[index];
+      if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(String(name || ""))) {
+        errors.push(`executionProfile.stateParameters[${index}] must be a stable AIR parameter name`);
+      } else if (seen.has(name)) {
+        errors.push(`executionProfile.stateParameters contains duplicate '${name}'`);
+      }
+      seen.add(name);
+    }
+  }
+  return profile;
+}
+
+function normalizeExecutionProfile(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  return {
+    mode: typeof value.mode === "string" ? value.mode : null,
+    entrypoint: typeof value.entrypoint === "string" ? value.entrypoint : null,
+    maximumFuel: Number.isSafeInteger(value.maximumFuel) ? value.maximumFuel : null,
+    airAbi: typeof value.airAbi === "string" ? value.airAbi : null,
+    feature: typeof value.feature === "string" ? value.feature : null,
+    stateParameters: Array.isArray(value.stateParameters)
+      ? Array.from(new Set(value.stateParameters.filter((item) => typeof item === "string"))).sort()
+      : []
+  };
+}
+
+function validateProvenanceFlowPolicy(value, errors) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    errors.push("provenanceFlow must be an object when present");
+    return null;
+  }
+  const policy = normalizeProvenanceFlowPolicy(value);
+  if (value.mode !== "required") errors.push("provenanceFlow.mode must be required");
+  if (value.sourceBindings !== undefined && !Array.isArray(value.sourceBindings)) {
+    errors.push("provenanceFlow.sourceBindings must be an array when present");
+  }
+  if (value.declassifiers !== undefined && !Array.isArray(value.declassifiers)) {
+    errors.push("provenanceFlow.declassifiers must be an array when present");
+  }
+  const bindingKeys = new Set();
+  for (let index = 0; index < policy.sourceBindings.length; index += 1) {
+    const item = policy.sourceBindings[index];
+    const label = `provenanceFlow.sourceBindings[${index}]`;
+    if (!/^(?:fact|structured):[A-Za-z_][A-Za-z0-9_.]*$/.test(item.from)) {
+      errors.push(`${label}.from must be fact:<schema.field> or structured:<schema.field>`);
+    }
+    if (!/^param:[A-Za-z_][A-Za-z0-9_]*\.[A-Za-z_][A-Za-z0-9_]*\.[A-Za-z_][A-Za-z0-9_]*$/.test(item.to)) {
+      errors.push(`${label}.to must be param:<module.function.param>`);
+    }
+    if (!PROVENANCE_FLOW_LABELS.has(item.label)) {
+      errors.push(`${label}.label must be one of: ${Array.from(PROVENANCE_FLOW_LABELS).join(", ")}`);
+    }
+    const key = `${item.from}\0${item.to}`;
+    if (bindingKeys.has(key)) errors.push(`duplicate provenanceFlow source binding: ${item.from} -> ${item.to}`);
+    bindingKeys.add(key);
+  }
+  const declassifierIds = new Set();
+  for (let index = 0; index < policy.declassifiers.length; index += 1) {
+    const item = policy.declassifiers[index];
+    const label = `provenanceFlow.declassifiers[${index}]`;
+    for (const field of ["id", "module", "function", "reasonCode"]) {
+      if (!/^[A-Za-z_][A-Za-z0-9_.-]{0,127}$/.test(item[field])) {
+        errors.push(`${label}.${field} must be a stable identifier`);
+      }
+    }
+    if (!PROVENANCE_FLOW_LABELS.has(item.from) || !PROVENANCE_FLOW_LABELS.has(item.to)) {
+      errors.push(`${label}.from and .to must use the fixed provenance labels`);
+    } else if (Array.from(PROVENANCE_FLOW_LABELS).indexOf(item.to) >= Array.from(PROVENANCE_FLOW_LABELS).indexOf(item.from)) {
+      errors.push(`${label}.to must be lower than .from`);
+    }
+    if (declassifierIds.has(item.id)) errors.push(`duplicate provenanceFlow declassifier id: ${item.id}`);
+    declassifierIds.add(item.id);
+  }
+  return policy;
+}
+
+function normalizeProvenanceFlowPolicy(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  return {
+    mode: typeof value.mode === "string" ? value.mode : null,
+    sourceBindings: Array.isArray(value.sourceBindings)
+      ? value.sourceBindings.map((item) => ({
+        from: item && typeof item.from === "string" ? item.from : "",
+        to: item && typeof item.to === "string" ? item.to : "",
+        label: item && typeof item.label === "string" ? item.label : ""
+      })).sort((a, b) => a.from.localeCompare(b.from) || a.to.localeCompare(b.to) || a.label.localeCompare(b.label))
+      : [],
+    declassifiers: Array.isArray(value.declassifiers)
+      ? value.declassifiers.map((item) => ({
+        id: item && typeof item.id === "string" ? item.id : "",
+        module: item && typeof item.module === "string" ? item.module : "",
+        function: item && typeof item.function === "string" ? item.function : "",
+        from: item && typeof item.from === "string" ? item.from : "",
+        to: item && typeof item.to === "string" ? item.to : "",
+        reasonCode: item && typeof item.reasonCode === "string" ? item.reasonCode : ""
+      })).sort((a, b) => a.id.localeCompare(b.id) || a.module.localeCompare(b.module) || a.function.localeCompare(b.function))
+      : []
   };
 }
 
@@ -601,6 +808,10 @@ function validateStableName(value, field, errors) {
   return name;
 }
 
+function validSha256(value) {
+  return /^sha256:[a-f0-9]{64}$/.test(String(value || ""));
+}
+
 function validatePackageExportName(value, field, errors) {
   if (typeof value !== "string" || value.trim() === "") {
     errors.push(`${field} is required`);
@@ -688,11 +899,16 @@ function throwIfInvalid(result) {
 }
 
 module.exports = {
+  BORROWED_SLICES_AIR_ABI_VERSION,
   HOST_ABI_VERSION,
   PACKAGE_MANIFEST_FILE,
   PackageManifestError,
+  SUPPORTED_AIR_ABI_VERSIONS,
   SUPPORTED_HOST_ABI_VERSIONS,
   loadKnownHostProfiles,
   normalizePackageMetadata,
+  normalizeExecutionProfile,
+  normalizeProvenanceFlowPolicy,
+  normalizeResourceCertificatePolicy,
   validatePackageManifest
 };

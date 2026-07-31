@@ -4,22 +4,28 @@ const path = require("path");
 const { normalizeDiagnostic, sortDiagnostics } = require("./diagnostics");
 const { HOST_ABI_VERSION } = require("./package_manifest");
 const { checkPackageDir } = require("./sdk");
+const { inspectSemanticPatch } = require("./semantic_patch");
 const { AIR_ABI_VERSION, AIR_VERSION } = require("./version");
 
 const VERIFICATION_EVIDENCE_SCHEMA_VERSION = "0.20";
 const VERIFICATION_EVIDENCE_KIND = "air.verificationEvidence";
+const BORROWED_MEMORY_EVIDENCE_KIND = "air.borrowedMemoryInvocationEvidence";
+const BORROWED_MEMORY_EVIDENCE_SCHEMA_VERSION = "0.50";
+const BORROWED_MEMORY_HASH_DOMAIN = "AIR_BORROWED_MEMORY_INVOCATION_V1";
 
 function createPackageVerificationEvidence(packageDir, options = {}) {
   const base = path.resolve(packageDir);
   const profile = options.profile || null;
   const hostInteractionEvidence = loadHostInteractionEvidence(options.hostEvidence || options.hostInteractionEvidence, base);
-  const command = `airc verify package ${normalizeSlash(path.relative(process.cwd(), base) || ".")} --json${profile ? ` --profile ${profile}` : ""}${options.hostEvidence ? " --host-evidence <hostInteractionEvidence.json>" : ""}`;
+  const semanticPatchEvidence = loadSemanticPatchEvidence(options.semanticPatch, Boolean(options.semanticPatchStrict), base);
+  const command = `airc verify package ${normalizeSlash(path.relative(process.cwd(), base) || ".")} --json${profile ? ` --profile ${profile}` : ""}${options.hostEvidence ? " --host-evidence <hostInteractionEvidence.json>" : ""}${options.semanticPatch ? " --semantic-patch <semanticPatch.json>" : ""}${options.semanticPatchStrict ? " --semantic-patch-strict" : ""}`;
   let report = null;
   try {
     report = checkPackageDir(base, {
       profile,
       built: false,
-      releaseCandidate: Boolean(options.releaseCandidate)
+      releaseCandidate: Boolean(options.releaseCandidate),
+      certificateRequired: Boolean(options.certificateRequired)
     });
   } catch (err) {
     return finalizeEvidence({
@@ -35,14 +41,31 @@ function createPackageVerificationEvidence(packageDir, options = {}) {
         message,
         fields: { command }
       })),
-      hostInteractionEvidence
+      hostInteractionEvidence,
+      semanticPatchEvidence
     });
   }
 
   const hostDiagnostics = hostInteractionDiagnostics(hostInteractionEvidence);
-  const allDiagnostics = (report.diagnostics || []).concat(hostDiagnostics);
-  const allErrors = (report.errors || []).concat(hostDiagnostics.filter((item) => item.severity === "fail").map((item) => item.message));
-  const status = report.status === "fail" || hostDiagnostics.some((item) => item.severity === "fail") ? "failed" : "passed";
+  const semanticPatchDiagnostics = semanticPatchEvidence && semanticPatchEvidence.status === "rejected"
+    ? (semanticPatchEvidence.rejectedReasons || ["semantic patch rejected"]).map((reason) => normalizeDiagnostic({
+      code: "air.semantic_patch.rejected",
+      severity: "fail",
+      source: "verification-evidence",
+      message: String(reason),
+      fields: {
+        classification: semanticPatchEvidence.classifications && semanticPatchEvidence.classifications[0] || "unknown_unproven",
+        patchDigest: semanticPatchEvidence.patchDigest || null
+      }
+    }))
+    : [];
+  const allDiagnostics = (report.diagnostics || []).concat(hostDiagnostics, semanticPatchDiagnostics);
+  const allErrors = (report.errors || [])
+    .concat(hostDiagnostics.filter((item) => item.severity === "fail").map((item) => item.message))
+    .concat(semanticPatchDiagnostics.map((item) => item.message));
+  const status = report.status === "fail" ||
+    hostDiagnostics.some((item) => item.severity === "fail") ||
+    semanticPatchDiagnostics.length ? "failed" : "passed";
   return finalizeEvidence({
     base,
     status,
@@ -50,8 +73,36 @@ function createPackageVerificationEvidence(packageDir, options = {}) {
     report,
     errors: allErrors,
     diagnostics: allDiagnostics,
-    hostInteractionEvidence
+    hostInteractionEvidence,
+    semanticPatchEvidence
   });
+}
+
+function loadSemanticPatchEvidence(input, strict, base) {
+  if (!input) return null;
+  try {
+    return sanitizeValue(inspectSemanticPatch(input, { strict }), base);
+  } catch (err) {
+    return stableObject({
+      schemaVersion: "1.0",
+      kind: "air.semanticPatchEvidence",
+      mode: strict ? "strict" : "review",
+      status: "rejected",
+      baseDigest: null,
+      resultDigest: null,
+      patchDigest: null,
+      operationCount: 0,
+      classifications: ["unknown_unproven"],
+      expansions: [],
+      narrowings: [],
+      compatibilityFindings: [],
+      provenanceFindings: [],
+      resourceFindings: [],
+      rejectedReasons: [sanitizeString(err && err.message ? err.message : String(err), base)],
+      analyzerDigest: null,
+      summaryDigest: null
+    });
+  }
 }
 
 function loadHostInteractionEvidence(input, base) {
@@ -139,7 +190,89 @@ function createNotRunVerificationEvidence(options = {}) {
   });
 }
 
-function finalizeEvidence({ base, status, command, report, errors, diagnostics, hostInteractionEvidence }) {
+function validateBorrowedMemoryInvocationEvidence(evidence, options = {}) {
+  const diagnostics = [];
+  if (!evidence || typeof evidence !== "object" || Array.isArray(evidence)) {
+    return borrowedMemoryEvidenceValidation([{
+      code: "air.borrow.evidence_invalid",
+      message: "borrowed-memory evidence must be an object"
+    }]);
+  }
+  if (evidence.schemaVersion !== BORROWED_MEMORY_EVIDENCE_SCHEMA_VERSION ||
+      evidence.kind !== BORROWED_MEMORY_EVIDENCE_KIND) {
+    diagnostics.push({
+      code: "air.borrow.evidence_invalid",
+      message: "borrowed-memory evidence schema or kind is invalid"
+    });
+  }
+  const payload = stableObject(evidence);
+  delete payload.bindingDigest;
+  delete payload.evidenceDigest;
+  if (evidence.evidenceDigest !== hashBorrowedMemoryEvidence(payload)) {
+    diagnostics.push({
+      code: "air.borrow.evidence_digest_mismatch",
+      message: "borrowed-memory evidence payload does not match evidenceDigest"
+    });
+  }
+  const bindingPayload = (evidence.parameters || []).length
+    ? {
+        interfaceDigest: evidence.interfaceDigest,
+        moduleDigest: evidence.moduleDigest,
+        parameters: evidence.parameters,
+        packageDigest: evidence.packageDigest,
+        resourceCertificateDigest: evidence.resourceCertificateDigest,
+        resultDigest: evidence.result && evidence.result.digest
+      }
+    : {
+        failureReason: evidence.failureReason,
+        interfaceDigest: evidence.interfaceDigest,
+        moduleDigest: evidence.moduleDigest,
+        packageDigest: evidence.packageDigest
+      };
+  if (evidence.bindingDigest !== hashBorrowedMemoryEvidence(bindingPayload)) {
+    diagnostics.push({
+      code: "air.borrow.binding_digest_mismatch",
+      message: "borrowed-memory invocation identity does not match bindingDigest"
+    });
+  }
+  for (const [field, expected] of [
+    ["moduleDigest", options.moduleDigest],
+    ["packageDigest", options.packageDigest],
+    ["resourceCertificateDigest", options.resourceCertificateDigest]
+  ]) {
+    if (expected !== undefined && evidence[field] !== expected) {
+      diagnostics.push({
+        code: "air.borrow.evidence_identity_mismatch",
+        message: `${field} does not match expected invocation identity`
+      });
+    }
+  }
+  return borrowedMemoryEvidenceValidation(diagnostics);
+}
+
+function hashBorrowedMemoryEvidence(value) {
+  return `sha256:${crypto
+    .createHash("sha256")
+    .update(`${BORROWED_MEMORY_HASH_DOMAIN}:json\0`, "utf8")
+    .update(JSON.stringify(stableObject(value)), "utf8")
+    .digest("hex")}`;
+}
+
+function borrowedMemoryEvidenceValidation(diagnostics) {
+  const normalized = diagnostics.map((item) => stableObject({
+    code: item.code,
+    severity: "fail",
+    source: "verification-evidence",
+    message: item.message
+  })).sort((a, b) => a.code.localeCompare(b.code) || a.message.localeCompare(b.message));
+  return stableObject({
+    ok: normalized.length === 0,
+    status: normalized.length === 0 ? "pass" : "fail",
+    diagnostics: normalized
+  });
+}
+
+function finalizeEvidence({ base, status, command, report, errors, diagnostics, hostInteractionEvidence, semanticPatchEvidence }) {
   const sanitizedReport = sanitizeValue(report || {}, base);
   const hostInteractionSummary = hostInteractionEvidenceSummary(hostInteractionEvidence, base);
   const normalizedDiagnostics = sortDiagnostics((diagnostics || []).map((diagnostic) => normalizeDiagnostic(sanitizeValue(diagnostic, base))));
@@ -168,6 +301,8 @@ function finalizeEvidence({ base, status, command, report, errors, diagnostics, 
   const profile = sanitizedReport.profile || null;
   const packageName = sanitizedReport.package || null;
   const packageId = packageName;
+  const resourceCertificate = sanitizedReport.resourceCertificate || null;
+  const provenanceFlow = sanitizedReport.provenanceFlow || null;
   const packageHashSource = {
     packageName,
     modules,
@@ -186,6 +321,7 @@ function finalizeEvidence({ base, status, command, report, errors, diagnostics, 
     ownershipMap,
     generatedExecutableFreshness
   };
+  if (provenanceFlow && provenanceFlow.mode === "required") packageHashSource.provenanceFlow = provenanceFlow;
   if ((structuredIO.schemas || []).length || (structuredIO.handleSets || []).length) packageHashSource.structuredIO = structuredIO;
   if (tableGroups.length) packageHashSource.tableGroups = tableGroups;
   if (pools.length) packageHashSource.pools = pools;
@@ -232,6 +368,7 @@ function finalizeEvidence({ base, status, command, report, errors, diagnostics, 
     stateAccessorPolicies,
     hostInteractionEvidence: hostInteractionSummary,
     generatedArtifacts,
+    resourceCertificate,
     capabilitySummary,
     profileCompatibility,
     diagnostics: normalizedDiagnostics,
@@ -240,6 +377,8 @@ function finalizeEvidence({ base, status, command, report, errors, diagnostics, 
   if (tableGroups.length) evidence.tableGroups = tableGroups;
   if (pools.length) evidence.pools = pools;
   if (outputEmit.used) evidence.outputEmit = outputEmit;
+  if (provenanceFlow && provenanceFlow.mode === "required") evidence.provenanceFlow = provenanceFlow;
+  if (semanticPatchEvidence) evidence.semanticPatch = stableObject(semanticPatchEvidence);
   return stableObject(evidence);
 }
 
@@ -263,7 +402,8 @@ function structuredIoEvidence(structuredIO) {
         type: field.type || null,
         privacy: field.privacy || null,
         classification: field.classification || null,
-        semantic: field.semantic || null
+        semantic: field.semantic || null,
+        ...(field.flowLabel ? { flowLabel: field.flowLabel } : {})
       })).sort((a, b) => String(a.name).localeCompare(String(b.name))),
       privacyPolicy: schema.privacyPolicy || null,
       diagnostics: (schema.diagnostics || []).map((diagnostic) => normalizeDiagnostic(diagnostic)).sort((a, b) => String(a.code).localeCompare(String(b.code)) || String(a.message).localeCompare(String(b.message)))
@@ -570,7 +710,8 @@ function factSchemaEvidence(schemas) {
         enum: column.enum || null,
         range: column.range || null,
         storageHint: column.storageHint || null,
-        privacy: column.privacy || null
+        privacy: column.privacy || null,
+        ...(column.flowLabel ? { flowLabel: column.flowLabel } : {})
       })).sort((a, b) => String(a.name).localeCompare(String(b.name)))
     }) : null,
     facts: (schema.facts || []).map((fact) => stableObject({
@@ -579,7 +720,14 @@ function factSchemaEvidence(schemas) {
       maxRows: fact.maxRows,
       columnCount: fact.columnCount,
       capability: fact.capability || null,
-      privacy: fact.privacy || null
+      privacy: fact.privacy || null,
+      ...((fact.columns || []).some((column) => column.flowLabel) ? {
+        columns: (fact.columns || []).map((column) => stableObject({
+          name: column.name || null,
+          type: column.type || null,
+          ...(column.flowLabel ? { flowLabel: column.flowLabel } : {})
+        })).sort((a, b) => String(a.name).localeCompare(String(b.name)))
+      } : {})
     })).sort((a, b) => String(a.name).localeCompare(String(b.name))),
     diagnostics: (schema.diagnostics || []).map((diagnostic) => normalizeDiagnostic(diagnostic)).sort((a, b) => String(a.code).localeCompare(String(b.code)) || String(a.message).localeCompare(String(b.message)))
   })).sort((a, b) => String(a.path).localeCompare(String(b.path)));
@@ -598,6 +746,17 @@ function outputContractEvidence(schemas) {
     outputsCount: schema.outputsCount || 0,
     channels: sortedStrings(schema.channels || []),
     capabilities: sortedStrings(schema.capabilities || []),
+    ...((schema.outputs || []).some((output) => (output.args || []).some((arg) => arg.flowLabel)) ? {
+      outputs: (schema.outputs || []).map((output) => stableObject({
+        id: output.id || null,
+        name: output.name || null,
+        args: (output.args || []).map((arg) => stableObject({
+          name: arg.name || null,
+          type: arg.type || null,
+          ...(arg.flowLabel ? { flowLabel: arg.flowLabel } : {})
+        })).sort((a, b) => String(a.name).localeCompare(String(b.name)))
+      })).sort((a, b) => Number(a.id || 0) - Number(b.id || 0) || String(a.name).localeCompare(String(b.name)))
+    } : {}),
     diagnostics: (schema.diagnostics || []).map((diagnostic) => normalizeDiagnostic(diagnostic)).sort((a, b) => String(a.code).localeCompare(String(b.code)) || String(a.message).localeCompare(String(b.message)))
   })).sort((a, b) => String(a.path).localeCompare(String(b.path)));
 }
@@ -843,5 +1002,6 @@ module.exports = {
   VERIFICATION_EVIDENCE_KIND,
   createNotRunVerificationEvidence,
   createPackageVerificationEvidence,
-  stableStringify
+  stableStringify,
+  validateBorrowedMemoryInvocationEvidence
 };

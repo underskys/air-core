@@ -524,7 +524,7 @@ is_included() {
     evals/ai_authoring/reports/README.md) return 0 ;;
     stdlib/*.air|stdlib/**/*.air) return 0 ;;
     kits/*.md|kits/**/*.md|kits/**/*.air|kits/**/*.json|kits/**/*.wgsl) return 0 ;;
-    examples/*.air|examples/**/*.air|examples/*.json|examples/**/*.json|examples/*.md|examples/**/*.md|examples/*.mjs|examples/**/*.mjs) return 0 ;;
+    examples/*.air|examples/**/*.air|examples/*.json|examples/**/*.json|examples/*.md|examples/**/*.md|examples/*.mjs|examples/**/*.mjs|examples/tool_gate/*.js) return 0 ;;
     examples/**/*.wgsl|examples/**/assets/*.gltf|examples/**/assets/*.glb|examples/**/assets/*.svg|examples/**/assets/*.json) return 0 ;;
     examples/package_manifest/assets/*|examples/package_manifest/assets/**/*) return 0 ;;
     examples/assets/audio/*|examples/assets/audio/**/*|examples/assets/models/*|examples/assets/rigs/*|examples/assets/sprites/*|examples/assets/textures/*) return 0 ;;
@@ -794,6 +794,9 @@ review_safe_forced_files() {
   fi
   if [ -d "examples/public" ]; then
     find examples/public -type f -print
+  fi
+  if [ -f "examples/tool_gate/request.js" ]; then
+    printf '%s\n' "examples/tool_gate/request.js"
   fi
 }
 

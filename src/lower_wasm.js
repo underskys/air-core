@@ -1,10 +1,32 @@
 const { formatArg } = require("./format");
 const { parseArrayType, parseBufferType, isStructName, scalarByteWidth } = require("./types");
 const { tableStorageByteWidth } = require("./table_metadata");
+const {
+  REGION_BOUNDS_FAILURE_FUNCTION,
+  REGION_BOUNDS_RUNTIME_CODE
+} = require("./region_bounds");
+const { assertWasmTargetSupport } = require("./verifier");
+const {
+  BORROWED_SLICE_TYPE,
+  borrowedSliceInterfaceDescriptor,
+  borrowedSliceInterfaceDigest
+} = require("./borrowed_slices");
 
 const STRUCTURED_PHI_LOOP_FUEL_LIMIT = 4096;
+const BORROW_FAILURE_FUNCTION = "__air_borrow_failure";
+const BORROWED_SLICE_FEATURE_MARKER = 0x000b0001;
+const BORROW_FAILURE = Object.freeze({
+  length: 1,
+  pointer: 2,
+  alignment: 3,
+  overlap: 4,
+  relation: 5,
+  arithmetic: 6
+});
 
 function lowerToWat(mod) {
+  assertWasmTargetSupport(mod);
+  const borrowedDescriptor = borrowedSliceInterfaceDescriptor(mod);
   const ctx = {
     dataOffset: 1024,
     data: [],
@@ -18,7 +40,9 @@ function lowerToWat(mod) {
     stateCells: new Map(),
     pools: new Map((mod.pools || []).map((pool) => [pool.name, pool])),
     poolCells: new Map(),
-    structs: new Map((mod.structs || []).map((struct) => [struct.name, struct]))
+    structs: new Map((mod.structs || []).map((struct) => [struct.name, struct])),
+    usesRegionBoundsFailure: false,
+    usesBorrowFailure: false
   };
   allocateCompactTables(ctx, mod.tables || []);
   allocateStateCells(ctx, mod.states || []);
@@ -60,16 +84,41 @@ function lowerToWat(mod) {
         `  )`
       ]
     : [];
+  const regionBoundsHelper = ctx.usesRegionBoundsFailure
+    ? [
+        `  (func $${REGION_BOUNDS_FAILURE_FUNCTION}`,
+        `    unreachable`,
+        `  )`
+      ]
+    : [];
+  const borrowBoundsHelper = ctx.usesBorrowFailure
+    ? [
+        `  (func $${BORROW_FAILURE_FUNCTION} (param $code i32)`,
+        `    unreachable`,
+        `  )`
+      ]
+    : [];
+  const borrowedInterface = borrowedDescriptor
+    ? [
+        `  ;; air-abi: ${borrowedDescriptor.airAbi}`,
+        `  ;; air-feature: ${borrowedDescriptor.feature}`,
+        `  ;; air-interface-sha256: ${borrowedSliceInterfaceDigest(mod)}`,
+        `  (global (export "__air_abi_feature_borrowed_slice_v1") i32 (i32.const ${BORROWED_SLICE_FEATURE_MARKER}))`
+      ]
+    : [];
   const data = ctx.data.map((d) => `  (data (i32.const ${d.offset}) ${d.bytes ? watBytes(d.bytes) : watString(d.value)})`);
 
   return [
     `(module`,
     ...imports,
     `  (memory (export "memory") 1)`,
+    ...borrowedInterface,
     ...globalsWat,
     ...stateCellsWat,
     ...poolCellsWat,
     ...printHelper,
+    ...regionBoundsHelper,
+    ...borrowBoundsHelper,
     ...functionWat,
     ...startFunction(mod),
     ...data,
@@ -91,6 +140,7 @@ function lowerFunction(fn, ctx) {
     locals: new Map(),
     localTypes: new Map(),
     constants: ctx.constants,
+    regions: new Map(),
     localDecls: [],
     tempId: 0,
     instr: []
@@ -98,6 +148,7 @@ function lowerFunction(fn, ctx) {
   for (const param of fn.params) {
     bindParam(state, param);
   }
+  emitBorrowedEntryPreflight(state);
   for (const block of fn.blocks) {
     if (!state.skippedBlocks.has(block.label)) lowerBlock(block, state);
   }
@@ -119,6 +170,7 @@ function lowerStructuredPhiLoop(fn, ctx) {
     locals: new Map(),
     localTypes: new Map(),
     constants: ctx.constants,
+    regions: new Map(),
     localDecls: [],
     tempId: 0,
     instr: []
@@ -126,6 +178,7 @@ function lowerStructuredPhiLoop(fn, ctx) {
   for (const param of fn.params) {
     bindParam(state, param);
   }
+  emitBorrowedEntryPreflight(state);
   const [entry, header, body, exit] = fn.blocks;
   const phiInstructions = header.instructions.filter((ins) => ins.op.startsWith("phi."));
   for (const phi of phiInstructions) declareLocal(state, phi.result, phi.resultType);
@@ -674,6 +727,7 @@ function lowerInstruction(ins, state) {
   }
   if (ins.op === "mat4.store_f32") {
     const src = matrixLocals(state, ins.args[0].name);
+    emitRawRegionBoundsCheck(state, ins, ins.args[1], ins.args[2], 64);
     for (let idx = 0; idx < 16; idx += 1) {
       lowerValue(state, ins.args[1]);
       lowerValue(state, ins.args[2]);
@@ -940,12 +994,19 @@ function lowerInstruction(ins, state) {
   if (ins.op === "alloc_region") {
     const offset = state.globals.dataOffset;
     state.globals.dataOffset += 4096;
+    state.regions.set(ins.result, { sizeArg: ins.args[0] });
+    if (ins.regionSizeCheck !== "static") emitRuntimeRegionSizeCheck(state, ins.args[0]);
     state.instr.push(`i32.const ${offset}`);
     state.instr.push(`local.set ${scalarLocal(state, ins.result)}`);
     return;
   }
   if (ins.op === "free_region") return;
   if (ins.op === "store.i32" || ins.op === "store.f32") {
+    const storeType = ins.op.slice("store.".length);
+    const offsetArg = ins.args.length === 3
+      ? ins.args[1]
+      : { kind: "number", value: 0, raw: "0" };
+    emitRawRegionBoundsCheck(state, ins, ins.args[0], offsetArg, scalarByteWidth(storeType));
     lowerValue(state, ins.args[0]);
     if (ins.args.length === 3) {
       lowerValue(state, ins.args[1]);
@@ -958,6 +1019,11 @@ function lowerInstruction(ins, state) {
     return;
   }
   if (ins.op === "load.i32" || ins.op === "load.f32") {
+    const loadType = ins.op.slice("load.".length);
+    const offsetArg = ins.args.length === 2
+      ? ins.args[1]
+      : { kind: "number", value: 0, raw: "0" };
+    emitRawRegionBoundsCheck(state, ins, ins.args[0], offsetArg, scalarByteWidth(loadType));
     lowerValue(state, ins.args[0]);
     if (ins.args.length === 2) {
       lowerValue(state, ins.args[1]);
@@ -1112,6 +1178,61 @@ function lowerInstruction(ins, state) {
   throw new Error(`cannot lower ${ins.op}`);
 }
 
+function emitRawRegionBoundsCheck(state, ins, ptrArg, offsetArg, width) {
+  if (ins.regionBoundsCheck === "static") return;
+  if (!ptrArg || ptrArg.kind !== "value") {
+    throw new Error(`cannot bind region bounds for ${ins.op}: expected direct region pointer`);
+  }
+  const region = state.regions.get(ptrArg.name);
+  if (!region) {
+    throw new Error(`cannot bind region bounds for ${ins.op}: unknown region ${ptrArg.name}`);
+  }
+
+  const sizeLocal = declareTemp(state, "i32");
+  const offsetLocal = declareTemp(state, "i32");
+  lowerValue(state, region.sizeArg);
+  state.instr.push(`local.set ${sizeLocal}`);
+  lowerValue(state, offsetArg);
+  state.instr.push(`local.set ${offsetLocal}`);
+
+  emitNegativeRuntimeCheck(state, sizeLocal);
+  emitNegativeRuntimeCheck(state, offsetLocal);
+
+  state.instr.push(`local.get ${sizeLocal}`);
+  state.instr.push(`i32.const ${width}`);
+  state.instr.push("i32.lt_u");
+  emitRegionBoundsFailureIf(state);
+
+  state.instr.push(`local.get ${offsetLocal}`);
+  state.instr.push(`local.get ${sizeLocal}`);
+  state.instr.push(`i32.const ${width}`);
+  state.instr.push("i32.sub");
+  state.instr.push("i32.gt_u");
+  emitRegionBoundsFailureIf(state);
+}
+
+function emitRuntimeRegionSizeCheck(state, sizeArg) {
+  const sizeLocal = declareTemp(state, "i32");
+  lowerValue(state, sizeArg);
+  state.instr.push(`local.set ${sizeLocal}`);
+  emitNegativeRuntimeCheck(state, sizeLocal);
+}
+
+function emitNegativeRuntimeCheck(state, local) {
+  state.instr.push(`local.get ${local}`);
+  state.instr.push("i32.const 0");
+  state.instr.push("i32.lt_s");
+  emitRegionBoundsFailureIf(state);
+}
+
+function emitRegionBoundsFailureIf(state) {
+  state.globals.usesRegionBoundsFailure = true;
+  state.instr.push("if");
+  state.instr.push(`;; ${REGION_BOUNDS_RUNTIME_CODE}`);
+  state.instr.push(`call $${REGION_BOUNDS_FAILURE_FUNCTION}`);
+  state.instr.push("end");
+}
+
 function lowerValue(state, arg) {
   if (arg.kind === "value") {
     const local = scalarLocal(state, arg.name);
@@ -1154,7 +1275,8 @@ function lowerSlice(state, arg) {
 function emitRuntimeSliceBoundsCheck(state, sliceArg, offsetArg, widthArg) {
   const offset = declareTemp(state, "i32");
   const width = declareTemp(state, "i32");
-  const end = declareTemp(state, "i32");
+  const length = scalarLocal(state, `${sliceArg.name}$len`);
+  const borrowed = valueType(state, sliceArg.name) === BORROWED_SLICE_TYPE;
   lowerValue(state, offsetArg);
   state.instr.push(`local.set ${offset}`);
   lowerValue(state, widthArg);
@@ -1162,24 +1284,165 @@ function emitRuntimeSliceBoundsCheck(state, sliceArg, offsetArg, widthArg) {
   state.instr.push(`local.get ${offset}`);
   state.instr.push("i32.const 0");
   state.instr.push("i32.lt_s");
-  state.instr.push("if");
-  state.instr.push("unreachable");
-  state.instr.push("end");
+  emitSliceFailureIf(state, borrowed, BORROW_FAILURE.pointer, "air.borrow.pointer_out_of_bounds");
+  state.instr.push("i32.const 0");
   state.instr.push(`local.get ${width}`);
+  state.instr.push("i32.gt_s");
+  emitSliceFailureIf(state, borrowed, BORROW_FAILURE.pointer, "air.borrow.pointer_out_of_bounds");
+  state.instr.push(`local.get ${length}`);
+  state.instr.push(`local.get ${width}`);
+  state.instr.push("i32.lt_u");
+  emitSliceFailureIf(state, borrowed, BORROW_FAILURE.pointer, "air.borrow.pointer_out_of_bounds");
+  state.instr.push(`local.get ${offset}`);
+  state.instr.push(`local.get ${length}`);
+  state.instr.push(`local.get ${width}`);
+  state.instr.push("i32.sub");
+  state.instr.push("i32.gt_u");
+  emitSliceFailureIf(state, borrowed, BORROW_FAILURE.pointer, "air.borrow.pointer_out_of_bounds");
+}
+
+function emitSliceFailureIf(state, borrowed, code, diagnostic) {
+  state.instr.push("if");
+  state.instr.push(`;; ${diagnostic}`);
+  if (borrowed) {
+    state.globals.usesBorrowFailure = true;
+    state.instr.push(`i32.const ${code}`);
+    state.instr.push(`call $${BORROW_FAILURE_FUNCTION}`);
+  } else {
+    state.instr.push("unreachable");
+  }
+  state.instr.push("end");
+}
+
+function emitBorrowedEntryPreflight(state) {
+  if (!state.fn.exported) return;
+  const borrowed = (state.fn.params || []).filter((param) => param.type === BORROWED_SLICE_TYPE);
+  if (!borrowed.length) return;
+  state.globals.usesBorrowFailure = true;
+  state.instr.push(";; borrowed-slice-v1 entry preflight");
+  for (const param of borrowed) {
+    emitBorrowedParameterPreflight(state, param);
+  }
+  for (let left = 0; left < borrowed.length; left += 1) {
+    for (let right = left + 1; right < borrowed.length; right += 1) {
+      if (borrowed[left].borrow.access === "readonly" && borrowed[right].borrow.access === "readonly") continue;
+      emitBorrowedAliasPreflight(state, borrowed[left], borrowed[right]);
+    }
+  }
+  for (const contract of state.fn.requires || []) {
+    if (contract.kind === "checked_param") emitCheckedParamPreflight(state, contract);
+    if (contract.kind === "checked_borrow_length") emitCheckedBorrowPreflight(state, contract);
+  }
+}
+
+function emitBorrowedParameterPreflight(state, param) {
+  const ptr = scalarLocal(state, `%${param.name}`);
+  const length = scalarLocal(state, `%${param.name}$len`);
+  const memoryBytes = declareTemp(state, "i32");
+  state.instr.push("memory.size");
+  state.instr.push("i32.const 16");
+  state.instr.push("i32.shl");
+  state.instr.push(`local.set ${memoryBytes}`);
+
+  state.instr.push(`local.get ${length}`);
   state.instr.push("i32.const 0");
   state.instr.push("i32.lt_s");
-  state.instr.push("if");
-  state.instr.push("unreachable");
-  state.instr.push("end");
-  state.instr.push(`local.get ${offset}`);
-  state.instr.push(`local.get ${width}`);
-  state.instr.push("i32.add");
-  state.instr.push(`local.set ${end}`);
-  state.instr.push(`local.get ${end}`);
-  state.instr.push(`local.get ${scalarLocal(state, `${sliceArg.name}$len`)}`);
+  emitBorrowFailureIf(state, BORROW_FAILURE.length, "air.borrow.length_out_of_range");
+  if (param.borrow.length.min > 0) {
+    state.instr.push(`local.get ${length}`);
+    state.instr.push(`i32.const ${param.borrow.length.min}`);
+    state.instr.push("i32.lt_s");
+    emitBorrowFailureIf(state, BORROW_FAILURE.length, "air.borrow.length_out_of_range");
+  }
+  state.instr.push(`local.get ${length}`);
+  state.instr.push(`i32.const ${param.borrow.length.max}`);
   state.instr.push("i32.gt_s");
+  emitBorrowFailureIf(state, BORROW_FAILURE.length, "air.borrow.length_out_of_range");
+
+  if (param.borrow.alignment > 1) {
+    state.instr.push(`local.get ${ptr}`);
+    state.instr.push(`i32.const ${param.borrow.alignment - 1}`);
+    state.instr.push("i32.and");
+    emitBorrowFailureIf(state, BORROW_FAILURE.alignment, "air.borrow.alignment_mismatch");
+  }
+
+  state.instr.push(`local.get ${ptr}`);
+  state.instr.push(`local.get ${memoryBytes}`);
+  state.instr.push("i32.gt_u");
+  emitBorrowFailureIf(state, BORROW_FAILURE.pointer, "air.borrow.pointer_out_of_bounds");
+  state.instr.push(`local.get ${length}`);
+  state.instr.push(`local.get ${memoryBytes}`);
+  state.instr.push(`local.get ${ptr}`);
+  state.instr.push("i32.sub");
+  state.instr.push("i32.gt_u");
+  emitBorrowFailureIf(state, BORROW_FAILURE.pointer, "air.borrow.pointer_out_of_bounds");
+}
+
+function emitBorrowedAliasPreflight(state, left, right) {
+  const leftPtr = scalarLocal(state, `%${left.name}`);
+  const leftLength = scalarLocal(state, `%${left.name}$len`);
+  const rightPtr = scalarLocal(state, `%${right.name}`);
+  const rightLength = scalarLocal(state, `%${right.name}$len`);
+  const leftEnd = declareTemp(state, "i32");
+  const rightEnd = declareTemp(state, "i32");
+  state.instr.push(`local.get ${leftPtr}`);
+  state.instr.push(`local.get ${leftLength}`);
+  state.instr.push("i32.add");
+  state.instr.push(`local.set ${leftEnd}`);
+  state.instr.push(`local.get ${rightPtr}`);
+  state.instr.push(`local.get ${rightLength}`);
+  state.instr.push("i32.add");
+  state.instr.push(`local.set ${rightEnd}`);
+  state.instr.push(`local.get ${leftLength}`);
+  state.instr.push("i32.eqz");
+  state.instr.push("i32.eqz");
+  state.instr.push(`local.get ${rightLength}`);
+  state.instr.push("i32.eqz");
+  state.instr.push("i32.eqz");
+  state.instr.push("i32.and");
+  state.instr.push(`local.get ${leftPtr}`);
+  state.instr.push(`local.get ${rightEnd}`);
+  state.instr.push("i32.lt_u");
+  state.instr.push("i32.and");
+  state.instr.push(`local.get ${rightPtr}`);
+  state.instr.push(`local.get ${leftEnd}`);
+  state.instr.push("i32.lt_u");
+  state.instr.push("i32.and");
+  emitBorrowFailureIf(state, BORROW_FAILURE.overlap, "air.borrow.mutable_overlap");
+}
+
+function emitCheckedParamPreflight(state, contract) {
+  const param = scalarLocal(state, `%${contract.parameter}`);
+  state.instr.push(`local.get ${param}`);
+  state.instr.push(`i32.const ${contract.literal}`);
+  state.instr.push(contract.op === ">=" ? "i32.lt_s" : contract.op === "<=" ? "i32.gt_s" : "i32.ne");
+  emitBorrowFailureIf(state, BORROW_FAILURE.relation, "air.borrow.entry_relation_failed");
+}
+
+function emitCheckedBorrowPreflight(state, contract) {
+  const param = scalarLocal(state, `%${contract.parameter}`);
+  const length = scalarLocal(state, `%${contract.borrow}$len`);
+  state.instr.push(`local.get ${param}`);
+  state.instr.push("i32.const 0");
+  state.instr.push("i32.lt_s");
+  emitBorrowFailureIf(state, BORROW_FAILURE.arithmetic, "air.borrow.entry_arithmetic_overflow");
+  state.instr.push(`local.get ${param}`);
+  state.instr.push(`i32.const ${Math.floor(2147483647 / contract.multiplier)}`);
+  state.instr.push("i32.gt_s");
+  emitBorrowFailureIf(state, BORROW_FAILURE.arithmetic, "air.borrow.entry_arithmetic_overflow");
+  state.instr.push(`local.get ${length}`);
+  state.instr.push(`local.get ${param}`);
+  state.instr.push(`i32.const ${contract.multiplier}`);
+  state.instr.push("i32.mul");
+  state.instr.push("i32.lt_u");
+  emitBorrowFailureIf(state, BORROW_FAILURE.relation, "air.borrow.entry_relation_failed");
+}
+
+function emitBorrowFailureIf(state, code, diagnostic) {
   state.instr.push("if");
-  state.instr.push("unreachable");
+  state.instr.push(`;; ${diagnostic}`);
+  state.instr.push(`i32.const ${code}`);
+  state.instr.push(`call $${BORROW_FAILURE_FUNCTION}`);
   state.instr.push("end");
 }
 
@@ -2045,6 +2308,13 @@ function declareTempComposite(state, type) {
 function bindParam(state, param) {
   const base = param.name.replace(/[^A-Za-z0-9_]/g, "_");
   const type = param.type;
+  if (type === BORROWED_SLICE_TYPE) {
+    state.locals.set(`%${param.name}`, `$${base}`);
+    state.localTypes.set(`%${param.name}`, type);
+    state.locals.set(`%${param.name}$len`, `$${base}$len`);
+    state.localTypes.set(`%${param.name}$len`, "i32");
+    return;
+  }
   if (type === "vec2" || type === "vec3" || type === "vec4" || type === "mat4" || type === "quat") {
     const count = type === "mat4" ? 16 : type === "quat" ? 4 : Number(type.slice(3));
     const names = type === "mat4" ? Array.from({ length: 16 }, (_, idx) => `m${idx}`) : ["x", "y", "z", "w"].slice(0, count);
@@ -2076,6 +2346,11 @@ function flattenParams(params, structs) {
   const out = [];
   for (const param of params) {
     const base = param.name.replace(/[^A-Za-z0-9_]/g, "_");
+    if (param.type === BORROWED_SLICE_TYPE) {
+      out.push({ name: `$${base}`, type: "i32" });
+      out.push({ name: `$${base}$len`, type: "i32" });
+      continue;
+    }
     const flattened = flattenType(param.type, structs);
     if (flattened.length === 1 && flattened[0] === param.type) {
       out.push({ name: `$${param.name}`, type: watType(param.type) });
@@ -2116,6 +2391,11 @@ function isCompositeLoweredType(type, structs) {
 }
 
 function lowerCallArgument(state, arg) {
+  if (arg.kind === "value" && valueType(state, arg.name) === BORROWED_SLICE_TYPE) {
+    state.instr.push(`local.get ${scalarLocal(state, arg.name)}`);
+    state.instr.push(`local.get ${scalarLocal(state, `${arg.name}$len`)}`);
+    return;
+  }
   if (arg.kind === "value" && isCompositeLoweredType(valueType(state, arg.name), state.globals.structs)) {
     const locals = compositeLocals(state, arg.name);
     for (const local of locals) state.instr.push(`local.get ${local}`);
@@ -2176,7 +2456,7 @@ function declareLocal(state, name, type = "i32") {
 }
 
 function watType(type) {
-  if (["i32", "bool", "ptr", "slice"].includes(type)) return "i32";
+  if (["i32", "bool", "ptr", "slice", BORROWED_SLICE_TYPE].includes(type)) return "i32";
   if (type === "i64") return "i64";
   if (type === "f32") return "f32";
   if (type === "f64") return "f64";

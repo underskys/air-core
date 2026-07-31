@@ -1,10 +1,28 @@
 const { moduleCapability } = require("./capabilities");
+const {
+  BORROWED_SLICE_TYPE,
+  borrowedSliceInterfaceDescriptor,
+  borrowedSliceInterfaceDigest
+} = require("./borrowed_slices");
 
 function emitWit(mod) {
   const lines = [];
   const packageName = sanitizePackageName(mod.name);
+  const borrowedDescriptor = borrowedSliceInterfaceDescriptor(mod);
   lines.push(`package air:${packageName};`);
   lines.push("");
+  if (borrowedDescriptor) {
+    lines.push(`// air-abi: ${borrowedDescriptor.airAbi}`);
+    lines.push(`// air-feature: ${borrowedDescriptor.feature}`);
+    lines.push(`// air-interface-sha256: ${borrowedSliceInterfaceDigest(mod)}`);
+    lines.push("interface borrowed-slice-types {");
+    lines.push("  record borrowed-slice-v1 {");
+    lines.push("    ptr: u32,");
+    lines.push("    byte-len: u32,");
+    lines.push("  }");
+    lines.push("}");
+    lines.push("");
+  }
 
   const externsByInterface = new Map();
   for (const ex of mod.externs || []) {
@@ -25,6 +43,9 @@ function emitWit(mod) {
 
   const worldName = witIdent(`${mod.name}-world`);
   lines.push(`world ${worldName} {`);
+  if (borrowedDescriptor) {
+    lines.push("  use borrowed-slice-types.{borrowed-slice-v1};");
+  }
   for (const iface of externsByInterface.keys()) {
     lines.push(`  import ${witIdent(iface)};`);
   }
@@ -51,6 +72,7 @@ function witType(type) {
   if (type === "f32") return "float32";
   if (type === "f64") return "float64";
   if (type === "ptr" || type === "slice") return "u32";
+  if (type === BORROWED_SLICE_TYPE) return "borrowed-slice-v1";
   throw new Error(`cannot emit WIT type for ${type}`);
 }
 

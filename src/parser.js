@@ -5,7 +5,7 @@ const { resolveSourceImports } = require("./imports");
 
 function parseAir(source, file = "<input>", options = {}) {
   const lines = source.split(/\r?\n/);
-  const mod = { name: null, uses: [], constants: [], tables: [], tableGroups: [], states: [], pools: [], capabilities: new Set(), explicitCapabilities: new Set(), generatedCapabilities: new Set(), effects: [], requires: [], ensures: [], structs: [], globals: [], externs: [], functions: [] };
+  const mod = { name: null, uses: [], constants: [], tables: [], tableGroups: [], states: [], pools: [], capabilities: new Set(), explicitCapabilities: new Set(), generatedCapabilities: new Set(), effects: [], requires: [], ensures: [], flowDeclarations: [], structs: [], globals: [], externs: [], functions: [] };
   let current = null;
 
   for (let i = 0; i < lines.length; i += 1) {
@@ -180,15 +180,21 @@ function parseAir(source, file = "<input>", options = {}) {
         continue;
       }
 
+      if (line.startsWith("flow ")) {
+        mod.flowDeclarations.push(parseFlowDeclaration(line, loc));
+        continue;
+      }
+
       const externMatch = line.match(/^extern\s+([A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*)\(([^)]*)\)\s*->\s*([A-Za-z0-9_]+)$/);
       const externTypeMatch = line.match(/^extern\s+([A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*)\(([^)]*)\)\s*->\s*(.+)$/);
       if (externTypeMatch && !externMatch) {
         const params = parseParams(externTypeMatch[2], loc);
-        assertType(externTypeMatch[3].trim(), loc);
+        const returnType = parseDeclaredType(externTypeMatch[3], loc);
         mod.externs.push({
           name: externTypeMatch[1],
           params,
-          returnType: externTypeMatch[3].trim(),
+          returnType: returnType.type,
+          ...returnTypeMetadata(returnType),
           external: true,
           loc
         });
@@ -196,11 +202,12 @@ function parseAir(source, file = "<input>", options = {}) {
       }
       if (externMatch) {
         const params = parseParams(externMatch[2], loc);
-        assertType(externMatch[3], loc);
+        const returnType = parseDeclaredType(externMatch[3], loc);
         mod.externs.push({
           name: externMatch[1],
           params,
-          returnType: externMatch[3],
+          returnType: returnType.type,
+          ...returnTypeMetadata(returnType),
           external: true,
           loc
         });
@@ -228,12 +235,12 @@ function parseAir(source, file = "<input>", options = {}) {
       const funcMatch = line.match(/^(export\s+)?func\s+([A-Za-z_][A-Za-z0-9_]*)\(([^)]*)\)\s*->\s*(.+)\s*\{$/);
       if (funcMatch) {
         const params = parseParams(funcMatch[3], loc);
-        const returnType = funcMatch[4].trim();
-        assertType(returnType, loc);
+        const returnType = parseDeclaredType(funcMatch[4], loc);
         current = {
           name: funcMatch[2],
           params,
-          returnType,
+          returnType: returnType.type,
+          ...returnTypeMetadata(returnType),
           exported: Boolean(funcMatch[1]),
           effects: [],
           requires: [],
@@ -292,9 +299,12 @@ function parseParams(text, loc) {
   return splitComma(text).map((part) => {
     const match = part.match(/^([A-Za-z_][A-Za-z0-9_]*)\s*:\s*(.+)$/);
     if (!match) throw new AirError(`invalid parameter '${part}'`, loc);
-    const type = match[2].trim();
-    assertType(type, loc);
-    return { name: match[1], type };
+    const type = parseDeclaredType(match[2], loc);
+    return {
+      name: match[1],
+      type: type.type,
+      ...declaredTypeMetadata(type)
+    };
   });
 }
 
@@ -517,6 +527,30 @@ function parseContract(text, loc) {
   if (noCap) return { kind: "no-capability", capability: noCap[1], loc };
   const exportMatch = text.match(/^export\s+([A-Za-z_][A-Za-z0-9_]*)$/);
   if (exportMatch) return { kind: "export", name: exportMatch[1], loc };
+  const checkedParam = text.match(/^checked\s+param\s+([A-Za-z_][A-Za-z0-9_]*)\s*(<=|==|>=)\s*(-?[0-9]+)$/);
+  if (checkedParam) {
+    return {
+      kind: "checked_param",
+      parameter: checkedParam[1],
+      op: checkedParam[2],
+      literal: Number(checkedParam[3]),
+      loc
+    };
+  }
+  const checkedBorrowLength = text.match(
+    /^checked\s+bytes\s+([A-Za-z_][A-Za-z0-9_]*)\s*(>=)\s+param\s+([A-Za-z_][A-Za-z0-9_]*)\s*\*\s*([1-9][0-9]*)$/
+  );
+  if (checkedBorrowLength) {
+    return {
+      kind: "checked_borrow_length",
+      borrow: checkedBorrowLength[1],
+      unit: "bytes",
+      op: checkedBorrowLength[2],
+      parameter: checkedBorrowLength[3],
+      multiplier: Number(checkedBorrowLength[4]),
+      loc
+    };
+  }
   const paramMetric = text.match(/^param\s+([A-Za-z_][A-Za-z0-9_]*)\s*(<=|==|>=)\s*(-?[0-9]+(?:\.[0-9]+)?)$/);
   if (paramMetric) return { kind: "param", name: paramMetric[1], op: paramMetric[2], value: Number(paramMetric[3]), loc };
   const returnMetric = text.match(/^return\s*(<=|==|>=)\s*(-?[0-9]+(?:\.[0-9]+)?)$/);
@@ -526,15 +560,139 @@ function parseContract(text, loc) {
   throw new AirError(`invalid contract '${text}'`, loc);
 }
 
+function parseFlowDeclaration(text, loc) {
+  let match = text.match(/^flow\s+policy\s+(required)$/);
+  if (match) return { kind: "policy", mode: match[1], loc };
+
+  match = text.match(/^flow\s+source\s+param\s+([A-Za-z_][A-Za-z0-9_]*)\.([A-Za-z_][A-Za-z0-9_]*)(?:\s+from\s+(fact|structured)(?::|\s+)([A-Za-z_][A-Za-z0-9_.]*))?\s+(public|internal|sensitive|restricted)$/);
+  if (match) {
+    return {
+      kind: "source_param",
+      function: match[1],
+      param: match[2],
+      bindingKind: match[3] || null,
+      binding: match[4] || null,
+      label: match[5],
+      loc
+    };
+  }
+
+  match = text.match(/^flow\s+source\s+extern\s+([A-Za-z_][A-Za-z0-9_.]*)\s+return\s+(public|internal|sensitive|restricted)$/);
+  if (match) return { kind: "source_extern", extern: match[1], label: match[2], loc };
+
+  match = text.match(/^flow\s+source\s+global\s+([A-Za-z_][A-Za-z0-9_]*)\s+(public|internal|sensitive|restricted)$/);
+  if (match) return { kind: "source_global", global: match[1], label: match[2], loc };
+
+  match = text.match(/^flow\s+sink\s+return\s+([A-Za-z_][A-Za-z0-9_]*)\s+(public|internal|sensitive|restricted)$/);
+  if (match) return { kind: "sink_return", function: match[1], label: match[2], loc };
+
+  match = text.match(/^flow\s+sink\s+extern\s+([A-Za-z_][A-Za-z0-9_.]*)\s+arg\s+([0-9]+)\s+(public|internal|sensitive|restricted)$/);
+  if (match) return { kind: "sink_extern", extern: match[1], argIndex: Number(match[2]), label: match[3], loc };
+
+  match = text.match(/^flow\s+sink\s+print\s+arg\s+0\s+(public|internal|sensitive|restricted)$/);
+  if (match) return { kind: "sink_print", argIndex: 0, label: match[1], loc };
+
+  match = text.match(/^flow\s+storage\s+(global|state)\s+([A-Za-z_][A-Za-z0-9_]*)\s+(public|internal|sensitive|restricted)$/);
+  if (match) return { kind: `storage_${match[1]}`, name: match[2], label: match[3], loc };
+
+  match = text.match(/^flow\s+storage\s+pool\s+([A-Za-z_][A-Za-z0-9_]*)\.([A-Za-z_][A-Za-z0-9_]*)\s+(public|internal|sensitive|restricted)$/);
+  if (match) return { kind: "storage_pool", pool: match[1], field: match[2], label: match[3], loc };
+
+  match = text.match(/^flow\s+declassifier\s+([A-Za-z_][A-Za-z0-9_]*)\s+function\s+([A-Za-z_][A-Za-z0-9_]*)\s+from\s+(public|internal|sensitive|restricted)\s+to\s+(public|internal|sensitive|restricted)$/);
+  if (match) {
+    return {
+      kind: "declassifier",
+      id: match[1],
+      function: match[2],
+      from: match[3],
+      to: match[4],
+      loc
+    };
+  }
+
+  const label = text.match(/\s(public|internal|sensitive|restricted)\s*$/) ? null : text.match(/\s([A-Za-z_][A-Za-z0-9_]*)\s*$/);
+  const code = label ? "air.flow.label_invalid" : "air.flow.policy_invalid";
+  throw new AirError(`${code}: invalid flow declaration '${text}'`, loc);
+}
+
 function parseInstruction(line, loc) {
-  const assign = line.match(/^(%[A-Za-z_][A-Za-z0-9_]*)\s*:\s*(.+?)\s*=\s*(.+)$/);
+  const assign = parseAssignment(line);
   if (assign) {
-    const resultType = assign[2].trim();
-    assertType(resultType, loc);
-    const op = parseOp(assign[3], loc, resultType);
-    return { result: assign[1], resultType, ...op, loc };
+    const resultType = parseDeclaredType(assign.type, loc);
+    const op = parseOp(assign.body, loc, resultType.type);
+    return {
+      result: assign.result,
+      resultType: resultType.type,
+      ...declaredTypeMetadata(resultType),
+      ...op,
+      loc
+    };
   }
   return { ...parseOp(line, loc), loc };
+}
+
+function parseAssignment(line) {
+  const head = line.match(/^(%[A-Za-z_][A-Za-z0-9_]*)\s*:\s*(.+)$/);
+  if (!head) return null;
+  let angleDepth = 0;
+  let inString = false;
+  let escape = false;
+  for (let i = 0; i < head[2].length; i += 1) {
+    const ch = head[2][i];
+    if (inString) {
+      if (escape) escape = false;
+      else if (ch === "\\") escape = true;
+      else if (ch === '"') inString = false;
+      continue;
+    }
+    if (ch === '"') {
+      inString = true;
+      continue;
+    }
+    if (ch === "<" && head[2][i + 1] !== "=") angleDepth += 1;
+    else if (ch === ">") angleDepth = Math.max(0, angleDepth - 1);
+    else if (ch === "=" && angleDepth === 0) {
+      const type = head[2].slice(0, i).trim();
+      const body = head[2].slice(i + 1).trim();
+      if (type && body) return { result: head[1], type, body };
+      return null;
+    }
+  }
+  return null;
+}
+
+function parseDeclaredType(text, loc) {
+  const descriptor = assertType(String(text || "").trim(), loc);
+  return {
+    type: descriptor.base,
+    declaredType: descriptor.canonical,
+    refinement: descriptor.refinement,
+    borrow: descriptor.borrow || null
+  };
+}
+
+function declaredTypeMetadata(type) {
+  if (type.borrow) {
+    return {
+      declaredType: type.declaredType,
+      borrow: type.borrow
+    };
+  }
+  return type.refinement
+    ? { declaredType: type.declaredType, refinement: type.refinement }
+    : {};
+}
+
+function returnTypeMetadata(type) {
+  if (type.borrow) {
+    return {
+      returnDeclaredType: type.declaredType,
+      returnBorrow: type.borrow
+    };
+  }
+  return type.refinement
+    ? { returnDeclaredType: type.declaredType, returnRefinement: type.refinement }
+    : {};
 }
 
 function parseOp(text, loc, resultType = null) {
@@ -658,7 +816,8 @@ function splitComma(text) {
   let inString = false;
   let escape = false;
   let angleDepth = 0;
-  for (const ch of text) {
+  for (let i = 0; i < text.length; i += 1) {
+    const ch = text[i];
     if (inString) {
       current += ch;
       if (escape) {
@@ -675,7 +834,7 @@ function splitComma(text) {
       current += ch;
       continue;
     }
-    if (ch === "<" && current[current.length - 1] && !/\s/.test(current[current.length - 1])) angleDepth += 1;
+    if (ch === "<" && text[i + 1] !== "=" && current[current.length - 1] && !/\s/.test(current[current.length - 1])) angleDepth += 1;
     if (ch === ">") angleDepth = Math.max(0, angleDepth - 1);
     if (ch === "," && angleDepth === 0) {
       parts.push(current.trim());

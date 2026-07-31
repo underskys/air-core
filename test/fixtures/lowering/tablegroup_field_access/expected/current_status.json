@@ -1,0 +1,8 @@
+{
+  "verifier": "pass",
+  "report": "pass",
+  "package": "pass",
+  "lowerWasm": "pass-single-module",
+  "linkedWasm": "xfail",
+  "expectedLinkedDiagnostic": "unknown table level_sections.x"
+}

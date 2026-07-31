@@ -1,0 +1,28 @@
+module canonical_format_fixture
+
+# Comments are intentionally not preserved in this first canonical slice.
+const OUT_NOTIFY:i32 = 1
+
+tablegroup sections len 2 {
+  x:i32 = [11, 34]
+  enabled:bool = [true, false]
+}
+
+capabilities { output }
+effects { output.emit <= 1 }
+
+extern output.emit(output_id: i32, arg0: i32, arg1: i32, arg2: i32, arg3: i32) -> i32
+
+export func run() -> i32 {
+entry:
+  %zero:i32 = const.i32 0
+  %value:f32 = const.f32 4.0
+  %root:f32 = f32.sqrt %value
+  %angle:f32 = const.f32 1.5707964
+  %s:f32 = f32.sin %angle
+  %c:f32 = f32.cos %angle
+  %idx:i32 = const.i32 1
+  %section:i32 = tablegroup.get.i32 @sections.x, %idx
+  %status:i32 = call @output.emit(OUT_NOTIFY, %section, %zero, %zero, %zero)
+  return %status
+}

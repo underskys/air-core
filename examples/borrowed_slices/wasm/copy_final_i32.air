@@ -1,0 +1,15 @@
+module borrowed_slice_copy_final_i32
+
+capabilities { }
+requires export copy_final
+
+export func copy_final(src: borrowed_slice<readonly,len=8..8,align=4>, dst: borrowed_slice<writeonly,len=8..8,align=4>, count: i32) -> i32 {
+  requires checked param count >= 0
+  requires checked param count <= 2
+  requires checked bytes src >= param count * 4
+  requires checked bytes dst >= param count * 4
+entry:
+  %value:i32 = slice.load.i32 %src, 4
+  slice.store.i32 %dst, 4, %value
+  return %count
+}

@@ -1,0 +1,9 @@
+module main
+use "./level.air" as level
+capabilities { }
+
+export func run(index: i32) -> i32 {
+entry:
+  %x:i32 = @level.section_x(%index)
+  return %x
+}

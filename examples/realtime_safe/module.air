@@ -1,0 +1,15 @@
+module realtime_safe_state_step
+
+capabilities { }
+requires export step
+
+export func step(input: borrowed_slice<readonly,len=4..4,align=4>, output: borrowed_slice<writeonly,len=4..4,align=4>, state: borrowed_slice<readwrite,len=4..4,align=4>, delta: i32) -> i32 {
+entry:
+  %input_value:i32 = slice.load.i32 %input, 0
+  %state_value:i32 = slice.load.i32 %state, 0
+  %combined:i32 = i32.add %input_value, %state_value
+  %next:i32 = i32.add %combined, %delta
+  slice.store.i32 %state, 0, %next
+  slice.store.i32 %output, 0, %next
+  return %next
+}

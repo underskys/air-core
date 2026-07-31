@@ -1,0 +1,23 @@
+{
+  "name": "lowering-output-emit-trace",
+  "version": "0.1.0",
+  "airAbi": "0.10",
+  "hostAbi": "0.11",
+  "entry": "module.air",
+  "capabilities": [
+    "output"
+  ],
+  "targetProfiles": [
+    "mock-output-v011"
+  ],
+  "outputContracts": [
+    "outputs/output_contracts.json"
+  ],
+  "packageExports": [
+    {
+      "name": "run",
+      "module": "module.air",
+      "function": "run"
+    }
+  ]
+}

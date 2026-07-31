@@ -5,6 +5,7 @@ const path = require("path");
 const OUTPUT_CONTRACT_SCHEMA_VERSION = "0.18";
 const OUTPUT_CONTRACT_KIND = "air.outputContract";
 const SCALAR_TYPES = new Set(["i32", "bool"]);
+const FLOW_LABELS = new Set(["public", "internal", "sensitive", "restricted"]);
 const KNOWN_CHANNELS = new Set([
   "alert",
   "audio",
@@ -175,7 +176,11 @@ function validateArg(value, label, diagnostics) {
   } else if (!SCALAR_TYPES.has(type)) {
     addDiagnostic(diagnostics, "air.output_contract.non_scalar_arg", `${label}.type ${JSON.stringify(type)} is not a supported scalar output arg type`);
   }
-  return name && type ? { name, type } : null;
+  const flowLabel = value.flowLabel === undefined ? null : value.flowLabel;
+  if (flowLabel !== null && !FLOW_LABELS.has(flowLabel)) {
+    addDiagnostic(diagnostics, "air.flow.label_invalid", `${label}.flowLabel must use the fixed provenance lattice`);
+  }
+  return name && type ? { name, type, flowLabel: FLOW_LABELS.has(flowLabel) ? flowLabel : null } : null;
 }
 
 function validateOptionalObjectArray(value, label, diagnostics) {

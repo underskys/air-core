@@ -1,0 +1,12 @@
+module region_bounds_use_after_free_load
+
+capabilities { }
+
+func main(args: slice) -> i32 {
+entry:
+  %bytes:i32 = 4
+  %ptr:ptr = alloc_region %bytes
+  free_region %ptr
+  %value:i32 = load.i32 %ptr, 0
+  return %value
+}

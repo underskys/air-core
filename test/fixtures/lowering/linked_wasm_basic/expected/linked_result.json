@@ -1,0 +1,7 @@
+{
+  "export": "run",
+  "args": [
+    20
+  ],
+  "return": 42
+}

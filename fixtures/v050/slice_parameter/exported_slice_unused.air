@@ -1,0 +1,10 @@
+module air_player_downmix_slice_unused
+
+capabilities { }
+requires export downmix
+
+export func downmix(src: slice, dst: slice, frames: i32) -> i32 {
+entry:
+  %zero:i32 = 0
+  return %zero
+}

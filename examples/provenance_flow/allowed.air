@@ -1,0 +1,10 @@
+module provenance_allowed
+capabilities { }
+flow policy required
+flow source param retain.value sensitive
+flow sink return retain restricted
+
+export func retain(value: i32) -> i32 {
+entry:
+  return %value
+}

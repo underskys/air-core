@@ -1,0 +1,13 @@
+module region_bounds_dynamic_size
+
+capabilities { }
+requires export write_sized
+
+export func write_sized(size: i32, offset: i32) -> i32 {
+entry:
+  %ptr:ptr = alloc_region %size
+  %value:i32 = 7
+  store.i32 %ptr, %offset, %value
+  free_region %ptr
+  return %value
+}

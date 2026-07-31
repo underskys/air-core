@@ -4,6 +4,7 @@ const path = require("path");
 const { inspectAirpkg, stableStringify } = require("./airpkg");
 const { loadHostProfile } = require("./host_profiles");
 const { normalizeDiagnostic, sortDiagnostics } = require("./diagnostics");
+const { validateVerifiedResourceCertificate } = require("./verifier");
 
 const BUNDLE_SCHEMA_VERSION = "0.17";
 const BUNDLE_KIND = "air.targetBundle";
@@ -39,7 +40,8 @@ function createTargetBundle(airpkgInput, outDir, options = {}) {
   fs.writeFileSync(profilePath, profileText);
 
   const linkedOutput = copyLinkedOutput(artifact, airpkgDir, output);
-  const bundle = stableObject({
+  const certificate = copyResourceCertificate(options.resourceCertificate || artifact.resourceCertificate, output);
+  const bundleInput = {
     schemaVersion: BUNDLE_SCHEMA_VERSION,
     kind: BUNDLE_KIND,
     target,
@@ -61,7 +63,7 @@ function createTargetBundle(airpkgInput, outDir, options = {}) {
       hash: hashBytes(profileText)
     },
     linkedOutput,
-    resources: [],
+    resources: certificate ? [certificate.resource] : [],
     boundary: {
       runtimeRequires: [],
       buildTimeOnly: [],
@@ -74,7 +76,21 @@ function createTargetBundle(airpkgInput, outDir, options = {}) {
         "source AIR repo"
       ]
     }
-  });
+  };
+  if (certificate) {
+    bundleInput.resourceCertificate = {
+      path: certificate.resource.path,
+      hash: certificate.resource.hash,
+      certificateDigest: certificate.certificate.certificateDigest,
+      packageDigest: certificate.certificate.package && certificate.certificate.package.digest || null,
+      bindingDigest: resourceCertificateBindingDigest(
+        fileFingerprint(airpkgBundlePath),
+        certificate.certificate.package && certificate.certificate.package.digest,
+        certificate.certificate.certificateDigest
+      )
+    };
+  }
+  const bundle = stableObject(bundleInput);
 
   assertNoAbsolutePaths(bundle);
   fs.writeFileSync(path.join(output, "bundle.json"), `${stableStringify(bundle)}\n`);
@@ -191,6 +207,83 @@ function validateBundleFiles(bundle, bundleDir, diagnostics, checks) {
   for (const resource of bundle?.resources || []) {
     validateHashedFile(bundleDir, resource, `resource:${resource.path || "<missing>"}`, diagnostics, checks);
   }
+  validateResourceCertificateFile(bundle, bundleDir, diagnostics, checks);
+}
+
+function copyResourceCertificate(input, outDir) {
+  if (!input) return null;
+  let certificate = input;
+  if (typeof input === "string") certificate = JSON.parse(fs.readFileSync(path.resolve(input), "utf8"));
+  const validation = validateVerifiedResourceCertificate(certificate);
+  if (!validation.ok) {
+    throw new Error(`invalid resource certificate: ${validation.diagnostics.map((item) => item.code).join(", ")}`);
+  }
+  const text = `${stableStringify(certificate)}\n`;
+  const relative = "resource_certificate.json";
+  const target = path.join(outDir, relative);
+  fs.writeFileSync(target, text);
+  return {
+    certificate,
+    resource: {
+      kind: "verified-resource-certificate",
+      path: relative,
+      hash: hashBytes(text)
+    }
+  };
+}
+
+function validateResourceCertificateFile(bundle, bundleDir, diagnostics, checks) {
+  const metadata = bundle && bundle.resourceCertificate;
+  if (!metadata) return;
+  const relative = normalizeRelative(metadata.path);
+  if (unsafeRelative(relative)) return;
+  const file = path.join(bundleDir, relative);
+  if (!fs.existsSync(file) || !fs.statSync(file).isFile()) return;
+  let certificate;
+  try {
+    certificate = JSON.parse(fs.readFileSync(file, "utf8"));
+  } catch (err) {
+    addBundleDiagnostic(diagnostics, checks, "air.resource_certificate.invalid", `resource certificate JSON does not parse: ${err.message}`, {
+      field: "resourceCertificate.path",
+      path: relative,
+      repairHint: "regenerate the target bundle from a valid certificate"
+    });
+    return;
+  }
+  const validation = validateVerifiedResourceCertificate(certificate, {
+    packageName: bundle.package && bundle.package.name,
+    packageDigest: metadata.packageDigest,
+    certificateDigest: metadata.certificateDigest
+  });
+  for (const diagnostic of validation.diagnostics) {
+    addBundleDiagnostic(diagnostics, checks, diagnostic.code, diagnostic.message, {
+      field: diagnostic.fields && diagnostic.fields.field || "resourceCertificate",
+      path: relative,
+      expected: diagnostic.fields && diagnostic.fields.expected,
+      actual: diagnostic.fields && diagnostic.fields.actual,
+      repairHint: "regenerate the bundle from the exact package certificate"
+    });
+  }
+  const expectedBinding = resourceCertificateBindingDigest(
+    bundle.package && bundle.package.airpkg && bundle.package.airpkg.hash,
+    certificate.package && certificate.package.digest,
+    certificate.certificateDigest
+  );
+  if (metadata.bindingDigest !== expectedBinding) {
+    addBundleDiagnostic(diagnostics, checks, "air.resource_certificate.package_substitution", "resource certificate binding does not match the bundled package", {
+      field: "resourceCertificate.bindingDigest",
+      expected: expectedBinding,
+      actual: metadata.bindingDigest,
+      path: relative,
+      repairHint: "regenerate the target bundle from one exact package and certificate"
+    });
+  } else if (validation.ok) {
+    addCheck(checks, "resource-certificate", "pass", "resource certificate digest and package binding are valid");
+  }
+}
+
+function resourceCertificateBindingDigest(airpkgHash, packageDigest, certificateDigest) {
+  return hashBytes(`AIR_TARGET_RESOURCE_CERTIFICATE_BINDING_V1\0${airpkgHash || ""}\0${packageDigest || ""}\0${certificateDigest || ""}`);
 }
 
 function validateHashedFile(bundleDir, entry, id, diagnostics, checks) {

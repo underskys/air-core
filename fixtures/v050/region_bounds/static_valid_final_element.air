@@ -1,0 +1,16 @@
+module region_bounds_static_valid_final
+
+capabilities { }
+requires export run
+
+export func run() -> i32 {
+entry:
+  %bytes:i32 = 16
+  %ptr:ptr = alloc_region %bytes
+  %offset:i32 = 12
+  %value:i32 = 42
+  store.i32 %ptr, %offset, %value
+  %loaded:i32 = load.i32 %ptr, %offset
+  free_region %ptr
+  return %loaded
+}

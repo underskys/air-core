@@ -35,6 +35,9 @@ function formatModule(mod) {
   }
   for (const req of mod.requires || []) out.push(`requires ${formatContract(req)}`);
   for (const ens of mod.ensures || []) out.push(`ensures ${formatContract(ens)}`);
+  for (const declaration of (mod.flowDeclarations || []).slice().sort(compareFlowDeclarations)) {
+    out.push(formatFlowDeclaration(declaration));
+  }
   out.push("");
   const localStructs = (mod.structs || []).filter((item) => !item.importedFrom);
   for (const struct of localStructs) {
@@ -46,13 +49,13 @@ function formatModule(mod) {
   }
   if ((mod.globals || []).length) out.push("");
   for (const ex of (mod.externs || []).filter((item) => !item.generated && !item.importedFrom)) {
-    const params = ex.params.map((p) => `${p.name}: ${p.type}`).join(", ");
-    out.push(`extern ${ex.name}(${params}) -> ${ex.returnType}`);
+    const params = ex.params.map((p) => `${p.name}: ${formatDeclaredType(p)}`).join(", ");
+    out.push(`extern ${ex.name}(${params}) -> ${ex.returnDeclaredType || ex.returnType}`);
   }
   if ((mod.externs || []).some((item) => !item.generated)) out.push("");
   for (const fn of mod.functions.filter((item) => !item.importedFrom)) {
-    const params = fn.params.map((p) => `${p.name}: ${p.type}`).join(", ");
-    out.push(`${fn.exported ? "export " : ""}func ${fn.name}(${params}) -> ${fn.returnType} {`);
+    const params = fn.params.map((p) => `${p.name}: ${formatDeclaredType(p)}`).join(", ");
+    out.push(`${fn.exported ? "export " : ""}func ${fn.name}(${params}) -> ${fn.returnDeclaredType || fn.returnType} {`);
     if ((fn.effects || []).length) {
       out.push(`  effects { ${fn.effects.map((effect) => `${effect.key} ${effect.op || "<="} ${effect.limit}`).join(", ")} }`);
     }
@@ -70,7 +73,11 @@ function formatModule(mod) {
 
 function formatInstruction(ins) {
   const body = formatBody(ins);
-  return ins.result ? `${ins.result}:${ins.resultType} = ${body}` : body;
+  return ins.result ? `${ins.result}:${formatDeclaredType(ins, "resultType")} = ${body}` : body;
+}
+
+function formatDeclaredType(value, fallback = "type") {
+  return value.declaredType || value[fallback];
 }
 
 function formatBody(ins) {
@@ -152,9 +159,55 @@ function formatContract(contract) {
   if (contract.kind === "capability") return `capability ${contract.capability}`;
   if (contract.kind === "no-capability") return `no capability ${contract.capability}`;
   if (contract.kind === "export") return `export ${contract.name}`;
+  if (contract.kind === "checked_param") {
+    return `checked param ${contract.parameter} ${contract.op} ${contract.literal}`;
+  }
+  if (contract.kind === "checked_borrow_length") {
+    return `checked bytes ${contract.borrow} ${contract.op} param ${contract.parameter} * ${contract.multiplier}`;
+  }
   if (contract.kind === "param") return `param ${contract.name} ${contract.op || "<="} ${contract.value}`;
   if (contract.kind === "return") return `return ${contract.op || "<="} ${contract.value}`;
   return `${contract.key} ${contract.op || "<="} ${contract.limit}`;
+}
+
+function formatFlowDeclaration(declaration) {
+  if (declaration.kind === "policy") return `flow policy ${declaration.mode}`;
+  if (declaration.kind === "source_param") {
+    const binding = declaration.bindingKind && declaration.binding
+      ? ` from ${declaration.bindingKind} ${declaration.binding}`
+      : "";
+    return `flow source param ${declaration.function}.${declaration.param}${binding} ${declaration.label}`;
+  }
+  if (declaration.kind === "source_extern") return `flow source extern ${declaration.extern} return ${declaration.label}`;
+  if (declaration.kind === "source_global") return `flow source global ${declaration.global} ${declaration.label}`;
+  if (declaration.kind === "sink_return") return `flow sink return ${declaration.function} ${declaration.label}`;
+  if (declaration.kind === "sink_extern") return `flow sink extern ${declaration.extern} arg ${declaration.argIndex} ${declaration.label}`;
+  if (declaration.kind === "sink_print") return `flow sink print arg 0 ${declaration.label}`;
+  if (declaration.kind === "storage_global") return `flow storage global ${declaration.name} ${declaration.label}`;
+  if (declaration.kind === "storage_state") return `flow storage state ${declaration.name} ${declaration.label}`;
+  if (declaration.kind === "storage_pool") return `flow storage pool ${declaration.pool}.${declaration.field} ${declaration.label}`;
+  if (declaration.kind === "declassifier") {
+    return `flow declassifier ${declaration.id} function ${declaration.function} from ${declaration.from} to ${declaration.to}`;
+  }
+  throw new Error(`unknown flow declaration kind: ${declaration.kind}`);
+}
+
+function compareFlowDeclarations(a, b) {
+  const order = {
+    policy: 0,
+    source_param: 1,
+    source_extern: 2,
+    source_global: 3,
+    sink_return: 4,
+    sink_extern: 5,
+    sink_print: 6,
+    storage_global: 7,
+    storage_state: 8,
+    storage_pool: 9,
+    declassifier: 10
+  };
+  return (order[a.kind] ?? 99) - (order[b.kind] ?? 99) ||
+    formatFlowDeclaration(a).localeCompare(formatFlowDeclaration(b));
 }
 
 module.exports = { formatModule, formatInstruction, formatArg };

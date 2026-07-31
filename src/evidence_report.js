@@ -11,9 +11,13 @@ function createEvidenceMarkdownReport(packageDir, options = {}) {
   const conformance = readJsonOptional(options.conformance, base);
   const e2eProof = readJsonOptional(options.e2eProof, base);
   const benchmark = readJsonOptional(options.benchmark, base);
+  const semanticPatch = options.semanticPatch || null;
   const evidence = createPackageVerificationEvidence(base, {
     profile: options.profile || null,
-    hostEvidence: hostEvidence || null
+    hostEvidence: hostEvidence || null,
+    certificateRequired: Boolean(options.certificateRequired),
+    semanticPatch,
+    semanticPatchStrict: Boolean(options.semanticPatchStrict)
   });
   const packageReport = loadPackageReport(base);
   const lines = [];
@@ -26,6 +30,14 @@ function createEvidenceMarkdownReport(packageDir, options = {}) {
     ["AIR ABI", evidence.airAbi || "-"],
     ["Required Host ABI", evidence.hostAbi || "-"],
     ["Package hash", evidence.packageHash || "-"]
+  ]);
+
+  heading(lines, 2, "Review Summary");
+  table(lines, [
+    ["Outcome", statusWord(evidence.status)],
+    ["Next action", statusWord(evidence.status) === "passed" ? "Review claims and host-boundary evidence." : "Resolve failing diagnostics before approval."],
+    ["Authority boundary", "AIR evidence only; the host retains side-effect authority."],
+    ["Determinism", "No timestamps or absolute paths."]
   ]);
 
   heading(lines, 2, "Capabilities");
@@ -42,6 +54,21 @@ function createEvidenceMarkdownReport(packageDir, options = {}) {
   const effectRows = effectSummaryRows(packageReport);
   if (effectRows.length) table(lines, effectRows);
   else lines.push("No effect usage summary was reported.", "");
+
+  if (evidence.resourceCertificate && (evidence.resourceCertificate.mode === "required" || options.certificateRequired)) {
+    heading(lines, 2, "Verified Resource Certificate");
+    table(lines, resourceCertificateRows(evidence.resourceCertificate));
+  }
+
+  if (evidence.provenanceFlow && evidence.provenanceFlow.mode === "required") {
+    heading(lines, 2, "Provenance Flow");
+    table(lines, provenanceFlowRows(evidence.provenanceFlow));
+  }
+
+  if (evidence.semanticPatch) {
+    heading(lines, 2, "Semantic Patch");
+    table(lines, semanticPatchRows(evidence.semanticPatch));
+  }
 
   heading(lines, 2, "Output Intents");
   const outputRows = outputIntentRows(evidence);
@@ -100,6 +127,50 @@ function createEvidenceMarkdownReport(packageDir, options = {}) {
   return `${lines.join("\n").trim()}\n`;
 }
 
+function createBorrowedMemoryEvidenceReport(evidence) {
+  if (!evidence || evidence.kind !== "air.borrowedMemoryInvocationEvidence") {
+    throw new Error("borrowed-memory evidence is required");
+  }
+  const lines = [];
+  heading(lines, 1, "AIR Borrowed Memory Invocation");
+  table(lines, [
+    ["Status", evidence.status || "-"],
+    ["Entrypoint", evidence.entrypoint || "-"],
+    ["AIR ABI", evidence.airAbi || "-"],
+    ["Feature", evidence.feature || "-"],
+    ["Memory domain", evidence.memoryDomain || "-"],
+    ["Transfer modes", joinList(evidence.transferModes || [])],
+    ["Validation", evidence.validationOutcome || "-"],
+    ["Interface digest", evidence.interfaceDigest || "-"],
+    ["Module digest", evidence.moduleDigest || "-"],
+    ["Package digest", evidence.packageDigest || "-"],
+    ["Certificate digest", evidence.resourceCertificateDigest || "-"],
+    ["Failure reason", evidence.failureReason || "none"],
+    ["Invocation identity / binding digest", evidence.bindingDigest || "-"],
+    ["Evidence digest", evidence.evidenceDigest || "-"]
+  ]);
+  heading(lines, 2, "Bindings");
+  const rows = (evidence.parameters || []).map((parameter) => [
+    parameter.name,
+    [
+      parameter.access,
+      parameter.transferMode,
+      `${parameter.actualLength}/${parameter.maximumLength} bytes`,
+      `align=${parameter.alignment && parameter.alignment.required}`,
+      `copy-in=${parameter.bytesCopiedIn}`,
+      `copy-out=${parameter.bytesCopiedOut}`
+    ].join(", ")
+  ]);
+  if (rows.length) table(lines, rows);
+  else lines.push("No borrowed-memory bindings were reported.", "");
+  heading(lines, 2, "Boundary");
+  lines.push(
+    "`wasm_memory_view` reports selected-instance backing identity only. It is not a universal native-memory zero-copy claim.",
+    ""
+  );
+  return `${lines.join("\n").trim()}\n`;
+}
+
 function heading(lines, level, title) {
   lines.push(`${"#".repeat(level)} ${title}`, "");
 }
@@ -142,6 +213,88 @@ function effectSummaryRows(packageReport) {
     rows.push([modulePath, parts.length ? parts.join(", ") : "reported"]);
   }
   return rows;
+}
+
+function resourceCertificateRows(certificate) {
+  if (!certificate) return [];
+  const bounds = certificate.bounds || {};
+  const loops = bounds.loops || {};
+  const memory = bounds.memory || {};
+  const hostCalls = bounds.hostCalls || {};
+  const outputs = bounds.outputs || {};
+  const borrowed = bounds.borrowedMemory || {};
+  const unknown = certificate.classifications && certificate.classifications.unknown || [];
+  const unsupported = certificate.classifications && certificate.classifications.unsupported || [];
+  return [
+    ["Status", certificate.status || "-"],
+    ["Mode", certificate.mode || "-"],
+    ["Certificate digest", certificate.certificateDigest || "-"],
+    ["Package digest", certificate.package && certificate.package.digest || "-"],
+    ["Verifier digest", certificate.verifier && certificate.verifier.digest || "-"],
+    ["Maximum static loop iterations", formatNumber(loops.maximumStaticallyBoundedIterations)],
+    ["Dynamic-loop fuel upper bound", formatNumber(loops.totalDynamicLoopFuelUpperBound)],
+    ["Static memory upper bound", `${formatNumber(memory.totalStaticBytesUpperBound)} bytes`],
+    ["Dynamic allocation bytes", memory.dynamicAllocationBytesUpperBound == null ? "unknown" : `${formatNumber(memory.dynamicAllocationBytesUpperBound)} bytes`],
+    ["Host-call upper bound", formatNumber(hostCalls.totalUpperBound)],
+    ["Output host-call upper bound", formatNumber(outputs.totalHostCallUpperBound)],
+    ["Borrowed parameters", formatNumber(borrowed.borrowedParameterCount)],
+    ["Maximum borrowed bytes", `${formatNumber(borrowed.maximumTotalBorrowedBytes)} bytes`],
+    ["Maximum readable borrowed bytes", `${formatNumber(borrowed.maximumReadableBytes)} bytes`],
+    ["Maximum writable borrowed bytes", `${formatNumber(borrowed.maximumWritableBytes)} bytes`],
+    ["Maximum copy-in bytes", `${formatNumber(borrowed.maximumCopyInBytes)} bytes`],
+    ["Maximum copy-out bytes", `${formatNumber(borrowed.maximumCopyOutBytes)} bytes`],
+    ["Maximum typed reads", formatNumber(borrowed.maximumTypedReads)],
+    ["Maximum typed writes", formatNumber(borrowed.maximumTypedWrites)],
+    ["Maximum dynamic borrow checks", formatNumber(borrowed.maximumDynamicBoundsChecks)],
+    ["Maximum relation checks", formatNumber(borrowed.maximumRelationChecks)],
+    ["Borrowed AIR ABI", borrowed.airAbi || "-"],
+    ["Borrowed feature", borrowed.feature || "-"],
+    ["Borrowed transfer modes", joinList(borrowed.supportedTransferModes || [])],
+    ["Borrowed alias policy", borrowed.aliasPolicy || "-"],
+    ["Borrowed-memory digest", borrowed.digest || "-"],
+    ["Unknown bounds", unknown.length ? unknown.map((item) => `${item.code}: ${item.reason}`).join("<br>") : "none"],
+    ["Unsupported claims", unsupported.length ? unsupported.map((item) => item.code).join(", ") : "none"],
+    ["Host enforcement", "Separate host responsibility; this report does not claim runtime enforcement."]
+  ];
+}
+
+function provenanceFlowRows(flow) {
+  return [
+    ["Status", flow.status || "-"],
+    ["Mode", flow.mode || "-"],
+    ["Lattice", joinList(flow.fixedLattice || [])],
+    ["Policy digest", flow.policyDigest || "-"],
+    ["Analyzer digest", flow.analyzerDigest || "-"],
+    ["Summary digest", flow.summaryDigest || "-"],
+    ["Sources", String((flow.sources || []).length)],
+    ["Sinks", String((flow.sinks || []).length)],
+    ["Accepted flows", String((flow.acceptedFlows || []).length)],
+    ["Rejected flows", String((flow.rejectedFlows || []).length)],
+    ["Declassifications", String((flow.declassifications || []).length)],
+    ["Unsupported channels", joinList(flow.unsupportedChannels || [])],
+    ["Security boundary", "Bounded explicit data/control dependencies only; no timing, termination, covert-channel, microarchitectural, or universal noninterference claim."]
+  ];
+}
+
+function semanticPatchRows(patch) {
+  return [
+    ["Status", patch.status || "-"],
+    ["Mode", patch.mode || "-"],
+    ["Base digest", patch.baseDigest || "-"],
+    ["Result digest", patch.resultDigest || "-"],
+    ["Patch digest", patch.patchDigest || "-"],
+    ["Operations", String(patch.operationCount || 0)],
+    ["Classification", joinList(patch.classifications || [])],
+    ["Expansions", String((patch.expansions || []).length)],
+    ["Narrowings", String((patch.narrowings || []).length)],
+    ["Compatibility findings", String((patch.compatibilityFindings || []).length)],
+    ["Provenance findings", String((patch.provenanceFindings || []).length)],
+    ["Resource findings", String((patch.resourceFindings || []).length)],
+    ["Rejected reasons", joinList(patch.rejectedReasons || [])],
+    ["Analyzer digest", patch.analyzerDigest || "-"],
+    ["Summary digest", patch.summaryDigest || "-"],
+    ["Proof boundary", "Canonical semantic-object comparison only; textual differences are never semantic proof."]
+  ];
 }
 
 function outputIntentRows(evidence) {
@@ -425,6 +578,7 @@ function normalizeSlash(value) {
 }
 
 module.exports = {
+  createBorrowedMemoryEvidenceReport,
   createEvidenceMarkdownReport,
   createReplaySummary
 };

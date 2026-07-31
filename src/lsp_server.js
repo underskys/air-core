@@ -2,6 +2,8 @@ const fs = require("fs");
 const path = require("path");
 const { pathToFileURL, fileURLToPath } = require("url");
 const { createFileLspDiagnostics, createPackageLspDiagnostics } = require("./lsp_diagnostics");
+const { parseAir } = require("./parser");
+const { formatModule } = require("./format");
 
 const JSON_RPC_VERSION = "2.0";
 const LSP_TEXT_SYNC_FULL = 1;
@@ -31,6 +33,8 @@ class AirLspSession {
       if (method === "textDocument/didChange") return this.didChange(message.params || {});
       if (method === "textDocument/didSave") return this.didSave(message.params || {});
       if (method === "textDocument/didClose") return this.didClose(message.params || {});
+      if (method === "textDocument/formatting") return this.withResponse(id, this.documentFormatting(message.params || {}));
+      if (method === "textDocument/hover") return this.withResponse(id, this.hover(message.params || {}));
       if (id !== undefined) return this.withError(id, -32601, `method not found: ${method}`);
       return [];
     } catch (err) {
@@ -50,7 +54,9 @@ class AirLspSession {
           openClose: true,
           change: LSP_TEXT_SYNC_FULL,
           save: { includeText: false }
-        }
+        },
+        documentFormattingProvider: true,
+        hoverProvider: true
       },
       serverInfo: {
         name: "airc-lsp",
@@ -107,6 +113,57 @@ class AirLspSession {
     if (!uri) return [];
     this.documents.delete(uri);
     return [publishDiagnostics(uri, [])];
+  }
+
+  documentFormatting(params) {
+    const uri = params.textDocument && params.textDocument.uri;
+    const doc = uri ? this.documents.get(uri) : null;
+    if (!doc) return [];
+    if (hasAirComment(doc.text)) {
+      throw new Error("air.format.comments_not_preserved: editor formatting refuses comment-bearing input");
+    }
+    const canonical = formatModule(parseAir(doc.text, doc.path));
+    if (canonical === doc.text) return [];
+    return [{
+      range: fullDocumentRange(doc.text),
+      newText: canonical
+    }];
+  }
+
+  hover(params) {
+    const uri = params.textDocument && params.textDocument.uri;
+    const doc = uri ? this.documents.get(uri) : null;
+    if (!doc) return null;
+    let mod;
+    try {
+      mod = parseAir(doc.text, doc.path);
+    } catch {
+      return null;
+    }
+    const token = tokenAtPosition(doc.text, params.position || {});
+    const capabilities = Array.from(mod.explicitCapabilities || mod.capabilities || []).sort();
+    if (token === "capabilities" || capabilities.includes(token)) {
+      return markdownHover([
+        "**AIR capabilities**",
+        "",
+        capabilities.length ? capabilities.map((item) => `- \`${item}\``).join("\n") : "No capabilities declared.",
+        "",
+        "Capabilities are verifier-visible declarations; they do not grant host authority by themselves."
+      ]);
+    }
+    const effects = (mod.effects || []).slice().sort((a, b) => a.key.localeCompare(b.key));
+    if (token === "effects" || effects.some((item) => item.key === token)) {
+      return markdownHover([
+        "**AIR effect budgets**",
+        "",
+        effects.length
+          ? effects.map((item) => `- \`${item.key} ${item.op || "<="} ${item.limit}\``).join("\n")
+          : "No module effect budgets declared.",
+        "",
+        "Effect budgets are statically checked upper bounds."
+      ]);
+    }
+    return null;
   }
 
   publishFileDiagnostics(uri) {
@@ -308,6 +365,52 @@ function stableObject(value) {
   const out = {};
   for (const key of Object.keys(value).sort()) out[key] = stableObject(value[key]);
   return out;
+}
+
+function hasAirComment(source) {
+  for (const line of String(source || "").split(/\r?\n/)) {
+    let inString = false;
+    let escape = false;
+    for (const ch of line) {
+      if (inString) {
+        if (escape) escape = false;
+        else if (ch === "\\") escape = true;
+        else if (ch === "\"") inString = false;
+        continue;
+      }
+      if (ch === "\"") inString = true;
+      else if (ch === "#") return true;
+    }
+  }
+  return false;
+}
+
+function fullDocumentRange(source) {
+  const lines = String(source || "").split(/\r?\n/);
+  return {
+    start: { line: 0, character: 0 },
+    end: { line: Math.max(0, lines.length - 1), character: lines[lines.length - 1].length }
+  };
+}
+
+function tokenAtPosition(source, position) {
+  const lines = String(source || "").split(/\r?\n/);
+  const line = lines[Math.max(0, Math.min(lines.length - 1, Number(position.line) || 0))] || "";
+  const index = Math.max(0, Math.min(line.length, Number(position.character) || 0));
+  let start = index;
+  let end = index;
+  while (start > 0 && /[A-Za-z0-9_.-]/.test(line[start - 1])) start -= 1;
+  while (end < line.length && /[A-Za-z0-9_.-]/.test(line[end])) end += 1;
+  return line.slice(start, end);
+}
+
+function markdownHover(lines) {
+  return {
+    contents: {
+      kind: "markdown",
+      value: lines.join("\n")
+    }
+  };
 }
 
 module.exports = {

@@ -1,0 +1,7 @@
+module bounded_score
+capabilities { }
+
+export func keep_score(score: i32<0..100>) -> i32<0..100> {
+entry:
+  return %score
+}

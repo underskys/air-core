@@ -1,0 +1,10 @@
+module provenance_forbidden
+capabilities { }
+flow policy required
+flow source param expose.secret sensitive
+flow sink return expose public
+
+export func expose(secret: i32) -> i32 {
+entry:
+  return %secret
+}

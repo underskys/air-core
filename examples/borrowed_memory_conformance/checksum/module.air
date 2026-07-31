@@ -1,0 +1,70 @@
+module borrowed_memory_checksum
+
+capabilities { }
+requires export checksum
+
+export func checksum(input: borrowed_slice<readonly,len<=16,align=4>, state: borrowed_slice<readwrite,len=4..4,align=4>, word_count: i32) -> i32 {
+  requires checked param word_count == 4
+  requires checked bytes input >= param word_count * 4
+entry:
+  %state0:i32 = slice.load.i32 %state, 0
+  %mask:i32 = 255
+  %raw0:i32 = slice.load.i32 %input, 0
+  %byte00:i32 = i32.and %raw0, %mask
+  %shift08:i32 = i32.shr_u %raw0, 8
+  %byte01:i32 = i32.and %shift08, %mask
+  %shift016:i32 = i32.shr_u %raw0, 16
+  %byte02:i32 = i32.and %shift016, %mask
+  %shift024:i32 = i32.shr_u %raw0, 24
+  %byte03:i32 = i32.and %shift024, %mask
+  %bytes001:i32 = add %byte00, %byte01
+  %bytes023:i32 = add %byte02, %byte03
+  %bytes0:i32 = add %bytes001, %bytes023
+  %sum0:i32 = add %state0, %bytes0
+  %raw1:i32 = slice.load.i32 %input, 4
+  %byte10:i32 = i32.and %raw1, %mask
+  %shift18:i32 = i32.shr_u %raw1, 8
+  %byte11:i32 = i32.and %shift18, %mask
+  %shift116:i32 = i32.shr_u %raw1, 16
+  %byte12:i32 = i32.and %shift116, %mask
+  %shift124:i32 = i32.shr_u %raw1, 24
+  %byte13:i32 = i32.and %shift124, %mask
+  %bytes101:i32 = add %byte10, %byte11
+  %bytes123:i32 = add %byte12, %byte13
+  %bytes1:i32 = add %bytes101, %bytes123
+  %sum1:i32 = add %sum0, %bytes1
+  %raw2:i32 = slice.load.i32 %input, 8
+  %byte20:i32 = i32.and %raw2, %mask
+  %shift28:i32 = i32.shr_u %raw2, 8
+  %byte21:i32 = i32.and %shift28, %mask
+  %shift216:i32 = i32.shr_u %raw2, 16
+  %byte22:i32 = i32.and %shift216, %mask
+  %shift224:i32 = i32.shr_u %raw2, 24
+  %byte23:i32 = i32.and %shift224, %mask
+  %bytes201:i32 = add %byte20, %byte21
+  %bytes223:i32 = add %byte22, %byte23
+  %bytes2:i32 = add %bytes201, %bytes223
+  %sum2:i32 = add %sum1, %bytes2
+  %raw3:i32 = slice.load.i32 %input, 12
+  %byte30:i32 = i32.and %raw3, %mask
+  %shift38:i32 = i32.shr_u %raw3, 8
+  %byte31:i32 = i32.and %shift38, %mask
+  %shift316:i32 = i32.shr_u %raw3, 16
+  %byte32:i32 = i32.and %shift316, %mask
+  %shift324:i32 = i32.shr_u %raw3, 24
+  %byte33:i32 = i32.and %shift324, %mask
+  %bytes301:i32 = add %byte30, %byte31
+  %bytes323:i32 = add %byte32, %byte33
+  %bytes3:i32 = add %bytes301, %bytes323
+  %sum3:i32 = add %sum2, %bytes3
+  slice.store.i32 %state, 0, %sum3
+  return %sum3
+}
+
+export func checksum_empty(input: borrowed_slice<readonly,len<=0,align=4>, state: borrowed_slice<readwrite,len=4..4,align=4>, word_count: i32) -> i32 {
+  requires checked param word_count == 0
+entry:
+  %state0:i32 = slice.load.i32 %state, 0
+  slice.store.i32 %state, 0, %state0
+  return %state0
+}

@@ -1,0 +1,30 @@
+{
+  "schemaVersion": "0.18",
+  "kind": "air.outputContract",
+  "outputs": [
+    {
+      "id": 4101,
+      "name": "agent_tool_intent",
+      "channel": "policy",
+      "capability": "output.emit",
+      "args": [
+        {
+          "name": "target_id",
+          "type": "i32"
+        },
+        {
+          "name": "amount",
+          "type": "i32"
+        },
+        {
+          "name": "redaction_flag",
+          "type": "i32"
+        },
+        {
+          "name": "quota_used",
+          "type": "i32"
+        }
+      ]
+    }
+  ]
+}

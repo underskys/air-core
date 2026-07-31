@@ -1,0 +1,10 @@
+module math
+capabilities { }
+
+export func double_plus_two(value: i32) -> i32 {
+entry:
+  %two:i32 = const.i32 2
+  %doubled:i32 = mul %value, %two
+  %out:i32 = add %doubled, %two
+  return %out
+}

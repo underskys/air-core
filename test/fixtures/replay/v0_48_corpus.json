@@ -1,0 +1,90 @@
+{
+  "kind": "air.v0_48.corpus",
+  "version": "0.1",
+  "entries": [
+    {
+      "id": "capabilities-effects-tablegroup",
+      "source": "test/fixtures/format/canonical/input.air",
+      "expectedVerification": "pass",
+      "lowering": { "lowerWasm": "partial", "linkedWasm": "partial" }
+    },
+    {
+      "id": "f32-math",
+      "source": "test/fixtures/lowering/f32_math_basic/module.air",
+      "packageRoot": "test/fixtures/lowering/f32_math_basic",
+      "expectedVerification": "pass",
+      "lowering": { "lowerWasm": "supported", "linkedWasm": "partial" }
+    },
+    {
+      "id": "fixed-state",
+      "source": "test/fixtures/conformance_state/module.air",
+      "packageRoot": "test/fixtures/conformance_state",
+      "expectedVerification": "pass",
+      "lowering": { "lowerWasm": "supported", "linkedWasm": "partial" }
+    },
+    {
+      "id": "hallucinated-host-api",
+      "source": "test/fixtures/profiles/bad_import.air",
+      "expectedVerification": "fail",
+      "lowering": { "lowerWasm": "not-applicable", "linkedWasm": "not-applicable" }
+    },
+    {
+      "id": "invalid-signature",
+      "source": "test/fixtures/hallucinations/gfx_draw_sprite_transform.air",
+      "expectedVerification": "fail",
+      "lowering": { "lowerWasm": "not-applicable", "linkedWasm": "not-applicable" }
+    },
+    {
+      "id": "output-emit",
+      "source": "test/fixtures/lowering/output_emit_trace/module.air",
+      "packageRoot": "test/fixtures/lowering/output_emit_trace",
+      "expectedVerification": "pass",
+      "lowering": { "lowerWasm": "supported", "linkedWasm": "partial" }
+    },
+    {
+      "id": "package-graph",
+      "source": "test/fixtures/package_graph/valid/main.air",
+      "packageRoot": "test/fixtures/package_graph/valid",
+      "expectedVerification": "fail",
+      "lowering": { "lowerWasm": "supported", "linkedWasm": "partial" }
+    },
+    {
+      "id": "pools",
+      "source": "test/fixtures/pools/projectile_pool_basic/main.air",
+      "packageRoot": "test/fixtures/pools/projectile_pool_basic",
+      "expectedVerification": "pass",
+      "lowering": { "lowerWasm": "supported", "linkedWasm": "partial" }
+    },
+    {
+      "id": "regions-buffers",
+      "source": "examples/dynamic_collections.air",
+      "expectedVerification": "pass",
+      "lowering": { "lowerWasm": "supported", "linkedWasm": "not-applicable" }
+    },
+    {
+      "id": "scalar-module",
+      "source": "test/fixtures/replay/v0_48/scalar_module.air",
+      "expectedVerification": "pass",
+      "lowering": { "lowerWasm": "supported", "linkedWasm": "not-applicable" }
+    },
+    {
+      "id": "static-bounds-rejection",
+      "source": "test/fixtures/replay/v0_48/static_bounds_rejection.air",
+      "expectedVerification": "fail",
+      "lowering": { "lowerWasm": "not-applicable", "linkedWasm": "not-applicable" }
+    },
+    {
+      "id": "static-table",
+      "source": "test/fixtures/package_graph/valid/math.air",
+      "expectedVerification": "pass",
+      "lowering": { "lowerWasm": "supported", "linkedWasm": "not-applicable" }
+    },
+    {
+      "id": "table-and-tablegroup",
+      "source": "test/fixtures/lowering/tablegroup_field_access/level.air",
+      "packageRoot": "test/fixtures/lowering/tablegroup_field_access",
+      "expectedVerification": "pass",
+      "lowering": { "lowerWasm": "supported", "linkedWasm": "partial" }
+    }
+  ]
+}

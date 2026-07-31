@@ -9,6 +9,38 @@ compact format:
 - Security
 - Breaking / Migration
 
+## v0.50.0 - Public Release Candidate
+
+### Added
+
+- Bounded refinement types, opt-in Provenance Flow, Verified Resource
+  Certificates, and semantic patches with fail-closed non-expansion checks.
+- A bounded embedding facade and agent tool-gate, region-bound memory checks,
+  and the opt-in `borrowed_slice` AIR ABI `0.11` interface.
+- A `realtime_safe` structural profile and expanded deterministic evidence,
+  replay, and conformance coverage for the supported subset.
+
+### Changed
+
+- Existing AIR ABI `0.10` modules remain supported. Borrowed slices use opt-in
+  AIR ABI `0.11`; Host ABI is not redefined by this release.
+
+### Fixed
+
+- `package-check` now fails closed for an infeasible declared
+  `realtime_safe` execution profile, including when no profile flag is passed.
+
+### Security
+
+- AIR does not claim malicious-host safety, universal noninterference, a
+  universal realtime deadline, or implied zero-copy transfer. Conformance
+  claims apply only to explicitly tested host/engine combinations.
+
+### Breaking / Migration
+
+- AIR remains a bounded component language. Existing AIR ABI `0.10` modules
+  need no migration.
+
 ## v0.45.1 - Show HN Package Presentation Patch
 
 ### Added

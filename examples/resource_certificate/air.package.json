@@ -1,0 +1,23 @@
+{
+  "name": "verified-resource-certificate-example",
+  "version": "0.1.0",
+  "airAbi": "0.10",
+  "hostAbi": "0.10",
+  "entry": "module.air",
+  "capabilities": [
+    "debug"
+  ],
+  "targetProfiles": [
+    "cli",
+    "verifier-only"
+  ],
+  "resourceCertificate": {
+    "mode": "required",
+    "requiredBounds": [
+      "effects",
+      "hostCalls",
+      "loops",
+      "memory"
+    ]
+  }
+}

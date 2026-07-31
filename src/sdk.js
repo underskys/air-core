@@ -2,7 +2,12 @@ const crypto = require("crypto");
 const fs = require("fs");
 const path = require("path");
 const { parseAir } = require("./parser");
-const { verifyModule } = require("./verifier");
+const {
+  assertRealtimeSafeProfile,
+  createVerifiedResourceCertificate,
+  validateVerifiedResourceCertificate,
+  verifyModule
+} = require("./verifier");
 const { lowerToWat, watToWasm } = require("./lower_wasm");
 const { loadGfxManifest, validateGfxManifest, buildGfxPackage } = require("./gfx_manifest");
 const { AIR_ABI_VERSION, AIR_VERSION } = require("./version");
@@ -27,6 +32,12 @@ const {
   checkGeneratedStructuredIoHandles,
   validateStructuredIoSchemaFile
 } = require("./structured_io_schema");
+const {
+  invokeBorrowedMemory,
+  prepareBorrowedMemoryInvocation,
+  registerBorrowedMemoryInstanceIdentity
+} = require("./borrowed_memory_binding");
+const { borrowedSliceInterfaceDescriptor } = require("./borrowed_slices");
 
 async function buildPackage(options) {
   const airFile = options.air;
@@ -103,7 +114,12 @@ function loadPackage(packageDir) {
 async function instantiateAirModule(options) {
   const source = options.wasmBytes || fs.readFileSync(options.wasmPath);
   const instance = await WebAssembly.instantiate(source, options.imports || {});
-  return instance.instance || instance;
+  const resolved = instance.instance || instance;
+  registerBorrowedMemoryInstanceIdentity(resolved, {
+    moduleDigest: `sha256:${sha256(source)}`,
+    packageDigest: options.packageDigest || null
+  });
+  return resolved;
 }
 
 function createGpuImports(host) {
@@ -180,6 +196,7 @@ function validatePackageDir(packageDir, options = {}) {
       wasm: metadata.wasm,
       capabilities: metadata.capabilities,
       targetProfiles: metadata.targetProfiles,
+      executionProfile: metadata.executionProfile,
       factSchemas: packageManifest.factSchemas,
       manifests: packageManifest.manifests,
       warnings: packageManifest.warnings
@@ -307,8 +324,15 @@ function checkPackageDir(packageDir, options = {}) {
     aiReviewPolicy: null,
     reviewPolicyReport: null,
     moduleReviews: [],
-    packageReview: null
+    packageReview: null,
+    resourceCertificate: null,
+    provenanceFlow: null,
+    executionProfile: null
   };
+
+  if (!fs.existsSync(path.join(base, PACKAGE_MANIFEST_FILE)) && fs.existsSync(path.join(base, "air-package.json"))) {
+    return checkLegacyPackageDir(base, { ...options, profile: profileId, built: builtMode }, report);
+  }
 
   let packageManifest = null;
   let metadata = null;
@@ -326,6 +350,7 @@ function checkPackageDir(packageDir, options = {}) {
     report.hostAbi = metadata.hostAbi;
     report.aiReviewPolicy = metadata.aiReview;
     report.reviewPolicy = metadata.reviewPolicy;
+    report.executionProfile = metadata.executionProfile;
     report.declaredCapabilities = sortedStrings(metadata.capabilities);
     report.computedCapabilities = [];
     report.capabilities.required = report.declaredCapabilities.slice();
@@ -370,7 +395,10 @@ function checkPackageDir(packageDir, options = {}) {
   }
 
   try {
-    const moduleGraph = analyzePackageModuleGraph(base, metadata.entry);
+    const moduleGraph = analyzePackageModuleGraph(base, metadata.entry, {
+      provenancePolicy: metadata.provenanceFlow,
+      provenanceContext: provenanceContextForReport(report)
+    });
     moduleGraphReport = moduleGraph;
     attachModuleGraph(report, moduleGraph);
     addCheck(report, "module-graph", "pass", `module graph resolved: ${moduleGraph.modules.length} module(s)`);
@@ -378,8 +406,13 @@ function checkPackageDir(packageDir, options = {}) {
     if (err.partial) attachModuleGraph(report, err.partial);
     for (const message of errorList(err)) addCheck(report, checkIdForError(message, "module-graph"), "fail", message, repairHintForError(message));
   }
+  attachProvenanceFlow(report, { checks: true });
   attachPackageGraphDiagnosticChecks(report, metadata);
   assignPackageGraphOwnership(report, metadata);
+  attachResourceCertificate(report, base, metadata, packageManifest, {
+    checks: true,
+    required: Boolean(options.certificateRequired)
+  });
 
   attachStateHandleSets(report, base, metadata.generatedModules);
   attachStateAccessorPolicies(report, base);
@@ -405,6 +438,7 @@ function checkPackageDir(packageDir, options = {}) {
     } else {
       addCheck(report, "entry-verify", "skip", "entry standalone verification skipped because module graph failed or is unavailable");
     }
+    attachRealtimeExecutionProfile(report, mod, metadata, { checks: true });
   } catch (err) {
     const message = errorMessage(err);
     addCheck(report, "entry-verify", "fail", message, repairHintForError(message));
@@ -528,6 +562,90 @@ function checkPackageDir(packageDir, options = {}) {
   return finalizePackageCheckReport(report);
 }
 
+function checkLegacyPackageDir(base, options, report) {
+  let metadata = null;
+  try {
+    const validated = validatePackageDir(base, { built: options.built });
+    const pkg = loadPackage(base);
+    metadata = normalizePackageMetadata(pkg.metadata);
+    report.format = metadata.format;
+    report.package = metadata.module || path.basename(base);
+    report.airAbi = metadata.airAbi;
+    report.hostAbi = metadata.hostAbi;
+    report.declaredCapabilities = sortedStrings(metadata.capabilities);
+    report.computedCapabilities = report.declaredCapabilities.slice();
+    report.capabilities.required = report.computedCapabilities.slice();
+    report.hostImports.used = sortedStrings(metadata.imports.map((item) => item.name));
+    report.audio = validated.audio || null;
+    addCheck(report, "package-manifest", "pass", "air-package.json is valid through the legacy compatibility path");
+    addCheck(report, "wasm", "pass", `wasm exists: ${metadata.wasm || "-"}`);
+    addCheck(report, "module-graph", "skip", "legacy package metadata has no canonical source entry");
+    for (const [kind, manifestRef] of Object.entries(metadata.manifests || {}).sort(([a], [b]) => a.localeCompare(b))) {
+      const manifestPath = manifestRef && manifestRef.path;
+      const exists = Boolean(manifestPath && fs.existsSync(path.join(base, manifestPath)));
+      report.manifests[kind] = { path: manifestPath, exists };
+      addCheck(
+        report,
+        `manifest:${kind}`,
+        exists ? "pass" : "fail",
+        exists ? `${kind} manifest exists: ${manifestPath}` : `missing ${kind} manifest: ${manifestPath || "-"}`,
+        exists ? null : manifestRepairHint(kind)
+      );
+    }
+  } catch (err) {
+    for (const message of errorList(err)) {
+      addCheck(report, checkIdForError(message, "package-manifest"), "fail", message, repairHintForError(message));
+    }
+    return finalizePackageCheckReport(report);
+  }
+
+  if (!options.profile) {
+    report.warnings.push("no host profile selected; skipping package-vs-host compatibility checks");
+    return finalizePackageCheckReport(report);
+  }
+
+  try {
+    const profile = loadHostProfile(options.profile);
+    const profileReport = createHostProfileReport({
+      profileId: options.profile,
+      hostAbi: metadata.hostAbi,
+      capabilities: report.computedCapabilities,
+      hostImports: report.hostImports.used,
+      manifestKinds: Object.keys(metadata.manifests || {}),
+      assetKinds: [],
+      targetProfiles: metadata.targetProfiles
+    }, profile);
+    attachProfileSupport(report, profileReport, profile);
+    report.capabilities.supported = report.computedCapabilities.filter((item) => profile.supports.capabilities.includes(item)).sort();
+    report.capabilities.unsupported = profileReport.unsupportedCapabilities;
+    report.hostImports.unsupported = profileReport.unsupportedHostImports;
+    for (const capability of profileReport.unsupportedCapabilities) {
+      addCheck(report, `capability:${capability}`, "fail", `profile ${profile.id} does not support capability ${capability}`, capabilityRepairHint(capability));
+    }
+    for (const hostImport of profileReport.unsupportedHostImports) {
+      addCheck(report, `host-import:${hostImport}`, "fail", `profile ${profile.id} does not support host import ${hostImport}`, hostImportRepairHint(hostImport));
+    }
+    for (const manifestKind of profileReport.unsupportedManifestKinds) {
+      addCheck(report, `manifest-kind:${manifestKind}`, "fail", `profile ${profile.id} does not support manifest kind ${manifestKind}`, "remove unsupported manifest references or use a host profile that supports them");
+    }
+    if (!profileReport.unsupportedCapabilities.length) addCheck(report, "capabilities", "pass", "all required capabilities are supported");
+    if (!profileReport.unsupportedHostImports.length) addCheck(report, "host-imports", "pass", "all used host imports are supported");
+    if (!profileReport.unsupportedManifestKinds.length) addCheck(report, "manifest-kinds", "pass", "all manifest kinds are supported");
+    addCheck(report, "target-profile-declared", "pass", `legacy package permits selected profile ${profile.id}`);
+    if (profileReport.required.hostAbi && profileReport.required.hostAbi !== profile.hostAbi) {
+      addCheck(report, "host-abi", "fail", `hostAbi ${profileReport.required.hostAbi} is not supported by profile ${profile.id} (${profile.hostAbi})`, "use a host profile with matching hostAbi or rebuild the legacy package after migration");
+    } else {
+      addCheck(report, "host-abi", "pass", `hostAbi ${profile.hostAbi} is supported`);
+    }
+  } catch (err) {
+    for (const message of errorList(err)) {
+      addCheck(report, checkIdForError(message, "host-profile"), "fail", message, message.includes("unknown host profile") ? unknownProfileRepairHint() : repairHintForError(message));
+    }
+  }
+
+  return finalizePackageCheckReport(report);
+}
+
 function verifyPackageDir(packageDir, options = {}) {
   const report = reportPackageDir(packageDir, options);
   if (report.status === "fail") {
@@ -597,6 +715,9 @@ function reportPackageDir(packageDir, options = {}) {
     effectUsageOrigins: {},
     effectComposition: null,
     linking: null,
+    resourceCertificate: null,
+    provenanceFlow: null,
+    executionProfile: null,
     warnings: [],
     errors: []
   };
@@ -610,6 +731,7 @@ function reportPackageDir(packageDir, options = {}) {
     report.entry = metadata.entry;
     report.aiReviewPolicy = metadata.aiReview;
     report.reviewPolicy = metadata.reviewPolicy;
+    report.executionProfile = metadata.executionProfile;
     report.declaredCapabilities = sortedStrings(metadata.capabilities);
     report.generatedArtifacts = checkGeneratedArtifacts(base, metadata.generatedModules);
     if (report.generatedArtifacts.errors.length) report.errors.push(...report.generatedArtifacts.errors);
@@ -638,13 +760,31 @@ function reportPackageDir(packageDir, options = {}) {
   }
 
   try {
-    const moduleGraph = analyzePackageModuleGraph(base, metadata.entry);
+    const moduleGraph = analyzePackageModuleGraph(base, metadata.entry, {
+      provenancePolicy: metadata.provenanceFlow,
+      provenanceContext: provenanceContextForReport(report)
+    });
     assignModuleGraphFields(report, moduleGraph);
   } catch (err) {
     if (err.partial) assignModuleGraphFields(report, err.partial);
     report.errors.push(...errorList(err));
   }
+  attachProvenanceFlow(report, { checks: false });
   assignPackageGraphOwnership(report, metadata);
+  attachResourceCertificate(report, base, metadata, packageManifest, {
+    checks: false,
+    required: Boolean(options.certificateRequired)
+  });
+  if (metadata.executionProfile && metadata.entry) {
+    try {
+      const source = fs.readFileSync(path.join(base, metadata.entry), "utf8");
+      const mod = parseAir(source, metadata.entry);
+      verifyModule(mod);
+      attachRealtimeExecutionProfile(report, mod, metadata, { checks: false });
+    } catch (err) {
+      report.errors.push(errorMessage(err));
+    }
+  }
 
   if ((report.graph.edges || []).length) {
     report.linking = {
@@ -774,7 +914,8 @@ function factsSchemaSummary(schemaReport) {
         enum: column.enum || null,
         range: column.range || null,
         storageHint: column.storageHint || null,
-        privacy: column.privacy || null
+        privacy: column.privacy || null,
+        flowLabel: column.flowLabel || null
       })).sort((a, b) => a.name.localeCompare(b.name))
     } : null,
     facts: (schemaReport.facts || []).map((fact) => ({
@@ -789,7 +930,8 @@ function factsSchemaSummary(schemaReport) {
         semantic: column.semantic || null,
         storageHint: column.storageHint || null,
         range: column.range || null,
-        privacy: column.privacy || null
+        privacy: column.privacy || null,
+        flowLabel: column.flowLabel || null
       })).sort((a, b) => a.name.localeCompare(b.name)),
       capability: fact.capability || null,
       privacy: fact.privacy || null
@@ -901,7 +1043,8 @@ function structuredIoSummary(schemaReport) {
       type: field.type,
       privacy: field.privacy || null,
       classification: field.classification || null,
-      semantic: field.semantic || null
+      semantic: field.semantic || null,
+      flowLabel: field.flowLabel || null
     })).sort((a, b) => String(a.name).localeCompare(String(b.name))),
     privacyPolicy: schemaReport.privacyPolicy || null,
     fingerprint: schemaReport.fingerprint || null,
@@ -1012,7 +1155,8 @@ function outputContractSummary(contractReport) {
       argCount: output.argCount,
       args: (output.args || []).map((arg) => ({
         name: arg.name,
-        type: arg.type
+        type: arg.type,
+        flowLabel: arg.flowLabel || null
       })).sort((a, b) => a.name.localeCompare(b.name)),
       resources: (output.resources || []).slice().sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b))),
       profileConstraints: (output.profileConstraints || []).slice().sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b))),
@@ -2175,6 +2319,47 @@ function attachModuleGraph(report, moduleGraph) {
   }
 }
 
+function provenanceContextForReport(report) {
+  return {
+    factSchemas: report.facts && report.facts.schemas || [],
+    structuredIOSchemas: report.structuredIO && report.structuredIO.schemas || [],
+    outputContracts: report.outputContracts && report.outputContracts.schemas || []
+  };
+}
+
+function attachProvenanceFlow(report, options = {}) {
+  const flow = report.provenanceFlow;
+  if (!flow || flow.mode === "absent") return;
+  if (options.checks) {
+    if (flow.status === "passed") {
+      addCheck(report, "provenance-flow", "pass", "required provenance flow verification passed");
+    }
+    for (const diagnostic of flow.diagnostics || []) {
+      addCheck(
+        report,
+        `provenance-flow:${diagnostic.code}:${diagnostic.file || "package"}:${diagnostic.line || 0}`,
+        diagnostic.severity === "warn" ? "warn" : "fail",
+        diagnostic.message,
+        diagnostic.repairHint || null,
+        {
+          code: diagnostic.code,
+          file: diagnostic.file || null,
+          line: diagnostic.line || null,
+          module: diagnostic.module || null,
+          fields: diagnostic.fields || {}
+        }
+      );
+    }
+    return;
+  }
+  for (const diagnostic of flow.diagnostics || []) {
+    report.diagnostics.push(normalizeDiagnostic({
+      ...diagnostic,
+      gateAction: diagnostic.severity === "fail" ? "fail" : null
+    }));
+  }
+}
+
 function assignModuleGraphFields(report, moduleGraph) {
   report.modules = (moduleGraph.modules || []).slice();
   report.stateSegments = report.modules
@@ -2194,6 +2379,7 @@ function assignModuleGraphFields(report, moduleGraph) {
   report.moduleDiagnostics = moduleGraph.moduleDiagnostics || [];
   report.effectUsageOrigins = moduleGraph.effectUsageOrigins || {};
   report.effectComposition = moduleGraph.effectComposition || null;
+  report.provenanceFlow = moduleGraph.provenanceFlow || null;
   report.linking = moduleGraph.linking || null;
   report.linkedWasm = false;
   report.computedCapabilities = Object.keys(report.capabilityOrigins).sort();
@@ -2375,8 +2561,164 @@ function audioManifestNameFromMetadata(metadata) {
   return null;
 }
 
+function createPackageResourceCertificate(packageDir, options = {}) {
+  const report = checkPackageDir(packageDir, {
+    ...options,
+    built: false
+  });
+  if (!report.resourceCertificate) {
+    const error = new Error(`resource certificate could not be created for ${packageDir}`);
+    error.report = report;
+    throw error;
+  }
+  return report.resourceCertificate;
+}
+
+function attachResourceCertificate(report, base, metadata, packageManifest, options = {}) {
+  if (!metadata || !packageManifest || !(report.modules || []).length) return;
+  const declaredPolicy = packageManifest.resourceCertificate || null;
+  const policy = {
+    ...(declaredPolicy || {
+      mode: options.required ? "required" : "optional",
+      requiredBounds: ["effects", "hostCalls", "loops", "memory"],
+      verifierDigest: null,
+      packageDigest: null,
+      certificateDigest: null
+    })
+  };
+  if (options.required) policy.mode = "required";
+  try {
+    const modules = (report.modules || []).map((item) => {
+      const relative = String(item.path || "").replace(/\\/g, "/");
+      const absolute = path.join(base, relative);
+      const source = fs.readFileSync(absolute, "utf8");
+      return {
+        path: relative,
+        mod: parseAir(source, relative, { resolveSourceImports: false }),
+        digest: `sha256:${sha256(Buffer.from(source, "utf8"))}`
+      };
+    }).sort((a, b) => a.path.localeCompare(b.path));
+    const manifestBytes = fs.readFileSync(path.join(base, PACKAGE_MANIFEST_FILE));
+    const manifestDigest = `sha256:${sha256(manifestBytes)}`;
+    const packageDigest = resourcePackageDigest(manifestDigest, modules);
+    const certificate = createVerifiedResourceCertificate(modules, {
+      packageName: metadata.name || report.package,
+      manifestDigest,
+      packageDigest,
+      policy,
+      mode: policy.mode
+    });
+    const validation = validateVerifiedResourceCertificate(certificate, {
+      required: policy.mode === "required",
+      packageName: metadata.name || report.package,
+      packageDigest: policy.packageDigest || packageDigest,
+      verifierDigest: policy.verifierDigest || undefined,
+      certificateDigest: policy.certificateDigest || undefined
+    });
+    report.resourceCertificate = certificate;
+    if (!validation.ok) {
+      for (const diagnostic of validation.diagnostics) {
+        recordResourceCertificateDiagnostic(report, diagnostic, options.checks);
+      }
+    } else if (options.checks && declaredPolicy) {
+      addCheck(
+        report,
+        "resource-certificate",
+        certificate.requiredBoundsSatisfied ? "pass" : "warn",
+        certificate.requiredBoundsSatisfied
+          ? `resource certificate verified: ${certificate.certificateDigest}`
+          : "resource certificate is advisory and contains unknown bounds",
+        certificate.requiredBoundsSatisfied ? null : "bound dynamic allocations or use optional certificate mode"
+      );
+    }
+  } catch (err) {
+    const diagnostic = {
+      code: "air.resource_certificate.creation_failed",
+      severity: policy.mode === "required" ? "fail" : "warn",
+      message: errorMessage(err),
+      fields: {}
+    };
+    recordResourceCertificateDiagnostic(report, diagnostic, options.checks);
+  }
+}
+
+function attachRealtimeExecutionProfile(report, mod, metadata, options = {}) {
+  if (!metadata || !metadata.executionProfile) return;
+  try {
+    const validation = assertRealtimeSafeProfile(
+      mod,
+      metadata.executionProfile,
+      report.resourceCertificate
+    );
+    report.executionProfile = {
+      ...metadata.executionProfile,
+      validation
+    };
+    if (options.checks) {
+      addCheck(
+        report,
+        "execution-profile:realtime_safe",
+        "pass",
+        `realtime_safe profile verified for @${validation.entrypoint}`
+      );
+    }
+  } catch (err) {
+    const message = errorMessage(err);
+    if (options.checks) {
+      addCheck(
+        report,
+        "execution-profile:realtime_safe",
+        "fail",
+        message,
+        "remove realtime_safe or make the module capability-free, allocation-free, bounded, and borrowed-memory-only"
+      );
+    } else {
+      report.errors.push(message);
+    }
+  }
+}
+
+function recordResourceCertificateDiagnostic(report, diagnostic, checks) {
+  const message = diagnostic.message || diagnostic.code;
+  if (checks) {
+    addCheck(report, "resource-certificate", diagnostic.severity || "fail", message, "regenerate the certificate from the exact package and verifier", {
+      code: diagnostic.code,
+      fields: diagnostic.fields || {}
+    });
+    return;
+  }
+  const rendered = `${diagnostic.code}: ${message}`;
+  if ((diagnostic.severity || "fail") === "fail") report.errors.push(rendered);
+  else report.warnings.push(rendered);
+  report.diagnostics.push(normalizeDiagnostic({
+    code: diagnostic.code,
+    severity: diagnostic.severity || "fail",
+    source: "resource-certificate",
+    message,
+    fields: diagnostic.fields || {}
+  }));
+}
+
+function resourcePackageDigest(manifestDigest, modules) {
+  const hash = crypto.createHash("sha256");
+  hash.update("AIR_VERIFIED_RESOURCE_PACKAGE_V1\0", "utf8");
+  hash.update(JSON.stringify({
+    manifestDigest,
+    modules: modules.map((item) => ({ path: item.path, digest: item.digest }))
+  }), "utf8");
+  return `sha256:${hash.digest("hex")}`;
+}
+
 function sha256(bytes) {
   return crypto.createHash("sha256").update(bytes).digest("hex");
+}
+
+async function run(options) {
+  return require("./run_package").run(options);
+}
+
+async function createVerifiedExecutionSession(options) {
+  return require("./verified_execution_session").createVerifiedExecutionSession(options);
 }
 
 function finalizePackageCheckReport(report) {
@@ -2600,12 +2942,18 @@ module.exports = {
   ABI_VERSION: AIR_ABI_VERSION,
   buildPackage,
   checkPackageDir,
+  createPackageResourceCertificate,
   createPackageMetadata,
+  createVerifiedExecutionSession,
   reportPackageDir,
   loadPackage,
   normalizePackageMetadata,
+  run,
   verifyPackageDir,
   instantiateAirModule,
+  borrowedSliceInterfaceDescriptor,
+  invokeBorrowedMemory,
+  prepareBorrowedMemoryInvocation,
   createGpuImports,
   createInputImports,
   createFsImports,
