@@ -9,6 +9,19 @@ compact format:
 - Security
 - Breaking / Migration
 
+## v0.50.1 - Public Identity And Presentation Patch
+
+### Changed
+
+- README now identifies Dmitriy Shtro explicitly as AIR creator and maintainer,
+  with the canonical LinkedIn link.
+- Public package, npm `latest`, and installation guidance now point to
+  `@underskys/air-core@0.50.1`.
+
+### Breaking / Migration
+
+- None. No compiler, verifier, AIR ABI, Host ABI, or feature behavior changed.
+
 ## v0.50.0 - Public Release Candidate
 
 ### Added

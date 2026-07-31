@@ -170,16 +170,16 @@ shipped as public Core package authority.
 | `@underskys/air-core@0.44.1` | first published public alpha | `0.10` | `0.11` latest, `0.10` baseline | `0.10` family | repo test/conformance suite | Published public alpha baseline. |
 | `@underskys/air-core@0.45.0` | published public alpha | `0.10` | `0.11` latest, `0.10` baseline | `0.10` family | repo test/conformance suite plus release gates | Published public positioning/governance/roadmap release; no new math implementation. |
 | `@underskys/air-core@0.45.1` | Show HN presentation patch candidate | `0.10` | `0.11` latest, `0.10` baseline | `0.10` family | package presentation and release gates | README/package presentation fix only; no compiler, verifier, AIR ABI, Host ABI, or feature change. |
-| `@underskys/air-core@0.50.0` | published public release | `0.10`, with opt-in `0.11` borrowed slices | `0.10` | `0.50` public surface | repo test/conformance suite plus release gates | Refinement types, provenance flow, resource certificates, semantic patches, bounded tool gate, region bounds, and opt-in borrowed slices. |
+| `@underskys/air-core@0.50.1` | published public presentation patch | `0.10`, with opt-in `0.11` borrowed slices | `0.10` | `0.50` public surface | repo test/conformance suite plus release gates | Public identity and documentation correction; no language or ABI change. |
 
 Current active milestone:
 
-- Current public package: `@underskys/air-core@0.50.0`
-- npm `latest`: `0.50.0`
+- Current public package: `@underskys/air-core@0.50.1`
+- npm `latest`: `0.50.1`
 - Install path: `npm install -g @underskys/air-core`
 - AIR ABI compatibility: existing `0.10` modules remain supported; borrowed
   slices are opt-in `0.11`.
-- Host ABI: not redefined by `0.50.0`.
+- Host ABI: not redefined by `0.50.1`.
 - Active roadmap:
   [docs/V0_45_RELEASE_PLAN.md](https://gitlab.com/fd.skyrealm/air-core/-/blob/main/docs/V0_45_RELEASE_PLAN.md)
 - Feature status:
@@ -232,3 +232,4 @@ See [METHOD.md](https://gitlab.com/fd.skyrealm/air-core/-/blob/main/METHOD.md).
 - [Public Release Audit](https://gitlab.com/fd.skyrealm/air-core/-/blob/main/docs/public_release/PUBLIC_CUT_AUDIT.md)
 - [Changelog](https://gitlab.com/fd.skyrealm/air-core/-/blob/main/CHANGELOG.md)
 - [Release Notes v0.50.0](https://gitlab.com/fd.skyrealm/air-core/-/blob/main/docs/RELEASE_NOTES_0_50_0.md)
+- [Release Notes v0.50.1](https://gitlab.com/fd.skyrealm/air-core/-/blob/main/docs/RELEASE_NOTES_0_50_1.md)
