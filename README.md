@@ -171,11 +171,13 @@ shipped as public Core package authority.
 | `@underskys/air-core@0.45.0` | published public alpha | `0.10` | `0.11` latest, `0.10` baseline | `0.10` family | repo test/conformance suite plus release gates | Published public positioning/governance/roadmap release; no new math implementation. |
 | `@underskys/air-core@0.45.1` | Show HN presentation patch candidate | `0.10` | `0.11` latest, `0.10` baseline | `0.10` family | package presentation and release gates | README/package presentation fix only; no compiler, verifier, AIR ABI, Host ABI, or feature change. |
 | `@underskys/air-core@0.50.1` | published public presentation patch | `0.10`, with opt-in `0.11` borrowed slices | `0.10` | `0.50` public surface | repo test/conformance suite plus release gates | Public identity and documentation correction; no language or ABI change. |
+| `@underskys/air-core@0.50.2` | public identity correction candidate | `0.10`, with opt-in `0.11` borrowed slices | `0.10` | `0.50` public surface | release gates pending | Aligns package, CLI, and public documentation versions; no language or ABI change. |
 
 Current active milestone:
 
 - Current public package: `@underskys/air-core@0.50.1`
 - npm `latest`: `0.50.1`
+- Next release candidate: `@underskys/air-core@0.50.2`
 - Install path: `npm install -g @underskys/air-core`
 - AIR ABI compatibility: existing `0.10` modules remain supported; borrowed
   slices are opt-in `0.11`.
@@ -233,3 +235,4 @@ See [METHOD.md](https://gitlab.com/fd.skyrealm/air-core/-/blob/main/METHOD.md).
 - [Changelog](https://gitlab.com/fd.skyrealm/air-core/-/blob/main/CHANGELOG.md)
 - [Release Notes v0.50.0](https://gitlab.com/fd.skyrealm/air-core/-/blob/main/docs/RELEASE_NOTES_0_50_0.md)
 - [Release Notes v0.50.1](https://gitlab.com/fd.skyrealm/air-core/-/blob/main/docs/RELEASE_NOTES_0_50_1.md)
+- [Release Notes v0.50.2](https://gitlab.com/fd.skyrealm/air-core/-/blob/main/docs/RELEASE_NOTES_0_50_2.md)

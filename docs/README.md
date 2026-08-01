@@ -8,6 +8,7 @@
 - [Release Notes v0.45.1](public_release/RELEASE_NOTES_v0_45_1.md)
 - [Release Notes v0.50.0](RELEASE_NOTES_0_50_0.md)
 - [Release Notes v0.50.1](RELEASE_NOTES_0_50_1.md)
+- [Release Notes v0.50.2](RELEASE_NOTES_0_50_2.md)
 - [Release Notes v0.45.0](public_release/RELEASE_NOTES_v0_45_0.md)
 - [v0.46 Math Stabilization Plan](release/V0_46_MATH_STABILIZATION_PLAN.md)
 - [Public Alpha Packaging RFC](rfcs/v0.44-public-alpha-packaging.md)

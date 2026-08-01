@@ -1,6 +1,6 @@
 {
   "name": "@underskys/air-core",
-  "version": "0.50.1",
+  "version": "0.50.2",
   "description": "Verifier-first programming language and CLI for AI-authored deterministic components that hosts can compose into tools, games, simulations, robotics policies, and 3D scenes.",
   "license": "Apache-2.0",
   "author": {
@@ -34,6 +34,7 @@
     "data/host_profiles/",
     "docs/RELEASE_NOTES_0_50_0.md",
     "docs/RELEASE_NOTES_0_50_1.md",
+    "docs/RELEASE_NOTES_0_50_2.md",
     "examples/borrowed_memory_conformance/",
     "examples/borrowed_slices/",
     "examples/provenance_flow/",

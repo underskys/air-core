@@ -9,6 +9,20 @@ compact format:
 - Security
 - Breaking / Migration
 
+## v0.50.2 - Public Identity Correction
+
+### Changed
+
+- Public package and CLI version reporting are aligned at `0.50.2`.
+- README and release notes consistently identify the product as AIR, the npm
+  package as `@underskys/air-core`, the CLI as `airc`, and Dmitriy Shtro as
+  creator and maintainer.
+
+### Breaking / Migration
+
+- None. No compiler, verifier, lowerer, AIR ABI, Host ABI, or feature behavior
+  changed.
+
 ## v0.50.1 - Public Identity And Presentation Patch
 
 ### Changed
