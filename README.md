@@ -223,6 +223,7 @@ See [METHOD.md](https://gitlab.com/fd.skyrealm/air-core/-/blob/main/METHOD.md).
 - [Threat Model](https://gitlab.com/fd.skyrealm/air-core/-/blob/main/THREAT_MODEL.md)
 - [Conformance](https://gitlab.com/fd.skyrealm/air-core/-/blob/main/CONFORMANCE.md)
 - [Showcase and benchmark evidence](https://gitlab.com/fd.skyrealm/air-core/-/blob/main/SHOWCASE.md)
+- [Live host-composed demos](https://airdemos.148.222.184.138.sslip.io/)
 - [Versioning](https://gitlab.com/fd.skyrealm/air-core/-/blob/main/VERSIONING.md)
 - [Roadmap](https://gitlab.com/fd.skyrealm/air-core/-/blob/main/ROADMAP.md)
 - [Contributing](https://gitlab.com/fd.skyrealm/air-core/-/blob/main/CONTRIBUTING.md)
