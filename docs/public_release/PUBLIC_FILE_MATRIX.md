@@ -14,9 +14,11 @@ This matrix classifies repository paths for AIR alpha launch.
 | `spec/` | Public now | Language, package, ABI, and host profile specs. | Include. |
 | `stdlib/` | Public now | Core standard library surface. | Include. |
 | `test/fixtures/conformance_*`, `test/fixtures/profiles/` | Public now | Narrow conformance fixtures for public package surface. | Include in npm package. |
+| `fixtures/v051/` | Public now | Frozen v0.51 conformance fixtures; product-neutral machine inputs. | Include in npm package. |
 | `test/` | Public now in repository | Full verifier/package/evidence/regression tests. | Keep in repo; include only narrow conformance fixtures in npm package. |
 | `examples/public/` | Public now | Launch-safe Core examples for npm/public package. | Include. |
 | `examples/consumer/` | Public now as documentation only | Documents consumer examples as pressure/evidence, not Core authority. | Keep in repository; exclude from npm package unless separately accepted. |
+| `examples/ai_gate/` | Public now as repository examples | Product-neutral Golden AI Gate examples exercise host-admission boundaries without defining Core authority. | Keep in repository; exclude from npm package. |
 | `examples/lan_observer_readonly_package/`, `examples/airops_incident_package/` | Public later / evidence | Consumer proof packages are useful evidence but do not define Core semantics. | Keep in repository evidence; exclude from npm package. |
 | `benchmarks/` | Public now | Deterministic benchmark fixtures and reports. | Include small fixtures only. |
 | `evals/ai_authoring/` | Public now | Deterministic AI-authoring replay/import evidence. | Include sanitized fixtures only. |
@@ -27,6 +29,7 @@ This matrix classifies repository paths for AIR alpha launch.
 | `tools/` | Public now | Local support tooling. | Include after sanitation scan. |
 | `kits/` | Public later | Reusable kits need separate public support/readiness review. | Exclude from npm package for alpha. |
 | `hosts/` | Public later | Host-specific surfaces and dependencies. | Exclude from npm package for alpha. |
+| `swift/AIRSwift/` | Public now as repository source | Product-neutral Swift conformance host; a separate SwiftPM package, not a Node runtime dependency. | Keep in repository; exclude from npm package. |
 | `demo/` | Public later | External or local demo implementations are pressure, not Core authority. | Exclude from npm package and review separately. |
 | `demo_snapshots/` | Public later | Generated/review artifacts, not source of truth. | Exclude. |
 | `prompts/` | Public later | Prompt templates may be useful, but launch needs prompt/log policy first. | Review before inclusion. |

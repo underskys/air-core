@@ -1,0 +1,51 @@
+module example.checked_numeric
+
+export func checked_add(left: i64, right: i64) -> i64 {
+  %out: i64 = i64.checked_add %left, %right
+  return %out
+}
+
+export func checked_sub(left: i64, right: i64) -> i64 {
+  %out: i64 = i64.checked_sub %left, %right
+  return %out
+}
+
+export func checked_mul(left: i64, right: i64) -> i64 {
+  %out: i64 = i64.checked_mul %left, %right
+  return %out
+}
+
+export func checked_neg(value: i64) -> i64 {
+  %out: i64 = i64.checked_neg %value
+  return %out
+}
+
+export func checked_div(left: i64, right: i64) -> i64 {
+  %out: i64 = i64.checked_div_s %left, %right
+  return %out
+}
+
+export func checked_rem(left: i64, right: i64) -> i64 {
+  %out: i64 = i64.checked_rem_s %left, %right
+  return %out
+}
+
+export func narrow_i64(value: i64) -> i32 {
+  %out: i32 = i64.to_i32_checked %value
+  return %out
+}
+
+export func widen_i32(value: i32) -> i64 {
+  %out: i64 = i32.to_i64 %value
+  return %out
+}
+
+export func widen_f32(value: f32) -> f64 {
+  %out: f64 = f32.to_f64 %value
+  return %out
+}
+
+export func narrow_f64(value: f64) -> f32 {
+  %out: f32 = f64.to_f32_checked %value
+  return %out
+}

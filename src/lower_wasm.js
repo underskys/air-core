@@ -1,11 +1,12 @@
 const { formatArg } = require("./format");
-const { parseArrayType, parseBufferType, isStructName, scalarByteWidth } = require("./types");
+const { parseArrayType, parseBufferType, isStructName, scalarByteWidth, parseRefinementType } = require("./types");
 const { tableStorageByteWidth } = require("./table_metadata");
 const {
   REGION_BOUNDS_FAILURE_FUNCTION,
   REGION_BOUNDS_RUNTIME_CODE
 } = require("./region_bounds");
-const { assertWasmTargetSupport } = require("./verifier");
+const { assertWasmTargetSupport, verifyV051Air } = require("./verifier");
+const { parseTypeReference } = require("./typed_interface");
 const {
   BORROWED_SLICE_TYPE,
   borrowedSliceInterfaceDescriptor,
@@ -25,6 +26,7 @@ const BORROW_FAILURE = Object.freeze({
 });
 
 function lowerToWat(mod) {
+  if (mod && mod.v051TypedAst) return lowerV051TypedToWat(mod);
   assertWasmTargetSupport(mod);
   const borrowedDescriptor = borrowedSliceInterfaceDescriptor(mod);
   const ctx = {
@@ -124,6 +126,600 @@ function lowerToWat(mod) {
     ...data,
     `)`
   ].join("\n");
+}
+
+class V051TypedLoweringError extends Error {
+  constructor(code, message) {
+    super(`${code}: ${message}`);
+    this.name = "V051TypedLoweringError";
+    this.code = code;
+  }
+}
+
+function typedLowerFail(code, message) {
+  throw new V051TypedLoweringError(code, message);
+}
+
+// The candidate path lowers the already-verified typed AST directly to WAT.
+// It is intentionally separate from the legacy block IR, not an interpreter.
+function lowerV051TypedToWat(mod) {
+  verifyV051Air(mod);
+  try {
+    const declarations = new Map((mod.enums || []).map((item) => [item.type_id, item]));
+    const usesCanonicalSumIngress = (mod.functions || []).some((fn) => (fn.params || []).some((parameter) => {
+      const type = v051TypedTypeInfo(parameter.type, declarations);
+      return type.kind === "option" || type.kind === "result";
+    }));
+    const usesCheckedNumeric = (mod.functions || []).some(v051TypedFunctionUsesCheckedNumeric);
+    const usesTypedRefinement = (mod.functions || []).some(v051TypedFunctionUsesRefinement);
+    const functions = (mod.functions || []).map((fn) => lowerV051TypedFunction(fn, declarations));
+    return [
+      "(module",
+      "  (func $__air_v051_invalid_tag unreachable)",
+      "  (func $__air_v051_invalid_enum_discriminant unreachable)",
+      "  (func $__air_v051_invalid_bool unreachable)",
+      ...(usesTypedRefinement ? ["  (func $__air_v051_refinement_out_of_range unreachable)"] : []),
+      ...(usesCanonicalSumIngress ? ["  (func $__air_v051_noncanonical_sum_lane unreachable)"] : []),
+      ...(usesCheckedNumeric ? [
+        "  (global $__air_v051_checked_numeric_failure (export \"__air_v051_checked_numeric_failure\") (mut i32) (i32.const 0))",
+        "  (func $__air_v051_numeric_overflow i32.const 1 global.set $__air_v051_checked_numeric_failure unreachable)",
+        "  (func $__air_v051_numeric_division_by_zero i32.const 2 global.set $__air_v051_checked_numeric_failure unreachable)",
+        "  (func $__air_v051_numeric_invalid_conversion i32.const 3 global.set $__air_v051_checked_numeric_failure unreachable)"
+      ] : []),
+      ...functions,
+      ")"
+    ].join("\n");
+  } catch (error) {
+    if (error instanceof V051TypedLoweringError) throw error;
+    typedLowerFail("air.v051.typed_lowering_unsupported", error && error.message ? error.message : "unsupported typed AST");
+  }
+}
+
+function lowerV051TypedFunction(fn, declarations) {
+  if (fn.returnType === "void") {
+    typedLowerFail("air.v051.typed_lowering_unsupported", "void typed functions are outside the first vertical runtime subset");
+  }
+  const state = {
+    declarations,
+    localDecls: [],
+    locals: new Map(),
+    body: [],
+    tempId: 0,
+    usesCheckedNumeric: v051TypedFunctionUsesCheckedNumeric(fn)
+  };
+  const params = [];
+  for (const parameter of fn.params || []) {
+    const info = v051TypedTypeInfo(parameter.type, declarations);
+    const record = v051TypedRecord(parameter.name, parameter.type, info, true);
+    state.locals.set(parameter.name, record);
+    for (let index = 0; index < record.names.length; index += 1) {
+      params.push(`(param ${record.names[index]} ${info.watTypes[index]})`);
+    }
+    emitV051TypedRuntimeValidation(state, record);
+  }
+  if (state.usesCheckedNumeric) state.body.push("i32.const 0", "global.set $__air_v051_checked_numeric_failure");
+  for (const statement of fn.statements || []) {
+    if (statement.kind === "local") {
+      const info = v051TypedTypeInfo(statement.type, declarations);
+      const record = v051TypedRecord(statement.name, statement.type, info, false);
+      state.locals.set(statement.name, record);
+      state.localDecls.push(...record.names.map((name, index) => `(local ${name} ${info.watTypes[index]})`));
+      emitV051TypedExpression(state, statement.value, statement.type);
+      emitV051TypedRefinementAssignmentCheck(state, record.info);
+      emitV051TypedSet(state, record);
+      continue;
+    }
+    if (statement.kind === "match") {
+      const info = v051TypedTypeInfo(statement.destinationType, declarations);
+      const record = v051TypedRecord(statement.destination, statement.destinationType, info, false);
+      state.locals.set(statement.destination, record);
+      state.localDecls.push(...record.names.map((name, index) => `(local ${name} ${info.watTypes[index]})`));
+      emitV051TypedMatch(state, statement, record);
+      continue;
+    }
+    if (statement.kind === "return") {
+      if (fn.returnType !== "void") {
+        emitV051TypedExpression(state, statement.value, fn.returnType);
+        emitV051TypedRefinementAssignmentCheck(state, v051TypedTypeInfo(fn.returnType, declarations));
+      }
+      state.body.push("return");
+      continue;
+    }
+    typedLowerFail("air.v051.typed_lowering_unsupported", `unsupported statement kind '${statement.kind}'`);
+  }
+  const resultInfo = fn.returnType === "void" ? { watTypes: [] } : v051TypedTypeInfo(fn.returnType, declarations);
+  const result = resultInfo.watTypes.length ? ` (result ${resultInfo.watTypes.join(" ")})` : "";
+  const exportDecl = fn.exported ? ` (export "${fn.name}")` : "";
+  return [
+    `  (func $${wasmName(fn.name)}${exportDecl}${params.length ? ` ${params.join(" ")}` : ""}${result}`,
+    ...state.localDecls.map((line) => `    ${line}`),
+    ...state.body.map((line) => `    ${line}`),
+    "  )"
+  ].join("\n");
+}
+
+function v051TypedFunctionUsesCheckedNumeric(fn) {
+  return (fn.statements || []).some((statement) => {
+    return (statement.kind === "local" || statement.kind === "return") &&
+      statement.value && statement.value.kind === "numeric_operation" &&
+      /^(?:i64\.checked_|i64\.to_i32_checked|f64\.to_f32_checked)/.test(statement.value.op);
+  });
+}
+
+function v051TypedFunctionUsesRefinement(fn) {
+  const typeNames = [fn.returnType, ...(fn.params || []).map((parameter) => parameter.type)];
+  for (const statement of fn.statements || []) {
+    if (statement.kind === "local") typeNames.push(statement.type);
+    if (statement.kind === "match") typeNames.push(statement.destinationType);
+  }
+  return typeNames.some((typeName) => {
+    const refinement = parseRefinementType(typeName);
+    return refinement && refinement.base === "i32";
+  });
+}
+
+function v051TypedTypeInfo(typeName, declarations) {
+  const refinement = parseRefinementType(typeName);
+  if (refinement) {
+    if (refinement.base !== "i32") typedLowerFail("air.v051.typed_lowering_unsupported", `unsupported typed refinement '${typeName}'`);
+    return {
+      baseCanonical: refinement.base,
+      kind: "scalar",
+      refinement: refinement.refinement,
+      type: { baseCanonical: refinement.base, canonical: refinement.canonical, kind: "primitive", refinement: refinement.refinement },
+      watTypes: ["i32"]
+    };
+  }
+  let type;
+  try { type = parseTypeReference(typeName); } catch { typedLowerFail("air.v051.typed_lowering_unsupported", `invalid type '${typeName}'`); }
+  if (type.kind === "primitive") return { baseCanonical: type.canonical, kind: "scalar", refinement: null, type, watTypes: [v051TypedWatType(type.canonical)] };
+  if (type.kind === "enum") {
+    const declaration = declarations.get(type.canonical);
+    if (!declaration) typedLowerFail("air.v051.typed_lowering_unsupported", `unknown enum '${type.canonical}'`);
+    return { declaration, kind: "enum", type, watTypes: ["i32"] };
+  }
+  if (type.kind === "option") {
+    const payload = v051TypedTypeInfo(type.payload.canonical, declarations);
+    return { kind: "option", payload, type, watTypes: ["i32", ...payload.watTypes] };
+  }
+  if (type.kind === "result") {
+    const payload = v051TypedTypeInfo(type.payload.canonical, declarations);
+    const error = v051TypedTypeInfo(type.error.canonical, declarations);
+    return { kind: "result", payload, error, type, watTypes: ["i32", ...payload.watTypes, ...error.watTypes] };
+  }
+  typedLowerFail("air.v051.typed_lowering_unsupported", `unsupported type '${typeName}'`);
+}
+
+function v051TypedBaseTypeName(typeName) {
+  const refinement = parseRefinementType(typeName);
+  return refinement ? refinement.base : typeName;
+}
+
+function v051TypedWatType(type) {
+  if (type === "i32" || type === "bool") return "i32";
+  if (type === "i64" || type === "f32" || type === "f64") return type;
+  typedLowerFail("air.v051.typed_lowering_unsupported", `unsupported scalar type '${type}'`);
+}
+
+function v051TypedRecord(name, type, info, parameter) {
+  const base = `$${String(name).replace(/[^A-Za-z0-9_]/g, "_")}`;
+  const suffixes = info.kind === "option" ? ["tag", "payload"] : info.kind === "result" ? ["tag", "payload", "error"] : [""];
+  const names = info.watTypes.map((_, index) => {
+    const suffix = suffixes[index] || String(index);
+    return parameter && !suffix ? base : suffix ? `${base}$${suffix}` : base;
+  });
+  return { info, name, names, parameter, type };
+}
+
+function emitV051TypedRuntimeValidation(state, record) {
+  const { info } = record;
+  if (info.kind === "scalar" && info.type.canonical === "bool") {
+    emitV051TypedBinaryDomainCheck(state, record.names[0], "__air_v051_invalid_bool");
+    return;
+  }
+  if (info.kind === "enum") {
+    emitV051TypedEnumValidation(state, record.names[0], info.declaration);
+    return;
+  }
+  if (info.kind === "scalar" && info.refinement && info.refinement.kind === "i32_range") {
+    emitV051TypedRefinementIngressCheck(state, record.names[0], info.refinement);
+    return;
+  }
+  if (info.kind === "option" || info.kind === "result") {
+    emitV051TypedBinaryDomainCheck(state, record.names[0], "__air_v051_invalid_tag");
+    if (info.kind === "option") {
+      state.body.push(`local.get ${record.names[0]}`);
+      state.body.push("i32.const 0");
+      state.body.push("i32.eq");
+      state.body.push("if");
+      emitV051TypedCanonicalZeroCheck(state, record.names[1], info.payload);
+      state.body.push("end");
+      state.body.push(`local.get ${record.names[0]}`);
+      state.body.push("i32.const 1");
+      state.body.push("i32.eq");
+      state.body.push("if");
+      emitV051TypedActiveValueValidation(state, record.names[1], info.payload);
+      state.body.push("end");
+    }
+    if (info.kind === "result") {
+      state.body.push(`local.get ${record.names[0]}`);
+      state.body.push("i32.const 0");
+      state.body.push("i32.eq");
+      state.body.push("if");
+      emitV051TypedActiveValueValidation(state, record.names[1], info.payload);
+      emitV051TypedCanonicalZeroCheck(state, record.names[2], info.error);
+      state.body.push("end");
+      state.body.push(`local.get ${record.names[0]}`);
+      state.body.push("i32.const 1");
+      state.body.push("i32.eq");
+      state.body.push("if");
+      emitV051TypedCanonicalZeroCheck(state, record.names[1], info.payload);
+      emitV051TypedActiveValueValidation(state, record.names[2], info.error);
+      state.body.push("end");
+    }
+  }
+}
+
+function emitV051TypedRefinementIngressCheck(state, local, refinement) {
+  state.body.push(`local.get ${local}`, `i32.const ${refinement.min}`, "i32.lt_s", `local.get ${local}`, `i32.const ${refinement.max}`, "i32.gt_s", "i32.or", "if", "call $__air_v051_refinement_out_of_range", "end");
+}
+
+function emitV051TypedRefinementAssignmentCheck(state, info) {
+  if (!info || !info.refinement || info.refinement.kind !== "i32_range") return;
+  const value = declareV051TypedTemporary(state, "i32");
+  state.body.push(`local.set ${value}`, `local.get ${value}`, `i32.const ${info.refinement.min}`, "i32.lt_s", `local.get ${value}`, `i32.const ${info.refinement.max}`, "i32.gt_s", "i32.or", "if", "call $__air_v051_refinement_out_of_range", "end", `local.get ${value}`);
+}
+
+function emitV051TypedActiveValueValidation(state, local, info) {
+  if (info.kind === "scalar" && info.type.canonical === "bool") {
+    emitV051TypedBinaryDomainCheck(state, local, "__air_v051_invalid_bool");
+    return;
+  }
+  if (info.kind === "enum") emitV051TypedEnumValidation(state, local, info.declaration);
+}
+
+// Canonical A2 sum values have physically zeroed inactive lanes. Integer lanes
+// compare directly; float lanes compare raw bits so -0.0 is not accepted as a
+// nonsemantic padding value.
+function emitV051TypedCanonicalZeroCheck(state, local, info) {
+  if (!info || !Array.isArray(info.watTypes) || info.watTypes.length !== 1) {
+    typedLowerFail("air.v051.typed_lowering_unsupported", "sum ABI payload must lower to one scalar lane");
+  }
+  state.body.push(`local.get ${local}`);
+  switch (info.watTypes[0]) {
+    case "i32": state.body.push("i32.eqz"); state.body.push("i32.eqz"); break;
+    case "i64": state.body.push("i64.eqz"); state.body.push("i32.eqz"); break;
+    case "f32": state.body.push("i32.reinterpret_f32"); state.body.push("i32.eqz"); state.body.push("i32.eqz"); break;
+    case "f64": state.body.push("i64.reinterpret_f64"); state.body.push("i64.eqz"); state.body.push("i32.eqz"); break;
+    default: typedLowerFail("air.v051.typed_lowering_unsupported", `unsupported sum ABI lane '${info.watTypes[0]}'`);
+  }
+  state.body.push("if");
+  state.body.push("call $__air_v051_noncanonical_sum_lane");
+  state.body.push("end");
+}
+
+function emitV051TypedBinaryDomainCheck(state, local, failureFunction) {
+  state.body.push(`local.get ${local}`);
+  state.body.push("i32.const 0");
+  state.body.push("i32.eq");
+  state.body.push(`local.get ${local}`);
+  state.body.push("i32.const 1");
+  state.body.push("i32.eq");
+  state.body.push("i32.or");
+  state.body.push("i32.eqz");
+  state.body.push("if");
+  state.body.push(`call $${failureFunction}`);
+  state.body.push("end");
+}
+
+function emitV051TypedEnumValidation(state, local, declaration) {
+  let first = true;
+  for (const entry of declaration.cases || []) {
+    state.body.push(`local.get ${local}`);
+    state.body.push(`i32.const ${entry.discriminant}`);
+    state.body.push("i32.eq");
+    if (!first) state.body.push("i32.or");
+    first = false;
+  }
+  state.body.push("i32.eqz");
+  state.body.push("if");
+  state.body.push("call $__air_v051_invalid_enum_discriminant");
+  state.body.push("end");
+}
+
+function emitV051TypedExpression(state, value, expectedType) {
+  if (value && typeof value === "object" && value.kind === "numeric_operation") {
+    emitV051TypedNumericOperation(state, value, expectedType);
+    return;
+  }
+  const text = String(value || "").trim();
+  const info = v051TypedTypeInfo(expectedType, state.declarations);
+  if (/^%[A-Za-z_][A-Za-z0-9_]*$/.test(text)) {
+    const local = state.locals.get(text.slice(1));
+    if (!local || local.type !== expectedType) typedLowerFail("air.v051.typed_lowering_unsupported", `unknown or mismatched local '${text}'`);
+    emitV051TypedGet(state, local);
+    return;
+  }
+  if (info.kind === "scalar") {
+    if (info.type.canonical === "bool") {
+      state.body.push(`i32.const ${text === "true" ? 1 : 0}`);
+      return;
+    }
+    state.body.push(`${info.watTypes[0]}.const ${text}`);
+    return;
+  }
+  if (info.kind === "enum") {
+    const entry = v051TypedEnumLiteral(text, info.type, info.declaration);
+    state.body.push(`i32.const ${entry.discriminant}`);
+    return;
+  }
+  if (info.kind === "option") {
+    const constructor = text.match(/^option\.(none|some)<(.+)>\s*(.*)$/);
+    if (!constructor || constructor[2] !== info.payload.type.canonical) typedLowerFail("air.v051.typed_lowering_unsupported", `invalid option constructor '${text}'`);
+    state.body.push(`i32.const ${constructor[1] === "none" ? 0 : 1}`);
+    if (constructor[1] === "none") emitV051TypedZero(state, info.payload);
+    else {
+      if (!constructor[3]) typedLowerFail("air.v051.typed_lowering_unsupported", "option.some requires a payload");
+      emitV051TypedExpression(state, constructor[3], info.payload.type.canonical);
+    }
+    return;
+  }
+  if (info.kind === "result") {
+    const constructor = text.match(/^result\.(ok|err)<(.+)>\s+(.+)$/);
+    if (!constructor) typedLowerFail("air.v051.typed_lowering_unsupported", `invalid result constructor '${text}'`);
+    const parts = splitV051TypedArguments(constructor[2]);
+    if (!parts || parts.length !== 2 || parts[0] !== info.payload.type.canonical || parts[1] !== info.error.type.canonical) {
+      typedLowerFail("air.v051.typed_lowering_unsupported", `result constructor type mismatch '${text}'`);
+    }
+    state.body.push(`i32.const ${constructor[1] === "ok" ? 0 : 1}`);
+    if (constructor[1] === "ok") {
+      emitV051TypedExpression(state, constructor[3], info.payload.type.canonical);
+      emitV051TypedZero(state, info.error);
+    } else {
+      emitV051TypedZero(state, info.payload);
+      emitV051TypedExpression(state, constructor[3], info.error.type.canonical);
+    }
+    return;
+  }
+  typedLowerFail("air.v051.typed_lowering_unsupported", `unsupported expression '${text}'`);
+}
+
+function emitV051TypedNumericOperation(state, operation, expectedType) {
+  const signatures = {
+    "i64.checked_add": { args: ["i64", "i64"], result: "i64" },
+    "i64.checked_sub": { args: ["i64", "i64"], result: "i64" },
+    "i64.checked_mul": { args: ["i64", "i64"], result: "i64" },
+    "i64.checked_div_s": { args: ["i64", "i64"], result: "i64" },
+    "i64.checked_rem_s": { args: ["i64", "i64"], result: "i64" },
+    "i64.checked_neg": { args: ["i64"], result: "i64" },
+    "i64.eq": { args: ["i64", "i64"], result: "bool" },
+    "i64.ne": { args: ["i64", "i64"], result: "bool" },
+    "i64.lt_s": { args: ["i64", "i64"], result: "bool" },
+    "i64.le_s": { args: ["i64", "i64"], result: "bool" },
+    "i64.gt_s": { args: ["i64", "i64"], result: "bool" },
+    "i64.ge_s": { args: ["i64", "i64"], result: "bool" },
+    "i64.to_i32_checked": { args: ["i64"], result: "i32" },
+    "i32.to_i64": { args: ["i32"], result: "i64" },
+    "f32.to_f64": { args: ["f32"], result: "f64" },
+    "f64.to_f32_checked": { args: ["f64"], result: "f32" }
+  };
+  const signature = signatures[operation.op];
+  if (!signature || !Array.isArray(operation.args) || operation.args.length !== signature.args.length || v051TypedBaseTypeName(expectedType) !== signature.result) {
+    typedLowerFail("air.v051.typed_lowering_unsupported", `invalid checked numeric operation '${operation.op}'`);
+  }
+  if (operation.op === "i64.checked_add") return emitV051CheckedI64Add(state, operation.args);
+  if (operation.op === "i64.checked_sub") return emitV051CheckedI64Sub(state, operation.args);
+  if (operation.op === "i64.checked_mul") return emitV051CheckedI64Mul(state, operation.args);
+  if (operation.op === "i64.checked_div_s") return emitV051CheckedI64Div(state, operation.args);
+  if (operation.op === "i64.checked_rem_s") return emitV051CheckedI64Rem(state, operation.args);
+  if (operation.op === "i64.checked_neg") return emitV051CheckedI64Neg(state, operation.args[0]);
+  if (/^i64\.(?:eq|ne|lt_s|le_s|gt_s|ge_s)$/.test(operation.op)) return emitV051TypedI64Comparison(state, operation.args, operation.op.slice(4));
+  if (operation.op === "i64.to_i32_checked") return emitV051CheckedI64ToI32(state, operation.args[0]);
+  if (operation.op === "i32.to_i64") {
+    emitV051TypedExpression(state, operation.args[0], "i32");
+    state.body.push("i64.extend_i32_s");
+    return;
+  }
+  if (operation.op === "f32.to_f64") {
+    emitV051TypedExpression(state, operation.args[0], "f32");
+    state.body.push("f64.promote_f32");
+    return;
+  }
+  emitV051CheckedF64ToF32(state, operation.args[0]);
+}
+
+function emitV051TypedI64Comparison(state, args, operation) {
+  const { left, right } = emitV051CheckedI64Operands(state, args);
+  state.body.push(`local.get ${left}`, `local.get ${right}`, `i64.${operation}`);
+}
+
+function declareV051TypedTemporary(state, type) {
+  const name = `$__air_v051_numeric_${state.tempId++}`;
+  state.localDecls.push(`(local ${name} ${type})`);
+  return name;
+}
+
+function emitV051CheckedI64Operands(state, args) {
+  const left = declareV051TypedTemporary(state, "i64");
+  const right = declareV051TypedTemporary(state, "i64");
+  emitV051TypedExpression(state, args[0], "i64");
+  state.body.push(`local.set ${left}`);
+  emitV051TypedExpression(state, args[1], "i64");
+  state.body.push(`local.set ${right}`);
+  return { left, right };
+}
+
+function emitV051CheckedI64Add(state, args) {
+  const { left, right } = emitV051CheckedI64Operands(state, args);
+  const result = declareV051TypedTemporary(state, "i64");
+  state.body.push(`local.get ${left}`, `local.get ${right}`, "i64.add", `local.set ${result}`);
+  state.body.push(`local.get ${result}`, `local.get ${left}`, "i64.xor", `local.get ${result}`, `local.get ${right}`, "i64.xor", "i64.and", "i64.const 0", "i64.lt_s", "if", "call $__air_v051_numeric_overflow", "end", `local.get ${result}`);
+}
+
+function emitV051CheckedI64Sub(state, args) {
+  const { left, right } = emitV051CheckedI64Operands(state, args);
+  const result = declareV051TypedTemporary(state, "i64");
+  state.body.push(`local.get ${left}`, `local.get ${right}`, "i64.sub", `local.set ${result}`);
+  state.body.push(`local.get ${left}`, `local.get ${right}`, "i64.xor", `local.get ${left}`, `local.get ${result}`, "i64.xor", "i64.and", "i64.const 0", "i64.lt_s", "if", "call $__air_v051_numeric_overflow", "end", `local.get ${result}`);
+}
+
+function emitV051CheckedI64Mul(state, args) {
+  const { left, right } = emitV051CheckedI64Operands(state, args);
+  const result = declareV051TypedTemporary(state, "i64");
+  state.body.push(`local.get ${left}`, `local.get ${right}`, "i64.mul", `local.set ${result}`);
+  state.body.push(`local.get ${left}`, "i64.eqz", "if", "else");
+  state.body.push(`local.get ${left}`, "i64.const -9223372036854775808", "i64.eq", `local.get ${right}`, "i64.const -1", "i64.eq", "i32.and", `local.get ${left}`, "i64.const -1", "i64.eq", `local.get ${right}`, "i64.const -9223372036854775808", "i64.eq", "i32.and", "i32.or", "if", "call $__air_v051_numeric_overflow", "end");
+  state.body.push(`local.get ${result}`, `local.get ${left}`, "i64.div_s", `local.get ${right}`, "i64.ne", "if", "call $__air_v051_numeric_overflow", "end", "end", `local.get ${result}`);
+}
+
+function emitV051CheckedI64Neg(state, arg) {
+  const value = declareV051TypedTemporary(state, "i64");
+  emitV051TypedExpression(state, arg, "i64");
+  state.body.push(`local.set ${value}`, `local.get ${value}`, "i64.const -9223372036854775808", "i64.eq", "if", "call $__air_v051_numeric_overflow", "end", "i64.const 0", `local.get ${value}`, "i64.sub");
+}
+
+function emitV051CheckedI64Div(state, args) {
+  const { left, right } = emitV051CheckedI64Operands(state, args);
+  state.body.push(`local.get ${right}`, "i64.eqz", "if", "call $__air_v051_numeric_division_by_zero", "end");
+  state.body.push(`local.get ${left}`, "i64.const -9223372036854775808", "i64.eq", `local.get ${right}`, "i64.const -1", "i64.eq", "i32.and", "if", "call $__air_v051_numeric_overflow", "end", `local.get ${left}`, `local.get ${right}`, "i64.div_s");
+}
+
+function emitV051CheckedI64Rem(state, args) {
+  const { left, right } = emitV051CheckedI64Operands(state, args);
+  state.body.push(`local.get ${right}`, "i64.eqz", "if", "call $__air_v051_numeric_division_by_zero", "end");
+  state.body.push(`local.get ${left}`, "i64.const -9223372036854775808", "i64.eq", `local.get ${right}`, "i64.const -1", "i64.eq", "i32.and", "if (result i64)", "i64.const 0", "else", `local.get ${left}`, `local.get ${right}`, "i64.rem_s", "end");
+}
+
+function emitV051CheckedI64ToI32(state, arg) {
+  const value = declareV051TypedTemporary(state, "i64");
+  emitV051TypedExpression(state, arg, "i64");
+  state.body.push(`local.set ${value}`, `local.get ${value}`, "i64.const 2147483647", "i64.gt_s", `local.get ${value}`, "i64.const -2147483648", "i64.lt_s", "i32.or", "if", "call $__air_v051_numeric_invalid_conversion", "end", `local.get ${value}`, "i32.wrap_i64");
+}
+
+function emitV051CheckedF64ToF32(state, arg) {
+  const value = declareV051TypedTemporary(state, "f64");
+  const narrowed = declareV051TypedTemporary(state, "f32");
+  emitV051TypedExpression(state, arg, "f64");
+  state.body.push(`local.set ${value}`, `local.get ${value}`, "f32.demote_f64", `local.set ${narrowed}`);
+  state.body.push(`local.get ${value}`, `local.get ${value}`, "f64.ne", "if", "else", `local.get ${narrowed}`, "f64.promote_f32", `local.get ${value}`, "f64.ne", "if", "call $__air_v051_numeric_invalid_conversion", "end", "end", `local.get ${narrowed}`);
+}
+
+function emitV051TypedZero(state, info) {
+  for (const type of info.watTypes) state.body.push(`${type}.const 0`);
+}
+
+function emitV051TypedGet(state, record) {
+  for (const name of record.names) state.body.push(`local.get ${name}`);
+}
+
+function emitV051TypedSet(state, record) {
+  for (let index = record.names.length - 1; index >= 0; index -= 1) state.body.push(`local.set ${record.names[index]}`);
+}
+
+function v051TypedEnumLiteral(text, type, declaration) {
+  const literal = text.match(/^([a-z][a-z0-9._-]{0,127}::)?([A-Z][A-Za-z0-9_]*)\.([A-Za-z_][A-Za-z0-9_]*)$/);
+  if (!literal) typedLowerFail("air.v051.typed_lowering_unsupported", `invalid enum literal '${text}'`);
+  const moduleId = literal[1] ? literal[1].slice(0, -2) : type.moduleId;
+  if (moduleId !== type.moduleId || literal[2] !== type.typeName) typedLowerFail("air.v051.typed_lowering_unsupported", `enum literal type mismatch '${text}'`);
+  const entry = (declaration.cases || []).find((item) => item.name === literal[3]);
+  if (!entry) typedLowerFail("air.v051.typed_lowering_unsupported", `unknown enum case '${text}'`);
+  return entry;
+}
+
+function emitV051TypedMatch(state, statement, destination) {
+  const subject = state.locals.get(statement.value);
+  if (!subject) typedLowerFail("air.v051.typed_lowering_unsupported", `unknown match value '${statement.value}'`);
+  const arms = new Map();
+  for (const arm of statement.arms || []) arms.set(v051TypedMatchKey(arm.pattern, subject.info), arm);
+  const keys = subject.info.kind === "enum"
+    ? subject.info.declaration.cases.map((entry) => entry.name)
+    : subject.info.kind === "option" ? ["none", "some"]
+      : subject.info.kind === "result" ? ["ok", "err"] : null;
+  if (!keys) typedLowerFail("air.v051.typed_lowering_unsupported", "match subject is not a tagged type");
+  emitV051TypedMatchBranches(state, subject, destination, keys, arms, 0);
+}
+
+function emitV051TypedMatchBranches(state, subject, destination, keys, arms, index) {
+  if (index >= keys.length) {
+    state.body.push("call $__air_v051_invalid_tag");
+    return;
+  }
+  const key = keys[index];
+  const arm = arms.get(key);
+  if (!arm) typedLowerFail("air.v051.typed_lowering_unsupported", `missing verified match arm '${key}'`);
+  emitV051TypedMatchCondition(state, subject, key);
+  state.body.push("if");
+  emitV051TypedMatchArm(state, subject, arm, destination);
+  state.body.push("else");
+  emitV051TypedMatchBranches(state, subject, destination, keys, arms, index + 1);
+  state.body.push("end");
+}
+
+function emitV051TypedMatchCondition(state, subject, key) {
+  state.body.push(`local.get ${subject.names[0]}`);
+  if (subject.info.kind === "enum") {
+    const entry = subject.info.declaration.cases.find((item) => item.name === key);
+    state.body.push(`i32.const ${entry.discriminant}`);
+  } else {
+    state.body.push(`i32.const ${key === "none" || key === "ok" ? 0 : 1}`);
+  }
+  state.body.push("i32.eq");
+}
+
+function emitV051TypedMatchArm(state, subject, arm, destination) {
+  const binding = v051TypedMatchBinding(arm.pattern, subject.info);
+  let previous;
+  if (binding) {
+    previous = state.locals.get(binding.name);
+    state.locals.set(binding.name, binding.record(subject));
+  }
+  emitV051TypedExpression(state, arm.expression, destination.type);
+  emitV051TypedSet(state, destination);
+  if (binding) {
+    if (previous) state.locals.set(binding.name, previous);
+    else state.locals.delete(binding.name);
+  }
+}
+
+function v051TypedMatchKey(pattern, info) {
+  const value = String(pattern || "").trim();
+  if (info.kind === "enum") return value.slice(value.lastIndexOf(".") + 1);
+  if (value === "none") return "none";
+  const wrapped = value.match(/^(some|ok|err)\([A-Za-z_][A-Za-z0-9_]*\)$/);
+  return wrapped ? wrapped[1] : value;
+}
+
+function v051TypedMatchBinding(pattern, info) {
+  const wrapped = String(pattern || "").trim().match(/^(some|ok|err)\(([A-Za-z_][A-Za-z0-9_]*)\)$/);
+  if (!wrapped) return null;
+  const name = wrapped[2];
+  if (info.kind === "option" && wrapped[1] === "some") {
+    return { name, record: (subject) => ({ info: subject.info.payload, names: subject.names.slice(1), parameter: false, type: subject.info.payload.type.canonical }) };
+  }
+  if (info.kind === "result" && wrapped[1] === "ok") {
+    return { name, record: (subject) => ({ info: subject.info.payload, names: subject.names.slice(1, 1 + subject.info.payload.watTypes.length), parameter: false, type: subject.info.payload.type.canonical }) };
+  }
+  if (info.kind === "result" && wrapped[1] === "err") {
+    return { name, record: (subject) => ({ info: subject.info.error, names: subject.names.slice(1 + subject.info.payload.watTypes.length), parameter: false, type: subject.info.error.type.canonical }) };
+  }
+  typedLowerFail("air.v051.typed_lowering_unsupported", `invalid match binding '${pattern}'`);
+}
+
+function splitV051TypedArguments(value) {
+  const parts = [];
+  let depth = 0;
+  let start = 0;
+  for (let index = 0; index < value.length; index += 1) {
+    if (value[index] === "<") depth += 1;
+    else if (value[index] === ">") depth -= 1;
+    else if (value[index] === "," && depth === 0) {
+      parts.push(value.slice(start, index));
+      start = index + 1;
+    }
+  }
+  if (depth !== 0) return null;
+  parts.push(value.slice(start));
+  return parts;
 }
 
 function lowerGlobal(global) {

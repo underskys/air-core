@@ -172,16 +172,21 @@ shipped as public Core package authority.
 | `@underskys/air-core@0.45.1` | Show HN presentation patch candidate | `0.10` | `0.11` latest, `0.10` baseline | `0.10` family | package presentation and release gates | README/package presentation fix only; no compiler, verifier, AIR ABI, Host ABI, or feature change. |
 | `@underskys/air-core@0.50.1` | published public presentation patch | `0.10`, with opt-in `0.11` borrowed slices | `0.10` | `0.50` public surface | repo test/conformance suite plus release gates | Public identity and documentation correction; no language or ABI change. |
 | `@underskys/air-core@0.50.2` | public identity correction candidate | `0.10`, with opt-in `0.11` borrowed slices | `0.10` | `0.50` public surface | release gates pending | Aligns package, CLI, and public documentation versions; no language or ABI change. |
+| `@underskys/air-core@0.51.0-alpha` | public alpha promotion candidate | `0.10` and `0.11` remain supported; `0.12` typed decisions is candidate-only | `0.10` and `0.11` unchanged | frozen `0.51` semantics | independent QA and publication pending | The typed-decisions surface requires explicit `allowCandidateAbi012: true`; it is not a stable ABI release. |
 
 Current active milestone:
 
-- Current public package: `@underskys/air-core@0.50.1`
+- Current published public package: `@underskys/air-core@0.50.1`
 - npm `latest`: `0.50.1`
-- Next release candidate: `@underskys/air-core@0.50.2`
+- Next release candidate: `@underskys/air-core@0.51.0-alpha`
 - Install path: `npm install -g @underskys/air-core`
-- AIR ABI compatibility: existing `0.10` modules remain supported; borrowed
-  slices are opt-in `0.11`.
-- Host ABI: not redefined by `0.50.1`.
+- AIR ABI compatibility: existing `0.10` and `0.11` modules remain supported.
+  Typed decisions are a candidate lane, AIR ABI `0.12`, enabled only by the
+  explicit `allowCandidateAbi012: true` option; it may change before `v1.0`.
+  Frozen `v0.51` semantics are versioned by specification, not npm patch
+  releases.
+- Host ABI: `0.10` and `0.11` remain unchanged; `0.12` does not redefine the
+  Host ABI.
 - Active roadmap:
   [docs/V0_45_RELEASE_PLAN.md](https://gitlab.com/fd.skyrealm/air-core/-/blob/main/docs/V0_45_RELEASE_PLAN.md)
 - Feature status:
@@ -237,3 +242,4 @@ See [METHOD.md](https://gitlab.com/fd.skyrealm/air-core/-/blob/main/METHOD.md).
 - [Release Notes v0.50.0](https://gitlab.com/fd.skyrealm/air-core/-/blob/main/docs/RELEASE_NOTES_0_50_0.md)
 - [Release Notes v0.50.1](https://gitlab.com/fd.skyrealm/air-core/-/blob/main/docs/RELEASE_NOTES_0_50_1.md)
 - [Release Notes v0.50.2](https://gitlab.com/fd.skyrealm/air-core/-/blob/main/docs/RELEASE_NOTES_0_50_2.md)
+- [Release Notes v0.51.0-alpha](https://gitlab.com/fd.skyrealm/air-core/-/blob/main/docs/RELEASE_NOTES_0_51_0.md)

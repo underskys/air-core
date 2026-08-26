@@ -1,0 +1,65 @@
+module example.control
+
+enum Action {
+  pause = 0,
+  resume = 1,
+}
+
+enum Admission {
+  deny = 0,
+  allow = 1,
+}
+
+error enum ParseError {
+  malformed = 0,
+}
+
+export func decide(action: Action) -> Admission {
+  %out: Admission = match %action {
+    Action.pause => Admission.deny,
+    Action.resume => Admission.allow,
+  }
+  return %out
+}
+
+export func option_identity(value: option<i32>) -> option<i32> {
+  %out: option<i32> = match %value {
+    none => option.none<i32>,
+    some(item) => option.some<i32> %item,
+  }
+  return %out
+}
+
+export func result_identity(value: result<i32,ParseError>) -> result<i32,ParseError> {
+  %out: result<i32,ParseError> = match %value {
+    ok(item) => result.ok<i32,ParseError> %item,
+    err(error) => result.err<i32,ParseError> %error,
+  }
+  return %out
+}
+
+export func option_bool_identity(value: option<bool>) -> option<bool> {
+  %out: option<bool> = match %value {
+    none => option.none<bool>,
+    some(flag) => option.some<bool> %flag,
+  }
+  return %out
+}
+
+export func result_bool_identity(value: result<bool,ParseError>) -> result<bool,ParseError> {
+  %out: result<bool,ParseError> = match %value {
+    ok(flag) => result.ok<bool,ParseError> %flag,
+    err(error) => result.err<bool,ParseError> %error,
+  }
+  return %out
+}
+
+export func scalar_literals() -> bool {
+  %small: i32 = 1
+  %wide: i64 = 9223372036854775807
+  %single: f32 = 1.0
+  %double: f64 = -0.0
+  %flag: bool = true
+  %state: example.control::Admission = example.control::Admission.allow
+  return %flag
+}

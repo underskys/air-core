@@ -35,7 +35,8 @@ const explicitFiles = [
   "CHANGELOG.md",
   "CONTRIBUTING.md",
   "docs/PUBLIC_CLAIMS.md",
-  "docs/RELEASE_NOTES_0_50_0.md"
+  "docs/RELEASE_NOTES_0_50_0.md",
+  "docs/RELEASE_NOTES_0_51_0.md"
 ];
 
 function walk(dir) {

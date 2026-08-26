@@ -59,6 +59,7 @@ const activeDocFiles = new Set([
   "WHY_AIR.md",
   "docs/README.md",
   "docs/RELEASE_NOTES_0_50_0.md",
+  "docs/RELEASE_NOTES_0_51_0.md",
   "docs/PUBLIC_CLAIMS.md",
   "docs/project-identity.md",
   "docs/air-overview.md",

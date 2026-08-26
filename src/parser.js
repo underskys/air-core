@@ -1,7 +1,9 @@
 const { AirError } = require("./errors");
-const { assertType } = require("./types");
+const { assertType, parseRefinementType } = require("./types");
 const { applyUseBundles } = require("./bundles");
 const { resolveSourceImports } = require("./imports");
+const { parseV051Contract } = require("./v051_reference");
+const { parseTypeReference } = require("./typed_interface");
 
 function parseAir(source, file = "<input>", options = {}) {
   const lines = source.split(/\r?\n/);
@@ -292,6 +294,295 @@ function parseAir(source, file = "<input>", options = {}) {
   if (!mod.name) throw new AirError("missing module declaration", { file, line: 1 });
   const resolved = options.resolveSourceImports === false ? mod : resolveSourceImports(mod, parseAir, { ...options, file });
   return applyUseBundles(resolved);
+}
+
+function parseV051Air(source, file = "<input>", options = {}) {
+  if (looksLikeV051TypedSource(source)) return parseV051TypedAir(source, file);
+  const mod = parseAir(source, file, options);
+  const values = [
+    ...(mod.constants || []).filter((item) => item.type === "i64").map((item) => item.value),
+    ...(mod.functions || []).flatMap((fn) => (fn.blocks || []).flatMap((block) => (block.instructions || []).filter((ins) => ins.op === "const.i64").flatMap((ins) => ins.args || [])))
+  ];
+  for (const value of values) {
+    if (!value || value.kind !== "number" || !value.raw || !/^-?(0|[1-9][0-9]*)$/.test(value.raw)) continue;
+    const exact = BigInt(value.raw);
+    if (exact < -9223372036854775808n || exact > 9223372036854775807n) {
+      throw new AirError(`air.v051.i64_out_of_range: i64 literal '${value.raw}' is out of range`, { file, line: 1 });
+    }
+    value.exactI64 = value.raw;
+  }
+  mod.v051TypedDecisionCandidate = true;
+  return mod;
+}
+
+function looksLikeV051TypedSource(source) {
+  return /^\s*(?:error\s+)?enum\s+/m.test(source) ||
+    /^\s*(?:export\s+)?func\s+[A-Za-z_][A-Za-z0-9_]*\s*\([^)]*:\s*[^)]/m.test(source) ||
+    /^\s*%[A-Za-z_][A-Za-z0-9_]*\s*:\s*.+?\s*=\s*match\s+%[A-Za-z_][A-Za-z0-9_]*\s*\{$/m.test(source) ||
+    /\b(?:option|result)</.test(source);
+}
+
+function parseV051TypedAir(source, file = "<input>") {
+  const lines = source.split(/\r?\n/);
+  const mod = {
+    name: null,
+    capabilities: new Set(),
+    enums: [],
+    functions: [],
+    v051TypedAst: true,
+    v051TypedDecisionCandidate: true
+  };
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const lineNo = index + 1;
+    const loc = { file, line: lineNo };
+    const line = stripComment(lines[index]).trim();
+    if (!line) continue;
+    const moduleMatch = line.match(/^module\s+([a-z][a-z0-9._-]{0,127})$/);
+    if (moduleMatch) {
+      if (mod.name) throw new AirError("duplicate module declaration", loc);
+      mod.name = moduleMatch[1];
+      continue;
+    }
+    const capabilitiesMatch = line.match(/^capabilities\s*\{\s*([^}]*)\s*\}$/);
+    if (capabilitiesMatch) {
+      for (const capability of splitComma(capabilitiesMatch[1])) {
+        if (capability) mod.capabilities.add(capability);
+      }
+      continue;
+    }
+    if (!mod.name) throw new AirError("missing module declaration", loc);
+    const enumMatch = line.match(/^(error\s+)?enum\s+([A-Z][A-Za-z0-9_]{0,127})\s*\{$/);
+    if (enumMatch) {
+      const parsed = parseV051TypedEnum(lines, index, file, mod.name, enumMatch[2], Boolean(enumMatch[1]));
+      if (mod.enums.some((item) => item.type_id === parsed.declaration.type_id)) {
+        throw new AirError(`air.decision.enum_duplicate_type: duplicate enum '${enumMatch[2]}'`, loc);
+      }
+      mod.enums.push(parsed.declaration);
+      index = parsed.endIndex;
+      continue;
+    }
+    const functionMatch = line.match(/^(export\s+)?func\s+([A-Za-z_][A-Za-z0-9_]*)\s*\((.*)\)\s*->\s*(.+)\s*\{$/);
+    if (functionMatch) {
+      const parsed = parseV051TypedFunction(lines, index, file, mod.name, functionMatch);
+      if (mod.functions.some((item) => item.name === parsed.function.name)) {
+        throw new AirError(`duplicate function '${parsed.function.name}'`, loc);
+      }
+      mod.functions.push(parsed.function);
+      index = parsed.endIndex;
+      continue;
+    }
+    throw new AirError(`air.v051.typed_syntax_invalid: unsupported typed source declaration '${line}'`, loc);
+  }
+  if (!mod.name) throw new AirError("missing module declaration", { file, line: 1 });
+  return mod;
+}
+
+function parseV051TypedEnum(lines, startIndex, file, moduleId, typeName, isError) {
+  const cases = [];
+  for (let index = startIndex + 1; index < lines.length; index += 1) {
+    const loc = { file, line: index + 1 };
+    const line = stripComment(lines[index]).trim();
+    if (!line) continue;
+    if (line === "}") {
+      if (!cases.length) throw new AirError("air.decision.enum_empty: enum must declare at least one case", loc);
+      return {
+        declaration: { cases: cases.sort((left, right) => left.discriminant - right.discriminant || compareAscii(left.name, right.name)), kind: isError ? "error_enum" : "enum", type_id: `${moduleId}::${typeName}` },
+        endIndex: index
+      };
+    }
+    const match = line.match(/^([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(-?[0-9]+)\s*,?$/);
+    if (!match) throw new AirError("air.decision.enum_discriminant_required: enum cases require an explicit integer discriminant", loc);
+    const discriminant = Number(match[2]);
+    if (!Number.isSafeInteger(discriminant) || discriminant < 0 || discriminant > 2147483647) {
+      throw new AirError(`air.decision.enum_discriminant_out_of_range: '${match[2]}'`, loc);
+    }
+    if (cases.some((item) => item.name === match[1])) throw new AirError(`air.decision.enum_duplicate_case: '${match[1]}'`, loc);
+    if (cases.some((item) => item.discriminant === discriminant)) throw new AirError(`air.decision.enum_duplicate_discriminant: '${discriminant}'`, loc);
+    cases.push({ discriminant, name: match[1] });
+  }
+  throw new AirError(`unclosed enum '${typeName}'`, { file, line: startIndex + 1 });
+}
+
+function parseV051TypedFunction(lines, startIndex, file, moduleId, match) {
+  const loc = { file, line: startIndex + 1 };
+  const params = match[3].trim() ? splitComma(match[3]).map((part) => {
+    const parameter = part.match(/^([A-Za-z_][A-Za-z0-9_]*)\s*:\s*(.+)$/);
+    if (!parameter) throw new AirError(`air.v051.typed_syntax_invalid: invalid parameter '${part}'`, loc);
+    return { name: parameter[1], type: parseV051TypedType(parameter[2], moduleId, false, loc) };
+  }) : [];
+  const returnType = parseV051TypedType(match[4], moduleId, true, loc);
+  const statements = [];
+  for (let index = startIndex + 1; index < lines.length; index += 1) {
+    const statementLoc = { file, line: index + 1 };
+    const line = stripComment(lines[index]).trim();
+    if (!line) continue;
+    if (line === "}") {
+      return {
+        function: { name: match[2], exported: Boolean(match[1]), params, returnType, statements, loc },
+        endIndex: index
+      };
+    }
+    const matchHeader = line.match(/^%([A-Za-z_][A-Za-z0-9_]*)\s*:\s*(.+?)\s*=\s*match\s+%([A-Za-z_][A-Za-z0-9_]*)\s*\{$/);
+    if (matchHeader) {
+      const parsed = parseV051TypedMatch(lines, index, file, {
+        destination: matchHeader[1],
+        destinationType: parseV051TypedType(matchHeader[2], moduleId, false, statementLoc),
+        moduleId,
+        value: matchHeader[3]
+      });
+      statements.push(parsed.statement);
+      index = parsed.endIndex;
+      continue;
+    }
+    const local = line.match(/^%([A-Za-z_][A-Za-z0-9_]*)\s*:\s*(.+?)\s*=\s*(.+)$/);
+    if (local) {
+      const type = parseV051TypedType(local[2], moduleId, false, statementLoc);
+      statements.push({
+        kind: "local",
+        loc: statementLoc,
+        name: local[1],
+        type,
+        value: normalizeV051TypedInitializer(local[3], type, moduleId, statementLoc)
+      });
+      continue;
+    }
+    const returned = line.match(/^return\s+(.+)$/);
+    if (returned) {
+      statements.push({
+        kind: "return",
+        loc: statementLoc,
+        value: normalizeV051TypedInitializer(returned[1], returnType, moduleId, statementLoc)
+      });
+      continue;
+    }
+    throw new AirError(`air.v051.typed_syntax_invalid: unsupported function statement '${line}'`, statementLoc);
+  }
+  throw new AirError(`unclosed function '${match[2]}'`, loc);
+}
+
+function parseV051TypedMatch(lines, startIndex, file, header) {
+  const arms = [];
+  for (let index = startIndex + 1; index < lines.length; index += 1) {
+    const loc = { file, line: index + 1 };
+    const line = stripComment(lines[index]).trim();
+    if (!line) continue;
+    if (line === "}") return { statement: { arms, destination: header.destination, destinationType: header.destinationType, kind: "match", loc: { file, line: startIndex + 1 }, value: header.value }, endIndex: index };
+    const arm = line.match(/^(.+?)\s*=>\s*(.+?)\s*[,;]?$/);
+    if (!arm) throw new AirError("air.decision.match_arm_invalid: match arms must use pattern => expression", loc);
+    arms.push({
+      expression: normalizeV051TypedInitializer(arm[2], header.destinationType, header.moduleId, loc),
+      loc,
+      pattern: arm[1].trim()
+    });
+  }
+  throw new AirError("unclosed match", { file, line: startIndex + 1 });
+}
+
+// v0.51 admits the historic short constructors only at parsing time. The AST
+// and formatter retain the frozen generic constructor spelling exclusively.
+function normalizeV051TypedInitializer(value, expectedType, moduleId, loc) {
+  const text = String(value || "").trim();
+  if (expectedType === "void") {
+    if (text) throw new AirError("air.v051.return_type_mismatch: void return must not contain a value", loc);
+    return "";
+  }
+  const refinement = parseRefinementType(expectedType, loc);
+  const expected = refinement
+    ? { baseCanonical: refinement.base, canonical: refinement.canonical, kind: "primitive", refinement: refinement.refinement }
+    : parseTypeReference(expectedType);
+  if (/^%[A-Za-z_][A-Za-z0-9_]*$/.test(text)) return text;
+
+  const numericOperation = text.match(/^(i64\.checked_(?:add|sub|mul|div_s|rem_s|neg)|i64\.(?:eq|ne|lt_s|le_s|gt_s|ge_s)|i64\.to_i32_checked|i32\.to_i64|f32\.to_f64|f64\.to_f32_checked)\s+(.+)$/);
+  if (numericOperation) {
+    return {
+      args: splitComma(numericOperation[2]).map((argument) => argument.trim()),
+      kind: "numeric_operation",
+      op: numericOperation[1]
+    };
+  }
+
+  if (expected.kind === "option") {
+    if (text === "none") return `option.none<${expected.payload.canonical}>`;
+    const shortSome = text.match(/^some\((.+)\)$/);
+    if (shortSome) return `option.some<${expected.payload.canonical}> ${shortSome[1].trim()}`;
+    const none = text.match(/^option\.none<(.+)>$/);
+    if (none) {
+      const payload = canonicalizeV051SourceType(none[1], moduleId, false, loc);
+      return `option.none<${payload}>`;
+    }
+    const some = text.match(/^option\.some<(.+)>\s+(.+)$/);
+    if (some) {
+      const payload = canonicalizeV051SourceType(some[1], moduleId, false, loc);
+      return `option.some<${payload}> ${some[2].trim()}`;
+    }
+  }
+
+  if (expected.kind === "result") {
+    if (text === "ok" || text === "err") {
+      throw new AirError("air.v051.typed_constructor_invalid: result constructor requires a payload", loc);
+    }
+    const short = text.match(/^(ok|err)\((.+)\)$/);
+    if (short) return `result.${short[1]}<${expected.payload.canonical},${expected.error.canonical}> ${short[2].trim()}`;
+    const constructor = text.match(/^result\.(ok|err)<(.+)>\s+(.+)$/);
+    if (constructor) {
+      const parts = splitComma(constructor[2]);
+      if (parts.length !== 2) throw new AirError("air.v051.typed_constructor_invalid: result constructor requires two type arguments", loc);
+      const payload = canonicalizeV051SourceType(parts[0], moduleId, false, loc);
+      const error = canonicalizeV051SourceType(parts[1], moduleId, false, loc);
+      return `result.${constructor[1]}<${payload},${error}> ${constructor[3].trim()}`;
+    }
+  }
+
+  if (expected.kind === "enum") {
+    const literal = text.match(/^(?:(?<module>[a-z][a-z0-9._-]{0,127})::)?(?<type>[A-Z][A-Za-z0-9_]{0,127})\.(?<case>[A-Za-z_][A-Za-z0-9_]*)$/);
+    if (literal) {
+      const enumModule = literal.groups.module || moduleId;
+      return `${enumModule}::${literal.groups.type}.${literal.groups.case}`;
+    }
+  }
+
+  if ((expected.baseCanonical || expected.canonical) === "i32" || expected.canonical === "i64") {
+    if (/^-?(0|[1-9][0-9]*)$/.test(text)) return text === "-0" ? "0" : text;
+  }
+  if (expected.canonical === "f32" || expected.canonical === "f64") {
+    if (/^-?(?:0|[1-9][0-9]*)(?:\.[0-9]+)?(?:[eE][+-]?[0-9]+)?$/.test(text)) return text;
+  }
+  if (expected.canonical === "bool" && (text === "true" || text === "false")) return text;
+  return text;
+}
+
+function parseV051TypedType(value, moduleId, allowVoid, loc) {
+  const canonical = canonicalizeV051SourceType(value.trim(), moduleId, allowVoid, loc);
+  const refinement = parseRefinementType(canonical, loc);
+  if (refinement) return refinement.canonical;
+  return parseTypeReference(canonical, { allowVoid }).canonical;
+}
+
+function canonicalizeV051SourceType(value, moduleId, allowVoid, loc) {
+  value = String(value || "").trim();
+  if (allowVoid && value === "void") return "void";
+  // v0.51 reuses the existing i32 refinement grammar. The refinement remains
+  // source/verifier metadata; lowering erases it to the established i32 lane.
+  const refinement = parseRefinementType(value, loc);
+  if (refinement) {
+    if (refinement.base !== "i32") {
+      throw new AirError(`air.v051.type_reference_invalid: '${value}' is not an admitted typed refinement`, loc);
+    }
+    return refinement.canonical;
+  }
+  if (/^[A-Z][A-Za-z0-9_]{0,127}$/.test(value)) return `${moduleId}::${value}`;
+  const option = value.match(/^option\s*<\s*(.+)\s*>$/);
+  if (option) return `option<${canonicalizeV051SourceType(option[1], moduleId, false, loc)}>`;
+  const result = value.match(/^result\s*<\s*(.+)\s*>$/);
+  if (result) {
+    const parts = splitComma(result[1]);
+    if (parts.length !== 2) throw new AirError("air.v051.type_reference_invalid: result requires exactly two type parameters", loc);
+    return `result<${canonicalizeV051SourceType(parts[0], moduleId, false, loc)},${canonicalizeV051SourceType(parts[1], moduleId, false, loc)}>`;
+  }
+  try { return parseTypeReference(value, { allowVoid }).canonical; } catch (err) {
+    throw new AirError(err.message, loc);
+  }
 }
 
 function parseParams(text, loc) {
@@ -868,4 +1159,8 @@ function stripComment(line) {
   return line;
 }
 
-module.exports = { parseAir, splitComma };
+function compareAscii(left, right) {
+  return left < right ? -1 : left > right ? 1 : 0;
+}
+
+module.exports = { parseAir, parseV051Air, parseV051TypedAir, canonicalizeV051SourceType, splitComma, parseV051Contract };

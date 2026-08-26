@@ -1,0 +1,1836 @@
+{
+  "PARENT_V2_JSON_SHA256": "d916aa9b3c9a69d14d1e344f04abc708e578643ef3e4dd5daa5c5722a1d31f3a",
+  "REVISION_KIND": "METADATA_ONLY_AUTHORITY_COMPLETION",
+  "SEMANTIC_FIXTURE_CHANGES": 0,
+  "UNAUTHORIZED_V1_FIXTURE_CHANGES": 0,
+  "STATUS": "HUMAN_CLARIFIED_CANDIDATE",
+  "HUMAN_AUTHORIZATION_REQUIRED": true,
+  "SPEC_SEMANTICS_CHANGED": false,
+  "IMPLEMENTATION_AUTHORIZED": false,
+  "GIT_CHANGED": false,
+  "TASK_ID": "AIR-0051-FROZEN-CONFORMANCE-CLARIFICATION-V2-0001",
+  "SOURCE_REVIEW": {
+    "FINAL_FROZEN_REVIEW_COMMIT": "9871bb0095d6452d842fb660c28a02edf50e6c9c",
+    "FINAL_FROZEN_REVIEW_TREE": "ee055ae160d81922f34735df57f6fba873aab9ca",
+    "PRIMARY_CONFORMANCE_BLOB": "111a0b749d098c973872c9211bbc2e3e3f8c3c2c",
+    "A2_FROZEN_INPUT_COMMIT": "d4450914cb73fb21ad63b7743cda021986db1f4f",
+    "A2_FROZEN_INPUT_TREE": "bd9c11cca1ed4c2f1555d6aebe84abf2c6b7fd10",
+    "A1_FREEZE_BLOB": "493d9d2722351e82a2fdee145ecd637bd4a7cd5f",
+    "NOTE": "The final frozen review object is used because it contains both the current conformance plan and the required A1 freeze. No implementation output supplied an expected result."
+  },
+  "CANDIDATE_ENUM_SCHEMAS": {
+    "fixture.alpha::Decision": {
+      "kind": "enum",
+      "allowed_discriminants": [
+        0,
+        1
+      ]
+    },
+    "fixture.beta::Decision": {
+      "kind": "enum",
+      "allowed_discriminants": [
+        0,
+        1
+      ]
+    },
+    "fixture.err::ParseError": {
+      "kind": "error_enum",
+      "allowed_discriminants": [
+        1,
+        2
+      ]
+    },
+    "fixture.layout::Admission": {
+      "kind": "enum",
+      "allowed_discriminants": [
+        0,
+        1
+      ]
+    },
+    "fixture.layout::ParseError": {
+      "kind": "error_enum",
+      "allowed_discriminants": [
+        1,
+        2
+      ]
+    },
+    "fixture.match::Admission": {
+      "kind": "enum",
+      "allowed_discriminants": [
+        0,
+        1
+      ]
+    }
+  },
+  "RESULT_UNION_LANE_NOTE": "For D25-C04 and D25-C05, result<T,E> has one physical lane at offset 8. The candidate requires zero padding and unused bytes in that lane; it does not posit separately stored inactive value/error fields.",
+  "PARENT_CLASSIFICATIONS": [
+    {
+      "PARENT_VECTOR_ID": "N15",
+      "CLASSIFICATION": "FIXTURE_GAP",
+      "CLARIFICATION_STATUS": "PROPOSED_BOUNDED_CORPUS_REQUIRES_HUMAN_AUTHORIZATION"
+    },
+    {
+      "PARENT_VECTOR_ID": "N27",
+      "CLASSIFICATION": "FIXTURE_GAP",
+      "CLARIFICATION_STATUS": "PROPOSED_EXACT_OPERANDS_REQUIRES_HUMAN_AUTHORIZATION"
+    },
+    {
+      "PARENT_VECTOR_ID": "N28",
+      "CLASSIFICATION": "MACHINE_ACTIONABLE_ALREADY",
+      "CLARIFICATION_STATUS": "HUMAN_CLARIFIED_MACHINE_ACTIONABLE"
+    },
+    {
+      "PARENT_VECTOR_ID": "N29",
+      "CLASSIFICATION": "MACHINE_ACTIONABLE_ALREADY",
+      "CLARIFICATION_STATUS": "HUMAN_CLARIFIED_MACHINE_ACTIONABLE"
+    },
+    {
+      "PARENT_VECTOR_ID": "N30",
+      "CLASSIFICATION": "MACHINE_ACTIONABLE_ALREADY",
+      "CLARIFICATION_STATUS": "HUMAN_CLARIFIED_MACHINE_ACTIONABLE"
+    },
+    {
+      "PARENT_VECTOR_ID": "N35",
+      "CLASSIFICATION": "FIXTURE_GAP",
+      "CLARIFICATION_STATUS": "PROPOSED_HALF_WAY_LITERAL_REQUIRES_HUMAN_AUTHORIZATION"
+    },
+    {
+      "PARENT_VECTOR_ID": "N36",
+      "CLASSIFICATION": "FIXTURE_GAP",
+      "CLARIFICATION_STATUS": "PROPOSED_HALF_WAY_LITERAL_REQUIRES_HUMAN_AUTHORIZATION"
+    },
+    {
+      "PARENT_VECTOR_ID": "D15",
+      "CLASSIFICATION": "MACHINE_ACTIONABLE_ALREADY",
+      "CLARIFICATION_STATUS": "HUMAN_CLARIFIED_MACHINE_ACTIONABLE"
+    },
+    {
+      "PARENT_VECTOR_ID": "D21",
+      "CLASSIFICATION": "FIXTURE_GAP",
+      "CLARIFICATION_STATUS": "PROPOSED_IDENTITY_FIXTURE_REQUIRES_HUMAN_AUTHORIZATION"
+    },
+    {
+      "PARENT_VECTOR_ID": "D22",
+      "CLASSIFICATION": "FIXTURE_GAP",
+      "CLARIFICATION_STATUS": "PROPOSED_TYPED_VALUE_CASES_REQUIRE_HUMAN_AUTHORIZATION"
+    },
+    {
+      "PARENT_VECTOR_ID": "D23",
+      "CLASSIFICATION": "FIXTURE_GAP",
+      "CLARIFICATION_STATUS": "PROPOSED_TYPED_VALUE_CASES_REQUIRE_HUMAN_AUTHORIZATION"
+    },
+    {
+      "PARENT_VECTOR_ID": "D24",
+      "CLASSIFICATION": "FIXTURE_GAP",
+      "CLARIFICATION_STATUS": "PROPOSED_LITERAL_BYTES_REQUIRE_HUMAN_AUTHORIZATION"
+    },
+    {
+      "PARENT_VECTOR_ID": "D25",
+      "CLASSIFICATION": "FIXTURE_GAP",
+      "CLARIFICATION_STATUS": "PROPOSED_LAYOUT_BYTES_REQUIRE_HUMAN_AUTHORIZATION"
+    },
+    {
+      "PARENT_VECTOR_ID": "D27",
+      "CLASSIFICATION": "MACHINE_ACTIONABLE_ALREADY",
+      "CLARIFICATION_STATUS": "HUMAN_CLARIFIED_MACHINE_ACTIONABLE"
+    },
+    {
+      "PARENT_VECTOR_ID": "H02",
+      "CLASSIFICATION": "FIXTURE_GAP",
+      "CLARIFICATION_STATUS": "RUNNER_EXISTS_LITERAL_FIXTURE_REQUIRED"
+    },
+    {
+      "PARENT_VECTOR_ID": "H03",
+      "CLASSIFICATION": "FIXTURE_GAP",
+      "CLARIFICATION_STATUS": "RUNNER_EXISTS_LITERAL_FIXTURE_REQUIRED"
+    },
+    {
+      "PARENT_VECTOR_ID": "H04",
+      "CLASSIFICATION": "FIXTURE_GAP",
+      "CLARIFICATION_STATUS": "RUNNER_EXISTS_LITERAL_FIXTURE_REQUIRED"
+    },
+    {
+      "PARENT_VECTOR_ID": "D16",
+      "CLASSIFICATION": "MACHINE_ACTIONABLE_ALREADY",
+      "CLARIFICATION_STATUS": "HUMAN_CLARIFIED_MACHINE_ACTIONABLE"
+    },
+    {
+      "PARENT_VECTOR_ID": "D28",
+      "CLASSIFICATION": "MACHINE_ACTIONABLE_ALREADY",
+      "CLARIFICATION_STATUS": "A2R1-S01_ALREADY_PINS_LITERAL_BYTES_AND_SHA256"
+    }
+  ],
+  "SUBCASES": [
+    {
+      "PARENT_VECTOR_ID": "N15",
+      "SUBCASE_ID": "N15-C01",
+      "ORIGINAL_FROZEN_TEXT": "finite f32 operation corpus | exact binary32/Wasm result bits",
+      "FROZEN_RULE_REFERENCE": "A2 10, 30-31, 103-108, 190-205; conformance plan N15",
+      "EXACT_SOURCE_TEXT_OR_INPUT": "f32.add(1.0, 0.000000059604644775390625)",
+      "EXACT_OPERANDS": [
+        "1.0",
+        "0.000000059604644775390625"
+      ],
+      "EXACT_TYPES": [
+        "f32",
+        "f32",
+        "f32"
+      ],
+      "EXPECTED_STATUS": "pass",
+      "EXPECTED_TYPED_VALUE_OR_FAILURE": {
+        "type": "f32",
+        "bits": "3f800000",
+        "classification": "finite"
+      },
+      "EXPECTED_DIAGNOSTIC": null,
+      "EXPECTED_CANONICAL_BYTES": null,
+      "EXPECTED_RAW_SHA256": null,
+      "EXPECTED_SEMANTIC_DIGEST": null,
+      "INPUT_BITS": [
+        "3f800000",
+        "33800000"
+      ],
+      "EXPECTED_RESULT_BITS": "3f800000",
+      "ROUNDING_RULE": "IEEE 754 binary32 round-to-nearest, ties-to-even: 1 + 2^-24 is halfway between 0x3f800000 and 0x3f800001; the lower candidate has even significand.",
+      "METHOD_1": "Node standard Float32/DataView calculation",
+      "METHOD_1_RESULT": "3f800000,33800000->3f800000",
+      "METHOD_2": "Swift Float.bitPattern calculation",
+      "METHOD_2_RESULT": "3f800000,33800000->3f800000",
+      "INDEPENDENT_RECOMPUTATION": "PASS"
+    },
+    {
+      "PARENT_VECTOR_ID": "N15",
+      "SUBCASE_ID": "N15-C02",
+      "ORIGINAL_FROZEN_TEXT": "finite f32 operation corpus | exact binary32/Wasm result bits",
+      "FROZEN_RULE_REFERENCE": "A2 30-31, 190-205; conformance plan N15",
+      "EXACT_SOURCE_TEXT_OR_INPUT": "f32.sub(1.0, 0.5)",
+      "EXACT_OPERANDS": [
+        "1.0",
+        "0.5"
+      ],
+      "EXACT_TYPES": [
+        "f32",
+        "f32",
+        "f32"
+      ],
+      "EXPECTED_STATUS": "pass",
+      "EXPECTED_TYPED_VALUE_OR_FAILURE": {
+        "type": "f32",
+        "bits": "3f000000",
+        "classification": "finite"
+      },
+      "EXPECTED_DIAGNOSTIC": null,
+      "EXPECTED_CANONICAL_BYTES": null,
+      "EXPECTED_RAW_SHA256": null,
+      "EXPECTED_SEMANTIC_DIGEST": null,
+      "INPUT_BITS": [
+        "3f800000",
+        "3f000000"
+      ],
+      "EXPECTED_RESULT_BITS": "3f000000",
+      "ROUNDING_RULE": "Exact binary32 subtraction.",
+      "METHOD_1": "Node standard Float32/DataView calculation",
+      "METHOD_1_RESULT": "3f800000,3f000000->3f000000",
+      "METHOD_2": "Swift Float.bitPattern calculation",
+      "METHOD_2_RESULT": "3f800000,3f000000->3f000000",
+      "INDEPENDENT_RECOMPUTATION": "PASS"
+    },
+    {
+      "PARENT_VECTOR_ID": "N15",
+      "SUBCASE_ID": "N15-C03",
+      "ORIGINAL_FROZEN_TEXT": "finite f32 operation corpus | exact binary32/Wasm result bits",
+      "FROZEN_RULE_REFERENCE": "A2 30-31, 190-205; conformance plan N15",
+      "EXACT_SOURCE_TEXT_OR_INPUT": "f32.mul(1.5, 0.5)",
+      "EXACT_OPERANDS": [
+        "1.5",
+        "0.5"
+      ],
+      "EXACT_TYPES": [
+        "f32",
+        "f32",
+        "f32"
+      ],
+      "EXPECTED_STATUS": "pass",
+      "EXPECTED_TYPED_VALUE_OR_FAILURE": {
+        "type": "f32",
+        "bits": "3f400000",
+        "classification": "finite"
+      },
+      "EXPECTED_DIAGNOSTIC": null,
+      "EXPECTED_CANONICAL_BYTES": null,
+      "EXPECTED_RAW_SHA256": null,
+      "EXPECTED_SEMANTIC_DIGEST": null,
+      "INPUT_BITS": [
+        "3fc00000",
+        "3f000000"
+      ],
+      "EXPECTED_RESULT_BITS": "3f400000",
+      "ROUNDING_RULE": "Exact binary32 multiplication.",
+      "METHOD_1": "Node standard Float32/DataView calculation",
+      "METHOD_1_RESULT": "3fc00000,3f000000->3f400000",
+      "METHOD_2": "Swift Float.bitPattern calculation",
+      "METHOD_2_RESULT": "3fc00000,3f000000->3f400000",
+      "INDEPENDENT_RECOMPUTATION": "PASS"
+    },
+    {
+      "PARENT_VECTOR_ID": "N15",
+      "SUBCASE_ID": "N15-C04",
+      "ORIGINAL_FROZEN_TEXT": "finite f32 operation corpus | exact binary32/Wasm result bits",
+      "FROZEN_RULE_REFERENCE": "A2 30-31, 190-205; conformance plan N15",
+      "EXACT_SOURCE_TEXT_OR_INPUT": "f32.div(1.0, 3.0)",
+      "EXACT_OPERANDS": [
+        "1.0",
+        "3.0"
+      ],
+      "EXACT_TYPES": [
+        "f32",
+        "f32",
+        "f32"
+      ],
+      "EXPECTED_STATUS": "pass",
+      "EXPECTED_TYPED_VALUE_OR_FAILURE": {
+        "type": "f32",
+        "bits": "3eaaaaab",
+        "classification": "finite"
+      },
+      "EXPECTED_DIAGNOSTIC": null,
+      "EXPECTED_CANONICAL_BYTES": null,
+      "EXPECTED_RAW_SHA256": null,
+      "EXPECTED_SEMANTIC_DIGEST": null,
+      "INPUT_BITS": [
+        "3f800000",
+        "40400000"
+      ],
+      "EXPECTED_RESULT_BITS": "3eaaaaab",
+      "ROUNDING_RULE": "IEEE 754 binary32 round-to-nearest result for exact rational 1/3.",
+      "METHOD_1": "Node standard Float32/DataView calculation",
+      "METHOD_1_RESULT": "3f800000,40400000->3eaaaaab",
+      "METHOD_2": "Swift Float.bitPattern calculation",
+      "METHOD_2_RESULT": "3f800000,40400000->3eaaaaab",
+      "INDEPENDENT_RECOMPUTATION": "PASS"
+    },
+    {
+      "PARENT_VECTOR_ID": "N27",
+      "SUBCASE_ID": "N27-C01",
+      "ORIGINAL_FROZEN_TEXT": "all six i64 comparisons | exact total boolean result for signed operands",
+      "FROZEN_RULE_REFERENCE": "A2 123-125, 140-142; conformance plan N27",
+      "EXACT_SOURCE_TEXT_OR_INPUT": "i64.eq(-9223372036854775808, -9223372036854775808)",
+      "EXACT_OPERANDS": [
+        "-9223372036854775808",
+        "-9223372036854775808"
+      ],
+      "EXACT_TYPES": [
+        "i64",
+        "i64",
+        "bool"
+      ],
+      "EXPECTED_STATUS": "pass",
+      "EXPECTED_TYPED_VALUE_OR_FAILURE": true,
+      "EXPECTED_DIAGNOSTIC": null,
+      "EXPECTED_CANONICAL_BYTES": null,
+      "EXPECTED_RAW_SHA256": null,
+      "EXPECTED_SEMANTIC_DIGEST": null,
+      "INPUT_BITS": null,
+      "EXPECTED_RESULT_BITS": null,
+      "ROUNDING_RULE": null,
+      "METHOD_1": null,
+      "METHOD_1_RESULT": null,
+      "METHOD_2": null,
+      "METHOD_2_RESULT": null,
+      "INDEPENDENT_RECOMPUTATION": "NOT_APPLICABLE"
+    },
+    {
+      "PARENT_VECTOR_ID": "N27",
+      "SUBCASE_ID": "N27-C02",
+      "ORIGINAL_FROZEN_TEXT": "all six i64 comparisons | exact total boolean result for signed operands",
+      "FROZEN_RULE_REFERENCE": "A2 123-125, 140-142; conformance plan N27",
+      "EXACT_SOURCE_TEXT_OR_INPUT": "i64.ne(-9223372036854775808, -9223372036854775808)",
+      "EXACT_OPERANDS": [
+        "-9223372036854775808",
+        "-9223372036854775808"
+      ],
+      "EXACT_TYPES": [
+        "i64",
+        "i64",
+        "bool"
+      ],
+      "EXPECTED_STATUS": "pass",
+      "EXPECTED_TYPED_VALUE_OR_FAILURE": false,
+      "EXPECTED_DIAGNOSTIC": null,
+      "EXPECTED_CANONICAL_BYTES": null,
+      "EXPECTED_RAW_SHA256": null,
+      "EXPECTED_SEMANTIC_DIGEST": null,
+      "INPUT_BITS": null,
+      "EXPECTED_RESULT_BITS": null,
+      "ROUNDING_RULE": null,
+      "METHOD_1": null,
+      "METHOD_1_RESULT": null,
+      "METHOD_2": null,
+      "METHOD_2_RESULT": null,
+      "INDEPENDENT_RECOMPUTATION": "NOT_APPLICABLE"
+    },
+    {
+      "PARENT_VECTOR_ID": "N27",
+      "SUBCASE_ID": "N27-C03",
+      "ORIGINAL_FROZEN_TEXT": "all six i64 comparisons | exact total boolean result for signed operands",
+      "FROZEN_RULE_REFERENCE": "A2 123-125, 140-142; conformance plan N27",
+      "EXACT_SOURCE_TEXT_OR_INPUT": "i64.lt_s(9223372036854775807, -9223372036854775808)",
+      "EXACT_OPERANDS": [
+        "9223372036854775807",
+        "-9223372036854775808"
+      ],
+      "EXACT_TYPES": [
+        "i64",
+        "i64",
+        "bool"
+      ],
+      "EXPECTED_STATUS": "pass",
+      "EXPECTED_TYPED_VALUE_OR_FAILURE": false,
+      "EXPECTED_DIAGNOSTIC": null,
+      "EXPECTED_CANONICAL_BYTES": null,
+      "EXPECTED_RAW_SHA256": null,
+      "EXPECTED_SEMANTIC_DIGEST": null,
+      "INPUT_BITS": null,
+      "EXPECTED_RESULT_BITS": null,
+      "ROUNDING_RULE": null,
+      "METHOD_1": null,
+      "METHOD_1_RESULT": null,
+      "METHOD_2": null,
+      "METHOD_2_RESULT": null,
+      "INDEPENDENT_RECOMPUTATION": "NOT_APPLICABLE"
+    },
+    {
+      "PARENT_VECTOR_ID": "N27",
+      "SUBCASE_ID": "N27-C04",
+      "ORIGINAL_FROZEN_TEXT": "all six i64 comparisons | exact total boolean result for signed operands",
+      "FROZEN_RULE_REFERENCE": "A2 123-125, 140-142; conformance plan N27",
+      "EXACT_SOURCE_TEXT_OR_INPUT": "i64.le_s(-9223372036854775808, -9223372036854775808)",
+      "EXACT_OPERANDS": [
+        "-9223372036854775808",
+        "-9223372036854775808"
+      ],
+      "EXACT_TYPES": [
+        "i64",
+        "i64",
+        "bool"
+      ],
+      "EXPECTED_STATUS": "pass",
+      "EXPECTED_TYPED_VALUE_OR_FAILURE": true,
+      "EXPECTED_DIAGNOSTIC": null,
+      "EXPECTED_CANONICAL_BYTES": null,
+      "EXPECTED_RAW_SHA256": null,
+      "EXPECTED_SEMANTIC_DIGEST": null,
+      "INPUT_BITS": null,
+      "EXPECTED_RESULT_BITS": null,
+      "ROUNDING_RULE": null,
+      "METHOD_1": null,
+      "METHOD_1_RESULT": null,
+      "METHOD_2": null,
+      "METHOD_2_RESULT": null,
+      "INDEPENDENT_RECOMPUTATION": "NOT_APPLICABLE"
+    },
+    {
+      "PARENT_VECTOR_ID": "N27",
+      "SUBCASE_ID": "N27-C05",
+      "ORIGINAL_FROZEN_TEXT": "all six i64 comparisons | exact total boolean result for signed operands",
+      "FROZEN_RULE_REFERENCE": "A2 123-125, 140-142; conformance plan N27",
+      "EXACT_SOURCE_TEXT_OR_INPUT": "i64.gt_s(-9223372036854775808, 9223372036854775807)",
+      "EXACT_OPERANDS": [
+        "-9223372036854775808",
+        "9223372036854775807"
+      ],
+      "EXACT_TYPES": [
+        "i64",
+        "i64",
+        "bool"
+      ],
+      "EXPECTED_STATUS": "pass",
+      "EXPECTED_TYPED_VALUE_OR_FAILURE": false,
+      "EXPECTED_DIAGNOSTIC": null,
+      "EXPECTED_CANONICAL_BYTES": null,
+      "EXPECTED_RAW_SHA256": null,
+      "EXPECTED_SEMANTIC_DIGEST": null,
+      "INPUT_BITS": null,
+      "EXPECTED_RESULT_BITS": null,
+      "ROUNDING_RULE": null,
+      "METHOD_1": null,
+      "METHOD_1_RESULT": null,
+      "METHOD_2": null,
+      "METHOD_2_RESULT": null,
+      "INDEPENDENT_RECOMPUTATION": "NOT_APPLICABLE"
+    },
+    {
+      "PARENT_VECTOR_ID": "N27",
+      "SUBCASE_ID": "N27-C06",
+      "ORIGINAL_FROZEN_TEXT": "all six i64 comparisons | exact total boolean result for signed operands",
+      "FROZEN_RULE_REFERENCE": "A2 123-125, 140-142; conformance plan N27",
+      "EXACT_SOURCE_TEXT_OR_INPUT": "i64.ge_s(9223372036854775807, 9223372036854775807)",
+      "EXACT_OPERANDS": [
+        "9223372036854775807",
+        "9223372036854775807"
+      ],
+      "EXACT_TYPES": [
+        "i64",
+        "i64",
+        "bool"
+      ],
+      "EXPECTED_STATUS": "pass",
+      "EXPECTED_TYPED_VALUE_OR_FAILURE": true,
+      "EXPECTED_DIAGNOSTIC": null,
+      "EXPECTED_CANONICAL_BYTES": null,
+      "EXPECTED_RAW_SHA256": null,
+      "EXPECTED_SEMANTIC_DIGEST": null,
+      "INPUT_BITS": null,
+      "EXPECTED_RESULT_BITS": null,
+      "ROUNDING_RULE": null,
+      "METHOD_1": null,
+      "METHOD_1_RESULT": null,
+      "METHOD_2": null,
+      "METHOD_2_RESULT": null,
+      "INDEPENDENT_RECOMPUTATION": "NOT_APPLICABLE"
+    },
+    {
+      "PARENT_VECTOR_ID": "N28",
+      "SUBCASE_ID": "N28-C01",
+      "ORIGINAL_FROZEN_TEXT": "successful arithmetic assigned to refinement | success if result is in range",
+      "FROZEN_RULE_REFERENCE": "A2 170-180; Refinement Types MVP 12-50; direct human V2 N28 decision",
+      "EXACT_SOURCE_TEXT_OR_INPUT": {
+        "dynamic_arguments": [
+          {
+            "name": "a",
+            "type": "i64",
+            "decimal": "2"
+          },
+          {
+            "name": "b",
+            "type": "i64",
+            "decimal": "3"
+          }
+        ],
+        "operation_chain": [
+          {
+            "result": "%sum",
+            "type": "i64",
+            "operation": "i64.checked_add",
+            "operands": [
+              "%a",
+              "%b"
+            ]
+          },
+          {
+            "result": "%out",
+            "type": "i32<0..10>",
+            "operation": "i64.to_i32_checked",
+            "operands": [
+              "%sum"
+            ]
+          }
+        ]
+      },
+      "EXACT_OPERANDS": [
+        "2",
+        "3"
+      ],
+      "EXACT_TYPES": [
+        "i64",
+        "i64",
+        "i32<0..10>"
+      ],
+      "EXPECTED_STATUS": "PASS",
+      "EXPECTED_TYPED_VALUE_OR_FAILURE": {
+        "sum": {
+          "type": "i64",
+          "decimal": "5"
+        },
+        "conversion": {
+          "type": "i32",
+          "value": 5
+        },
+        "result": 5
+      },
+      "EXPECTED_DIAGNOSTIC": null,
+      "EXPECTED_CANONICAL_BYTES": null,
+      "EXPECTED_RAW_SHA256": null,
+      "EXPECTED_SEMANTIC_DIGEST": null,
+      "INPUT_BITS": null,
+      "EXPECTED_RESULT_BITS": null,
+      "ROUNDING_RULE": null,
+      "METHOD_1": "Exact integer arithmetic and inclusive refinement interval derivation",
+      "METHOD_1_RESULT": "2 + 3 = 5; 5 is representable i32 and belongs to [0,10].",
+      "METHOD_2": "Independent Node BigInt arithmetic and explicit signed-i32 interval check",
+      "METHOD_2_RESULT": "5; conversion PASS; refinement PASS.",
+      "INDEPENDENT_RECOMPUTATION": "PASS"
+    },
+    {
+      "PARENT_VECTOR_ID": "N29",
+      "SUBCASE_ID": "N29-C01",
+      "ORIGINAL_FROZEN_TEXT": "successful arithmetic outside refinement | air.refinement.assignment_out_of_range",
+      "FROZEN_RULE_REFERENCE": "A2 170-180; Refinement Types MVP 12-50, 95-110; direct human V2 N29 decision",
+      "EXACT_SOURCE_TEXT_OR_INPUT": {
+        "dynamic_arguments": [
+          {
+            "name": "a",
+            "type": "i64",
+            "decimal": "6"
+          },
+          {
+            "name": "b",
+            "type": "i64",
+            "decimal": "5"
+          }
+        ],
+        "operation_chain": [
+          {
+            "result": "%sum",
+            "type": "i64",
+            "operation": "i64.checked_add",
+            "operands": [
+              "%a",
+              "%b"
+            ]
+          },
+          {
+            "result": "%out",
+            "type": "i32<0..10>",
+            "operation": "i64.to_i32_checked",
+            "operands": [
+              "%sum"
+            ]
+          }
+        ]
+      },
+      "EXACT_OPERANDS": [
+        "6",
+        "5"
+      ],
+      "EXACT_TYPES": [
+        "i64",
+        "i64",
+        "i32<0..10>"
+      ],
+      "EXPECTED_STATUS": "DYNAMIC_FAIL_CLOSED_PASS",
+      "EXPECTED_TYPED_VALUE_OR_FAILURE": {
+        "sum": {
+          "type": "i64",
+          "decimal": "11"
+        },
+        "conversion": {
+          "type": "i32",
+          "value": 11
+        },
+        "refinement": "rejected"
+      },
+      "EXPECTED_DIAGNOSTIC": "air.refinement.assignment_out_of_range",
+      "EXPECTED_CANONICAL_BYTES": null,
+      "EXPECTED_RAW_SHA256": null,
+      "EXPECTED_SEMANTIC_DIGEST": null,
+      "INPUT_BITS": null,
+      "EXPECTED_RESULT_BITS": null,
+      "ROUNDING_RULE": null,
+      "METHOD_1": "Exact integer arithmetic and inclusive refinement interval derivation",
+      "METHOD_1_RESULT": "6 + 5 = 11; conversion is representable; 11 is outside [0,10].",
+      "METHOD_2": "Independent Node BigInt arithmetic and explicit signed-i32 interval check",
+      "METHOD_2_RESULT": "11; conversion PASS; refinement rejects with the frozen refinement identity.",
+      "INDEPENDENT_RECOMPUTATION": "PASS"
+    },
+    {
+      "PARENT_VECTOR_ID": "N30",
+      "SUBCASE_ID": "N30-C01",
+      "ORIGINAL_FROZEN_TEXT": "arithmetic overflow with incompatible refinement | numeric checked failure before refinement evaluation",
+      "FROZEN_RULE_REFERENCE": "A2 144-180; direct human V2 N30 decision",
+      "EXACT_SOURCE_TEXT_OR_INPUT": {
+        "dynamic_arguments": [
+          {
+            "name": "a",
+            "type": "i64",
+            "decimal": "9223372036854775807"
+          },
+          {
+            "name": "b",
+            "type": "i64",
+            "decimal": "1"
+          }
+        ],
+        "operation_chain": [
+          {
+            "result": "%sum",
+            "type": "i64",
+            "operation": "i64.checked_add",
+            "operands": [
+              "%a",
+              "%b"
+            ]
+          },
+          {
+            "result": "%out",
+            "type": "i32<0..10>",
+            "operation": "i64.to_i32_checked",
+            "operands": [
+              "%sum"
+            ],
+            "evaluation": "MUST_NOT_EVALUATE_AFTER_CHECKED_FAILURE"
+          }
+        ]
+      },
+      "EXACT_OPERANDS": [
+        "9223372036854775807",
+        "1"
+      ],
+      "EXACT_TYPES": [
+        "i64",
+        "i64",
+        "i32<0..10>"
+      ],
+      "EXPECTED_STATUS": "DYNAMIC_FAIL_CLOSED_PASS",
+      "EXPECTED_TYPED_VALUE_OR_FAILURE": {
+        "failure": {
+          "code": "air.numeric.checked_failure",
+          "reason": "overflow"
+        },
+        "conversion_evaluated": false,
+        "refinement_evaluated": false
+      },
+      "EXPECTED_DIAGNOSTIC": "air.numeric.checked_failure / overflow",
+      "EXPECTED_CANONICAL_BYTES": null,
+      "EXPECTED_RAW_SHA256": null,
+      "EXPECTED_SEMANTIC_DIGEST": null,
+      "INPUT_BITS": null,
+      "EXPECTED_RESULT_BITS": null,
+      "ROUNDING_RULE": null,
+      "METHOD_1": "Exact signed-64 boundary derivation",
+      "METHOD_1_RESULT": "9223372036854775807 + 1 = 9223372036854775808, outside the signed i64 maximum.",
+      "METHOD_2": "Independent Node BigInt boundary comparison plus frozen A2 precedence rule",
+      "METHOD_2_RESULT": "overflow; conversion and refinement are not evaluated.",
+      "INDEPENDENT_RECOMPUTATION": "PASS"
+    },
+    {
+      "PARENT_VECTOR_ID": "N35",
+      "SUBCASE_ID": "N35-C01",
+      "ORIGINAL_FROZEN_TEXT": "correctly-rounded f32 halfway boundary literal | direct binary32 ties-to-even result bits",
+      "FROZEN_RULE_REFERENCE": "A2 82-108; conformance plan N35",
+      "EXACT_SOURCE_TEXT_OR_INPUT": "const.f32 1.000000059604644775390625",
+      "EXACT_OPERANDS": [
+        "1 + 2^-24"
+      ],
+      "EXACT_TYPES": [
+        "f32"
+      ],
+      "EXPECTED_STATUS": "pass",
+      "EXPECTED_TYPED_VALUE_OR_FAILURE": {
+        "type": "f32",
+        "bits": "3f800000"
+      },
+      "EXPECTED_DIAGNOSTIC": null,
+      "EXPECTED_CANONICAL_BYTES": null,
+      "EXPECTED_RAW_SHA256": null,
+      "EXPECTED_SEMANTIC_DIGEST": null,
+      "INPUT_BITS": {
+        "lower_adjacent_bits": "3f800000",
+        "upper_adjacent_bits": "3f800001"
+      },
+      "EXPECTED_RESULT_BITS": "3f800000",
+      "ROUNDING_RULE": "The decimal literal is exactly 1 + 2^-24, the midpoint between 1.0 (0x3f800000) and 1 + 2^-23 (0x3f800001). The lower candidate has an even significand and is selected.",
+      "METHOD_1": "Node standard Float32/DataView literal conversion",
+      "METHOD_1_RESULT": "3f800000",
+      "METHOD_2": "Swift Float.bitPattern literal conversion",
+      "METHOD_2_RESULT": "3f800000",
+      "INDEPENDENT_RECOMPUTATION": "PASS"
+    },
+    {
+      "PARENT_VECTOR_ID": "N36",
+      "SUBCASE_ID": "N36-C01",
+      "ORIGINAL_FROZEN_TEXT": "correctly-rounded f64 halfway boundary literal | direct binary64 ties-to-even result bits",
+      "FROZEN_RULE_REFERENCE": "A2 82-108, 212-239; conformance plan N36",
+      "EXACT_SOURCE_TEXT_OR_INPUT": "const.f64 1.00000000000000011102230246251565404236316680908203125",
+      "EXACT_OPERANDS": [
+        "1 + 2^-53"
+      ],
+      "EXACT_TYPES": [
+        "f64"
+      ],
+      "EXPECTED_STATUS": "pass",
+      "EXPECTED_TYPED_VALUE_OR_FAILURE": {
+        "type": "f64",
+        "bits": "3ff0000000000000"
+      },
+      "EXPECTED_DIAGNOSTIC": null,
+      "EXPECTED_CANONICAL_BYTES": null,
+      "EXPECTED_RAW_SHA256": null,
+      "EXPECTED_SEMANTIC_DIGEST": null,
+      "INPUT_BITS": {
+        "lower_adjacent_bits": "3ff0000000000000",
+        "upper_adjacent_bits": "3ff0000000000001"
+      },
+      "EXPECTED_RESULT_BITS": "3ff0000000000000",
+      "ROUNDING_RULE": "The decimal literal is exactly 1 + 2^-53, the midpoint between 1.0 (0x3ff0000000000000) and 1 + 2^-52 (0x3ff0000000000001). The lower candidate has an even significand and is selected.",
+      "METHOD_1": "Node standard Double/DataView literal conversion",
+      "METHOD_1_RESULT": "3ff0000000000000",
+      "METHOD_2": "Swift Double.bitPattern literal conversion",
+      "METHOD_2_RESULT": "3ff0000000000000",
+      "INDEPENDENT_RECOMPUTATION": "PASS"
+    },
+    {
+      "PARENT_VECTOR_ID": "D15",
+      "SUBCASE_ID": "D15-C01",
+      "ORIGINAL_FROZEN_TEXT": "duplicate or unknown match arm | stable match rejection",
+      "FROZEN_RULE_REFERENCE": "A2 346-395, 440-447; direct human V2 D15 duplicate-arm decision",
+      "EXACT_SOURCE_TEXT_OR_INPUT": {
+        "enum_declaration": "enum Admission { deny = 0, allow = 1 }",
+        "subject_type": "fixture.match::Admission",
+        "arms": [
+          "fixture.match::Admission.deny",
+          "fixture.match::Admission.deny",
+          "fixture.match::Admission.allow"
+        ]
+      },
+      "EXACT_OPERANDS": [
+        "fixture.match::Admission.deny",
+        "fixture.match::Admission.deny"
+      ],
+      "EXACT_TYPES": [
+        "fixture.match::Admission",
+        "i32"
+      ],
+      "EXPECTED_STATUS": "STATIC_REJECTION_PASS",
+      "EXPECTED_TYPED_VALUE_OR_FAILURE": {
+        "failure": "duplicate match arm"
+      },
+      "EXPECTED_DIAGNOSTIC": "air.decision.match_duplicate_arm",
+      "EXPECTED_CANONICAL_BYTES": null,
+      "EXPECTED_RAW_SHA256": null,
+      "EXPECTED_SEMANTIC_DIGEST": null,
+      "INPUT_BITS": null,
+      "EXPECTED_RESULT_BITS": null,
+      "ROUNDING_RULE": null,
+      "METHOD_1": "A2 duplicate-arm rejection rule plus direct human V2 diagnostic decision",
+      "METHOD_1_RESULT": "air.decision.match_duplicate_arm",
+      "METHOD_2": "Diagnostic namespace/history cross-check: A2 requires a stable AIR diagnostic and direct decision supplies its exact member",
+      "METHOD_2_RESULT": "air.decision.match_duplicate_arm",
+      "INDEPENDENT_RECOMPUTATION": "PASS"
+    },
+    {
+      "PARENT_VECTOR_ID": "D15",
+      "SUBCASE_ID": "D15-C02",
+      "ORIGINAL_FROZEN_TEXT": "duplicate or unknown match arm | stable match rejection",
+      "FROZEN_RULE_REFERENCE": "A2 346-395, 440-447; direct human V2 D15 unknown-arm decision",
+      "EXACT_SOURCE_TEXT_OR_INPUT": {
+        "enum_declaration": "enum Admission { deny = 0, allow = 1 }",
+        "subject_type": "fixture.match::Admission",
+        "arms": [
+          "fixture.match::Admission.deny",
+          "fixture.match::Admission.defer",
+          "fixture.match::Admission.allow"
+        ]
+      },
+      "EXACT_OPERANDS": [
+        "fixture.match::Admission.defer"
+      ],
+      "EXACT_TYPES": [
+        "fixture.match::Admission",
+        "i32"
+      ],
+      "EXPECTED_STATUS": "STATIC_REJECTION_PASS",
+      "EXPECTED_TYPED_VALUE_OR_FAILURE": {
+        "failure": "unknown match arm"
+      },
+      "EXPECTED_DIAGNOSTIC": "air.decision.match_arm_invalid",
+      "EXPECTED_CANONICAL_BYTES": null,
+      "EXPECTED_RAW_SHA256": null,
+      "EXPECTED_SEMANTIC_DIGEST": null,
+      "INPUT_BITS": null,
+      "EXPECTED_RESULT_BITS": null,
+      "ROUNDING_RULE": null,
+      "METHOD_1": "A2 unknown-arm rejection rule plus direct human V2 diagnostic decision",
+      "METHOD_1_RESULT": "air.decision.match_arm_invalid",
+      "METHOD_2": "Diagnostic namespace/history cross-check: A2 requires a stable AIR diagnostic and direct decision supplies its exact member",
+      "METHOD_2_RESULT": "air.decision.match_arm_invalid",
+      "INDEPENDENT_RECOMPUTATION": "PASS"
+    },
+    {
+      "PARENT_VECTOR_ID": "D21",
+      "SUBCASE_ID": "D21-C01",
+      "ORIGINAL_FROZEN_TEXT": "same enum name from two modules | fully-qualified identities remain distinct",
+      "FROZEN_RULE_REFERENCE": "A2 248-306, 338-344; conformance plan D21",
+      "EXACT_SOURCE_TEXT_OR_INPUT": {
+        "left": {
+          "type": "fixture.alpha::Decision",
+          "discriminant": 1
+        },
+        "right": {
+          "type": "fixture.beta::Decision",
+          "discriminant": 1
+        }
+      },
+      "EXACT_OPERANDS": [
+        "fixture.alpha::Decision",
+        "fixture.beta::Decision"
+      ],
+      "EXACT_TYPES": [
+        "fixture.alpha::Decision",
+        "fixture.beta::Decision"
+      ],
+      "EXPECTED_STATUS": "pass",
+      "EXPECTED_TYPED_VALUE_OR_FAILURE": {
+        "canonical_type_identities": [
+          "fixture.alpha::Decision",
+          "fixture.beta::Decision"
+        ],
+        "identities_equal": false
+      },
+      "EXPECTED_DIAGNOSTIC": null,
+      "EXPECTED_CANONICAL_BYTES": null,
+      "EXPECTED_RAW_SHA256": null,
+      "EXPECTED_SEMANTIC_DIGEST": null,
+      "INPUT_BITS": null,
+      "EXPECTED_RESULT_BITS": null,
+      "ROUNDING_RULE": null,
+      "METHOD_1": null,
+      "METHOD_1_RESULT": null,
+      "METHOD_2": null,
+      "METHOD_2_RESULT": null,
+      "INDEPENDENT_RECOMPUTATION": "NOT_APPLICABLE"
+    },
+    {
+      "PARENT_VECTOR_ID": "D22",
+      "SUBCASE_ID": "D22-C01",
+      "ORIGINAL_FROZEN_TEXT": "option equality cases | none/some semantics, no structural host equality",
+      "FROZEN_RULE_REFERENCE": "A2 311-344; conformance plan D22",
+      "EXACT_SOURCE_TEXT_OR_INPUT": {
+        "left": {
+          "tag": "none",
+          "type": "option<i32>"
+        },
+        "right": {
+          "tag": "none",
+          "type": "option<i32>"
+        }
+      },
+      "EXACT_OPERANDS": [
+        "none",
+        "none"
+      ],
+      "EXACT_TYPES": [
+        "option<i32>",
+        "option<i32>",
+        "bool"
+      ],
+      "EXPECTED_STATUS": "pass",
+      "EXPECTED_TYPED_VALUE_OR_FAILURE": true,
+      "EXPECTED_DIAGNOSTIC": null,
+      "EXPECTED_CANONICAL_BYTES": null,
+      "EXPECTED_RAW_SHA256": null,
+      "EXPECTED_SEMANTIC_DIGEST": null,
+      "INPUT_BITS": null,
+      "EXPECTED_RESULT_BITS": null,
+      "ROUNDING_RULE": null,
+      "METHOD_1": null,
+      "METHOD_1_RESULT": null,
+      "METHOD_2": null,
+      "METHOD_2_RESULT": null,
+      "INDEPENDENT_RECOMPUTATION": "NOT_APPLICABLE"
+    },
+    {
+      "PARENT_VECTOR_ID": "D22",
+      "SUBCASE_ID": "D22-C02",
+      "ORIGINAL_FROZEN_TEXT": "option equality cases | none/some semantics, no structural host equality",
+      "FROZEN_RULE_REFERENCE": "A2 311-344; conformance plan D22",
+      "EXACT_SOURCE_TEXT_OR_INPUT": {
+        "left": {
+          "tag": "none",
+          "type": "option<i32>"
+        },
+        "right": {
+          "tag": "some",
+          "type": "option<i32>",
+          "value": 7
+        }
+      },
+      "EXACT_OPERANDS": [
+        "none",
+        "some(7)"
+      ],
+      "EXACT_TYPES": [
+        "option<i32>",
+        "option<i32>",
+        "bool"
+      ],
+      "EXPECTED_STATUS": "pass",
+      "EXPECTED_TYPED_VALUE_OR_FAILURE": false,
+      "EXPECTED_DIAGNOSTIC": null,
+      "EXPECTED_CANONICAL_BYTES": null,
+      "EXPECTED_RAW_SHA256": null,
+      "EXPECTED_SEMANTIC_DIGEST": null,
+      "INPUT_BITS": null,
+      "EXPECTED_RESULT_BITS": null,
+      "ROUNDING_RULE": null,
+      "METHOD_1": null,
+      "METHOD_1_RESULT": null,
+      "METHOD_2": null,
+      "METHOD_2_RESULT": null,
+      "INDEPENDENT_RECOMPUTATION": "NOT_APPLICABLE"
+    },
+    {
+      "PARENT_VECTOR_ID": "D22",
+      "SUBCASE_ID": "D22-C03",
+      "ORIGINAL_FROZEN_TEXT": "option equality cases | none/some semantics, no structural host equality",
+      "FROZEN_RULE_REFERENCE": "A2 311-344; conformance plan D22",
+      "EXACT_SOURCE_TEXT_OR_INPUT": {
+        "left": {
+          "tag": "some",
+          "type": "option<i32>",
+          "value": 7
+        },
+        "right": {
+          "tag": "some",
+          "type": "option<i32>",
+          "value": 7
+        }
+      },
+      "EXACT_OPERANDS": [
+        "some(7)",
+        "some(7)"
+      ],
+      "EXACT_TYPES": [
+        "option<i32>",
+        "option<i32>",
+        "bool"
+      ],
+      "EXPECTED_STATUS": "pass",
+      "EXPECTED_TYPED_VALUE_OR_FAILURE": true,
+      "EXPECTED_DIAGNOSTIC": null,
+      "EXPECTED_CANONICAL_BYTES": null,
+      "EXPECTED_RAW_SHA256": null,
+      "EXPECTED_SEMANTIC_DIGEST": null,
+      "INPUT_BITS": null,
+      "EXPECTED_RESULT_BITS": null,
+      "ROUNDING_RULE": null,
+      "METHOD_1": null,
+      "METHOD_1_RESULT": null,
+      "METHOD_2": null,
+      "METHOD_2_RESULT": null,
+      "INDEPENDENT_RECOMPUTATION": "NOT_APPLICABLE"
+    },
+    {
+      "PARENT_VECTOR_ID": "D22",
+      "SUBCASE_ID": "D22-C04",
+      "ORIGINAL_FROZEN_TEXT": "option equality cases | none/some semantics, no structural host equality",
+      "FROZEN_RULE_REFERENCE": "A2 311-344; conformance plan D22",
+      "EXACT_SOURCE_TEXT_OR_INPUT": {
+        "left": {
+          "tag": "some",
+          "type": "option<i32>",
+          "value": 7
+        },
+        "right": {
+          "tag": "some",
+          "type": "option<i32>",
+          "value": 8
+        }
+      },
+      "EXACT_OPERANDS": [
+        "some(7)",
+        "some(8)"
+      ],
+      "EXACT_TYPES": [
+        "option<i32>",
+        "option<i32>",
+        "bool"
+      ],
+      "EXPECTED_STATUS": "pass",
+      "EXPECTED_TYPED_VALUE_OR_FAILURE": false,
+      "EXPECTED_DIAGNOSTIC": null,
+      "EXPECTED_CANONICAL_BYTES": null,
+      "EXPECTED_RAW_SHA256": null,
+      "EXPECTED_SEMANTIC_DIGEST": null,
+      "INPUT_BITS": null,
+      "EXPECTED_RESULT_BITS": null,
+      "ROUNDING_RULE": null,
+      "METHOD_1": null,
+      "METHOD_1_RESULT": null,
+      "METHOD_2": null,
+      "METHOD_2_RESULT": null,
+      "INDEPENDENT_RECOMPUTATION": "NOT_APPLICABLE"
+    },
+    {
+      "PARENT_VECTOR_ID": "D23",
+      "SUBCASE_ID": "D23-C01",
+      "ORIGINAL_FROZEN_TEXT": "result equality cases | ok/err semantics, no structural host equality",
+      "FROZEN_RULE_REFERENCE": "A2 311-344; conformance plan D23",
+      "EXACT_SOURCE_TEXT_OR_INPUT": {
+        "left": {
+          "tag": "ok",
+          "type": "result<i32,fixture.err::ParseError>",
+          "value": 7
+        },
+        "right": {
+          "tag": "ok",
+          "type": "result<i32,fixture.err::ParseError>",
+          "value": 7
+        }
+      },
+      "EXACT_OPERANDS": [
+        "ok(7)",
+        "ok(7)"
+      ],
+      "EXACT_TYPES": [
+        "result<i32,fixture.err::ParseError>",
+        "result<i32,fixture.err::ParseError>",
+        "bool"
+      ],
+      "EXPECTED_STATUS": "pass",
+      "EXPECTED_TYPED_VALUE_OR_FAILURE": true,
+      "EXPECTED_DIAGNOSTIC": null,
+      "EXPECTED_CANONICAL_BYTES": null,
+      "EXPECTED_RAW_SHA256": null,
+      "EXPECTED_SEMANTIC_DIGEST": null,
+      "INPUT_BITS": null,
+      "EXPECTED_RESULT_BITS": null,
+      "ROUNDING_RULE": null,
+      "METHOD_1": null,
+      "METHOD_1_RESULT": null,
+      "METHOD_2": null,
+      "METHOD_2_RESULT": null,
+      "INDEPENDENT_RECOMPUTATION": "NOT_APPLICABLE"
+    },
+    {
+      "PARENT_VECTOR_ID": "D23",
+      "SUBCASE_ID": "D23-C02",
+      "ORIGINAL_FROZEN_TEXT": "result equality cases | ok/err semantics, no structural host equality",
+      "FROZEN_RULE_REFERENCE": "A2 311-344; conformance plan D23",
+      "EXACT_SOURCE_TEXT_OR_INPUT": {
+        "left": {
+          "tag": "ok",
+          "type": "result<i32,fixture.err::ParseError>",
+          "value": 7
+        },
+        "right": {
+          "tag": "ok",
+          "type": "result<i32,fixture.err::ParseError>",
+          "value": 8
+        }
+      },
+      "EXACT_OPERANDS": [
+        "ok(7)",
+        "ok(8)"
+      ],
+      "EXACT_TYPES": [
+        "result<i32,fixture.err::ParseError>",
+        "result<i32,fixture.err::ParseError>",
+        "bool"
+      ],
+      "EXPECTED_STATUS": "pass",
+      "EXPECTED_TYPED_VALUE_OR_FAILURE": false,
+      "EXPECTED_DIAGNOSTIC": null,
+      "EXPECTED_CANONICAL_BYTES": null,
+      "EXPECTED_RAW_SHA256": null,
+      "EXPECTED_SEMANTIC_DIGEST": null,
+      "INPUT_BITS": null,
+      "EXPECTED_RESULT_BITS": null,
+      "ROUNDING_RULE": null,
+      "METHOD_1": null,
+      "METHOD_1_RESULT": null,
+      "METHOD_2": null,
+      "METHOD_2_RESULT": null,
+      "INDEPENDENT_RECOMPUTATION": "NOT_APPLICABLE"
+    },
+    {
+      "PARENT_VECTOR_ID": "D23",
+      "SUBCASE_ID": "D23-C03",
+      "ORIGINAL_FROZEN_TEXT": "result equality cases | ok/err semantics, no structural host equality",
+      "FROZEN_RULE_REFERENCE": "A2 311-344; conformance plan D23",
+      "EXACT_SOURCE_TEXT_OR_INPUT": {
+        "left": {
+          "error": {
+            "discriminant": 1,
+            "type": "fixture.err::ParseError"
+          },
+          "tag": "err",
+          "type": "result<i32,fixture.err::ParseError>"
+        },
+        "right": {
+          "error": {
+            "discriminant": 1,
+            "type": "fixture.err::ParseError"
+          },
+          "tag": "err",
+          "type": "result<i32,fixture.err::ParseError>"
+        }
+      },
+      "EXACT_OPERANDS": [
+        "err(ParseError.1)",
+        "err(ParseError.1)"
+      ],
+      "EXACT_TYPES": [
+        "result<i32,fixture.err::ParseError>",
+        "result<i32,fixture.err::ParseError>",
+        "bool"
+      ],
+      "EXPECTED_STATUS": "pass",
+      "EXPECTED_TYPED_VALUE_OR_FAILURE": true,
+      "EXPECTED_DIAGNOSTIC": null,
+      "EXPECTED_CANONICAL_BYTES": null,
+      "EXPECTED_RAW_SHA256": null,
+      "EXPECTED_SEMANTIC_DIGEST": null,
+      "INPUT_BITS": null,
+      "EXPECTED_RESULT_BITS": null,
+      "ROUNDING_RULE": null,
+      "METHOD_1": null,
+      "METHOD_1_RESULT": null,
+      "METHOD_2": null,
+      "METHOD_2_RESULT": null,
+      "INDEPENDENT_RECOMPUTATION": "NOT_APPLICABLE"
+    },
+    {
+      "PARENT_VECTOR_ID": "D23",
+      "SUBCASE_ID": "D23-C04",
+      "ORIGINAL_FROZEN_TEXT": "result equality cases | ok/err semantics, no structural host equality",
+      "FROZEN_RULE_REFERENCE": "A2 311-344; conformance plan D23",
+      "EXACT_SOURCE_TEXT_OR_INPUT": {
+        "left": {
+          "error": {
+            "discriminant": 1,
+            "type": "fixture.err::ParseError"
+          },
+          "tag": "err",
+          "type": "result<i32,fixture.err::ParseError>"
+        },
+        "right": {
+          "error": {
+            "discriminant": 2,
+            "type": "fixture.err::ParseError"
+          },
+          "tag": "err",
+          "type": "result<i32,fixture.err::ParseError>"
+        }
+      },
+      "EXACT_OPERANDS": [
+        "err(ParseError.1)",
+        "err(ParseError.2)"
+      ],
+      "EXACT_TYPES": [
+        "result<i32,fixture.err::ParseError>",
+        "result<i32,fixture.err::ParseError>",
+        "bool"
+      ],
+      "EXPECTED_STATUS": "pass",
+      "EXPECTED_TYPED_VALUE_OR_FAILURE": false,
+      "EXPECTED_DIAGNOSTIC": null,
+      "EXPECTED_CANONICAL_BYTES": null,
+      "EXPECTED_RAW_SHA256": null,
+      "EXPECTED_SEMANTIC_DIGEST": null,
+      "INPUT_BITS": null,
+      "EXPECTED_RESULT_BITS": null,
+      "ROUNDING_RULE": null,
+      "METHOD_1": null,
+      "METHOD_1_RESULT": null,
+      "METHOD_2": null,
+      "METHOD_2_RESULT": null,
+      "INDEPENDENT_RECOMPUTATION": "NOT_APPLICABLE"
+    },
+    {
+      "PARENT_VECTOR_ID": "D23",
+      "SUBCASE_ID": "D23-C05",
+      "ORIGINAL_FROZEN_TEXT": "result equality cases | ok/err semantics, no structural host equality",
+      "FROZEN_RULE_REFERENCE": "A2 311-344; conformance plan D23",
+      "EXACT_SOURCE_TEXT_OR_INPUT": {
+        "left": {
+          "tag": "ok",
+          "type": "result<i32,fixture.err::ParseError>",
+          "value": 7
+        },
+        "right": {
+          "error": {
+            "discriminant": 1,
+            "type": "fixture.err::ParseError"
+          },
+          "tag": "err",
+          "type": "result<i32,fixture.err::ParseError>"
+        }
+      },
+      "EXACT_OPERANDS": [
+        "ok(7)",
+        "err(ParseError.1)"
+      ],
+      "EXACT_TYPES": [
+        "result<i32,fixture.err::ParseError>",
+        "result<i32,fixture.err::ParseError>",
+        "bool"
+      ],
+      "EXPECTED_STATUS": "pass",
+      "EXPECTED_TYPED_VALUE_OR_FAILURE": false,
+      "EXPECTED_DIAGNOSTIC": null,
+      "EXPECTED_CANONICAL_BYTES": null,
+      "EXPECTED_RAW_SHA256": null,
+      "EXPECTED_SEMANTIC_DIGEST": null,
+      "INPUT_BITS": null,
+      "EXPECTED_RESULT_BITS": null,
+      "ROUNDING_RULE": null,
+      "METHOD_1": null,
+      "METHOD_1_RESULT": null,
+      "METHOD_2": null,
+      "METHOD_2_RESULT": null,
+      "INDEPENDENT_RECOMPUTATION": "NOT_APPLICABLE"
+    },
+    {
+      "PARENT_VECTOR_ID": "D24",
+      "SUBCASE_ID": "D24-C01",
+      "ORIGINAL_FROZEN_TEXT": "option<i64> some evidence | nested typed decimal i64, not JSON number",
+      "FROZEN_RULE_REFERENCE": "A2 184-186, 283-309, 311-336; conformance plan D24",
+      "EXACT_SOURCE_TEXT_OR_INPUT": {
+        "tag": "some",
+        "type": "option<i64>",
+        "value": {
+          "decimal": "9007199254740993",
+          "type": "i64"
+        }
+      },
+      "EXACT_OPERANDS": [
+        "9007199254740993"
+      ],
+      "EXACT_TYPES": [
+        "option<i64>",
+        "i64"
+      ],
+      "EXPECTED_STATUS": "pass",
+      "EXPECTED_TYPED_VALUE_OR_FAILURE": {
+        "tag": "some",
+        "type": "option<i64>",
+        "value": {
+          "decimal": "9007199254740993",
+          "type": "i64"
+        }
+      },
+      "EXPECTED_DIAGNOSTIC": null,
+      "EXPECTED_CANONICAL_BYTES": "{\"tag\":\"some\",\"type\":\"option<i64>\",\"value\":{\"decimal\":\"9007199254740993\",\"type\":\"i64\"}}",
+      "EXPECTED_RAW_SHA256": "sha256:299f8de93553c9a3798541361da5c1b9c27b85301f94adb2f51affb5491011af",
+      "EXPECTED_SEMANTIC_DIGEST": null,
+      "INPUT_BITS": null,
+      "EXPECTED_RESULT_BITS": null,
+      "ROUNDING_RULE": null,
+      "METHOD_1": "A2 code-point key order plus UTF-8/no-whitespace derivation",
+      "METHOD_1_RESULT": "literal bytes shown",
+      "METHOD_2": "independent sha256 recomputation of literal UTF-8 bytes",
+      "METHOD_2_RESULT": "299f8de93553c9a3798541361da5c1b9c27b85301f94adb2f51affb5491011af",
+      "INDEPENDENT_RECOMPUTATION": "PASS"
+    },
+    {
+      "PARENT_VECTOR_ID": "D25",
+      "SUBCASE_ID": "D25-C01",
+      "ORIGINAL_FROZEN_TEXT": "enum/option/result byte vectors | little-endian tags/discriminants/payloads",
+      "FROZEN_RULE_REFERENCE": "A2 397-417; conformance plan D25",
+      "EXACT_SOURCE_TEXT_OR_INPUT": {
+        "type": "fixture.layout::Admission",
+        "discriminant": 1
+      },
+      "EXACT_OPERANDS": [
+        "discriminant=1"
+      ],
+      "EXACT_TYPES": [
+        "fixture.layout::Admission"
+      ],
+      "EXPECTED_STATUS": "pass",
+      "EXPECTED_TYPED_VALUE_OR_FAILURE": {
+        "type": "fixture.layout::Admission",
+        "discriminant": 1
+      },
+      "EXPECTED_DIAGNOSTIC": null,
+      "EXPECTED_CANONICAL_BYTES": "01000000",
+      "EXPECTED_RAW_SHA256": "sha256:67abdd721024f0ff4e0b3f4c2fc13bc5bad42d0b7851d456d88d203d15aaa450",
+      "EXPECTED_SEMANTIC_DIGEST": null,
+      "INPUT_BITS": null,
+      "EXPECTED_RESULT_BITS": null,
+      "ROUNDING_RULE": null,
+      "METHOD_1": "A2 i32 discriminant layout at offset 0, little-endian",
+      "METHOD_1_RESULT": "01000000",
+      "METHOD_2": "independent sha256 recomputation of decoded layout bytes",
+      "METHOD_2_RESULT": "67abdd721024f0ff4e0b3f4c2fc13bc5bad42d0b7851d456d88d203d15aaa450",
+      "INDEPENDENT_RECOMPUTATION": "PASS"
+    },
+    {
+      "PARENT_VECTOR_ID": "D25",
+      "SUBCASE_ID": "D25-C02",
+      "ORIGINAL_FROZEN_TEXT": "enum/option/result byte vectors | little-endian tags/discriminants/payloads",
+      "FROZEN_RULE_REFERENCE": "A2 322-327, 397-417; conformance plan D25",
+      "EXACT_SOURCE_TEXT_OR_INPUT": {
+        "tag": "none",
+        "type": "option<i64>"
+      },
+      "EXACT_OPERANDS": [
+        "tag=0",
+        "inactive payload=0"
+      ],
+      "EXACT_TYPES": [
+        "option<i64>"
+      ],
+      "EXPECTED_STATUS": "pass",
+      "EXPECTED_TYPED_VALUE_OR_FAILURE": {
+        "tag": "none",
+        "type": "option<i64>"
+      },
+      "EXPECTED_DIAGNOSTIC": null,
+      "EXPECTED_CANONICAL_BYTES": "00000000000000000000000000000000",
+      "EXPECTED_RAW_SHA256": "sha256:374708fff7719dd5979ec875d56cd2286f6d3cf7ec317a3b25632aab28ec37bb",
+      "EXPECTED_SEMANTIC_DIGEST": null,
+      "INPUT_BITS": null,
+      "EXPECTED_RESULT_BITS": null,
+      "ROUNDING_RULE": null,
+      "METHOD_1": "A2 option<i64> tag@0, zero padding@4..7, zero inactive payload@8..15",
+      "METHOD_1_RESULT": "00000000000000000000000000000000",
+      "METHOD_2": "independent sha256 recomputation of decoded layout bytes",
+      "METHOD_2_RESULT": "374708fff7719dd5979ec875d56cd2286f6d3cf7ec317a3b25632aab28ec37bb",
+      "INDEPENDENT_RECOMPUTATION": "PASS"
+    },
+    {
+      "PARENT_VECTOR_ID": "D25",
+      "SUBCASE_ID": "D25-C03",
+      "ORIGINAL_FROZEN_TEXT": "enum/option/result byte vectors | little-endian tags/discriminants/payloads",
+      "FROZEN_RULE_REFERENCE": "A2 322-327, 397-417; conformance plan D25",
+      "EXACT_SOURCE_TEXT_OR_INPUT": {
+        "tag": "some",
+        "type": "option<i64>",
+        "value": {
+          "decimal": "7",
+          "type": "i64"
+        }
+      },
+      "EXACT_OPERANDS": [
+        "tag=1",
+        "payload=7"
+      ],
+      "EXACT_TYPES": [
+        "option<i64>",
+        "i64"
+      ],
+      "EXPECTED_STATUS": "pass",
+      "EXPECTED_TYPED_VALUE_OR_FAILURE": {
+        "tag": "some",
+        "type": "option<i64>",
+        "value": {
+          "decimal": "7",
+          "type": "i64"
+        }
+      },
+      "EXPECTED_DIAGNOSTIC": null,
+      "EXPECTED_CANONICAL_BYTES": "01000000000000000700000000000000",
+      "EXPECTED_RAW_SHA256": "sha256:220eabf7a883b9423a7e29c2e38aeddd630c37dc5caab0d6c7a81da36e63327d",
+      "EXPECTED_SEMANTIC_DIGEST": null,
+      "INPUT_BITS": null,
+      "EXPECTED_RESULT_BITS": null,
+      "ROUNDING_RULE": null,
+      "METHOD_1": "A2 option<i64> tag@0, zero padding@4..7, i64 payload@8 little-endian",
+      "METHOD_1_RESULT": "01000000000000000700000000000000",
+      "METHOD_2": "independent sha256 recomputation of decoded layout bytes",
+      "METHOD_2_RESULT": "220eabf7a883b9423a7e29c2e38aeddd630c37dc5caab0d6c7a81da36e63327d",
+      "INDEPENDENT_RECOMPUTATION": "PASS"
+    },
+    {
+      "PARENT_VECTOR_ID": "D25",
+      "SUBCASE_ID": "D25-C04",
+      "ORIGINAL_FROZEN_TEXT": "enum/option/result byte vectors | little-endian tags/discriminants/payloads",
+      "FROZEN_RULE_REFERENCE": "A2 322-327, 397-417; conformance plan D25",
+      "EXACT_SOURCE_TEXT_OR_INPUT": {
+        "tag": "ok",
+        "type": "result<i32,fixture.layout::ParseError>",
+        "value": 7
+      },
+      "EXACT_OPERANDS": [
+        "tag=0",
+        "value=7",
+        "no separate inactive error lane"
+      ],
+      "EXACT_TYPES": [
+        "result<i32,fixture.layout::ParseError>",
+        "i32"
+      ],
+      "EXPECTED_STATUS": "pass",
+      "EXPECTED_TYPED_VALUE_OR_FAILURE": {
+        "tag": "ok",
+        "type": "result<i32,fixture.layout::ParseError>",
+        "value": 7
+      },
+      "EXPECTED_DIAGNOSTIC": null,
+      "EXPECTED_CANONICAL_BYTES": "00000000000000000700000000000000",
+      "EXPECTED_RAW_SHA256": "sha256:8a3d6da75668c0ceb5f754d095efaaba015252b8bb62b79b7398497510ad14f1",
+      "EXPECTED_SEMANTIC_DIGEST": null,
+      "INPUT_BITS": null,
+      "EXPECTED_RESULT_BITS": null,
+      "ROUNDING_RULE": null,
+      "METHOD_1": "A2 result tag@0, zero padding@4..7, i32 value in low four bytes of lane@8, lane remainder zero",
+      "METHOD_1_RESULT": "00000000000000000700000000000000",
+      "METHOD_2": "independent sha256 recomputation of decoded layout bytes",
+      "METHOD_2_RESULT": "8a3d6da75668c0ceb5f754d095efaaba015252b8bb62b79b7398497510ad14f1",
+      "INDEPENDENT_RECOMPUTATION": "PASS"
+    },
+    {
+      "PARENT_VECTOR_ID": "D25",
+      "SUBCASE_ID": "D25-C05",
+      "ORIGINAL_FROZEN_TEXT": "enum/option/result byte vectors | little-endian tags/discriminants/payloads",
+      "FROZEN_RULE_REFERENCE": "A2 322-327, 397-417; conformance plan D25",
+      "EXACT_SOURCE_TEXT_OR_INPUT": {
+        "error": {
+          "discriminant": 1,
+          "type": "fixture.layout::ParseError"
+        },
+        "tag": "err",
+        "type": "result<i32,fixture.layout::ParseError>"
+      },
+      "EXACT_OPERANDS": [
+        "tag=1",
+        "error discriminant=1",
+        "no separate inactive value lane"
+      ],
+      "EXACT_TYPES": [
+        "result<i32,fixture.layout::ParseError>",
+        "fixture.layout::ParseError"
+      ],
+      "EXPECTED_STATUS": "pass",
+      "EXPECTED_TYPED_VALUE_OR_FAILURE": {
+        "error": {
+          "discriminant": 1,
+          "type": "fixture.layout::ParseError"
+        },
+        "tag": "err",
+        "type": "result<i32,fixture.layout::ParseError>"
+      },
+      "EXPECTED_DIAGNOSTIC": null,
+      "EXPECTED_CANONICAL_BYTES": "01000000000000000100000000000000",
+      "EXPECTED_RAW_SHA256": "sha256:814dd7b9784d57c15b9c2972e9b4fd6cf7e164f8162a934bdb2452a413dab1f7",
+      "EXPECTED_SEMANTIC_DIGEST": null,
+      "INPUT_BITS": null,
+      "EXPECTED_RESULT_BITS": null,
+      "ROUNDING_RULE": null,
+      "METHOD_1": "A2 result tag@0, zero padding@4..7, error i32 in low four bytes of lane@8, remaining lane bytes zero",
+      "METHOD_1_RESULT": "01000000000000000100000000000000",
+      "METHOD_2": "independent sha256 recomputation of decoded layout bytes",
+      "METHOD_2_RESULT": "814dd7b9784d57c15b9c2972e9b4fd6cf7e164f8162a934bdb2452a413dab1f7",
+      "INDEPENDENT_RECOMPUTATION": "PASS"
+    },
+    {
+      "PARENT_VECTOR_ID": "D27",
+      "SUBCASE_ID": "D27-C01",
+      "ORIGINAL_FROZEN_TEXT": "canonical type strings | aliases/whitespace normalize before evidence",
+      "FROZEN_RULE_REFERENCE": "A2 283-306; direct human V2 D27 decision",
+      "EXACT_SOURCE_TEXT_OR_INPUT": {
+        "source_type": "option < i64 >",
+        "module": null
+      },
+      "EXACT_OPERANDS": [
+        "option < i64 >"
+      ],
+      "EXACT_TYPES": [
+        "option<i64>"
+      ],
+      "EXPECTED_STATUS": "PASS",
+      "EXPECTED_TYPED_VALUE_OR_FAILURE": "option<i64>",
+      "EXPECTED_DIAGNOSTIC": null,
+      "EXPECTED_CANONICAL_BYTES": "option<i64>",
+      "EXPECTED_RAW_SHA256": null,
+      "EXPECTED_SEMANTIC_DIGEST": null,
+      "INPUT_BITS": null,
+      "EXPECTED_RESULT_BITS": null,
+      "ROUNDING_RULE": null,
+      "METHOD_1": "A2 canonical type grammar with direct human V2 whitespace fixture",
+      "METHOD_1_RESULT": "option<i64>",
+      "METHOD_2": "ASCII token/whitespace normalization derivation",
+      "METHOD_2_RESULT": "option<i64>",
+      "INDEPENDENT_RECOMPUTATION": "PASS"
+    },
+    {
+      "PARENT_VECTOR_ID": "H02",
+      "SUBCASE_ID": "H02-C01",
+      "ORIGINAL_FROZEN_TEXT": "Swift receives/emits exact Int64; typed evidence decimal matches Node.",
+      "FROZEN_RULE_REFERENCE": "A2 123-125, 184-186, 301-309; conformance plan H02",
+      "EXACT_SOURCE_TEXT_OR_INPUT": {
+        "decimal": "9007199254740993",
+        "type": "i64"
+      },
+      "EXACT_OPERANDS": [
+        "9007199254740993"
+      ],
+      "EXACT_TYPES": [
+        "i64"
+      ],
+      "EXPECTED_STATUS": "pass",
+      "EXPECTED_TYPED_VALUE_OR_FAILURE": {
+        "decimal": "9007199254740993",
+        "type": "i64"
+      },
+      "EXPECTED_DIAGNOSTIC": null,
+      "EXPECTED_CANONICAL_BYTES": "{\"decimal\":\"9007199254740993\",\"type\":\"i64\"}",
+      "EXPECTED_RAW_SHA256": "sha256:94ba97376a1b888d86aee3382e56e140f2ba8995e29b6940507399179cd70cb2",
+      "EXPECTED_SEMANTIC_DIGEST": null,
+      "INPUT_BITS": null,
+      "EXPECTED_RESULT_BITS": null,
+      "ROUNDING_RULE": null,
+      "METHOD_1": "A2 canonical typed-decimal construction",
+      "METHOD_1_RESULT": "literal bytes shown",
+      "METHOD_2": "independent sha256 recomputation of literal UTF-8 bytes",
+      "METHOD_2_RESULT": "94ba97376a1b888d86aee3382e56e140f2ba8995e29b6940507399179cd70cb2",
+      "INDEPENDENT_RECOMPUTATION": "PASS"
+    },
+    {
+      "PARENT_VECTOR_ID": "H02",
+      "SUBCASE_ID": "H02-C02",
+      "ORIGINAL_FROZEN_TEXT": "Swift receives/emits exact Int64; typed evidence decimal matches Node.",
+      "FROZEN_RULE_REFERENCE": "A2 123-125, 184-186, 301-309; conformance plan H02",
+      "EXACT_SOURCE_TEXT_OR_INPUT": {
+        "decimal": "-9223372036854775808",
+        "type": "i64"
+      },
+      "EXACT_OPERANDS": [
+        "-9223372036854775808"
+      ],
+      "EXACT_TYPES": [
+        "i64"
+      ],
+      "EXPECTED_STATUS": "pass",
+      "EXPECTED_TYPED_VALUE_OR_FAILURE": {
+        "decimal": "-9223372036854775808",
+        "type": "i64"
+      },
+      "EXPECTED_DIAGNOSTIC": null,
+      "EXPECTED_CANONICAL_BYTES": "{\"decimal\":\"-9223372036854775808\",\"type\":\"i64\"}",
+      "EXPECTED_RAW_SHA256": "sha256:909f961350ef62252a07806e75636eee8efdddb14ed0fc7ec7f2f9e02910817c",
+      "EXPECTED_SEMANTIC_DIGEST": null,
+      "INPUT_BITS": null,
+      "EXPECTED_RESULT_BITS": null,
+      "ROUNDING_RULE": null,
+      "METHOD_1": "A2 canonical typed-decimal construction",
+      "METHOD_1_RESULT": "literal bytes shown",
+      "METHOD_2": "independent sha256 recomputation of literal UTF-8 bytes",
+      "METHOD_2_RESULT": "909f961350ef62252a07806e75636eee8efdddb14ed0fc7ec7f2f9e02910817c",
+      "INDEPENDENT_RECOMPUTATION": "PASS"
+    },
+    {
+      "PARENT_VECTOR_ID": "H03",
+      "SUBCASE_ID": "H03-C01",
+      "ORIGINAL_FROZEN_TEXT": "Node and Swift agree on finite f32 bits and signed-zero evidence.",
+      "FROZEN_RULE_REFERENCE": "A2 190-210; conformance plan N13 and H03",
+      "EXACT_SOURCE_TEXT_OR_INPUT": {
+        "bits": "00000000",
+        "type": "f32"
+      },
+      "EXACT_OPERANDS": [
+        "+0.0"
+      ],
+      "EXACT_TYPES": [
+        "f32"
+      ],
+      "EXPECTED_STATUS": "pass",
+      "EXPECTED_TYPED_VALUE_OR_FAILURE": {
+        "bits": "00000000",
+        "type": "f32"
+      },
+      "EXPECTED_DIAGNOSTIC": null,
+      "EXPECTED_CANONICAL_BYTES": "{\"bits\":\"00000000\",\"type\":\"f32\"}",
+      "EXPECTED_RAW_SHA256": "sha256:0d4d8c1baba2c2c8374fdef41ddf1a29c4e9e9f5bf62745b22930908f77aad58",
+      "EXPECTED_SEMANTIC_DIGEST": null,
+      "INPUT_BITS": "00000000",
+      "EXPECTED_RESULT_BITS": "00000000",
+      "ROUNDING_RULE": "No rounding; frozen positive-zero evidence bit pattern.",
+      "METHOD_1": "A2 N13 frozen bits",
+      "METHOD_1_RESULT": "00000000",
+      "METHOD_2": "independent sha256 recomputation of literal UTF-8 bytes",
+      "METHOD_2_RESULT": "0d4d8c1baba2c2c8374fdef41ddf1a29c4e9e9f5bf62745b22930908f77aad58",
+      "INDEPENDENT_RECOMPUTATION": "PASS"
+    },
+    {
+      "PARENT_VECTOR_ID": "H03",
+      "SUBCASE_ID": "H03-C02",
+      "ORIGINAL_FROZEN_TEXT": "Node and Swift agree on finite f32 bits and signed-zero evidence.",
+      "FROZEN_RULE_REFERENCE": "A2 190-210; conformance plan N13 and H03",
+      "EXACT_SOURCE_TEXT_OR_INPUT": {
+        "bits": "80000000",
+        "type": "f32"
+      },
+      "EXACT_OPERANDS": [
+        "-0.0"
+      ],
+      "EXACT_TYPES": [
+        "f32"
+      ],
+      "EXPECTED_STATUS": "pass",
+      "EXPECTED_TYPED_VALUE_OR_FAILURE": {
+        "bits": "80000000",
+        "type": "f32"
+      },
+      "EXPECTED_DIAGNOSTIC": null,
+      "EXPECTED_CANONICAL_BYTES": "{\"bits\":\"80000000\",\"type\":\"f32\"}",
+      "EXPECTED_RAW_SHA256": "sha256:fe35eab61f541f7428ceba6fddbbd7e6a5cd3e36675591a87c0769919bfb3f23",
+      "EXPECTED_SEMANTIC_DIGEST": null,
+      "INPUT_BITS": "80000000",
+      "EXPECTED_RESULT_BITS": "80000000",
+      "ROUNDING_RULE": "No rounding; frozen negative-zero evidence bit pattern.",
+      "METHOD_1": "A2 N13 frozen bits",
+      "METHOD_1_RESULT": "80000000",
+      "METHOD_2": "independent sha256 recomputation of literal UTF-8 bytes",
+      "METHOD_2_RESULT": "fe35eab61f541f7428ceba6fddbbd7e6a5cd3e36675591a87c0769919bfb3f23",
+      "INDEPENDENT_RECOMPUTATION": "PASS"
+    },
+    {
+      "PARENT_VECTOR_ID": "H04",
+      "SUBCASE_ID": "H04-C01",
+      "ORIGINAL_FROZEN_TEXT": "NaN cross-host comparison asserts only classification: nan, not payload identity.",
+      "FROZEN_RULE_REFERENCE": "A2 193-210, 235-239; conformance plan N14 and H04",
+      "EXACT_SOURCE_TEXT_OR_INPUT": {
+        "classification": "nan",
+        "type": "f32"
+      },
+      "EXACT_OPERANDS": [
+        "NaN classification"
+      ],
+      "EXACT_TYPES": [
+        "f32"
+      ],
+      "EXPECTED_STATUS": "pass",
+      "EXPECTED_TYPED_VALUE_OR_FAILURE": {
+        "classification": "nan",
+        "type": "f32"
+      },
+      "EXPECTED_DIAGNOSTIC": null,
+      "EXPECTED_CANONICAL_BYTES": "{\"classification\":\"nan\",\"type\":\"f32\"}",
+      "EXPECTED_RAW_SHA256": "sha256:27243cd82ac602c530d9480064389069257d9230868486e5419219b263b7edb4",
+      "EXPECTED_SEMANTIC_DIGEST": null,
+      "INPUT_BITS": null,
+      "EXPECTED_RESULT_BITS": null,
+      "ROUNDING_RULE": "NaN payload and sign are expressly excluded from cross-host semantic equality.",
+      "METHOD_1": "A2 canonical typed-value construction",
+      "METHOD_1_RESULT": "literal bytes shown",
+      "METHOD_2": "independent sha256 recomputation of literal UTF-8 bytes",
+      "METHOD_2_RESULT": "27243cd82ac602c530d9480064389069257d9230868486e5419219b263b7edb4",
+      "INDEPENDENT_RECOMPUTATION": "PASS"
+    },
+    {
+      "PARENT_VECTOR_ID": "D16",
+      "SUBCASE_ID": "D16-C01",
+      "ORIGINAL_FROZEN_TEXT": "runtime invalid tag/discriminant | stable AIR invalid-tag path, not host default",
+      "FROZEN_RULE_REFERENCE": "A2 270-281, 392-395, 440-447; conformance plan D04/D16; direct human V2 D16 decision",
+      "EXACT_SOURCE_TEXT_OR_INPUT": {
+        "enum_declaration": "enum Admission { deny = 0, allow = 1 }",
+        "boundary": "typed Wasm/runtime",
+        "inbound_discriminant": 2
+      },
+      "EXACT_OPERANDS": [
+        "2"
+      ],
+      "EXACT_TYPES": [
+        "Admission"
+      ],
+      "EXPECTED_STATUS": "DYNAMIC_FAIL_CLOSED_PASS",
+      "EXPECTED_TYPED_VALUE_OR_FAILURE": {
+        "failure": "invalid inbound enum discriminant"
+      },
+      "EXPECTED_DIAGNOSTIC": "air.decision.enum_discriminant_invalid",
+      "EXPECTED_CANONICAL_BYTES": null,
+      "EXPECTED_RAW_SHA256": null,
+      "EXPECTED_SEMANTIC_DIGEST": null,
+      "INPUT_BITS": null,
+      "EXPECTED_RESULT_BITS": null,
+      "ROUNDING_RULE": null,
+      "METHOD_1": "Frozen A2 closed-enum boundary rule and D04 diagnostic identity",
+      "METHOD_1_RESULT": "air.decision.enum_discriminant_invalid",
+      "METHOD_2": "Direct human V2 boundary normalization decision",
+      "METHOD_2_RESULT": "air.decision.enum_discriminant_invalid",
+      "INDEPENDENT_RECOMPUTATION": "PASS"
+    },
+    {
+      "PARENT_VECTOR_ID": "D27",
+      "SUBCASE_ID": "D27-C02",
+      "ORIGINAL_FROZEN_TEXT": "canonical type strings | aliases/whitespace normalize before evidence",
+      "FROZEN_RULE_REFERENCE": "A2 283-306; direct human V2 D27 decision",
+      "EXACT_SOURCE_TEXT_OR_INPUT": {
+        "module": "example.types",
+        "source_type": "result < i32 , ParseError >"
+      },
+      "EXACT_OPERANDS": [
+        "result < i32 , ParseError >"
+      ],
+      "EXACT_TYPES": [
+        "result<i32,example.types::ParseError>"
+      ],
+      "EXPECTED_STATUS": "PASS",
+      "EXPECTED_TYPED_VALUE_OR_FAILURE": "result<i32,example.types::ParseError>",
+      "EXPECTED_DIAGNOSTIC": null,
+      "EXPECTED_CANONICAL_BYTES": "result<i32,example.types::ParseError>",
+      "EXPECTED_RAW_SHA256": null,
+      "EXPECTED_SEMANTIC_DIGEST": null,
+      "INPUT_BITS": null,
+      "EXPECTED_RESULT_BITS": null,
+      "ROUNDING_RULE": null,
+      "METHOD_1": "A2 qualified error-enum type identity plus direct human V2 whitespace fixture",
+      "METHOD_1_RESULT": "result<i32,example.types::ParseError>",
+      "METHOD_2": "ASCII token/whitespace normalization derivation",
+      "METHOD_2_RESULT": "result<i32,example.types::ParseError>",
+      "INDEPENDENT_RECOMPUTATION": "PASS"
+    },
+    {
+      "PARENT_VECTOR_ID": "D27",
+      "SUBCASE_ID": "D27-C03",
+      "ORIGINAL_FROZEN_TEXT": "canonical type strings | aliases/whitespace normalize before evidence",
+      "FROZEN_RULE_REFERENCE": "A2 283-306; direct human V2 D27 decision",
+      "EXACT_SOURCE_TEXT_OR_INPUT": {
+        "module": "example.types",
+        "source_type": "Admission"
+      },
+      "EXACT_OPERANDS": [
+        "Admission"
+      ],
+      "EXACT_TYPES": [
+        "example.types::Admission"
+      ],
+      "EXPECTED_STATUS": "PASS",
+      "EXPECTED_TYPED_VALUE_OR_FAILURE": "example.types::Admission",
+      "EXPECTED_DIAGNOSTIC": null,
+      "EXPECTED_CANONICAL_BYTES": "example.types::Admission",
+      "EXPECTED_RAW_SHA256": null,
+      "EXPECTED_SEMANTIC_DIGEST": null,
+      "INPUT_BITS": null,
+      "EXPECTED_RESULT_BITS": null,
+      "ROUNDING_RULE": null,
+      "METHOD_1": "A2 module-qualified enum identity plus direct human V2 local-name fixture",
+      "METHOD_1_RESULT": "example.types::Admission",
+      "METHOD_2": "Module/type concatenation derivation",
+      "METHOD_2_RESULT": "example.types::Admission",
+      "INDEPENDENT_RECOMPUTATION": "PASS"
+    }
+  ],
+  "INDEPENDENT_RECOMPUTATION_SUMMARY": {
+    "FLOAT_METHOD_1": "Node standard Float32/DataView and Double/DataView calculations, outside AIR implementation.",
+    "FLOAT_METHOD_2": "Swift Float.bitPattern and Double.bitPattern calculations, outside AIR implementation.",
+    "FLOAT_RESULT": "PASS for N15-C01..C04, N35-C01, and N36-C01.",
+    "BYTE_METHOD_1": "Frozen A2 field-offset and canonical-key-order derivation.",
+    "BYTE_METHOD_2": "Independent SHA-256 recomputation of the specified raw UTF-8 or decoded layout bytes.",
+    "AIR_IMPLEMENTATION_USED_AS_ORACLE": false,
+    "V2_NEWLY_RESOLVED_METHOD_1": "Exact integer/range or canonical-type derivation from frozen rules and direct human V2 decisions.",
+    "V2_NEWLY_RESOLVED_METHOD_2": "Independent Node BigInt/bound check where numeric; documentation and diagnostic-namespace/history cross-check where nonnumeric.",
+    "V2_NEWLY_RESOLVED_RESULT": "PASS"
+  },
+  "ROWS_STILL_HOLD": [],
+  "SAFE_NEXT_ACTION": "Explicit human authorization of exact V2 JSON SHA, then corpus implementation.",
+  "HUMAN_DECISION_SOURCE": "direct_prompt",
+  "V2_PROVENANCE": {
+    "PARENT_V1_JSON_SHA256": "7e9b2c369044220a7186aea91c6b90dae00b66539a8391b74448de0fdfc304dc",
+    "PARENT_V1_MARKDOWN_SHA256": "df605d60b7f4a0c57e52bd81b20ad894120fa09ba693adf4bfdfff10c1647097",
+    "HUMAN_AUTHORIZATION_TASK_ID": "AIR-0051-FROZEN-CONFORMANCE-CLARIFICATION-V2-0001",
+    "SEMANTIC_RULE_CHANGE_AUTHORIZED": false,
+    "NEW_LANGUAGE_SURFACE_AUTHORIZED": false,
+    "DISCOVERED_BY_POST_DRAFT_INDEPENDENT_QA": {
+      "D16": true
+    },
+    "ALLOWED_V1_SUBCASE_CHANGES": [
+      "N28-C01",
+      "N29-C01",
+      "N30-C01",
+      "D15-C01",
+      "D15-C02",
+      "D16-C01",
+      "D27-C01"
+    ],
+    "NEW_V2_SUBCASES": [
+      "D27-C02",
+      "D27-C03"
+    ]
+  },
+  "TRUE_TYPE_ALIAS_SURFACE": "NOT_PRESENT_IN_V051",
+  "FUTURE_TYPE_ALIAS_REQUIRES_SEPARATE_RFC": true
+}

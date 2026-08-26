@@ -1,3 +1,5 @@
+const { formatV051Contract } = require("./v051_reference");
+
 function formatModule(mod) {
   const out = [];
   out.push(`module ${mod.name}`);
@@ -69,6 +71,80 @@ function formatModule(mod) {
     out.push("");
   }
   return out.join("\n");
+}
+
+function formatV051Air(mod) {
+  if (mod && mod.v051TypedAst) return formatV051TypedAir(mod);
+  let formatted = formatModule(mod);
+  for (const fn of mod.functions || []) {
+    for (const block of fn.blocks || []) {
+      for (const ins of block.instructions || []) {
+        if (ins.op !== "const.i64" || !ins.result || !ins.args || !ins.args[0] || !ins.args[0].exactI64) continue;
+        const compact = `${ins.result}:i64 = ${ins.args[0].exactI64}`;
+        const typed = `${ins.result}:i64 = const.i64 ${ins.args[0].exactI64}`;
+        formatted = formatted.replace(compact, typed);
+      }
+    }
+  }
+  return formatted;
+}
+
+function formatV051TypedAir(mod) {
+  const out = [`module ${mod.name}`];
+  const capabilities = Array.from(mod.capabilities || []).sort();
+  if (capabilities.length) out.push(`capabilities { ${capabilities.join(", ")} }`);
+  for (const declaration of (mod.enums || []).slice().sort((left, right) => compareAscii(left.type_id, right.type_id))) {
+    const typeName = declaration.type_id.slice(declaration.type_id.lastIndexOf("::") + 2);
+    out.push("");
+    out.push(`${declaration.kind === "error_enum" ? "error " : ""}enum ${typeName} {`);
+    for (const entry of declaration.cases.slice().sort((left, right) => left.discriminant - right.discriminant || compareAscii(left.name, right.name))) {
+      out.push(`  ${entry.name} = ${entry.discriminant},`);
+    }
+    out.push("}");
+  }
+  for (const fn of (mod.functions || []).slice().sort((left, right) => compareAscii(left.name, right.name))) {
+    out.push("");
+    const params = fn.params.map((parameter) => `${parameter.name}: ${parameter.type}`).join(", ");
+    out.push(`${fn.exported ? "export " : ""}func ${fn.name}(${params}) -> ${fn.returnType} {`);
+    const locals = new Map(fn.params.map((parameter) => [parameter.name, parameter.type]));
+    for (const statement of fn.statements || []) {
+      if (statement.kind === "local") {
+        out.push(`  %${statement.name}: ${statement.type} = ${formatV051TypedValue(statement.value)}`);
+        locals.set(statement.name, statement.type);
+      }
+      else if (statement.kind === "match") {
+        out.push(`  %${statement.destination}: ${statement.destinationType} = match %${statement.value} {`);
+        for (const arm of sortV051MatchArms(statement.arms || [], locals.get(statement.value), mod)) out.push(`    ${arm.pattern} => ${formatV051TypedValue(arm.expression)},`);
+        out.push("  }");
+        locals.set(statement.destination, statement.destinationType);
+      } else if (statement.kind === "return") out.push(`  return ${formatV051TypedValue(statement.value)}`);
+    }
+    out.push("}");
+  }
+  return out.join("\n");
+}
+
+function formatV051TypedValue(value) {
+  if (value && value.kind === "numeric_operation") return `${value.op} ${value.args.join(", ")}`;
+  return String(value || "");
+}
+
+function sortV051MatchArms(arms, subjectType, mod) {
+  const typeName = typeof subjectType === "string" ? subjectType : "";
+  const declaration = (mod.enums || []).find((item) => item.type_id === typeName);
+  const enumOrder = declaration ? new Map(declaration.cases.map((item) => [item.name, item.discriminant])) : null;
+  const rank = (arm) => {
+    const pattern = String(arm.pattern || "");
+    if (enumOrder) return enumOrder.get(pattern.slice(pattern.lastIndexOf(".") + 1));
+    if (typeName.startsWith("option<")) return pattern === "none" ? 0 : 1;
+    if (typeName.startsWith("result<")) return pattern.startsWith("ok(") ? 0 : 1;
+    return 0;
+  };
+  return arms.slice().sort((left, right) => rank(left) - rank(right) || compareAscii(left.pattern, right.pattern));
+}
+
+function compareAscii(left, right) {
+  return left < right ? -1 : left > right ? 1 : 0;
 }
 
 function formatInstruction(ins) {
@@ -210,4 +286,4 @@ function compareFlowDeclarations(a, b) {
     formatFlowDeclaration(a).localeCompare(formatFlowDeclaration(b));
 }
 
-module.exports = { formatModule, formatInstruction, formatArg };
+module.exports = { formatModule, formatV051Air, formatInstruction, formatArg, formatV051Contract };

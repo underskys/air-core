@@ -9,6 +9,7 @@ const {
   isCompositeType,
   scalarByteWidth,
   refinementContains,
+  parseRefinementType,
   SLICE_LEN_MAX,
   I32_MIN,
   I32_MAX
@@ -30,6 +31,8 @@ const {
   requiredAirAbiForModule,
   parseBorrowedSliceType
 } = require("./borrowed_slices");
+const { checkAbi012Candidate, createDecisionEvidence, deriveEffectiveAuthority } = require("./v051_reference");
+const { parseTypeReference } = require("./typed_interface");
 
 const RESOURCE_CERTIFICATE_SCHEMA_VERSION = "1.0";
 const RESOURCE_CERTIFICATE_KIND = "air.verifiedResourceCertificate";
@@ -191,6 +194,353 @@ function verifyModule(mod, options = {}) {
     assertProvenanceFlow(provenanceFlow);
   }
   return true;
+}
+
+function verifyV051Air(mod, options = {}) {
+  if (!mod || !mod.v051TypedDecisionCandidate) {
+    throw new VerificationError("air.v051.parser_required: v0.51 verification requires parseV051Air");
+  }
+  if (mod.v051TypedAst) return verifyV051TypedModule(mod);
+  verifyModule(mod, options);
+  return mod;
+}
+
+function verifyV051TypedModule(mod) {
+  const declarations = new Map();
+  for (const declaration of mod.enums || []) {
+    if (!declaration || (declaration.kind !== "enum" && declaration.kind !== "error_enum") || typeof declaration.type_id !== "string") {
+      throw new VerificationError("air.decision.enum_invalid: invalid enum declaration");
+    }
+    if (declarations.has(declaration.type_id)) throw new VerificationError(`air.decision.enum_duplicate_type: '${declaration.type_id}'`);
+    if (!Array.isArray(declaration.cases) || !declaration.cases.length) throw new VerificationError(`air.decision.enum_empty: '${declaration.type_id}'`);
+    const names = new Set(); const discriminants = new Set();
+    for (const entry of declaration.cases) {
+      if (!entry || !Number.isInteger(entry.discriminant) || entry.discriminant < 0 || entry.discriminant > 2147483647) throw new VerificationError(`air.decision.enum_discriminant_out_of_range: '${declaration.type_id}'`);
+      if (typeof entry.name !== "string" || names.has(entry.name)) throw new VerificationError(`air.decision.enum_duplicate_case: '${declaration.type_id}'`);
+      if (discriminants.has(entry.discriminant)) throw new VerificationError(`air.decision.enum_duplicate_discriminant: '${declaration.type_id}'`);
+      names.add(entry.name); discriminants.add(entry.discriminant);
+    }
+    declarations.set(declaration.type_id, declaration);
+  }
+  const functions = new Set();
+  for (const fn of mod.functions || []) {
+    if (!fn || typeof fn.name !== "string" || functions.has(fn.name)) throw new VerificationError("air.v051.function_duplicate: typed function names must be unique", fn && fn.loc);
+    functions.add(fn.name);
+    const locals = new Map();
+    const staticValues = new Map();
+    const parameterNames = new Set();
+    for (const parameter of fn.params || []) {
+      if (!parameter || typeof parameter.name !== "string" || parameterNames.has(parameter.name)) throw new VerificationError(`air.v051.parameter_duplicate: '${fn.name}'`, fn.loc);
+      parameterNames.add(parameter.name);
+      verifyV051TypedType(parameter.type, declarations, fn.loc, false);
+      locals.set(parameter.name, parameter.type);
+    }
+    verifyV051TypedType(fn.returnType, declarations, fn.loc, true);
+    let hasReturn = false;
+    for (const statement of fn.statements || []) {
+      if (statement.kind === "local") {
+        if (locals.has(statement.name)) throw new VerificationError(`air.v051.local_duplicate: '${statement.name}'`, statement.loc);
+        const declared = verifyV051TypedType(statement.type, declarations, statement.loc, false);
+        const staticValue = verifyV051TypedExpression(statement.value, declared, locals, declarations, statement.loc, staticValues);
+        locals.set(statement.name, statement.type);
+        if (staticValue !== undefined) staticValues.set(statement.name, staticValue);
+      } else if (statement.kind === "match") {
+        if (locals.has(statement.destination)) throw new VerificationError(`air.v051.local_duplicate: '${statement.destination}'`, statement.loc);
+        verifyV051TypedMatch(statement, locals, declarations);
+        locals.set(statement.destination, statement.destinationType);
+      } else if (statement.kind === "return") {
+        if (fn.returnType === "void") {
+          if (statement.value) throw new VerificationError(`air.v051.return_type_mismatch: '${fn.name}'`, statement.loc);
+        } else {
+          verifyV051TypedExpression(statement.value, verifyV051TypedType(fn.returnType, declarations, statement.loc, false), locals, declarations, statement.loc, staticValues);
+        }
+        hasReturn = true;
+      } else {
+        throw new VerificationError("air.v051.typed_statement_invalid", statement.loc);
+      }
+    }
+    if (fn.returnType !== "void" && !hasReturn) throw new VerificationError(`air.v051.return_missing: '${fn.name}'`, fn.loc);
+  }
+  return mod;
+}
+
+function verifyV051TypedType(typeName, declarations, loc, allowVoid) {
+  let type;
+  try {
+    const refinement = parseRefinementType(typeName, loc);
+    if (refinement) {
+      if (refinement.base !== "i32") throw new VerificationError(`air.v051.type_reference_invalid: '${typeName}' is not an admitted typed refinement`, loc);
+      type = { baseCanonical: refinement.base, canonical: refinement.canonical, kind: "primitive", refinement: refinement.refinement };
+    } else {
+      type = { ...parseTypeReference(typeName, { allowVoid }), baseCanonical: typeName };
+    }
+  } catch (err) { throw new VerificationError(err.message, loc); }
+  const verifyEnum = (enumType, requireError = false) => {
+    const declaration = declarations.get(enumType.canonical);
+    if (!declaration) throw new VerificationError(`air.decision.enum_unknown: '${enumType.canonical}'`, loc);
+    if (requireError && declaration.kind !== "error_enum") throw new VerificationError(`air.decision.result_error_type_invalid: '${enumType.canonical}'`, loc);
+  };
+  if (type.kind === "enum") verifyEnum(type);
+  if (type.kind === "option" && type.payload.kind === "enum") verifyEnum(type.payload);
+  if (type.kind === "result") {
+    if (type.payload.kind === "enum") verifyEnum(type.payload);
+    verifyEnum(type.error, true);
+  }
+  return type;
+}
+
+function v051TypeBase(type) {
+  return type.baseCanonical || type.canonical;
+}
+
+function verifyV051RefinementValue(expected, value, loc) {
+  if (!expected.refinement || expected.refinement.kind !== "i32_range" || value === undefined) return;
+  if (!Number.isInteger(value) || value < expected.refinement.min || value > expected.refinement.max) {
+    throw new VerificationError("air.refinement.assignment_out_of_range", loc);
+  }
+}
+
+function verifyV051TypedMatch(statement, locals, declarations) {
+  const typeName = locals.get(statement.value);
+  if (!typeName) throw new VerificationError(`air.decision.match_unknown_value: '${statement.value}'`, statement.loc);
+  const type = verifyV051TypedType(typeName, declarations, statement.loc, false);
+  const destination = verifyV051TypedType(statement.destinationType, declarations, statement.loc, false);
+  let expected;
+  if (type.kind === "enum") {
+    const declaration = declarations.get(type.canonical);
+    expected = new Set(declaration.cases.map((item) => item.name));
+  } else if (type.kind === "option") {
+    expected = new Set(["none", "some"]);
+  } else if (type.kind === "result") {
+    expected = new Set(["ok", "err"]);
+  } else {
+    throw new VerificationError("air.decision.match_type_unsupported: match requires enum, option, or result", statement.loc);
+  }
+  const seen = new Set();
+  for (const arm of statement.arms || []) {
+    const pattern = parseV051TypedMatchPattern(arm.pattern, type, declarations, arm.loc || statement.loc);
+    const key = pattern.key;
+    if (!key || !expected.has(key)) throw new VerificationError(`air.decision.match_arm_invalid: '${arm.pattern}'`, arm.loc || statement.loc);
+    if (seen.has(key)) throw new VerificationError(`air.decision.match_duplicate_arm: '${key}'`, arm.loc || statement.loc);
+    const armLocals = new Map(locals);
+    if (pattern.binding) {
+      if (armLocals.has(pattern.binding)) throw new VerificationError(`air.decision.match_binding_shadow: '${pattern.binding}'`, arm.loc || statement.loc);
+      armLocals.set(pattern.binding, pattern.bindingType);
+    }
+    verifyV051TypedExpression(arm.expression, destination, armLocals, declarations, arm.loc || statement.loc, new Map());
+    seen.add(key);
+  }
+  if (seen.size !== expected.size || [...expected].some((item) => !seen.has(item))) throw new VerificationError("air.decision.match_nonexhaustive", statement.loc);
+}
+
+function verifyV051TypedExpression(value, expected, locals, declarations, loc, staticValues) {
+  let staticValue;
+  if (!value || typeof value !== "object" || value.kind !== "numeric_operation") {
+    verifyV051TypedAtom(value, expected, locals, declarations, loc);
+    staticValue = v051StaticScalarValue(value, expected, staticValues);
+  } else {
+    staticValue = verifyV051TypedNumericOperation(value, expected, locals, declarations, loc, staticValues);
+  }
+  verifyV051RefinementValue(expected, staticValue, loc);
+  return staticValue;
+}
+
+function verifyV051TypedNumericOperation(operation, expected, locals, declarations, loc, staticValues) {
+  const signatures = {
+    "i64.checked_add": { args: ["i64", "i64"], result: "i64", checked: "add" },
+    "i64.checked_sub": { args: ["i64", "i64"], result: "i64", checked: "sub" },
+    "i64.checked_mul": { args: ["i64", "i64"], result: "i64", checked: "mul" },
+    "i64.checked_div_s": { args: ["i64", "i64"], result: "i64", checked: "div_s" },
+    "i64.checked_rem_s": { args: ["i64", "i64"], result: "i64", checked: "rem_s" },
+    "i64.checked_neg": { args: ["i64"], result: "i64", checked: "neg" },
+    "i64.eq": { args: ["i64", "i64"], result: "bool", comparison: "eq" },
+    "i64.ne": { args: ["i64", "i64"], result: "bool", comparison: "ne" },
+    "i64.lt_s": { args: ["i64", "i64"], result: "bool", comparison: "lt_s" },
+    "i64.le_s": { args: ["i64", "i64"], result: "bool", comparison: "le_s" },
+    "i64.gt_s": { args: ["i64", "i64"], result: "bool", comparison: "gt_s" },
+    "i64.ge_s": { args: ["i64", "i64"], result: "bool", comparison: "ge_s" },
+    "i64.to_i32_checked": { args: ["i64"], result: "i32", checked: "to_i32" },
+    "i32.to_i64": { args: ["i32"], result: "i64" },
+    "f32.to_f64": { args: ["f32"], result: "f64" },
+    "f64.to_f32_checked": { args: ["f64"], result: "f32" }
+  };
+  const signature = signatures[operation.op];
+  if (!signature || !Array.isArray(operation.args) || operation.args.length !== signature.args.length) {
+    throw new VerificationError(`air.numeric.operation_invalid: '${operation.op}'`, loc);
+  }
+  if (v051TypeBase(expected) !== signature.result) throw new VerificationError(`air.v051.typed_atom_type_mismatch: '${operation.op}'`, loc);
+  for (let index = 0; index < signature.args.length; index += 1) {
+    verifyV051TypedAtom(operation.args[index], parseTypeReference(signature.args[index]), locals, declarations, loc);
+  }
+  if (!signature.checked && !signature.comparison) return undefined;
+  const values = operation.args.map((argument) => v051StaticI64Value(argument, locals, staticValues));
+  if (values.some((value) => value === undefined)) return undefined;
+  if (signature.comparison) return evaluateV051I64Comparison(signature.comparison, values);
+  return evaluateV051CheckedI64(signature.checked, values, loc);
+}
+
+function evaluateV051I64Comparison(operation, values) {
+  const [left, right] = values;
+  if (operation === "eq") return left === right;
+  if (operation === "ne") return left !== right;
+  if (operation === "lt_s") return left < right;
+  if (operation === "le_s") return left <= right;
+  if (operation === "gt_s") return left > right;
+  if (operation === "ge_s") return left >= right;
+  throw new VerificationError(`air.numeric.operation_invalid: 'i64.${operation}'`);
+}
+
+function v051StaticScalarValue(value, expected, staticValues) {
+  const text = String(value || "").trim();
+  if (/^%[A-Za-z_][A-Za-z0-9_]*$/.test(text)) return staticValues.get(text.slice(1));
+  if (expected.canonical === "i64" && /^-?(0|[1-9][0-9]*)$/.test(text)) return BigInt(text);
+  if (v051TypeBase(expected) === "i32" && /^-?(0|[1-9][0-9]*)$/.test(text)) return Number(text);
+  return undefined;
+}
+
+function v051StaticI64Value(value, locals, staticValues) {
+  const text = String(value || "").trim();
+  if (/^%[A-Za-z_][A-Za-z0-9_]*$/.test(text)) {
+    return locals.get(text.slice(1)) === "i64" && typeof staticValues.get(text.slice(1)) === "bigint"
+      ? staticValues.get(text.slice(1))
+      : undefined;
+  }
+  return /^-?(0|[1-9][0-9]*)$/.test(text) ? BigInt(text) : undefined;
+}
+
+function evaluateV051CheckedI64(operation, values, loc) {
+  const min = -9223372036854775808n;
+  const max = 9223372036854775807n;
+  const [left, right] = values;
+  let result;
+  if (operation === "add") result = left + right;
+  else if (operation === "sub") result = left - right;
+  else if (operation === "mul") result = left * right;
+  else if (operation === "neg") result = -left;
+  else if (operation === "div_s") {
+    if (right === 0n) throw new VerificationError("air.numeric.checked_failure: division_by_zero", loc);
+    if (left === min && right === -1n) throw new VerificationError("air.numeric.checked_failure: overflow", loc);
+    result = left / right;
+  } else if (operation === "rem_s") {
+    if (right === 0n) throw new VerificationError("air.numeric.checked_failure: division_by_zero", loc);
+    result = left === min && right === -1n ? 0n : left % right;
+  } else if (operation === "to_i32") {
+    if (left < -2147483648n || left > 2147483647n) throw new VerificationError("air.numeric.checked_failure: invalid_conversion", loc);
+    return Number(left);
+  } else {
+    throw new VerificationError(`air.numeric.operation_invalid: '${operation}'`, loc);
+  }
+  if (result < min || result > max) throw new VerificationError("air.numeric.checked_failure: overflow", loc);
+  return result;
+}
+
+function parseV051TypedMatchPattern(pattern, subjectType, declarations, loc) {
+  const value = String(pattern || "").trim();
+  if (subjectType.kind === "enum") {
+    const patternMatch = value.match(/^([A-Z][A-Za-z0-9_]*)\.([A-Za-z_][A-Za-z0-9_]*)$/);
+    const declaration = declarations.get(subjectType.canonical);
+    const typeName = subjectType.canonical.slice(subjectType.canonical.lastIndexOf("::") + 2);
+    if (!patternMatch || patternMatch[1] !== typeName || !declaration.cases.some((entry) => entry.name === patternMatch[2])) throw new VerificationError(`air.decision.match_arm_invalid: '${value}'`, loc);
+    return { binding: null, bindingType: null, key: patternMatch[2] };
+  }
+  if (subjectType.kind === "option") {
+    if (value === "none") return { binding: null, bindingType: null, key: "none" };
+    const some = value.match(/^some\(([A-Za-z_][A-Za-z0-9_]*)\)$/);
+    if (!some) throw new VerificationError(`air.decision.match_arm_invalid: '${value}'`, loc);
+    return { binding: some[1], bindingType: subjectType.payload.canonical, key: "some" };
+  }
+  if (subjectType.kind === "result") {
+    const wrapped = value.match(/^(ok|err)\(([A-Za-z_][A-Za-z0-9_]*)\)$/);
+    if (!wrapped) throw new VerificationError(`air.decision.match_arm_invalid: '${value}'`, loc);
+    return { binding: wrapped[2], bindingType: wrapped[1] === "ok" ? subjectType.payload.canonical : subjectType.error.canonical, key: wrapped[1] };
+  }
+  throw new VerificationError("air.decision.match_type_unsupported: match requires enum, option, or result", loc);
+}
+
+function verifyV051TypedAtom(value, expected, locals, declarations, loc) {
+  const text = String(value || "").trim();
+  if (!text) throw new VerificationError("air.v051.typed_atom_invalid", loc);
+  if (/^%[A-Za-z_][A-Za-z0-9_]*$/.test(text)) {
+    const local = locals.get(text.slice(1));
+    if (!local) throw new VerificationError(`air.v051.local_unknown: '${text}'`, loc);
+    if (local !== expected.canonical) throw new VerificationError(`air.v051.typed_atom_type_mismatch: '${text}'`, loc);
+    return expected;
+  }
+  if (text === "true" || text === "false") {
+    if (expected.canonical !== "bool") throw new VerificationError(`air.v051.typed_atom_type_mismatch: '${text}'`, loc);
+    return expected;
+  }
+  if (/^-?(0|[1-9][0-9]*)$/.test(text)) {
+    if (v051TypeBase(expected) === "i32" && Number.isSafeInteger(Number(text)) && Number(text) >= -2147483648 && Number(text) <= 2147483647) return expected;
+    if (expected.canonical === "i64") {
+      const exact = BigInt(text);
+      if (exact >= -9223372036854775808n && exact <= 9223372036854775807n) return expected;
+      throw new VerificationError(`air.numeric.i64_constant_out_of_range: '${text}'`, loc);
+    }
+    throw new VerificationError(`air.v051.typed_atom_type_mismatch: '${text}'`, loc);
+  }
+  if (/^-?(?:0|[1-9][0-9]*)(?:\.[0-9]+)?(?:[eE][+-]?[0-9]+)?$/.test(text)) {
+    const numeric = Number(text);
+    if (expected.canonical === "f64" && Number.isFinite(numeric)) return expected;
+    if (expected.canonical === "f32" && Number.isFinite(numeric) && Number.isFinite(Math.fround(numeric))) return expected;
+    throw new VerificationError(`air.v051.typed_atom_type_mismatch: '${text}'`, loc);
+  }
+  const option = text.match(/^option\.(none|some)<(.+)>\s*(.*)$/);
+  if (option) {
+    if (expected.kind !== "option") throw new VerificationError(`air.v051.typed_atom_type_mismatch: '${text}'`, loc);
+    let payload;
+    try { payload = parseTypeReference(option[2]).canonical; } catch { throw new VerificationError(`air.v051.typed_constructor_type_mismatch: '${text}'`, loc); }
+    if (payload !== expected.payload.canonical) throw new VerificationError(`air.v051.typed_constructor_type_mismatch: '${text}'`, loc);
+    if (option[1] === "none") {
+      if (option[3]) throw new VerificationError(`air.v051.typed_constructor_invalid: '${text}'`, loc);
+      return expected;
+    }
+    if (!option[3]) throw new VerificationError(`air.v051.typed_constructor_invalid: '${text}'`, loc);
+    verifyV051TypedAtom(option[3], expected.payload, locals, declarations, loc);
+    return expected;
+  }
+  const result = text.match(/^result\.(ok|err)<(.+)>\s+(.+)$/);
+  if (result) {
+    if (expected.kind !== "result") throw new VerificationError(`air.v051.typed_atom_type_mismatch: '${text}'`, loc);
+    const parts = splitV051TypeArguments(result[2]);
+    if (!parts || parts.length !== 2 || parts[0] !== expected.payload.canonical || parts[1] !== expected.error.canonical) {
+      throw new VerificationError(`air.v051.typed_constructor_type_mismatch: '${text}'`, loc);
+    }
+    if (result[1] === "ok") {
+      verifyV051TypedAtom(result[3], expected.payload, locals, declarations, loc);
+      return expected;
+    }
+    if (result[1] === "err") {
+      verifyV051TypedAtom(result[3], expected.error, locals, declarations, loc);
+      return expected;
+    }
+    throw new VerificationError(`air.v051.typed_atom_type_mismatch: '${text}'`, loc);
+  }
+  const enumLiteral = text.match(/^([a-z][a-z0-9._-]{0,127}::)?([A-Z][A-Za-z0-9_]*)\.([A-Za-z_][A-Za-z0-9_]*)$/);
+  if (enumLiteral && expected.kind === "enum") {
+    const typeName = expected.canonical.slice(expected.canonical.lastIndexOf("::") + 2);
+    const declaration = declarations.get(expected.canonical);
+    const enumModule = enumLiteral[1] ? enumLiteral[1].slice(0, -2) : expected.moduleId;
+    if (enumModule === expected.moduleId && enumLiteral[2] === typeName && declaration && declaration.cases.some((entry) => entry.name === enumLiteral[3])) return expected;
+  }
+  throw new VerificationError(`air.v051.typed_atom_invalid: '${text}'`, loc);
+}
+
+function splitV051TypeArguments(value) {
+  const parts = [];
+  let depth = 0;
+  let start = 0;
+  for (let index = 0; index < value.length; index += 1) {
+    if (value[index] === "<") depth += 1;
+    else if (value[index] === ">") depth -= 1;
+    else if (value[index] === "," && depth === 0) {
+      parts.push(value.slice(start, index));
+      start = index + 1;
+    }
+  }
+  if (depth !== 0) return null;
+  parts.push(value.slice(start));
+  return parts;
 }
 
 function assertRealtimeSafeProfile(mod, profile, certificate) {
@@ -4041,5 +4391,9 @@ module.exports = {
   stableCertificateStringify,
   assertWasmTargetSupport,
   validateVerifiedResourceCertificate,
-  verifyModule
+  verifyModule,
+  verifyV051Air,
+  checkAbi012Candidate,
+  createDecisionEvidence,
+  deriveEffectiveAuthority
 };

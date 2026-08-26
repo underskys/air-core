@@ -6,6 +6,11 @@ const {
   SUPPORTED_AIR_ABI_VERSIONS
 } = require("./version");
 const { listHostProfileIds } = require("./host_profiles");
+const {
+  ABI_012,
+  isCandidateAbi012,
+  validateTypedPackageBinding
+} = require("./typed_interface");
 
 const PACKAGE_MANIFEST_FILE = "air.package.json";
 const HOST_ABI_VERSION = "0.10";
@@ -68,6 +73,7 @@ function validatePackageManifest(packageDir, options = {}) {
     resourceCertificate: null,
     provenanceFlow: null,
     executionProfile: null,
+    typedInterface: null,
     manifests: {},
     warnings,
     errors
@@ -84,7 +90,7 @@ function validatePackageManifest(packageDir, options = {}) {
   result.airAbi = validateRequiredString(manifest.airAbi, "airAbi", errors);
   result.hostAbi = validateRequiredString(manifest.hostAbi, "hostAbi", errors);
 
-  if (result.airAbi && !SUPPORTED_AIR_ABI_VERSIONS.includes(result.airAbi)) {
+  if (result.airAbi && !SUPPORTED_AIR_ABI_VERSIONS.includes(result.airAbi) && !isCandidateAbi012(result.airAbi)) {
     errors.push(`unsupported airAbi ${JSON.stringify(result.airAbi)}; expected one of ${SUPPORTED_AIR_ABI_VERSIONS.join(", ")}`);
   }
   if (result.hostAbi && !SUPPORTED_HOST_ABI_VERSIONS.has(result.hostAbi)) {
@@ -219,6 +225,10 @@ function validatePackageManifest(packageDir, options = {}) {
     result.executionProfile = validateExecutionProfile(manifest.executionProfile, errors);
   }
 
+  if (manifest.typedInterface !== undefined && result.airAbi !== ABI_012) {
+    errors.push("typedInterface is forbidden unless airAbi is 0.12 candidate");
+  }
+
   if (manifest.manifests !== undefined) {
     if (!manifest.manifests || typeof manifest.manifests !== "object" || Array.isArray(manifest.manifests)) {
       errors.push("manifests must be an object when present");
@@ -237,6 +247,25 @@ function validatePackageManifest(packageDir, options = {}) {
           };
           if (!result.manifests[key].exists) warnings.push(`manifest path does not exist yet: ${manifestRef.relative}`);
         }
+      }
+    }
+  }
+
+  if (result.airAbi === ABI_012) {
+    if (!options.allowCandidateAbi012) {
+      errors.push("air.v051.abi_candidate_disabled: AIR ABI 0.12 is candidate-only and disabled");
+    } else if (!errors.length) {
+      try {
+        const binding = validateTypedPackageBinding(manifest, base, {
+          allowCandidateAbi012: true
+        });
+        result.typedInterface = {
+          descriptorDigest: binding.descriptorDigest,
+          entryExport: manifest.typedInterface.entryExport,
+          manifestDigest: binding.manifestDigest
+        };
+      } catch (err) {
+        errors.push(err && err.message ? err.message : String(err));
       }
     }
   }
@@ -275,6 +304,7 @@ function normalizePackageMetadata(raw) {
     resourceCertificate: normalizeResourceCertificatePolicy(metadata.resourceCertificate),
     provenanceFlow: normalizeProvenanceFlowPolicy(metadata.provenanceFlow),
     executionProfile: normalizeExecutionProfile(metadata.executionProfile),
+    typedInterface: metadata.typedInterface || null,
     manifests,
     manifest: metadata.manifest || (manifests.gfx && manifests.gfx.path) || null,
     imports: Array.isArray(metadata.imports) ? metadata.imports.slice() : [],

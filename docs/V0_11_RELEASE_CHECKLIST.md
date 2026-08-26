@@ -420,7 +420,7 @@ node scripts/check_abi_requests.js
 - Owner layer: docs
 - Evidence files:
   - [scripts/make_demo_review_bundle.sh](../scripts/make_demo_review_bundle.sh)
-  - [demo/README.md](../demo/README.md)
+  - Demo source remains outside the public Core export.
   - [abi-requests.md](abi-requests.md)
   - [abi-requests/voxel-demo.md](abi-requests/voxel-demo.md)
   - [abi-requests/contra-platformer.md](abi-requests/contra-platformer.md)

@@ -69,6 +69,10 @@ const HOST_SIGNATURES = new Map([
   ["output.emit", { params: ["i32", "i32", "i32", "i32", "i32"], returnType: "i32" }]
 ]);
 
+// The candidate typed-interface lane intentionally reuses an already shipped
+// Host ABI lane. It must not be mistaken for a new public Host ABI release.
+const EXISTING_HOST_ABI_LANES = new Set(["0.10", "0.11"]);
+
 const STRICT_HOST_MODULES = new Set(["debug", "device", "fs", "net", "time", "random", "audio", "io", "gfx", "ui", "gpu", "input", "output", "stdio"]);
 
 const GPU_SIGNATURES = signaturesForCapability("gpu");
@@ -81,6 +85,10 @@ function hostSignature(name) {
 function isStrictHostModule(name) {
   const idx = name.indexOf(".");
   return idx > 0 && STRICT_HOST_MODULES.has(name.slice(0, idx));
+}
+
+function isExistingHostAbiLane(value) {
+  return EXISTING_HOST_ABI_LANES.has(value);
 }
 
 function hostSignaturesForCapability(capability) {
@@ -101,8 +109,10 @@ module.exports = {
   STRICT_HOST_MODULES,
   GPU_SIGNATURES,
   INPUT_SIGNATURES,
+  EXISTING_HOST_ABI_LANES,
   hostSignature,
   hostSignaturesForCapability,
   hostFunctionNamesForCapability,
-  isStrictHostModule
+  isStrictHostModule,
+  isExistingHostAbiLane
 };

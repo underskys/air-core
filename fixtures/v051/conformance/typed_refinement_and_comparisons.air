@@ -1,0 +1,37 @@
+module example.frozen_conformance
+
+export func refined_sum(left: i64, right: i64) -> i32<0..10> {
+  %sum: i64 = i64.checked_add %left, %right
+  %out: i32<0..10> = i64.to_i32_checked %sum
+  return %out
+}
+
+export func compare_eq(left: i64, right: i64) -> bool {
+  %out: bool = i64.eq %left, %right
+  return %out
+}
+
+export func compare_ne(left: i64, right: i64) -> bool {
+  %out: bool = i64.ne %left, %right
+  return %out
+}
+
+export func compare_lt(left: i64, right: i64) -> bool {
+  %out: bool = i64.lt_s %left, %right
+  return %out
+}
+
+export func compare_le(left: i64, right: i64) -> bool {
+  %out: bool = i64.le_s %left, %right
+  return %out
+}
+
+export func compare_gt(left: i64, right: i64) -> bool {
+  %out: bool = i64.gt_s %left, %right
+  return %out
+}
+
+export func compare_ge(left: i64, right: i64) -> bool {
+  %out: bool = i64.ge_s %left, %right
+  return %out
+}

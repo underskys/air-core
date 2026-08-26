@@ -5,6 +5,7 @@ const { inspectAirpkg, stableStringify } = require("./airpkg");
 const { loadHostProfile } = require("./host_profiles");
 const { normalizeDiagnostic, sortDiagnostics } = require("./diagnostics");
 const { validateVerifiedResourceCertificate } = require("./verifier");
+const { isCandidateAbi012 } = require("./typed_interface");
 
 const BUNDLE_SCHEMA_VERSION = "0.17";
 const BUNDLE_KIND = "air.targetBundle";
@@ -27,6 +28,9 @@ function createTargetBundle(airpkgInput, outDir, options = {}) {
   const airpkgPath = resolveAirpkgInput(airpkgInput);
   const airpkgDir = path.dirname(airpkgPath);
   const artifact = inspectAirpkg(airpkgPath);
+  if (isCandidateAbi012(artifact?.abi?.airAbiRequired)) {
+    throw new Error("air.bundle.candidate_unsupported: AIR ABI 0.12 candidate artifacts require the unpacked reference checker");
+  }
   const profileId = artifact.hostProfiles?.checked || defaultProfileForTarget(target);
   const profile = loadHostProfile(profileId);
   const output = path.resolve(outDir);
@@ -357,6 +361,12 @@ function validateNoTimestampFields(value, diagnostics, checks) {
 }
 
 function validateRuntimeBoundary(bundle, diagnostics, checks) {
+  if (isCandidateAbi012(bundle?.abi?.airAbiRequired)) {
+    addBundleDiagnostic(diagnostics, checks, "air.bundle.candidate_unsupported", "AIR ABI 0.12 candidate bundles are not admitted", {
+      field: "abi.airAbiRequired",
+      repairHint: "use the unpacked candidate package/interface checker"
+    });
+  }
   const runtimeRequires = bundle?.boundary?.runtimeRequires;
   if (!Array.isArray(runtimeRequires)) {
     addBundleDiagnostic(diagnostics, checks, "air.bundle.schema_invalid", "boundary.runtimeRequires must be an array", {

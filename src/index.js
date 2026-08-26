@@ -36,5 +36,6 @@ module.exports = {
   ...require("./sdk"),
   ...require("./run_package"),
   ...require("./host_abi"),
-  ...require("./lower_wasm")
+  ...require("./lower_wasm"),
+  ...require("./v051_reference")
 };

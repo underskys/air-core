@@ -2,6 +2,7 @@ const crypto = require("crypto");
 const fs = require("fs");
 const path = require("path");
 const { AIR_ABI_VERSION } = require("./version");
+const { isCandidateAbi012 } = require("./typed_interface");
 const { checkPackageDir, reportPackageDir } = require("./sdk");
 const { createPackageLinkPlan } = require("./link_plan");
 const { createHostProfileReport, loadHostProfile } = require("./host_profiles");
@@ -200,6 +201,13 @@ function validateAirpkgAbi(artifact, diagnostics, checks) {
     addArtifactDiagnostic(diagnostics, checks, "air.artifact.schema_invalid", "abi.airAbiRequired is required", {
       field: "abi.airAbiRequired",
       repairHint: "regenerate the artifact with AIR ABI metadata"
+    });
+  } else if (isCandidateAbi012(airAbi)) {
+    addArtifactDiagnostic(diagnostics, checks, "air.artifact.candidate_unsupported", "AIR ABI 0.12 candidate artifacts are not admitted by .airpkg transport", {
+      field: "abi.airAbiRequired",
+      expected: AIR_ABI_VERSION,
+      actual: airAbi,
+      repairHint: "use the unpacked candidate package/interface checker"
     });
   } else if (airAbi !== AIR_ABI_VERSION) {
     addArtifactDiagnostic(diagnostics, checks, "air.artifact.profile_mismatch", `AIR ABI ${airAbi} is not supported by this tool (${AIR_ABI_VERSION})`, {

@@ -102,6 +102,7 @@ const allowedExact = new Set([
   "docs/RELEASE_NOTES_0_50_0.md",
   "docs/RELEASE_NOTES_0_50_1.md",
   "docs/RELEASE_NOTES_0_50_2.md",
+  "docs/RELEASE_NOTES_0_51_0.md",
   "package.json",
   "package-lock.json"
 ]);
@@ -109,6 +110,7 @@ const allowedExact = new Set([
 const allowedPrefixes = [
   "bin/",
   "data/host_profiles/",
+  "fixtures/v051/",
   "src/",
   "spec/",
   "stdlib/",

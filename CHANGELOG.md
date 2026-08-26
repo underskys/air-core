@@ -9,6 +9,32 @@ compact format:
 - Security
 - Breaking / Migration
 
+## v0.51.0-alpha - Frozen Typed Decisions Candidate
+
+### Added
+
+- Frozen `v0.51` reference substrate: canonical typed values, candidate typed
+  interface validation, checked numeric runtime coverage, typed Wasm ingress
+  validation, and machine-readable conformance runners.
+- A product-neutral AIRSwift conformance host and Golden AI Gate examples for
+  bounded host-admission pressure testing.
+
+### Changed
+
+- Existing AIR ABI `0.10` and `0.11` behavior remains supported.
+- AIR ABI `0.12` typed decisions is a candidate lane, disabled by default and
+  available only through the explicit `allowCandidateAbi012: true` option.
+
+### Security
+
+- Candidate typed interfaces and unsupported `.airpkg` candidate transport
+  paths fail closed. This is not an enforcement or Host ABI release.
+
+### Breaking / Migration
+
+- The candidate typed-decisions surface may change before `v1.0`. Frozen
+  `v0.51` semantics are versioned by specification, not npm patch releases.
+
 ## v0.50.2 - Public Identity Correction
 
 ### Changed
