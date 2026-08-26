@@ -525,7 +525,7 @@ is_included() {
     stdlib/*.air|stdlib/**/*.air) return 0 ;;
     swift/AIRSwift/*.md|swift/AIRSwift/**/*.md|swift/AIRSwift/**/*.swift) return 0 ;;
     kits/*.md|kits/**/*.md|kits/**/*.air|kits/**/*.json|kits/**/*.wgsl) return 0 ;;
-    examples/*.air|examples/**/*.air|examples/*.json|examples/**/*.json|examples/*.md|examples/**/*.md|examples/*.mjs|examples/**/*.mjs|examples/tool_gate/*.js) return 0 ;;
+    examples/*.air|examples/**/*.air|examples/*.json|examples/**/*.json|examples/*.md|examples/**/*.md|examples/*.js|examples/**/*.js|examples/*.mjs|examples/**/*.mjs) return 0 ;;
     examples/**/*.wgsl|examples/**/assets/*.gltf|examples/**/assets/*.glb|examples/**/assets/*.svg|examples/**/assets/*.json) return 0 ;;
     examples/package_manifest/assets/*|examples/package_manifest/assets/**/*) return 0 ;;
     examples/assets/audio/*|examples/assets/audio/**/*|examples/assets/models/*|examples/assets/rigs/*|examples/assets/sprites/*|examples/assets/textures/*) return 0 ;;
