@@ -1,5 +1,9 @@
 # AIR
 
+<p align="center">
+  <img src="https://gitlab.com/fd.skyrealm/air-core/-/raw/main/assets/air-mark.png" alt="AIR logo" width="144">
+</p>
+
 **Created and directed by [Dmitriy Shtro](https://www.linkedin.com/in/dmitrii-sky-64024810a/?skipRedirect=true).**
 
 **Creator and maintainer:** Dmitriy Shtro. AIR is an independent open-source

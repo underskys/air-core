@@ -98,6 +98,7 @@ const allowedExact = new Set([
   "THREAT_MODEL.md",
   "VERSIONING.md",
   "WHY_AIR.md",
+  "assets/air-mark.png",
   "docs/README.md",
   "docs/RELEASE_NOTES_0_50_0.md",
   "docs/RELEASE_NOTES_0_50_1.md",
