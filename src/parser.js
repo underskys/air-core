@@ -1017,9 +1017,15 @@ function parseOp(text, loc, resultType = null) {
 
   const brIf = text.match(/^br_if\s+([^,]+)\s*,\s*([A-Za-z_][A-Za-z0-9_]*)\s*,\s*([A-Za-z_][A-Za-z0-9_]*)$/);
   if (brIf) return { op: "br_if", args: [parseAtom(brIf[1].trim())], labels: [brIf[2], brIf[3]] };
+  if (/^br_if\b/.test(text)) {
+    throw new AirError("air.control.br_if_syntax_invalid: expected br_if <bool>, <then-label>, <else-label>", loc);
+  }
 
   const br = text.match(/^br\s+([A-Za-z_][A-Za-z0-9_]*)$/);
   if (br) return { op: "br", labels: [br[1]], args: [] };
+  if (/^br\b/.test(text)) {
+    throw new AirError("air.control.br_syntax_invalid: expected br <label>", loc);
+  }
 
   const tablegroupGet = text.match(/^(tablegroup\.get\.(?:i32|bool))\s+@([A-Za-z_][A-Za-z0-9_]*)\.([A-Za-z_][A-Za-z0-9_]*)\s*,\s*(.+)$/);
   if (tablegroupGet) {

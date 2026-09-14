@@ -1,0 +1,40 @@
+module v052.g2.numeric
+
+export func i64_checked_add(left: i64, right: i64) -> i64 {
+  %out: i64 = i64.checked_add %left, %right
+  return %out
+}
+
+export func i64_checked_sub(left: i64, right: i64) -> i64 {
+  %out: i64 = i64.checked_sub %left, %right
+  return %out
+}
+
+export func i64_checked_mul(left: i64, right: i64) -> i64 {
+  %out: i64 = i64.checked_mul %left, %right
+  return %out
+}
+
+export func i64_checked_div(left: i64, right: i64) -> i64 {
+  %out: i64 = i64.checked_div_s %left, %right
+  return %out
+}
+
+export func f64_identity(value: f64) -> f64 {
+  return %value
+}
+
+export func f64_negative_zero() -> f64 {
+  %out: f64 = -0.0
+  return %out
+}
+
+export func f32_to_f64(value: f32) -> f64 {
+  %out: f64 = f32.to_f64 %value
+  return %out
+}
+
+export func f64_to_f32_checked(value: f64) -> f32 {
+  %out: f32 = f64.to_f32_checked %value
+  return %out
+}

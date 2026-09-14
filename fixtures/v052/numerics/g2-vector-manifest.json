@@ -1,0 +1,52 @@
+{
+  "schema": "air.v052.g2.deterministic-numerics-experiment.v1",
+  "task_id": "AIR-0052-G2-DETERMINISTIC-NUMERICS-EXPERIMENT-0001",
+  "oracle": {
+    "id": "g2-bigint-rational-oracle-v1",
+    "integer_authority": "JavaScript BigInt and normalized numerator/denominator pairs only",
+    "forbidden": ["JavaScript Number as integer or scaled-value oracle", "implicit wrapping", "implicit clamping"]
+  },
+  "vector_families": ["F64", "U64", "S32", "S64", "RESCALE", "ROUND", "OVERFLOW", "PARITY"],
+  "f64": [
+    {"id": "F64-01", "case": "positive zero identity", "rule_class": "ALREADY_FROZEN"},
+    {"id": "F64-02", "case": "negative zero identity", "rule_class": "ALREADY_FROZEN"},
+    {"id": "F64-03", "case": "finite normal identity", "rule_class": "ALREADY_FROZEN"},
+    {"id": "F64-04", "case": "smallest subnormal identity", "rule_class": "PROFILE_ONLY_CANDIDATE"},
+    {"id": "F64-05", "case": "smallest normal identity", "rule_class": "PROFILE_ONLY_CANDIDATE"},
+    {"id": "F64-06", "case": "largest finite identity", "rule_class": "PROFILE_ONLY_CANDIDATE"},
+    {"id": "F64-07", "case": "infinity identity", "rule_class": "PROFILE_ONLY_CANDIDATE"},
+    {"id": "F64-08", "case": "NaN classification only", "rule_class": "ALREADY_FROZEN"},
+    {"id": "F64-09", "case": "source negative-zero literal", "rule_class": "ALREADY_FROZEN"},
+    {"id": "F64-10", "case": "f32 to f64 exact promotion", "rule_class": "ALREADY_FROZEN"},
+    {"id": "F64-11", "case": "f64 to f32 checked exact conversion", "rule_class": "ALREADY_FROZEN"},
+    {"id": "F64-12", "case": "f64 to f32 checked lossy conversion rejection", "rule_class": "ALREADY_FROZEN"},
+    {"id": "F64-13", "case": "f64 arithmetic rounding probe", "rule_class": "CORE_CHANGE_REQUIRED"},
+    {"id": "F64-14", "case": "f64 division rounding probe", "rule_class": "CORE_CHANGE_REQUIRED"},
+    {"id": "F64-15", "case": "f64 overflow probe", "rule_class": "UNSAFE_OR_AMBIGUOUS"},
+    {"id": "F64-16", "case": "f64 underflow probe", "rule_class": "UNSAFE_OR_AMBIGUOUS"}
+  ],
+  "scaled": [
+    {"id": "S64-01", "case": "same-scale add at 10^3", "scale": "1000"},
+    {"id": "S64-02", "case": "same-scale subtraction at 10^3", "scale": "1000"},
+    {"id": "S64-03", "case": "multiply then explicit rescale at 10^3", "scale": "1000"},
+    {"id": "S64-04", "case": "division with explicit numerator scaling at 10^3", "scale": "1000"},
+    {"id": "S64-05", "case": "positive rescale truncates toward zero", "scale": "1000"},
+    {"id": "S64-06", "case": "negative rescale truncates toward zero", "scale": "1000"},
+    {"id": "S64-07", "case": "intermediate multiplication overflow", "scale": "1000"},
+    {"id": "S64-08", "case": "INT64_MIN divided by negative one", "scale": "1000"},
+    {"id": "S64-09", "case": "same operations at 10^6", "scale": "1000000"},
+    {"id": "S32-01", "case": "same-scale add at 10^3", "scale": "1000"},
+    {"id": "S32-02", "case": "overflow wraps in existing i32 execution", "scale": "1000"},
+    {"id": "S32-03", "case": "INT32_MIN divided by negative one traps without AIR numeric identity", "scale": "1000"},
+    {"id": "RESCALE-01", "case": "10^3 to 10^6 requires an unrepresented scale transformation"},
+    {"id": "RESCALE-02", "case": "10^6 to 10^3 requires a rounding policy not carried by i64"},
+    {"id": "ROUND-01", "case": "positive 1.5 rescale candidate comparison"},
+    {"id": "ROUND-02", "case": "negative -1.5 rescale candidate comparison"}
+  ],
+  "u64": [
+    {"id": "U64-01", "case": "bounded counters and work counts", "existing_safe_representation": "checked i64 plus verifier-visible bound"},
+    {"id": "U64-02", "case": "sizes below signed range", "existing_safe_representation": "i32 or checked i64"},
+    {"id": "U64-03", "case": "bit-mask proposal", "existing_safe_representation": "bounded signed integer only when sign bit is excluded; otherwise evidence is insufficient"},
+    {"id": "U64-04", "case": "artifact or state identifier", "existing_safe_representation": "canonical byte/string digest"}
+  ]
+}

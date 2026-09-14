@@ -1,0 +1,7 @@
+module public_compat
+capabilities { }
+
+export func echo(value: i32) -> i32 {
+entry:
+  return %value
+}

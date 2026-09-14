@@ -1,0 +1,49 @@
+{
+  "air_abi_lane": "0.12",
+  "exports": [
+    {
+      "function": "decide",
+      "name": "decide",
+      "parameters": [
+        { "name": "sequence", "type": "i64" },
+        { "name": "action", "type": "ops.policy::Action" }
+      ],
+      "return_type": "result<ops.policy::Admission,ops.policy::PolicyError>"
+    },
+    {
+      "function": "roundtrip_sequence",
+      "name": "roundtrip_sequence",
+      "parameters": [
+        { "name": "sequence", "type": "i64" }
+      ],
+      "return_type": "i64"
+    }
+  ],
+  "module_id": "ops.policy",
+  "schema": "air.typed-interface/0.12-candidate.1",
+  "types": [
+    {
+      "cases": [
+        { "discriminant": 0, "name": "pause" },
+        { "discriminant": 1, "name": "resume" }
+      ],
+      "kind": "enum",
+      "type_id": "ops.policy::Action"
+    },
+    {
+      "cases": [
+        { "discriminant": 0, "name": "deny" },
+        { "discriminant": 1, "name": "allow" }
+      ],
+      "kind": "enum",
+      "type_id": "ops.policy::Admission"
+    },
+    {
+      "cases": [
+        { "discriminant": 7, "name": "invalid" }
+      ],
+      "kind": "error_enum",
+      "type_id": "ops.policy::PolicyError"
+    }
+  ]
+}

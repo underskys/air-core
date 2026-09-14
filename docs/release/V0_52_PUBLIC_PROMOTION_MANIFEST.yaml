@@ -1,0 +1,32 @@
+schema: air.public-promotion-manifest/1
+milestone: v0.52
+public_package: "@underskys/air-core@0.52.0"
+status: CANDIDATE_AWAITING_INDEPENDENT_QA
+private_source:
+  repository: fd.skyrealm/airlang
+  branch: impl/air-v0.52-rc
+  commit: a95449137196778b37479287b32371590becc18f
+  tree: 742b109c29be5920f9d133ea20bc82f0b105cc72
+public_target:
+  repository: fd.skyrealm/air-core
+  base_commit: 7ec883e9748b7d4c60bd4057e4769b9fea3d9739
+  base_tree: a4194c181db2161f857dc6258a2ef2928302c3ef
+  branch: release/air-v0.52-candidate
+included_classes:
+  - public parser, verifier and CLI source-profile changes
+  - verified typed build and generic runtime implementation
+  - product-neutral v0.52 fixtures, runners and tests
+  - public package metadata, README, changelog and release notes
+excluded_classes:
+  - private review prompts, bundles and snapshots
+  - consumer and live-shadow evidence
+  - demo output and review placeholder images
+  - Swift build state and local caches
+authority_boundaries:
+  air_abi_012_candidate_only: true
+  host_abi_changed: false
+  production_effect_authority: false
+  merge_authorized: false
+  tag_authorized: false
+  publish_authorized: false
+  deploy_authorized: false

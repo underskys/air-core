@@ -1,0 +1,30 @@
+{
+  "schema": "air.test.public-reality-fixtures/1",
+  "authority": "test inputs and expected behavior only; no ABI or release approval",
+  "files": [
+    {
+      "path": "legacy.air",
+      "sha256": "58382ab71629adac97eb1430a1b77349287d1b1ead732ed082e365ae614c4940"
+    },
+    {
+      "path": "legacy_invalid.air",
+      "sha256": "37d75b62cba49f4df7a8c981928d0251220420452bd6c494df766ffce8d8cfe2"
+    },
+    {
+      "path": "limit.air",
+      "sha256": "5c9749e4e0093590bb222885259ccccb223343f170abfa2c92c9ce6bffd9d190"
+    },
+    {
+      "path": "limit.interface.json",
+      "sha256": "5e623d141815b8851f77cdcf2f114341df2a575d086141243ee34a98d48379f9"
+    },
+    {
+      "path": "panel.air",
+      "sha256": "2845494d555bc2b89ffea2384db114a34d9c76be9fc607e09f8230c749b3abc7"
+    },
+    {
+      "path": "panel.interface.json",
+      "sha256": "22d0c269df9b3bdd7b0c7798987cc1b0bed2fe5377830bd597908caf30786d5b"
+    }
+  ]
+}

@@ -102,6 +102,13 @@ node bin/airc.js build examples/public/bounded_execution/module.air --emit wasm 
 node bin/airc.js report package examples/public/evidence_report --json
 ```
 
+The v0.52 typed-source candidate is explicit and does not replace legacy AIR:
+
+```sh
+airc verify fixtures/v052/public_reality/limit.air --source-profile typed-v0.51
+airc build fixtures/v052/public_reality/limit.air --source-profile typed-v0.51 --emit wasm -o build/limit.wasm
+```
+
 Review workflow:
 
 ```sh
@@ -176,13 +183,15 @@ shipped as public Core package authority.
 | `@underskys/air-core@0.45.1` | Show HN presentation patch candidate | `0.10` | `0.11` latest, `0.10` baseline | `0.10` family | package presentation and release gates | README/package presentation fix only; no compiler, verifier, AIR ABI, Host ABI, or feature change. |
 | `@underskys/air-core@0.50.1` | published public presentation patch | `0.10`, with opt-in `0.11` borrowed slices | `0.10` | `0.50` public surface | repo test/conformance suite plus release gates | Public identity and documentation correction; no language or ABI change. |
 | `@underskys/air-core@0.50.2` | public identity correction candidate | `0.10`, with opt-in `0.11` borrowed slices | `0.10` | `0.50` public surface | release gates pending | Aligns package, CLI, and public documentation versions; no language or ABI change. |
-| `@underskys/air-core@0.51.0-alpha` | public alpha promotion candidate | `0.10` and `0.11` remain supported; `0.12` typed decisions is candidate-only | `0.10` and `0.11` unchanged | frozen `0.51` semantics | independent QA and publication pending | The typed-decisions surface requires explicit `allowCandidateAbi012: true`; it is not a stable ABI release. |
+| `@underskys/air-core@0.51.0` | published public release | `0.10` and `0.11` remain supported; `0.12` typed decisions is candidate-only | `0.10` and `0.11` unchanged | frozen `0.51` semantics | published package plus source conformance | The typed-decisions surface requires explicit `allowCandidateAbi012: true`; it is not a stable ABI release. |
+| `@underskys/air-core@0.52.0` | public RC candidate, not published | `0.10` and `0.11` remain supported; `0.12` remains candidate-only | `0.10` and `0.11` unchanged | explicit source profiles and verified typed runtime | S0-S4 accepted; S5 exact tarball QA pending | Legacy source remains the default. Typed-v0.51 and the generic pure runtime are explicit candidate surfaces, not production effect authority. |
 
 Current active milestone:
 
-- Current published public package: `@underskys/air-core@0.50.1`
-- npm `latest`: `0.50.1`
-- Next release candidate: `@underskys/air-core@0.51.0-alpha`
+- Current published public package: `@underskys/air-core@0.51.0`
+- npm `latest`: `0.51.0`
+- npm `alpha`: `0.51.0`
+- Next release candidate: `@underskys/air-core@0.52.0`
 - Install path: `npm install -g @underskys/air-core`
 - AIR ABI compatibility: existing `0.10` and `0.11` modules remain supported.
   Typed decisions are a candidate lane, AIR ABI `0.12`, enabled only by the
@@ -191,6 +200,11 @@ Current active milestone:
   releases.
 - Host ABI: `0.10` and `0.11` remain unchanged; `0.12` does not redefine the
   Host ABI.
+- Source profiles: omitted profile selects `legacy-v0.50`; typed source requires
+  explicit `typed-v0.51`. Unsupported profile values fail closed.
+- `run` and `runPackage` remain the legacy package-execution facade. The v0.52
+  `createVerifiedTypedRuntime` API is a separate pure typed-module runtime; its
+  host `admit` callback is rechecked and is not an AIR grant/effect mediator.
 - Active roadmap:
   [docs/V0_45_RELEASE_PLAN.md](https://gitlab.com/fd.skyrealm/air-core/-/blob/main/docs/V0_45_RELEASE_PLAN.md)
 - Feature status:
@@ -247,3 +261,4 @@ See [METHOD.md](https://gitlab.com/fd.skyrealm/air-core/-/blob/main/METHOD.md).
 - [Release Notes v0.50.1](https://gitlab.com/fd.skyrealm/air-core/-/blob/main/docs/RELEASE_NOTES_0_50_1.md)
 - [Release Notes v0.50.2](https://gitlab.com/fd.skyrealm/air-core/-/blob/main/docs/RELEASE_NOTES_0_50_2.md)
 - [Release Notes v0.51.0-alpha](https://gitlab.com/fd.skyrealm/air-core/-/blob/main/docs/RELEASE_NOTES_0_51_0.md)
+- [Release Notes v0.52.0 candidate](https://gitlab.com/fd.skyrealm/air-core/-/blob/main/docs/RELEASE_NOTES_0_52_0.md)

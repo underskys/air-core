@@ -9,6 +9,40 @@ compact format:
 - Security
 - Breaking / Migration
 
+## v0.52.0 - Verified Typed Runtime Candidate
+
+### Added
+
+- Explicit `legacy-v0.50` and `typed-v0.51` source profiles; the typed profile
+  must be selected explicitly.
+- Verified typed build/invoke and a process-local generic runtime with bounded
+  compilation, immutable module caching, fresh instances and host admission
+  rechecks on build and invocation.
+- Executable deterministic-numerics and hostile-pressure conformance evidence,
+  including portable cross-host HOLD classification.
+- Installed-package reality checks with exact tarball, lockfile integrity and
+  file-inventory verification.
+
+### Changed
+
+- Public package and CLI version are aligned at `0.52.0` for this candidate.
+- Stable diagnostics are exposed through `.code` on parser and verifier errors.
+
+### Security
+
+- Unknown source-command options, malformed deep descriptors, untrusted build
+  handles, stale runtime handles and revoked host admission fail closed.
+- AIR ABI `0.12` remains candidate-only. Host ABI `0.10` and `0.11` are
+  unchanged, and the runtime admission callback is not a CapabilityGrant or an
+  effect authorization implementation.
+
+### Breaking / Migration
+
+- Legacy source remains the default. Typed source requires
+  `--source-profile typed-v0.51` or the equivalent SDK option.
+- Typed-v0.51 is a finite subset and does not admit user calls, loops,
+  recursion, branches, imports or host effects.
+
 ## v0.51.0-alpha - Frozen Typed Decisions Candidate
 
 ### Added

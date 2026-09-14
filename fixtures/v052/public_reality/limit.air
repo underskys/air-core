@@ -1,0 +1,16 @@
+module public_limit
+
+export func within_business_limit(value: i64) -> bool {
+  %limit: i64 = 50
+  %out: bool = i64.le_s %value, %limit
+  return %out
+}
+
+export func echo(value: i64) -> i64 {
+  return %value
+}
+
+export func checked_add(left: i64, right: i64) -> i64 {
+  %out: i64 = i64.checked_add %left, %right
+  return %out
+}

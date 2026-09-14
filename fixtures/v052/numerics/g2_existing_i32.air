@@ -1,0 +1,20 @@
+module v052_g2_i32
+capabilities { }
+
+export func i32_add(left: i32, right: i32) -> i32 {
+entry:
+  %out:i32 = add %left, %right
+  return %out
+}
+
+export func i32_mul(left: i32, right: i32) -> i32 {
+entry:
+  %out:i32 = mul %left, %right
+  return %out
+}
+
+export func i32_div_s(left: i32, right: i32) -> i32 {
+entry:
+  %out:i32 = i32.div_s %left, %right
+  return %out
+}

@@ -33,6 +33,7 @@ const {
 } = require("./borrowed_slices");
 const { checkAbi012Candidate, createDecisionEvidence, deriveEffectiveAuthority } = require("./v051_reference");
 const { parseTypeReference } = require("./typed_interface");
+const { semanticDiagnosticCode } = require("./errors");
 
 const RESOURCE_CERTIFICATE_SCHEMA_VERSION = "1.0";
 const RESOURCE_CERTIFICATE_KIND = "air.verifiedResourceCertificate";
@@ -66,6 +67,8 @@ class VerificationError extends Error {
     super(loc ? `${loc.file}:${loc.line}: ${message}` : message);
     this.name = "VerificationError";
     this.loc = loc;
+    const code = semanticDiagnosticCode(message);
+    if (code) this.code = code;
   }
 }
 
