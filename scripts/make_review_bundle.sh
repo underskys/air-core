@@ -508,7 +508,7 @@ is_included() {
   case "$p" in
     AGENTS.md|README.md|WHY_AIR.md|METHOD.md|SECURITY.md|THREAT_MODEL.md|CONFORMANCE.md|SHOWCASE.md|VERSIONING.md|ROADMAP.md|CONTRIBUTING.md|CHANGELOG.md|LICENSE|NOTICE|NOTICE.md|AUTHORS|MOBILE_SUMMARY.md|REVIEW_REQUEST.md|CONSUMER_EVIDENCE_SUMMARY.md|package.json|package-lock.json|pnpm-lock.yaml|tsconfig.json|.gitlab-ci.yml|.gitignore|.npmignore) return 0 ;;
     REVIEW_RESULTS/*|REVIEW_RESULTS/**/*) return 0 ;;
-    spec/*.md|docs/*.md|docs/release/*.md|docs/release/*.json|docs/release/artifact_templates/*.md|docs/release/artifact_templates/*.json) return 0 ;;
+    spec/*.md|docs/*.md|docs/release/*.md|docs/release/*.json|docs/release/*.yaml|docs/release/artifact_templates/*.md|docs/release/artifact_templates/*.json) return 0 ;;
     review_artifacts/templates/*.md|review_artifacts/templates/*.json|schemas/review/*.json) return 0 ;;
     consumer_evidence/README.md|consumer_evidence/DEMO_REGISTRY.json|consumer_evidence/.gitignore) return 0 ;;
     consumer_evidence/schemas/*.json) return 0 ;;
@@ -523,6 +523,7 @@ is_included() {
     evals/ai_authoring/expected/constraints.json) return 0 ;;
     evals/ai_authoring/reports/README.md) return 0 ;;
     stdlib/*.air|stdlib/**/*.air) return 0 ;;
+    fixtures/v051/*|fixtures/v051/**/*|fixtures/v052/*|fixtures/v052/**/*) return 0 ;;
     swift/AIRSwift/*.md|swift/AIRSwift/**/*.md|swift/AIRSwift/**/*.swift) return 0 ;;
     kits/*.md|kits/**/*.md|kits/**/*.air|kits/**/*.json|kits/**/*.wgsl) return 0 ;;
     examples/*.air|examples/**/*.air|examples/*.json|examples/**/*.json|examples/*.md|examples/**/*.md|examples/*.js|examples/**/*.js|examples/*.mjs|examples/**/*.mjs) return 0 ;;
