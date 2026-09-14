@@ -32,6 +32,10 @@ Package candidate: `@underskys/air-core@0.52.0`
   do not substitute for it.
 - Consumer replay, live shadow and model-authoring benchmarks remain separate
   evidence lanes and are not implied by language or package conformance.
+- Broker-generation fencing is the only currently identified METR-derived
+  pressure item that may justify a future versioned Host Contract or
+  EffectReceipt proposal. No such change is authorized by this candidate:
+  `BROKER_GENERATION_HOST_CONTRACT_CHANGE_PREAUTHORIZED=false`.
 
 ## Candidate Verification
 

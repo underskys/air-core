@@ -23,6 +23,18 @@ function readJson(relativePath) {
   return JSON.parse(fs.readFileSync(path.join(ROOT, relativePath), "utf8"));
 }
 
+function readBrokerBoundary() {
+  const candidates = [
+    "docs/v0.52/V052_HANDOFF_REQUIREMENT_MATRIX.md",
+    "docs/RELEASE_NOTES_0_52_0.md"
+  ];
+  const relativePath = candidates.find((candidate) => fs.existsSync(path.join(ROOT, candidate)));
+  if (!relativePath) {
+    throw new Error("air.v052.s4_authority_boundary_missing: no broker-generation authority source is present");
+  }
+  return fs.readFileSync(path.join(ROOT, relativePath), "utf8");
+}
+
 function loadManifest() {
   const bytes = fs.readFileSync(MANIFEST_PATH);
   if (sha256(bytes) !== MANIFEST_SHA256) {
@@ -311,9 +323,9 @@ async function run() {
     "NOT_YET_PROVEN",
     "research fixture has no frozen state bytes or golden state digest"
   );
-  const matrix = fs.readFileSync(path.join(ROOT, "docs/v0.52/V052_HANDOFF_REQUIREMENT_MATRIX.md"), "utf8");
-  const brokerNotPreauthorized = matrix.includes("BROKER_GENERATION_HOST_CONTRACT_CHANGE_PREAUTHORIZED=false") &&
-    matrix.includes("only currently identified METR-derived");
+  const authorityBoundary = readBrokerBoundary();
+  const brokerNotPreauthorized = authorityBoundary.includes("BROKER_GENERATION_HOST_CONTRACT_CHANGE_PREAUTHORIZED=false") &&
+    authorityBoundary.includes("only currently identified METR-derived");
   recorder.record(
     "S4-NYP-02",
     brokerNotPreauthorized ? "NOT_YET_PROVEN:BROKER_GENERATION_TRANSPORT_NOT_RUNNABLE" : "BROKER_BOUNDARY_UNEXPECTEDLY_CHANGED",
