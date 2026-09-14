@@ -7,7 +7,7 @@ function rejects(fn,code){assert.throws(fn,e=>e.code===code);checks++;}
 rejects(()=>parseArgs([]),"gate.arguments_invalid");
 rejects(()=>parseArgs(["--project=x"]),"gate.arguments_invalid");
 rejects(()=>parseArgs(["--project","x","--project","y"]),"gate.arguments_invalid");
-assert.equal(secretSignature(Buffer.from("-----BEGIN PRIVATE KEY-----")),"private_key");checks++;
+assert.equal(secretSignature(Buffer.from(["-----BEGIN","PRIVATE","KEY-----"].join(" "))),"private_key");checks++;
 assert.equal(secretSignature(Buffer.from("ordinary public documentation")),null);checks++;
 const records=Array.from({length:10},(_,i)=>({id:`R${String(i+1).padStart(2,"0")}`,status:"PASS"}));
 assert.equal(aggregate(records),"PASS");checks++;
@@ -29,7 +29,7 @@ try {
   rejects(()=>exactInventory(pkgRoot,[...inv,{path:"docs/placeholder.png",sha256:sha256(onePixelPng)}]),"gate.placeholder_content");
   fs.unlinkSync(path.join(pkgRoot,"docs/placeholder.png"));fs.rmdirSync(path.join(pkgRoot,"docs"));
   rejects(()=>exactInventory(pkgRoot,[{path:"REVIEW_RESULTS/log",sha256:inv[0].sha256}]),"gate.private_content");
-  const secret=Buffer.from("-----BEGIN OPENSSH PRIVATE KEY-----");fs.writeFileSync(path.join(pkgRoot,"secret.txt"),secret);
+  const secret=Buffer.from(["-----BEGIN","OPENSSH","PRIVATE","KEY-----"].join(" "));fs.writeFileSync(path.join(pkgRoot,"secret.txt"),secret);
   rejects(()=>exactInventory(pkgRoot,[...inv,{path:"secret.txt",sha256:sha256(secret)}]),"gate.secret_signature");fs.unlinkSync(path.join(pkgRoot,"secret.txt"));
   rejects(()=>exactInventory(pkgRoot,[{path:"index.js",sha256:"0".repeat(64)}]),"gate.package_hash_mismatch");
   fs.writeFileSync(path.join(pkgRoot,"extra"),"x");rejects(()=>exactInventory(pkgRoot,inv),"gate.unexpected_package_file");fs.unlinkSync(path.join(pkgRoot,"extra"));
