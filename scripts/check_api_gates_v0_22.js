@@ -53,6 +53,7 @@ const acceptedFixedStateFirstSliceFiles = new Set([
   "src/lower_wasm.js",
   "src/module_graph.js",
   "src/parser.js",
+  "src/provenance_flow.js",
   "src/sdk.js",
   "src/observation_safety.js",
   "src/state_accessor_policy.js",
@@ -69,11 +70,16 @@ const acceptedOutputEmitV026Files = new Set([
   "src/sdk.js",
   "src/mock_host_policy.js",
   "src/verifier_safety_fuzz.js",
+  "src/provenance_flow.js",
+  "src/run_package.js",
   "src/verifier.js",
   "spec/CAPABILITIES.md",
   "spec/HOST_PROFILES.md",
   "spec/AIR_PACKAGE_MANIFEST.md",
-  "data/host_profiles/mock-output-v011.json"
+  "data/host_profiles/mock-output-v011.json",
+  "examples/tool_gate/module.air",
+  "examples/tool_gate/outputs/tool_intents.json",
+  "examples/tool_gate/request.js"
 ]);
 
 function main() {
