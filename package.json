@@ -12,6 +12,7 @@
     "url": "git+https://gitlab.com/fd.skyrealm/air-core.git"
   },
   "type": "commonjs",
+  "main": "src/index.js",
   "bin": {
     "airc": "bin/airc.js"
   },
