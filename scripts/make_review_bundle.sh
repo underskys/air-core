@@ -51,6 +51,10 @@ if ! [[ "$BUNDLE_RETENTION" =~ ^[0-9]+$ ]]; then
   BUNDLE_RETENTION=10
 fi
 
+ascii_lower() {
+  printf '%s' "$1" | LC_ALL=C tr '[:upper:]' '[:lower:]'
+}
+
 is_demo_status_line() {
   local line="$1"
   local path="${line#???}"
@@ -347,7 +351,8 @@ log_placeholder() {
 }
 
 is_image_placeholder_candidate() {
-  local p="${1,,}"
+  local p
+  p="$(ascii_lower "$1")"
 
   case "$p" in
     *.png|*.jpg|*.jpeg|*.webp|*.gif|*.bmp|*.ico|*.svg) return 0 ;;
@@ -357,7 +362,8 @@ is_image_placeholder_candidate() {
 }
 
 is_demo_review_excluded_path() {
-  local p="${1,,}"
+  local p
+  p="$(ascii_lower "$1")"
 
   case "$p" in
     demo/*/assets/*.png|demo/*/assets/*.jpg|demo/*/assets/*.jpeg|demo/*/assets/*.webp|demo/*/assets/*.gif|demo/*/assets/*.svg|demo/*/assets/*.mp3|demo/*/assets/*.wav|demo/*/assets/*.ogg) return 0 ;;
@@ -411,7 +417,7 @@ copy_placeholder_image() {
   local dest="$BUNDLE/$p"
   mkdir -p "$(dirname "$dest")"
 
-  case "${p,,}" in
+  case "$(ascii_lower "$p")" in
     *.svg)
       cat > "$dest" <<'EOF_SVG'
 <svg xmlns="http://www.w3.org/2000/svg" width="1" height="1" viewBox="0 0 1 1"><rect width="1" height="1" fill="#bde7ff"/></svg>
