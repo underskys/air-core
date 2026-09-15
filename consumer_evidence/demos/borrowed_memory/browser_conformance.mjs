@@ -8,14 +8,14 @@ import { fileURLToPath } from "node:url";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, "../../..");
-const requireFromWebGpuHost = createRequire(path.join(root, "hosts", "webgpu", "package.json"));
 const requireFromRunner = createRequire(import.meta.url);
+const requireFromWebGpuHost = createRequire(path.join(root, "hosts", "webgpu", "package.json"));
 let playwright;
 try {
-  playwright = requireFromWebGpuHost("playwright");
+  playwright = requireFromRunner("playwright");
 } catch (error) {
   if (error && error.code !== "MODULE_NOT_FOUND") throw error;
-  playwright = requireFromRunner("playwright");
+  playwright = requireFromWebGpuHost("playwright");
 }
 const { chromium } = playwright;
 
