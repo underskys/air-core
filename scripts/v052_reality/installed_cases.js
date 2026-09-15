@@ -79,12 +79,12 @@ async function cases() {
   }
   if(id==="R06") {
     const h=await build();
-    await denied(()=>api.invokeVerifiedTypedExport(h,"echo",[Number.MAX_SAFE_INTEGER+2]),"air.v051.record_invalid");
+    await denied(()=>api.invokeVerifiedTypedExport(h,"echo",[Number.MAX_SAFE_INTEGER+2]),"air.v051.typed_value_invalid");
     for(const arg of [I64("9223372036854775808"),I64("-9223372036854775809"),I64("01")])
       await denied(()=>api.invokeVerifiedTypedExport(h,"echo",[arg]),"air.v051.typed_value_invalid");
     await denied(()=>api.invokeVerifiedTypedExport({...h},"echo",[I64("1")]),"air.v052.verified_build_untrusted");
     const panel=await api.buildVerifiedTypedModule(input("panel"));
-    await denied(()=>api.invokeVerifiedTypedExport(panel,"show_badge",[{type:"option<bool>",tag:"invalid"},{type:"panel.control::Badge",discriminant:1}]),"air.v051.typed_value_invalid");
+    await denied(()=>api.invokeVerifiedTypedExport(panel,"show_badge",[{type:"option<bool>",tag:"invalid",value:true},{type:"panel.control::Badge",discriminant:1}]),"air.v051.typed_value_invalid");
     await denied(()=>api.invokeVerifiedTypedExport(panel,"show_badge",[{type:"option<bool>",tag:"none"},{type:"panel.control::Badge",discriminant:2}]),"air.decision.enum_discriminant_invalid");
     await denied(()=>api.invokeVerifiedTypedExport({...h,descriptor:panel.descriptor},"echo",[I64("1")]),"air.v052.verified_build_untrusted");
     h.wasmBytes[0]^=255;
