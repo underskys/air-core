@@ -110,6 +110,11 @@ try {
     "missing source file has a stable diagnostic"
   );
   expectStableFailure(
+    run(["verify", tempDir]),
+    "air.cli.file_invalid",
+    "directory source path has a stable diagnostic"
+  );
+  expectStableFailure(
     run(["check", "--source-profile", "typed-v0.51", TYPED_FIXTURE]),
     "air.source_profile.command_unsupported",
     "check rejects source-profile before selecting a target"

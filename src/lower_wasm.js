@@ -672,29 +672,25 @@ function emitV051TypedMatch(state, statement, destination) {
     : subject.info.kind === "option" ? ["none", "some"]
       : subject.info.kind === "result" ? ["ok", "err"] : null;
   if (!keys) typedLowerFail("air.v051.typed_lowering_unsupported", "match subject is not a tagged type");
-  emitV051TypedMatchBranches(state, subject, destination, keys, arms, 0);
-}
-
-function emitV051TypedMatchBranches(state, subject, destination, keys, arms, index) {
-  if (index >= keys.length) {
-    state.body.push("call $__air_v051_invalid_tag");
-    return;
+  const endLabel = `$__air_v051_match_end_${state.tempId++}`;
+  state.body.push(`block ${endLabel}`);
+  for (let index = 0; index < keys.length; index += 1) {
+    const key = keys[index];
+    const arm = arms.get(key);
+    if (!arm) typedLowerFail("air.v051.typed_lowering_unsupported", `missing verified match arm '${key}'`);
+    emitV051TypedMatchCondition(state, subject, key, index);
+    state.body.push("if");
+    emitV051TypedMatchArm(state, subject, arm, destination);
+    state.body.push(`br ${endLabel}`, "end");
   }
-  const key = keys[index];
-  const arm = arms.get(key);
-  if (!arm) typedLowerFail("air.v051.typed_lowering_unsupported", `missing verified match arm '${key}'`);
-  emitV051TypedMatchCondition(state, subject, key);
-  state.body.push("if");
-  emitV051TypedMatchArm(state, subject, arm, destination);
-  state.body.push("else");
-  emitV051TypedMatchBranches(state, subject, destination, keys, arms, index + 1);
+  state.body.push("call $__air_v051_invalid_tag");
   state.body.push("end");
 }
 
-function emitV051TypedMatchCondition(state, subject, key) {
+function emitV051TypedMatchCondition(state, subject, key, index) {
   state.body.push(`local.get ${subject.names[0]}`);
   if (subject.info.kind === "enum") {
-    const entry = subject.info.declaration.cases.find((item) => item.name === key);
+    const entry = subject.info.declaration.cases[index];
     state.body.push(`i32.const ${entry.discriminant}`);
   } else {
     state.body.push(`i32.const ${key === "none" || key === "ok" ? 0 : 1}`);

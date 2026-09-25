@@ -320,7 +320,12 @@ async function buildVerifiedTypedModuleInternal(input, controls = {}) {
   const wat = lowerToWat(mod, limits ? { maxWatBytes: limits.maxWatBytes } : undefined);
   const watBytes = Buffer.byteLength(wat, "utf8");
   if (limits) enforceWorkLimit("air.v052.work_limit_wat_bytes", watBytes, limits.maxWatBytes, "lowered WAT bytes");
-  const wasmBytes = Buffer.from(await watToWasm(wat, sourceName));
+  let wasmBytes;
+  try {
+    wasmBytes = Buffer.from(await watToWasm(wat, sourceName));
+  } catch (_) {
+    fail("air.v052.verified_build_emission_failure", "verified typed WAT could not be emitted as Wasm");
+  }
   if (limits) enforceWorkLimit("air.v052.work_limit_wasm_bytes", wasmBytes.length, limits.maxWasmBytes, "emitted Wasm bytes");
   // Do not label old loaded code with new on-disk identities after an await.
   TOOLCHAIN.snapshot();
@@ -346,7 +351,7 @@ async function buildVerifiedTypedModuleInternal(input, controls = {}) {
 }
 
 async function buildVerifiedTypedModule(input) {
-  return buildVerifiedTypedModuleInternal(input);
+  return buildVerifiedTypedModuleInternal(input, { limits: VERIFIED_TYPED_RUNTIME_LIMITS });
 }
 
 function assertTrustedBuild(build) {

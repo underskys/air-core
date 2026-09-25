@@ -11,6 +11,7 @@ const {
 } = require("../src/source_profile");
 const {
   VERIFIED_TYPED_RUNTIME_LIMITS,
+  buildVerifiedTypedModule,
   createVerifiedTypedRuntime
 } = require("../src/v052_verified_build");
 
@@ -87,6 +88,20 @@ function enumParameterPressure(caseCount, parameterCount) {
   return { descriptor, source, sourceProfile: SOURCE_PROFILE_TYPED_V051 };
 }
 
+function enumMatchPressure(caseCount) {
+  const cases = Array.from({ length: caseCount }, (_, index) => `C${index} = ${index},`).join("\n");
+  const arms = Array.from({ length: caseCount }, (_, index) => `E.C${index} => ${index},`).join("\n");
+  const source = `module work.match\nenum E {\n${cases}\n}\nexport func run(e: E) -> i32 {\n%out: i32 = match %e {\n${arms}\n}\nreturn %out\n}\n`;
+  const descriptor = {
+    air_abi_lane: "0.12",
+    schema: "air.typed-interface/0.12-candidate.1",
+    module_id: "work.match",
+    exports: [{ function: "run", name: "run", parameters: [{ name: "e", type: "work.match::E" }], return_type: "i32" }],
+    types: [{ kind: "enum", type_id: "work.match::E", cases: Array.from({ length: caseCount }, (_, index) => ({ name: `C${index}`, discriminant: index })) }]
+  };
+  return { descriptor, source, sourceProfile: SOURCE_PROFILE_TYPED_V051 };
+}
+
 (async () => {
   const maxAst = checkedMulModule(16381);
   const maxAstNodes = structuredObjectCount(maxAst);
@@ -146,6 +161,25 @@ function enumParameterPressure(caseCount, parameterCount) {
     () => hostileRuntime.build(hostile),
     (error) => error.code === "air.v052.work_limit_wat_bytes"
   );
+  await assert.rejects(
+    () => buildVerifiedTypedModule(hostile),
+    (error) => error.code === "air.v052.work_limit_wat_bytes"
+  );
+
+  for (const caseCount of [190, 200, 210, 600]) {
+    const matchInput = enumMatchPressure(caseCount);
+    const matchAst = parseSource(matchInput.source, `match-${caseCount}.air`, { sourceProfile: SOURCE_PROFILE_TYPED_V051 });
+    const matchWat = lowerToWat(matchAst);
+    assert.match(matchWat, /block \$__air_v051_match_end_/u);
+    assert.match(matchWat, /br \$__air_v051_match_end_/u);
+    assert(Buffer.byteLength(matchWat, "utf8") < VERIFIED_TYPED_RUNTIME_LIMITS.maxWatBytes);
+    const matchRuntime = createVerifiedTypedRuntime({ admit: async () => true });
+    const handle = await matchRuntime.build(matchInput);
+    for (const discriminant of [0, Math.floor(caseCount / 2), caseCount - 1]) {
+      const outcome = await matchRuntime.invoke(handle, "run", [{ type: "work.match::E", discriminant }]);
+      assert.equal(outcome.value, discriminant);
+    }
+  }
 
   for (const statement of ["call @other()", "loop", "br nowhere"]) {
     const source = `module work.reject\nexport func run() -> i32 {\n${statement}\nreturn 0\n}\n`;
@@ -165,6 +199,8 @@ function enumParameterPressure(caseCount, parameterCount) {
     hostile_enum_cases: 1000,
     hostile_enum_parameters: 1000,
     hostile_result: "air.v052.work_limit_wat_bytes_before_full_emission",
+    direct_builder_wat_cap: true,
+    exhaustive_match_cases: [190, 200, 210, 600],
     forbidden_dynamic_control_flow: ["call", "loop", "br"],
     dynamic_work_bound_abi: false
   }));

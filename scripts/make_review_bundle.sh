@@ -519,6 +519,7 @@ is_included() {
     consumer_evidence/README.md|consumer_evidence/DEMO_REGISTRY.json|consumer_evidence/.gitignore) return 0 ;;
     consumer_evidence/schemas/*.json) return 0 ;;
     consumer_evidence/demos/*/MANIFEST.json|consumer_evidence/demos/*/PROOF_CARD.md|consumer_evidence/demos/*/PROMPTS.md) return 0 ;;
+    consumer_evidence/demos/borrowed_memory/browser_conformance.mjs) return 0 ;;
     consumer_evidence/demos/*/reports/*.md|consumer_evidence/demos/*/reports/*.json) return 0 ;;
     consumer_evidence/demos/*/replay/README.md|consumer_evidence/demos/*/replay/*.json) return 0 ;;
     consumer_evidence/demos/*/metrics/README.md|consumer_evidence/demos/*/metrics/*.json) return 0 ;;
@@ -531,7 +532,7 @@ is_included() {
     stdlib/*.air|stdlib/**/*.air) return 0 ;;
     fixtures/v051/*|fixtures/v051/**/*|fixtures/v052/*|fixtures/v052/**/*) return 0 ;;
     fixtures/v050/*|fixtures/v050/**/*|fixtures/semantic_patch/*|fixtures/semantic_patch/**/*) return 0 ;;
-    swift/AIRSwift/*.md|swift/AIRSwift/**/*.md|swift/AIRSwift/**/*.swift) return 0 ;;
+    swift/AIRSwift/Package.swift|swift/AIRSwift/*.md|swift/AIRSwift/**/*.md|swift/AIRSwift/**/*.swift) return 0 ;;
     kits/*.md|kits/**/*.md|kits/**/*.air|kits/**/*.json|kits/**/*.wgsl) return 0 ;;
     examples/*.air|examples/**/*.air|examples/*.json|examples/**/*.json|examples/*.md|examples/**/*.md|examples/*.js|examples/**/*.js|examples/*.mjs|examples/**/*.mjs) return 0 ;;
     examples/**/*.wgsl|examples/**/assets/*.gltf|examples/**/assets/*.glb|examples/**/assets/*.svg|examples/**/assets/*.json) return 0 ;;

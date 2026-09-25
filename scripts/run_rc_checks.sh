@@ -18,7 +18,10 @@ mkdir -p "$LOG_DIR"
 : > "$COMMANDS_LOG"
 
 STARTED_AT="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
-BRANCH="$(git branch --show-current 2>/dev/null || echo unknown)"
+BRANCH="$(git branch --show-current 2>/dev/null || true)"
+if [ -z "$BRANCH" ]; then
+  BRANCH="DETACHED_HEAD"
+fi
 COMMIT="$(git rev-parse HEAD 2>/dev/null || echo nogit)"
 AIR_ALLOW_DIRTY_REVIEW_BUNDLE="${AIR_ALLOW_DIRTY_REVIEW_BUNDLE:-0}"
 FAILED_REQUIRED=0
@@ -139,6 +142,7 @@ skip_check() {
 }
 
 run_check "npm ci" "npm ci"
+run_check "Playwright browser identity" "node scripts/check_playwright_identity.js REVIEW_RESULTS/BROWSER_IDENTITY.json"
 run_check "npm test" "npm test"
 run_check "markdown links" "node scripts/check_markdown_links.js"
 run_check "ABI request pipeline" "node scripts/check_abi_requests.js"

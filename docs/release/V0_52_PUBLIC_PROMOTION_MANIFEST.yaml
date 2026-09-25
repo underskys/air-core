@@ -5,8 +5,8 @@ status: CANDIDATE_AWAITING_INDEPENDENT_QA
 private_source:
   repository: fd.skyrealm/airlang
   branch: impl/air-v0.52-rc
-  commit: 7a5ef5e6e7470fc65403978ac5badbe9ea4f9d78
-  tree: a78e7044f41d9cbf18bcc52792945a3fcff4ddd6
+  commit: 474488d15848044f18349311d8785912b9df38f2
+  tree: 9d3c9a17189f85595bcb439cf717f061715805b7
 original_projection_source:
   commit: a95449137196778b37479287b32371590becc18f
   tree: 742b109c29be5920f9d133ea20bc82f0b105cc72

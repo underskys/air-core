@@ -151,6 +151,8 @@ function collectReviewSafeFixtureRequirements(add) {
     }
   }
   for (const file of [
+    path.join(root, "consumer_evidence", "demos", "borrowed_memory", "browser_conformance.mjs"),
+    path.join(root, "swift", "AIRSwift", "Package.swift"),
     path.join(root, "test", "fixtures", "format", "canonical", "README.md"),
     ...findFiles(path.join(root, "test", "fixtures", "lowering"), "README.md"),
     path.join(root, "examples", "ai_gate", "swift_host", "Package.swift"),

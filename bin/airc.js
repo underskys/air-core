@@ -688,6 +688,9 @@ async function main(argv) {
     if (error && error.code === "ENOENT") {
       throw new AirError(`air.cli.file_missing: source file '${file}' does not exist`);
     }
+    if (error && error.code === "EISDIR") {
+      throw new AirError(`air.cli.file_invalid: source path '${file}' is not a file`);
+    }
     throw error;
   }
   const sourceProfile = sourceInvocation.sourceProfile;

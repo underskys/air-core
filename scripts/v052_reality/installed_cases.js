@@ -108,12 +108,26 @@ async function cases() {
     const hostileSource=`module work.pressure\nenum E {\n${cases}\n}\nfunc hidden(${params}) -> i32 {\nreturn 0\n}\nexport func run() -> i32 {\nreturn 1\n}\n`;
     const hostileDescriptor={air_abi_lane:"0.12",schema:"air.typed-interface/0.12-candidate.1",module_id:"work.pressure",exports:[{function:"run",name:"run",parameters:[],return_type:"i32"}],types:[]};
     await denied(()=>runtime().build({source:hostileSource,descriptor:hostileDescriptor,sourceProfile:"typed-v0.51"}),"air.v052.work_limit_wat_bytes");
+    await denied(()=>api.buildVerifiedTypedModule({source:hostileSource,descriptor:hostileDescriptor,sourceProfile:"typed-v0.51"}),"air.v052.work_limit_wat_bytes");
+    for(const count of [190,200,210,600]) {
+      const enumCases=Array.from({length:count},(_,i)=>`C${i}=${i},`).join("\n");
+      const arms=Array.from({length:count},(_,i)=>`E.C${i}=>${i},`).join("\n");
+      const source=`module work.match\nenum E {\n${enumCases}\n}\nexport func run(e: E) -> i32 {\n%out: i32 = match %e {\n${arms}\n}\nreturn %out\n}\n`;
+      const descriptor={air_abi_lane:"0.12",schema:"air.typed-interface/0.12-candidate.1",module_id:"work.match",exports:[{function:"run",name:"run",parameters:[{name:"e",type:"work.match::E"}],return_type:"i32"}],types:[{kind:"enum",type_id:"work.match::E",cases:Array.from({length:count},(_,i)=>({name:`C${i}`,discriminant:i}))}]};
+      const matchRuntime=runtime();
+      const handle=await matchRuntime.build({source,descriptor,sourceProfile:"typed-v0.51"});
+      for(const discriminant of [0,Math.floor(count/2),count-1]) {
+        const result=await matchRuntime.invoke(handle,"run",[{type:"work.match::E",discriminant}]);
+        assert.equal(result.value,discriminant);
+      }
+    }
     const limits=r.inspect().limits;
-    return {status:"PASS",scope:"typed-v0.51 incremental WAT emission cap; no dynamic WorkBound ABI",evidence:{
+    return {status:"PASS",scope:"typed-v0.51 WAT emission cap and flat exhaustive matches through Wasm compilation; no dynamic WorkBound ABI",evidence:{
       forbidden_dynamic_control_flow:["call","loop","br"],invocation_lane_limit_is_arity_only:true,
       max_ast_nodes:limits.maxAstNodes,max_source_bytes:limits.maxSourceBytes,max_wasm_bytes:limits.maxWasmBytes,
       max_wat_bytes:limits.maxWatBytes,hostile_enum_cases:1000,hostile_enum_parameters:1000,
-      hostile_result:"air.v052.work_limit_wat_bytes",source_owned_emission_test:"test/v052_typed_subset_work_witness.test.js"}};
+      hostile_result:"air.v052.work_limit_wat_bytes",direct_builder_wat_cap:true,exhaustive_match_cases:[190,200,210,600],
+      source_owned_emission_test:"test/v052_typed_subset_work_witness.test.js"}};
   }
   if(id==="R08") {
     cliDeny(["verify",path.join(fixtureDir,"legacy_invalid.air"),"--source-profile","legacy-v0.50"],"air.control.br_if_syntax_invalid");
