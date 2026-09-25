@@ -15,10 +15,6 @@ const {
 } = require("../src/v052_verified_build");
 
 const ROOT = path.resolve(__dirname, "..");
-const PREEMISSION_FIXED_BYTES = 64 * 1024;
-const MAX_WAT_BYTES_PER_SOURCE_BYTE = 64;
-const MAX_WAT_BYTES_PER_AST_NODE = 384;
-
 function structuredObjectCount(root) {
   let count = 0;
   const stack = [root];
@@ -77,11 +73,18 @@ function sourceBoundWitness() {
   return { bytes, source };
 }
 
-function assertLinearBound(label, sourceBytes, watBytes) {
-  assert(
-    watBytes <= PREEMISSION_FIXED_BYTES + sourceBytes * MAX_WAT_BYTES_PER_SOURCE_BYTE,
-    `${label}: ${watBytes} WAT bytes exceeds the frozen source expansion witness`
-  );
+function enumParameterPressure(caseCount, parameterCount) {
+  const cases = Array.from({ length: caseCount }, (_, index) => `case${index} = ${index},`).join("\n");
+  const params = Array.from({ length: parameterCount }, (_, index) => `p${index}: E`).join(", ");
+  const source = `module work.pressure\nenum E {\n${cases}\n}\nfunc hidden(${params}) -> i32 {\nreturn 0\n}\nexport func run() -> i32 {\nreturn 1\n}\n`;
+  const descriptor = {
+    air_abi_lane: "0.12",
+    schema: "air.typed-interface/0.12-candidate.1",
+    module_id: "work.pressure",
+    exports: [{ function: "run", name: "run", parameters: [], return_type: "i32" }],
+    types: []
+  };
+  return { descriptor, source, sourceProfile: SOURCE_PROFILE_TYPED_V051 };
 }
 
 (async () => {
@@ -89,10 +92,7 @@ function assertLinearBound(label, sourceBytes, watBytes) {
   const maxAstNodes = structuredObjectCount(maxAst);
   assert.equal(VERIFIED_TYPED_RUNTIME_LIMITS.maxAstNodes - maxAstNodes, 1);
   const maxAstWatBytes = Buffer.byteLength(lowerToWat(maxAst), "utf8");
-  assert(
-    maxAstWatBytes <= PREEMISSION_FIXED_BYTES + maxAstNodes * MAX_WAT_BYTES_PER_AST_NODE,
-    "near-max AST lowering exceeded the frozen linear expansion witness"
-  );
+  assert(maxAstWatBytes > 0);
 
   const sourceWitness = sourceBoundWitness();
   assert(sourceWitness.bytes > VERIFIED_TYPED_RUNTIME_LIMITS.maxSourceBytes - 128);
@@ -100,8 +100,11 @@ function assertLinearBound(label, sourceBytes, watBytes) {
     sourceProfile: SOURCE_PROFILE_TYPED_V051
   });
   const sourceWatBytes = Buffer.byteLength(lowerToWat(sourceAst), "utf8");
-  assertLinearBound("max-source checked-mul witness", sourceWitness.bytes, sourceWatBytes);
   assert(sourceWatBytes > VERIFIED_TYPED_RUNTIME_LIMITS.maxWatBytes);
+  assert.throws(
+    () => lowerToWat(sourceAst, { maxWatBytes: VERIFIED_TYPED_RUNTIME_LIMITS.maxWatBytes }),
+    (error) => error.code === "air.v052.work_limit_wat_bytes"
+  );
 
   const descriptor = {
     air_abi_lane: "0.12",
@@ -133,8 +136,16 @@ function assertLinearBound(label, sourceBytes, watBytes) {
     const mod = parseSource(source, relative, { sourceProfile: SOURCE_PROFILE_TYPED_V051 });
     const statements = mod.functions.flatMap((fn) => fn.statements || []);
     assert(statements.every((statement) => ["local", "match", "return"].includes(statement.kind)));
-    assertLinearBound(relative, Buffer.byteLength(source, "utf8"), Buffer.byteLength(lowerToWat(mod), "utf8"));
+    assert(Buffer.byteLength(lowerToWat(mod), "utf8") <= VERIFIED_TYPED_RUNTIME_LIMITS.maxWatBytes);
   }
+
+  const hostile = enumParameterPressure(1000, 1000);
+  assert(Buffer.byteLength(hostile.source, "utf8") < VERIFIED_TYPED_RUNTIME_LIMITS.maxSourceBytes);
+  const hostileRuntime = createVerifiedTypedRuntime({ admit: async () => true });
+  await assert.rejects(
+    () => hostileRuntime.build(hostile),
+    (error) => error.code === "air.v052.work_limit_wat_bytes"
+  );
 
   for (const statement of ["call @other()", "loop", "br nowhere"]) {
     const source = `module work.reject\nexport func run() -> i32 {\n${statement}\nreturn 0\n}\n`;
@@ -151,6 +162,9 @@ function assertLinearBound(label, sourceBytes, watBytes) {
     max_source_bytes_witnessed: sourceWitness.bytes,
     max_source_wat_bytes: sourceWatBytes,
     execution_admission_wat_cap: VERIFIED_TYPED_RUNTIME_LIMITS.maxWatBytes,
+    hostile_enum_cases: 1000,
+    hostile_enum_parameters: 1000,
+    hostile_result: "air.v052.work_limit_wat_bytes_before_full_emission",
     forbidden_dynamic_control_flow: ["call", "loop", "br"],
     dynamic_work_bound_abi: false
   }));

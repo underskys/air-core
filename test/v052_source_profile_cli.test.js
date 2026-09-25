@@ -102,6 +102,18 @@ try {
   const defaultLegacy = run(["verify", TYPED_FIXTURE]);
   assert.notStrictEqual(defaultLegacy.status, 0);
   assert.doesNotMatch(defaultLegacy.stderr, /\n\s+at\s/u);
+  assert.match(defaultLegacy.stderr, /--source-profile typed-v0\.51/u);
+
+  expectStableFailure(
+    run(["verify", path.join(tempDir, "missing.air")]),
+    "air.cli.file_missing",
+    "missing source file has a stable diagnostic"
+  );
+  expectStableFailure(
+    run(["check", "--source-profile", "typed-v0.51", TYPED_FIXTURE]),
+    "air.source_profile.command_unsupported",
+    "check rejects source-profile before selecting a target"
+  );
 
   expectStableFailure(
     run(["verify", TYPED_FIXTURE, "--source-profile", "future"]),

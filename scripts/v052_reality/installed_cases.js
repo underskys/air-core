@@ -103,11 +103,17 @@ async function cases() {
       const source=`module public_limit\nexport func run() -> i32 {\n${statement}\nreturn 0\n}\n`;
       await denied(()=>api.buildVerifiedTypedModule({source,descriptor,sourceProfile:"typed-v0.51"}),"air.v051.typed_syntax_invalid");
     }
+    const cases=Array.from({length:1000},(_,i)=>`case${i} = ${i},`).join("\n");
+    const params=Array.from({length:1000},(_,i)=>`p${i}: E`).join(", ");
+    const hostileSource=`module work.pressure\nenum E {\n${cases}\n}\nfunc hidden(${params}) -> i32 {\nreturn 0\n}\nexport func run() -> i32 {\nreturn 1\n}\n`;
+    const hostileDescriptor={air_abi_lane:"0.12",schema:"air.typed-interface/0.12-candidate.1",module_id:"work.pressure",exports:[{function:"run",name:"run",parameters:[],return_type:"i32"}],types:[]};
+    await denied(()=>runtime().build({source:hostileSource,descriptor:hostileDescriptor,sourceProfile:"typed-v0.51"}),"air.v052.work_limit_wat_bytes");
     const limits=r.inspect().limits;
-    return {status:"PASS",scope:"typed-v0.51 static emission bound; no dynamic WorkBound ABI",evidence:{
+    return {status:"PASS",scope:"typed-v0.51 incremental WAT emission cap; no dynamic WorkBound ABI",evidence:{
       forbidden_dynamic_control_flow:["call","loop","br"],invocation_lane_limit_is_arity_only:true,
       max_ast_nodes:limits.maxAstNodes,max_source_bytes:limits.maxSourceBytes,max_wasm_bytes:limits.maxWasmBytes,
-      max_wat_bytes:limits.maxWatBytes,source_owned_linearity_witness:"test/v052_typed_subset_work_witness.test.js"}};
+      max_wat_bytes:limits.maxWatBytes,hostile_enum_cases:1000,hostile_enum_parameters:1000,
+      hostile_result:"air.v052.work_limit_wat_bytes",source_owned_emission_test:"test/v052_typed_subset_work_witness.test.js"}};
   }
   if(id==="R08") {
     cliDeny(["verify",path.join(fixtureDir,"legacy_invalid.air"),"--source-profile","legacy-v0.50"],"air.control.br_if_syntax_invalid");

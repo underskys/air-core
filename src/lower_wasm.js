@@ -25,8 +25,8 @@ const BORROW_FAILURE = Object.freeze({
   arithmetic: 6
 });
 
-function lowerToWat(mod) {
-  if (mod && mod.v051TypedAst) return lowerV051TypedToWat(mod);
+function lowerToWat(mod, options = {}) {
+  if (mod && mod.v051TypedAst) return lowerV051TypedToWat(mod, options);
   assertWasmTargetSupport(mod);
   const borrowedDescriptor = borrowedSliceInterfaceDescriptor(mod);
   const ctx = {
@@ -142,9 +142,43 @@ function typedLowerFail(code, message) {
 
 // The candidate path lowers the already-verified typed AST directly to WAT.
 // It is intentionally separate from the legacy block IR, not an interpreter.
-function lowerV051TypedToWat(mod) {
+class BoundedTypedWatLines extends Array {
+  constructor(budget) {
+    super();
+    this.budget = budget;
+  }
+
+  static get [Symbol.species]() { return Array; }
+
+  push(...lines) {
+    if (this.budget) {
+      for (const line of lines) this.budget.charge(line);
+    }
+    return super.push(...lines);
+  }
+}
+
+function typedWatBudget(maxWatBytes) {
+  if (maxWatBytes === undefined) return null;
+  if (!Number.isSafeInteger(maxWatBytes) || maxWatBytes < 1) {
+    throw new TypeError("maxWatBytes must be a positive safe integer");
+  }
+  return {
+    remaining: maxWatBytes,
+    charge(line) {
+      const bytes = Buffer.byteLength(line, "utf8") + 5;
+      if (bytes > this.remaining) {
+        typedLowerFail("air.v052.work_limit_wat_bytes", `lowered WAT exceeds the configured limit of ${maxWatBytes}`);
+      }
+      this.remaining -= bytes;
+    }
+  };
+}
+
+function lowerV051TypedToWat(mod, options = {}) {
   verifyV051Air(mod);
   try {
+    const budget = typedWatBudget(options.maxWatBytes);
     const declarations = new Map((mod.enums || []).map((item) => [item.type_id, item]));
     const usesCanonicalSumIngress = (mod.functions || []).some((fn) => (fn.params || []).some((parameter) => {
       const type = v051TypedTypeInfo(parameter.type, declarations);
@@ -152,7 +186,7 @@ function lowerV051TypedToWat(mod) {
     }));
     const usesCheckedNumeric = (mod.functions || []).some(v051TypedFunctionUsesCheckedNumeric);
     const usesTypedRefinement = (mod.functions || []).some(v051TypedFunctionUsesRefinement);
-    const functions = (mod.functions || []).map((fn) => lowerV051TypedFunction(fn, declarations));
+    const functions = (mod.functions || []).map((fn) => lowerV051TypedFunction(fn, declarations, budget));
     return [
       "(module",
       "  (func $__air_v051_invalid_tag unreachable)",
@@ -175,15 +209,15 @@ function lowerV051TypedToWat(mod) {
   }
 }
 
-function lowerV051TypedFunction(fn, declarations) {
+function lowerV051TypedFunction(fn, declarations, budget) {
   if (fn.returnType === "void") {
     typedLowerFail("air.v051.typed_lowering_unsupported", "void typed functions are outside the first vertical runtime subset");
   }
   const state = {
     declarations,
-    localDecls: [],
+    localDecls: new BoundedTypedWatLines(budget),
     locals: new Map(),
-    body: [],
+    body: new BoundedTypedWatLines(budget),
     tempId: 0,
     usesCheckedNumeric: v051TypedFunctionUsesCheckedNumeric(fn)
   };
@@ -193,7 +227,9 @@ function lowerV051TypedFunction(fn, declarations) {
     const record = v051TypedRecord(parameter.name, parameter.type, info, true);
     state.locals.set(parameter.name, record);
     for (let index = 0; index < record.names.length; index += 1) {
-      params.push(`(param ${record.names[index]} ${info.watTypes[index]})`);
+      const param = `(param ${record.names[index]} ${info.watTypes[index]})`;
+      if (budget) budget.charge(param);
+      params.push(param);
     }
     emitV051TypedRuntimeValidation(state, record);
   }

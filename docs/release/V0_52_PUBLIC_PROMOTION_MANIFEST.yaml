@@ -5,8 +5,14 @@ status: CANDIDATE_AWAITING_INDEPENDENT_QA
 private_source:
   repository: fd.skyrealm/airlang
   branch: impl/air-v0.52-rc
+  commit: 7a5ef5e6e7470fc65403978ac5badbe9ea4f9d78
+  tree: a78e7044f41d9cbf18bcc52792945a3fcff4ddd6
+original_projection_source:
   commit: a95449137196778b37479287b32371590becc18f
   tree: 742b109c29be5920f9d133ea20bc82f0b105cc72
+projection_notes:
+  - Public source is selectively projected from the private S5 correction source, not a wholesale repository copy.
+  - Public src/version.js intentionally reports package version 0.52.0; the private workspace still reports 0.50.0 pending a separate private-version policy decision.
 public_target:
   repository: fd.skyrealm/air-core
   base_commit: 7ec883e9748b7d4c60bd4057e4769b9fea3d9739

@@ -530,6 +530,7 @@ is_included() {
     evals/ai_authoring/reports/README.md) return 0 ;;
     stdlib/*.air|stdlib/**/*.air) return 0 ;;
     fixtures/v051/*|fixtures/v051/**/*|fixtures/v052/*|fixtures/v052/**/*) return 0 ;;
+    fixtures/v050/*|fixtures/v050/**/*|fixtures/semantic_patch/*|fixtures/semantic_patch/**/*) return 0 ;;
     swift/AIRSwift/*.md|swift/AIRSwift/**/*.md|swift/AIRSwift/**/*.swift) return 0 ;;
     kits/*.md|kits/**/*.md|kits/**/*.air|kits/**/*.json|kits/**/*.wgsl) return 0 ;;
     examples/*.air|examples/**/*.air|examples/*.json|examples/**/*.json|examples/*.md|examples/**/*.md|examples/*.js|examples/**/*.js|examples/*.mjs|examples/**/*.mjs) return 0 ;;
@@ -547,10 +548,12 @@ is_included() {
     requests/*.md|requests/**/*.md) return 0 ;;
     test/*.js|test/**/*.js|test/*.mjs|test/**/*.mjs|test/*.json|test/**/*.json|test/**/*.air) return 0 ;;
     test/fixtures/evidence_report/README.md|test/fixtures/evidence_report/*.golden.md|test/fixtures/evidence_report/*.json) return 0 ;;
+    test/fixtures/format/canonical/README.md|test/fixtures/lowering/*/README.md) return 0 ;;
     test/fixtures/lan_observer_readonly/unsafe_raw_authority/README.md) return 0 ;;
     test/fixtures/package_diff/README.md) return 0 ;;
     test/fixtures/pools/projectile_pool_basic/README.md) return 0 ;;
     examples/public/*|examples/public/**/*) return 0 ;;
+    examples/ai_gate/swift_host/Package.swift|examples/ai_gate/swift_host/Sources/**/*.swift|examples/borrowed_slices/.npmignore) return 0 ;;
     hosts/*.md|hosts/**/*.md|hosts/**/*.ts|hosts/**/*.js|hosts/**/*.mjs|hosts/**/*.swift|hosts/**/*.rs|hosts/**/*.wgsl|hosts/**/*.json|hosts/**/*.toml|hosts/**/Cargo.lock|hosts/**/*.css|hosts/**/*.html) return 0 ;;
     demo/*.md|demo/**/*.md|demo/**/*.air|demo/**/*.json|demo/**/*.ts|demo/**/*.js|demo/**/*.mjs|demo/**/*.swift|demo/**/*.wgsl|demo/**/*.html|demo/**/*.css) return 0 ;;
     tests/**/*.air|tests/**/*.js|tests/**/*.mjs|tests/**/*.json|tests/**/*.md) return 0 ;;

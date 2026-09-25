@@ -317,7 +317,7 @@ async function buildVerifiedTypedModuleInternal(input, controls = {}) {
     enforceWorkLimit("air.v052.work_limit_descriptor_bytes", descriptorBytes, limits.maxDescriptorBytes, "canonical descriptor bytes");
   }
   const toolchain = currentToolchainIdentity();
-  const wat = lowerToWat(mod);
+  const wat = lowerToWat(mod, limits ? { maxWatBytes: limits.maxWatBytes } : undefined);
   const watBytes = Buffer.byteLength(wat, "utf8");
   if (limits) enforceWorkLimit("air.v052.work_limit_wat_bytes", watBytes, limits.maxWatBytes, "lowered WAT bytes");
   const wasmBytes = Buffer.from(await watToWasm(wat, sourceName));

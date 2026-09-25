@@ -174,6 +174,9 @@ async function main(argv) {
 
   if (command === "check") {
     const args = [file, ...rest].filter(Boolean);
+    if (args.some((arg) => arg === "--source-profile" || arg.startsWith("--source-profile="))) {
+      throw new AirError("air.source_profile.command_unsupported: 'check' does not support --source-profile");
+    }
     const target = args.find((arg) => !arg.startsWith("-"));
     if (!target) throw new Error("missing target: airc check <file-or-package> --lsp-json");
     const lspJson = args.includes("--lsp-json");
@@ -678,9 +681,25 @@ async function main(argv) {
   const sourceInvocation = parseSourceInvocation([file, ...rest].filter(Boolean), { command });
   file = sourceInvocation.file;
   rest = sourceInvocation.rest;
-  const source = fs.readFileSync(file, "utf8");
+  let source;
+  try {
+    source = fs.readFileSync(file, "utf8");
+  } catch (error) {
+    if (error && error.code === "ENOENT") {
+      throw new AirError(`air.cli.file_missing: source file '${file}' does not exist`);
+    }
+    throw error;
+  }
   const sourceProfile = sourceInvocation.sourceProfile;
-  const mod = parseSource(source, file, { sourceProfile });
+  let mod;
+  try {
+    mod = parseSource(source, file, { sourceProfile });
+  } catch (error) {
+    if (sourceProfile === SOURCE_PROFILE_LEGACY && !rest.includes("--source-profile") && error instanceof AirError) {
+      error.message += " (default profile: legacy-v0.50; typed sources require --source-profile typed-v0.51)";
+    }
+    throw error;
+  }
 
   if (command === "fmt" || command === "format") {
     process.stdout.write(formatSource(mod, { sourceProfile }));
