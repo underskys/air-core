@@ -16,6 +16,10 @@ Package candidate: `@underskys/air-core@0.52.0`
   pressure corpus using frozen expected values.
 - Installed-package checks that bind tarball bytes, npm lock integrity, package
   inventory, CLI behavior and public SDK resolution.
+- Bounded S5 correction: reject unknown typed capabilities and post-return
+  statements, accept frozen exact `const.i64` source, safely bound source-file
+  CLI reads, and record observed browser versions instead of registry-only
+  execution claims. Private compiler identity is also aligned at 0.52.0.
 
 ## Boundaries
 

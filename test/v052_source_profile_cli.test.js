@@ -21,7 +21,8 @@ const LEGACY_FIXTURE = path.join(ROOT, "examples", "refinement_types", "contract
 function run(args) {
   return spawnSync(process.execPath, [CLI, ...args], {
     cwd: ROOT,
-    encoding: "utf8"
+    encoding: "utf8",
+    timeout: 10000
   });
 }
 
@@ -30,6 +31,7 @@ function expectPass(result, label) {
 }
 
 function expectStableFailure(result, code, label) {
+  assert.strictEqual(result.error, undefined, `${label}: CLI did not terminate normally`);
   assert.notStrictEqual(result.status, 0, `${label} unexpectedly passed`);
   assert.match(result.stderr, new RegExp(code.replaceAll(".", "\\."), "u"));
   assert.doesNotMatch(result.stderr, /(?:TypeError|ReferenceError|\n\s+at\s)/u);
@@ -114,6 +116,30 @@ try {
     "air.cli.file_invalid",
     "directory source path has a stable diagnostic"
   );
+  const regular = path.join(tempDir, "regular.air");
+  fs.writeFileSync(regular, fs.readFileSync(TYPED_FIXTURE));
+  const loop = path.join(tempDir, "loop.air");
+  fs.symlinkSync(loop, loop);
+  const oversized = path.join(tempDir, "oversized.air");
+  fs.writeFileSync(oversized, Buffer.alloc(4 * 1024 * 1024 + 1));
+  const fifo = path.join(tempDir, "fifo.air");
+  if (process.platform !== "win32") {
+    const mkfifo = spawnSync("mkfifo", [fifo], { encoding: "utf8" });
+    assert.strictEqual(mkfifo.status, 0, mkfifo.stderr);
+  }
+  for (const command of ["verify", "fmt", "format", "build"]) {
+    for (const invalid of [path.join(regular, "child.air"), loop, tempDir]) {
+      expectStableFailure(run([command, invalid]), "air.cli.file_invalid", `${command}: invalid file path`);
+    }
+    expectStableFailure(run([command, oversized]), "air.cli.file_too_large", `${command}: bounded source read`);
+    if (process.platform !== "win32") {
+      expectStableFailure(run([command, "/dev/zero"]), "air.cli.file_invalid", `${command}: device rejected`);
+      expectStableFailure(run([command, fifo]), "air.cli.file_invalid", `${command}: FIFO rejected without blocking`);
+    }
+  }
+  const linked = path.join(tempDir, "linked.air");
+  fs.symlinkSync(regular, linked);
+  expectPass(run(["verify", linked, "--source-profile", "typed-v0.51"]), "regular-file symlink remains supported");
   expectStableFailure(
     run(["check", "--source-profile", "typed-v0.51", TYPED_FIXTURE]),
     "air.source_profile.command_unsupported",

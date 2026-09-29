@@ -209,6 +209,11 @@ function verifyV051Air(mod, options = {}) {
 }
 
 function verifyV051TypedModule(mod) {
+  for (const capability of mod.capabilities || []) {
+    if (!KNOWN_CAPABILITIES.has(capability)) {
+      throw new VerificationError(`air.capability.unknown: unknown capability '${capability}'`);
+    }
+  }
   const declarations = new Map();
   for (const declaration of mod.enums || []) {
     if (!declaration || (declaration.kind !== "enum" && declaration.kind !== "error_enum") || typeof declaration.type_id !== "string") {
@@ -241,6 +246,7 @@ function verifyV051TypedModule(mod) {
     verifyV051TypedType(fn.returnType, declarations, fn.loc, true);
     let hasReturn = false;
     for (const statement of fn.statements || []) {
+      if (hasReturn) throw new VerificationError("air.control.statement_after_return: return must be the last statement", statement.loc);
       if (statement.kind === "local") {
         if (locals.has(statement.name)) throw new VerificationError(`air.v051.local_duplicate: '${statement.name}'`, statement.loc);
         const declared = verifyV051TypedType(statement.type, declarations, statement.loc, false);

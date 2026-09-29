@@ -682,17 +682,7 @@ async function main(argv) {
   file = sourceInvocation.file;
   rest = sourceInvocation.rest;
   let source;
-  try {
-    source = fs.readFileSync(file, "utf8");
-  } catch (error) {
-    if (error && error.code === "ENOENT") {
-      throw new AirError(`air.cli.file_missing: source file '${file}' does not exist`);
-    }
-    if (error && error.code === "EISDIR") {
-      throw new AirError(`air.cli.file_invalid: source path '${file}' is not a file`);
-    }
-    throw error;
-  }
+  source = readSourceFile(file);
   const sourceProfile = sourceInvocation.sourceProfile;
   let mod;
   try {
@@ -848,7 +838,7 @@ async function buildConformanceFixture(name, outDir) {
 
 function runFormatCommand(args) {
   const opts = parseFormatArgs(args);
-  const source = opts.stdin ? fs.readFileSync(0, "utf8") : fs.readFileSync(opts.file, "utf8");
+  const source = opts.stdin ? fs.readFileSync(0, "utf8") : readSourceFile(opts.file);
   const inputKind = opts.stdin ? "stdin" : "file";
   const diagnostics = [];
   let canonical = "";
@@ -882,6 +872,38 @@ function runFormatCommand(args) {
   }
 
   return finishFormatResult({ opts, inputKind, changed, canonical, diagnostics });
+}
+
+// Open nonblocking, then inspect and read the same descriptor. This rejects
+// FIFOs/devices without blocking and bounds reads even if a regular file grows.
+function readSourceFile(file) {
+  const maxBytes = 4 * 1024 * 1024;
+  let fd;
+  try {
+    fd = fs.openSync(file, fs.constants.O_RDONLY | fs.constants.O_NONBLOCK);
+    const stat = fs.fstatSync(fd);
+    if (!stat.isFile()) throw new AirError("air.cli.file_invalid: source must be a regular file");
+    if (stat.size > maxBytes) throw new AirError("air.cli.file_too_large: source exceeds 4194304 bytes");
+    const chunks = [];
+    let total = 0;
+    while (total <= maxBytes) {
+      const chunk = Buffer.alloc(Math.min(64 * 1024, maxBytes + 1 - total));
+      const count = fs.readSync(fd, chunk, 0, chunk.length, null);
+      if (!count) return Buffer.concat(chunks, total).toString("utf8");
+      total += count;
+      if (total > maxBytes) throw new AirError("air.cli.file_too_large: source exceeds 4194304 bytes");
+      chunks.push(chunk.subarray(0, count));
+    }
+  } catch (error) {
+    if (error instanceof AirError) throw error;
+    if (error && error.code === "ENOENT") throw new AirError("air.cli.file_missing: source file does not exist");
+    if (error && ["EISDIR", "ENOTDIR", "ELOOP", "ENAMETOOLONG", "EINVAL"].includes(error.code)) {
+      throw new AirError("air.cli.file_invalid: invalid source file path");
+    }
+    throw new AirError("air.cli.file_read_failed: source file could not be read");
+  } finally {
+    if (fd !== undefined) fs.closeSync(fd);
+  }
 }
 
 function parseFormatArgs(args) {

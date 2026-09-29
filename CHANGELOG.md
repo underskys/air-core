@@ -30,6 +30,11 @@ compact format:
 
 ### Security
 
+- Reject unknown typed capability declarations and statements after return.
+  Support the frozen exact decimal `const.i64` carrier without new operations.
+- Bound CLI source-file reads to regular files of at most 4 MiB and return
+  stable diagnostics. Browser evidence records actually executed versions
+  and executable hashes separately from expected registry revisions.
 - Unknown source-command options, malformed deep descriptors, untrusted build
   handles, stale runtime handles and revoked host admission fail closed.
 - AIR ABI `0.12` remains candidate-only. Host ABI `0.10` and `0.11` are

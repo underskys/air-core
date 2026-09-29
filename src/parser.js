@@ -491,6 +491,12 @@ function normalizeV051TypedInitializer(value, expectedType, moduleId, loc) {
   const expected = refinement
     ? { baseCanonical: refinement.base, canonical: refinement.canonical, kind: "primitive", refinement: refinement.refinement }
     : parseTypeReference(expectedType);
+  if (/^const\.i64(?:\s|$)/.test(text)) {
+    if (expected.canonical !== "i64") throw new AirError("air.v051.typed_atom_type_mismatch: const.i64 requires i64", loc);
+    const literal = text.match(/^const\.i64\s+(-?(?:0|[1-9][0-9]*))$/);
+    if (!literal) throw new AirError("air.v051.typed_atom_invalid: const.i64 requires an exact decimal literal", loc);
+    return literal[1] === "-0" ? "0" : literal[1];
+  }
   if (/^%[A-Za-z_][A-Za-z0-9_]*$/.test(text)) return text;
 
   const numericOperation = text.match(/^(i64\.checked_(?:add|sub|mul|div_s|rem_s|neg)|i64\.(?:eq|ne|lt_s|le_s|gt_s|ge_s)|i64\.to_i32_checked|i32\.to_i64|f32\.to_f64|f64\.to_f32_checked)\s+(.+)$/);

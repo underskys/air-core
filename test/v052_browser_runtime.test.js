@@ -29,6 +29,8 @@ const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "air-v052-browser-"));
 
   assert.equal(report.kind, "air.v052.verifiedRuntimeBrowserConformance");
   assert.equal(report.browser, "playwright-chromium");
+  assert.equal(report.browserVersion, report.expectedBrowserVersion);
+  assert.match(report.browserVersion, /^\d+\.\d+\.\d+\.\d+$/);
   assert.deepEqual(report.result, {
     checkedAdd: "3",
     exactI64: "9007199254740993",
@@ -38,6 +40,7 @@ const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "air-v052-browser-"));
   console.log(JSON.stringify({
     status: "pass",
     browserResult: "pass:playwright-chromium",
+    browserVersion: report.browserVersion,
     checkedI64: "pass",
     exactI64: "pass"
   }));
