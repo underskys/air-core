@@ -1,7 +1,16 @@
 schema: air.public-promotion-manifest/1
 milestone: v0.52
 public_package: "@underskys/air-core@0.52.0"
-status: CANDIDATE_AWAITING_INDEPENDENT_QA
+status: TECHNICAL_RC_S5_INDEPENDENT_QA_PASS_UNPUBLISHED
+accepted_s5_qa:
+  disposition: PASS_AIR_V052_S5_BOUNDED_CORRECTION
+  p0: 0
+  p1: 0
+  p2: 2
+  public_commit: 4c62489f34a8149f758bc23dda892a031bae1023
+  public_tree: 200daec43f66ff3afbf0682240306cf64e8d91f4
+  unpublished_tarball_sha256: 627ced8529caa5c91c9fe80f6e315e82ace189aeacec19bd8230c1929d540433
+  report_sha256: d842de4cb8f097ea8bbaa1ab8b73b164f4a74f03e2c2eda1cf4cab1061c442fd
 private_source:
   repository: fd.skyrealm/airlang
   branch: impl/air-v0.52-rc

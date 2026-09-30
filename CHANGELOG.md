@@ -9,7 +9,13 @@ compact format:
 - Security
 - Breaking / Migration
 
-## v0.52.0 - Verified Typed Runtime Candidate
+## v0.52.0 - Verified Typed Runtime Technical Release Candidate
+
+S5 bounded correction passed independent exact-SHA QA at public commit
+`4c62489f34a8149f758bc23dda892a031bae1023` and accepted unpublished
+tarball SHA-256
+`627ced8529caa5c91c9fe80f6e315e82ace189aeacec19bd8230c1929d540433`.
+This version is not yet tagged or published.
 
 ### Added
 
@@ -31,7 +37,9 @@ compact format:
 ### Security
 
 - Reject unknown typed capability declarations and statements after return.
-  Support the frozen exact decimal `const.i64` carrier without new operations.
+  Support the frozen exact decimal `const.i64` carrier only in typed initializer
+  and return positions. Arithmetic operands still take bare i64 literals;
+  formatting the carrier preserves the exact value but prints the bare literal.
 - Bound CLI source-file reads to regular files of at most 4 MiB and return
   stable diagnostics. Browser evidence records actually executed versions
   and executable hashes separately from expected registry revisions.
