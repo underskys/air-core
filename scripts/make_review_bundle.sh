@@ -51,6 +51,10 @@ if ! [[ "$BUNDLE_RETENTION" =~ ^[0-9]+$ ]]; then
   BUNDLE_RETENTION=10
 fi
 
+ascii_lower() {
+  printf '%s' "$1" | LC_ALL=C tr '[:upper:]' '[:lower:]'
+}
+
 is_demo_status_line() {
   local line="$1"
   local path="${line#???}"
@@ -347,7 +351,8 @@ log_placeholder() {
 }
 
 is_image_placeholder_candidate() {
-  local p="${1,,}"
+  local p
+  p="$(ascii_lower "$1")"
 
   case "$p" in
     *.png|*.jpg|*.jpeg|*.webp|*.gif|*.bmp|*.ico|*.svg) return 0 ;;
@@ -357,7 +362,8 @@ is_image_placeholder_candidate() {
 }
 
 is_demo_review_excluded_path() {
-  local p="${1,,}"
+  local p
+  p="$(ascii_lower "$1")"
 
   case "$p" in
     demo/*/assets/*.png|demo/*/assets/*.jpg|demo/*/assets/*.jpeg|demo/*/assets/*.webp|demo/*/assets/*.gif|demo/*/assets/*.svg|demo/*/assets/*.mp3|demo/*/assets/*.wav|demo/*/assets/*.ogg) return 0 ;;
@@ -411,7 +417,7 @@ copy_placeholder_image() {
   local dest="$BUNDLE/$p"
   mkdir -p "$(dirname "$dest")"
 
-  case "${p,,}" in
+  case "$(ascii_lower "$p")" in
     *.svg)
       cat > "$dest" <<'EOF_SVG'
 <svg xmlns="http://www.w3.org/2000/svg" width="1" height="1" viewBox="0 0 1 1"><rect width="1" height="1" fill="#bde7ff"/></svg>
@@ -508,11 +514,12 @@ is_included() {
   case "$p" in
     AGENTS.md|README.md|WHY_AIR.md|METHOD.md|SECURITY.md|THREAT_MODEL.md|CONFORMANCE.md|SHOWCASE.md|VERSIONING.md|ROADMAP.md|CONTRIBUTING.md|CHANGELOG.md|LICENSE|NOTICE|NOTICE.md|AUTHORS|MOBILE_SUMMARY.md|REVIEW_REQUEST.md|CONSUMER_EVIDENCE_SUMMARY.md|package.json|package-lock.json|pnpm-lock.yaml|tsconfig.json|.gitlab-ci.yml|.gitignore|.npmignore) return 0 ;;
     REVIEW_RESULTS/*|REVIEW_RESULTS/**/*) return 0 ;;
-    spec/*.md|docs/*.md|docs/release/*.md|docs/release/*.json|docs/release/artifact_templates/*.md|docs/release/artifact_templates/*.json) return 0 ;;
+    spec/*.md|docs/*.md|docs/release/*.md|docs/release/*.json|docs/release/*.yaml|docs/release/artifact_templates/*.md|docs/release/artifact_templates/*.json) return 0 ;;
     review_artifacts/templates/*.md|review_artifacts/templates/*.json|schemas/review/*.json) return 0 ;;
     consumer_evidence/README.md|consumer_evidence/DEMO_REGISTRY.json|consumer_evidence/.gitignore) return 0 ;;
     consumer_evidence/schemas/*.json) return 0 ;;
     consumer_evidence/demos/*/MANIFEST.json|consumer_evidence/demos/*/PROOF_CARD.md|consumer_evidence/demos/*/PROMPTS.md) return 0 ;;
+    consumer_evidence/demos/borrowed_memory/browser_conformance.mjs) return 0 ;;
     consumer_evidence/demos/*/reports/*.md|consumer_evidence/demos/*/reports/*.json) return 0 ;;
     consumer_evidence/demos/*/replay/README.md|consumer_evidence/demos/*/replay/*.json) return 0 ;;
     consumer_evidence/demos/*/metrics/README.md|consumer_evidence/demos/*/metrics/*.json) return 0 ;;
@@ -523,7 +530,9 @@ is_included() {
     evals/ai_authoring/expected/constraints.json) return 0 ;;
     evals/ai_authoring/reports/README.md) return 0 ;;
     stdlib/*.air|stdlib/**/*.air) return 0 ;;
-    swift/AIRSwift/*.md|swift/AIRSwift/**/*.md|swift/AIRSwift/**/*.swift) return 0 ;;
+    fixtures/v051/*|fixtures/v051/**/*|fixtures/v052/*|fixtures/v052/**/*) return 0 ;;
+    fixtures/v050/*|fixtures/v050/**/*|fixtures/semantic_patch/*|fixtures/semantic_patch/**/*) return 0 ;;
+    swift/AIRSwift/Package.swift|swift/AIRSwift/*.md|swift/AIRSwift/**/*.md|swift/AIRSwift/**/*.swift) return 0 ;;
     kits/*.md|kits/**/*.md|kits/**/*.air|kits/**/*.json|kits/**/*.wgsl) return 0 ;;
     examples/*.air|examples/**/*.air|examples/*.json|examples/**/*.json|examples/*.md|examples/**/*.md|examples/*.js|examples/**/*.js|examples/*.mjs|examples/**/*.mjs) return 0 ;;
     examples/**/*.wgsl|examples/**/assets/*.gltf|examples/**/assets/*.glb|examples/**/assets/*.svg|examples/**/assets/*.json) return 0 ;;
@@ -540,10 +549,12 @@ is_included() {
     requests/*.md|requests/**/*.md) return 0 ;;
     test/*.js|test/**/*.js|test/*.mjs|test/**/*.mjs|test/*.json|test/**/*.json|test/**/*.air) return 0 ;;
     test/fixtures/evidence_report/README.md|test/fixtures/evidence_report/*.golden.md|test/fixtures/evidence_report/*.json) return 0 ;;
+    test/fixtures/format/canonical/README.md|test/fixtures/lowering/*/README.md) return 0 ;;
     test/fixtures/lan_observer_readonly/unsafe_raw_authority/README.md) return 0 ;;
     test/fixtures/package_diff/README.md) return 0 ;;
     test/fixtures/pools/projectile_pool_basic/README.md) return 0 ;;
     examples/public/*|examples/public/**/*) return 0 ;;
+    examples/ai_gate/swift_host/Package.swift|examples/ai_gate/swift_host/Sources/**/*.swift|examples/borrowed_slices/.npmignore) return 0 ;;
     hosts/*.md|hosts/**/*.md|hosts/**/*.ts|hosts/**/*.js|hosts/**/*.mjs|hosts/**/*.swift|hosts/**/*.rs|hosts/**/*.wgsl|hosts/**/*.json|hosts/**/*.toml|hosts/**/Cargo.lock|hosts/**/*.css|hosts/**/*.html) return 0 ;;
     demo/*.md|demo/**/*.md|demo/**/*.air|demo/**/*.json|demo/**/*.ts|demo/**/*.js|demo/**/*.mjs|demo/**/*.swift|demo/**/*.wgsl|demo/**/*.html|demo/**/*.css) return 0 ;;
     tests/**/*.air|tests/**/*.js|tests/**/*.mjs|tests/**/*.json|tests/**/*.md) return 0 ;;

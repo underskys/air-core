@@ -1,0 +1,47 @@
+schema: air.public-promotion-manifest/1
+milestone: v0.52
+public_package: "@underskys/air-core@0.52.0"
+status: TECHNICAL_RC_S5_INDEPENDENT_QA_PASS_UNPUBLISHED
+accepted_s5_qa:
+  disposition: PASS_AIR_V052_S5_BOUNDED_CORRECTION
+  p0: 0
+  p1: 0
+  p2: 2
+  public_commit: 4c62489f34a8149f758bc23dda892a031bae1023
+  public_tree: 200daec43f66ff3afbf0682240306cf64e8d91f4
+  unpublished_tarball_sha256: 627ced8529caa5c91c9fe80f6e315e82ace189aeacec19bd8230c1929d540433
+  report_sha256: d842de4cb8f097ea8bbaa1ab8b73b164f4a74f03e2c2eda1cf4cab1061c442fd
+private_source:
+  repository: fd.skyrealm/airlang
+  branch: impl/air-v0.52-rc
+  commit: 48d414ab2349cc20e9b267b0656f128bb7557ee4
+  tree: bdc9d9bc97959679c1587c0e12e1f036d482b574
+original_projection_source:
+  commit: a95449137196778b37479287b32371590becc18f
+  tree: 742b109c29be5920f9d133ea20bc82f0b105cc72
+projection_notes:
+  - Public source is selectively projected from the private S5 correction source, not a wholesale repository copy.
+  - Private and public compiler identities now both report 0.52.0; the private package remains nonpublishable and ABI versions are unchanged.
+public_target:
+  repository: fd.skyrealm/air-core
+  base_commit: 7ec883e9748b7d4c60bd4057e4769b9fea3d9739
+  base_tree: a4194c181db2161f857dc6258a2ef2928302c3ef
+  branch: release/air-v0.52-candidate
+included_classes:
+  - public parser, verifier and CLI source-profile changes
+  - verified typed build and generic runtime implementation
+  - product-neutral v0.52 fixtures, runners and tests
+  - public package metadata, README, changelog and release notes
+excluded_classes:
+  - private review prompts, bundles and snapshots
+  - consumer and live-shadow evidence
+  - demo output and review placeholder images
+  - Swift build state and local caches
+authority_boundaries:
+  air_abi_012_candidate_only: true
+  host_abi_changed: false
+  production_effect_authority: false
+  merge_authorized: false
+  tag_authorized: false
+  publish_authorized: false
+  deploy_authorized: false

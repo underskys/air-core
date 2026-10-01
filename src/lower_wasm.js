@@ -25,8 +25,8 @@ const BORROW_FAILURE = Object.freeze({
   arithmetic: 6
 });
 
-function lowerToWat(mod) {
-  if (mod && mod.v051TypedAst) return lowerV051TypedToWat(mod);
+function lowerToWat(mod, options = {}) {
+  if (mod && mod.v051TypedAst) return lowerV051TypedToWat(mod, options);
   assertWasmTargetSupport(mod);
   const borrowedDescriptor = borrowedSliceInterfaceDescriptor(mod);
   const ctx = {
@@ -142,9 +142,43 @@ function typedLowerFail(code, message) {
 
 // The candidate path lowers the already-verified typed AST directly to WAT.
 // It is intentionally separate from the legacy block IR, not an interpreter.
-function lowerV051TypedToWat(mod) {
+class BoundedTypedWatLines extends Array {
+  constructor(budget) {
+    super();
+    this.budget = budget;
+  }
+
+  static get [Symbol.species]() { return Array; }
+
+  push(...lines) {
+    if (this.budget) {
+      for (const line of lines) this.budget.charge(line);
+    }
+    return super.push(...lines);
+  }
+}
+
+function typedWatBudget(maxWatBytes) {
+  if (maxWatBytes === undefined) return null;
+  if (!Number.isSafeInteger(maxWatBytes) || maxWatBytes < 1) {
+    throw new TypeError("maxWatBytes must be a positive safe integer");
+  }
+  return {
+    remaining: maxWatBytes,
+    charge(line) {
+      const bytes = Buffer.byteLength(line, "utf8") + 5;
+      if (bytes > this.remaining) {
+        typedLowerFail("air.v052.work_limit_wat_bytes", `lowered WAT exceeds the configured limit of ${maxWatBytes}`);
+      }
+      this.remaining -= bytes;
+    }
+  };
+}
+
+function lowerV051TypedToWat(mod, options = {}) {
   verifyV051Air(mod);
   try {
+    const budget = typedWatBudget(options.maxWatBytes);
     const declarations = new Map((mod.enums || []).map((item) => [item.type_id, item]));
     const usesCanonicalSumIngress = (mod.functions || []).some((fn) => (fn.params || []).some((parameter) => {
       const type = v051TypedTypeInfo(parameter.type, declarations);
@@ -152,7 +186,7 @@ function lowerV051TypedToWat(mod) {
     }));
     const usesCheckedNumeric = (mod.functions || []).some(v051TypedFunctionUsesCheckedNumeric);
     const usesTypedRefinement = (mod.functions || []).some(v051TypedFunctionUsesRefinement);
-    const functions = (mod.functions || []).map((fn) => lowerV051TypedFunction(fn, declarations));
+    const functions = (mod.functions || []).map((fn) => lowerV051TypedFunction(fn, declarations, budget));
     return [
       "(module",
       "  (func $__air_v051_invalid_tag unreachable)",
@@ -175,15 +209,15 @@ function lowerV051TypedToWat(mod) {
   }
 }
 
-function lowerV051TypedFunction(fn, declarations) {
+function lowerV051TypedFunction(fn, declarations, budget) {
   if (fn.returnType === "void") {
     typedLowerFail("air.v051.typed_lowering_unsupported", "void typed functions are outside the first vertical runtime subset");
   }
   const state = {
     declarations,
-    localDecls: [],
+    localDecls: new BoundedTypedWatLines(budget),
     locals: new Map(),
-    body: [],
+    body: new BoundedTypedWatLines(budget),
     tempId: 0,
     usesCheckedNumeric: v051TypedFunctionUsesCheckedNumeric(fn)
   };
@@ -193,7 +227,9 @@ function lowerV051TypedFunction(fn, declarations) {
     const record = v051TypedRecord(parameter.name, parameter.type, info, true);
     state.locals.set(parameter.name, record);
     for (let index = 0; index < record.names.length; index += 1) {
-      params.push(`(param ${record.names[index]} ${info.watTypes[index]})`);
+      const param = `(param ${record.names[index]} ${info.watTypes[index]})`;
+      if (budget) budget.charge(param);
+      params.push(param);
     }
     emitV051TypedRuntimeValidation(state, record);
   }
@@ -636,29 +672,25 @@ function emitV051TypedMatch(state, statement, destination) {
     : subject.info.kind === "option" ? ["none", "some"]
       : subject.info.kind === "result" ? ["ok", "err"] : null;
   if (!keys) typedLowerFail("air.v051.typed_lowering_unsupported", "match subject is not a tagged type");
-  emitV051TypedMatchBranches(state, subject, destination, keys, arms, 0);
-}
-
-function emitV051TypedMatchBranches(state, subject, destination, keys, arms, index) {
-  if (index >= keys.length) {
-    state.body.push("call $__air_v051_invalid_tag");
-    return;
+  const endLabel = `$__air_v051_match_end_${state.tempId++}`;
+  state.body.push(`block ${endLabel}`);
+  for (let index = 0; index < keys.length; index += 1) {
+    const key = keys[index];
+    const arm = arms.get(key);
+    if (!arm) typedLowerFail("air.v051.typed_lowering_unsupported", `missing verified match arm '${key}'`);
+    emitV051TypedMatchCondition(state, subject, key, index);
+    state.body.push("if");
+    emitV051TypedMatchArm(state, subject, arm, destination);
+    state.body.push(`br ${endLabel}`, "end");
   }
-  const key = keys[index];
-  const arm = arms.get(key);
-  if (!arm) typedLowerFail("air.v051.typed_lowering_unsupported", `missing verified match arm '${key}'`);
-  emitV051TypedMatchCondition(state, subject, key);
-  state.body.push("if");
-  emitV051TypedMatchArm(state, subject, arm, destination);
-  state.body.push("else");
-  emitV051TypedMatchBranches(state, subject, destination, keys, arms, index + 1);
+  state.body.push("call $__air_v051_invalid_tag");
   state.body.push("end");
 }
 
-function emitV051TypedMatchCondition(state, subject, key) {
+function emitV051TypedMatchCondition(state, subject, key, index) {
   state.body.push(`local.get ${subject.names[0]}`);
   if (subject.info.kind === "enum") {
-    const entry = subject.info.declaration.cases.find((item) => item.name === key);
+    const entry = subject.info.declaration.cases[index];
     state.body.push(`i32.const ${entry.discriminant}`);
   } else {
     state.body.push(`i32.const ${key === "none" || key === "ok" ? 0 : 1}`);

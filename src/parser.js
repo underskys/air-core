@@ -491,6 +491,12 @@ function normalizeV051TypedInitializer(value, expectedType, moduleId, loc) {
   const expected = refinement
     ? { baseCanonical: refinement.base, canonical: refinement.canonical, kind: "primitive", refinement: refinement.refinement }
     : parseTypeReference(expectedType);
+  if (/^const\.i64(?:\s|$)/.test(text)) {
+    if (expected.canonical !== "i64") throw new AirError("air.v051.typed_atom_type_mismatch: const.i64 requires i64", loc);
+    const literal = text.match(/^const\.i64\s+(-?(?:0|[1-9][0-9]*))$/);
+    if (!literal) throw new AirError("air.v051.typed_atom_invalid: const.i64 requires an exact decimal literal", loc);
+    return literal[1] === "-0" ? "0" : literal[1];
+  }
   if (/^%[A-Za-z_][A-Za-z0-9_]*$/.test(text)) return text;
 
   const numericOperation = text.match(/^(i64\.checked_(?:add|sub|mul|div_s|rem_s|neg)|i64\.(?:eq|ne|lt_s|le_s|gt_s|ge_s)|i64\.to_i32_checked|i32\.to_i64|f32\.to_f64|f64\.to_f32_checked)\s+(.+)$/);
@@ -1017,9 +1023,15 @@ function parseOp(text, loc, resultType = null) {
 
   const brIf = text.match(/^br_if\s+([^,]+)\s*,\s*([A-Za-z_][A-Za-z0-9_]*)\s*,\s*([A-Za-z_][A-Za-z0-9_]*)$/);
   if (brIf) return { op: "br_if", args: [parseAtom(brIf[1].trim())], labels: [brIf[2], brIf[3]] };
+  if (/^br_if\b/.test(text)) {
+    throw new AirError("air.control.br_if_syntax_invalid: expected br_if <bool>, <then-label>, <else-label>", loc);
+  }
 
   const br = text.match(/^br\s+([A-Za-z_][A-Za-z0-9_]*)$/);
   if (br) return { op: "br", labels: [br[1]], args: [] };
+  if (/^br\b/.test(text)) {
+    throw new AirError("air.control.br_syntax_invalid: expected br <label>", loc);
+  }
 
   const tablegroupGet = text.match(/^(tablegroup\.get\.(?:i32|bool))\s+@([A-Za-z_][A-Za-z0-9_]*)\.([A-Za-z_][A-Za-z0-9_]*)\s*,\s*(.+)$/);
   if (tablegroupGet) {

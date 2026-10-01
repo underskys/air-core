@@ -33,6 +33,7 @@ const {
 } = require("./borrowed_slices");
 const { checkAbi012Candidate, createDecisionEvidence, deriveEffectiveAuthority } = require("./v051_reference");
 const { parseTypeReference } = require("./typed_interface");
+const { semanticDiagnosticCode } = require("./errors");
 
 const RESOURCE_CERTIFICATE_SCHEMA_VERSION = "1.0";
 const RESOURCE_CERTIFICATE_KIND = "air.verifiedResourceCertificate";
@@ -66,6 +67,8 @@ class VerificationError extends Error {
     super(loc ? `${loc.file}:${loc.line}: ${message}` : message);
     this.name = "VerificationError";
     this.loc = loc;
+    const code = semanticDiagnosticCode(message);
+    if (code) this.code = code;
   }
 }
 
@@ -206,6 +209,11 @@ function verifyV051Air(mod, options = {}) {
 }
 
 function verifyV051TypedModule(mod) {
+  for (const capability of mod.capabilities || []) {
+    if (!KNOWN_CAPABILITIES.has(capability)) {
+      throw new VerificationError(`air.capability.unknown: unknown capability '${capability}'`);
+    }
+  }
   const declarations = new Map();
   for (const declaration of mod.enums || []) {
     if (!declaration || (declaration.kind !== "enum" && declaration.kind !== "error_enum") || typeof declaration.type_id !== "string") {
@@ -238,6 +246,7 @@ function verifyV051TypedModule(mod) {
     verifyV051TypedType(fn.returnType, declarations, fn.loc, true);
     let hasReturn = false;
     for (const statement of fn.statements || []) {
+      if (hasReturn) throw new VerificationError("air.control.statement_after_return: return must be the last statement", statement.loc);
       if (statement.kind === "local") {
         if (locals.has(statement.name)) throw new VerificationError(`air.v051.local_duplicate: '${statement.name}'`, statement.loc);
         const declared = verifyV051TypedType(statement.type, declarations, statement.loc, false);

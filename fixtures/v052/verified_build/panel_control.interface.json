@@ -1,0 +1,26 @@
+{
+  "air_abi_lane": "0.12",
+  "exports": [
+    {
+      "function": "show_badge",
+      "name": "show_badge",
+      "parameters": [
+        { "name": "visible", "type": "option<bool>" },
+        { "name": "badge", "type": "panel.control::Badge" }
+      ],
+      "return_type": "option<panel.control::Badge>"
+    }
+  ],
+  "module_id": "panel.control",
+  "schema": "air.typed-interface/0.12-candidate.1",
+  "types": [
+    {
+      "cases": [
+        { "discriminant": 0, "name": "idle" },
+        { "discriminant": 1, "name": "alert" }
+      ],
+      "kind": "enum",
+      "type_id": "panel.control::Badge"
+    }
+  ]
+}

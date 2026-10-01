@@ -1,0 +1,44 @@
+{
+  "air_abi_lane": "0.12",
+  "exports": [
+    {
+      "function": "i64_checked_add",
+      "name": "i64_checked_add",
+      "parameters": [
+        { "name": "left", "type": "i64" },
+        { "name": "right", "type": "i64" }
+      ],
+      "return_type": "i64"
+    },
+    {
+      "function": "i64_checked_div",
+      "name": "i64_checked_div",
+      "parameters": [
+        { "name": "left", "type": "i64" },
+        { "name": "right", "type": "i64" }
+      ],
+      "return_type": "i64"
+    },
+    {
+      "function": "i64_checked_mul",
+      "name": "i64_checked_mul",
+      "parameters": [
+        { "name": "left", "type": "i64" },
+        { "name": "right", "type": "i64" }
+      ],
+      "return_type": "i64"
+    },
+    {
+      "function": "i64_checked_sub",
+      "name": "i64_checked_sub",
+      "parameters": [
+        { "name": "left", "type": "i64" },
+        { "name": "right", "type": "i64" }
+      ],
+      "return_type": "i64"
+    }
+  ],
+  "module_id": "v052.g2.numeric",
+  "schema": "air.typed-interface/0.12-candidate.1",
+  "types": []
+}

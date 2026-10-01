@@ -142,6 +142,25 @@ function collectEvidenceReportFixtureRequirements(add) {
 }
 
 function collectReviewSafeFixtureRequirements(add) {
+  for (const fixtureDir of [
+    path.join(root, "fixtures", "v050"),
+    path.join(root, "fixtures", "semantic_patch")
+  ]) {
+    for (const file of findAllFiles(fixtureDir)) {
+      add(file, "frozen and semantic-patch fixtures", "full source review tests");
+    }
+  }
+  for (const file of [
+    path.join(root, "consumer_evidence", "demos", "borrowed_memory", "browser_conformance.mjs"),
+    path.join(root, "swift", "AIRSwift", "Package.swift"),
+    path.join(root, "test", "fixtures", "format", "canonical", "README.md"),
+    ...findFiles(path.join(root, "test", "fixtures", "lowering"), "README.md"),
+    path.join(root, "examples", "ai_gate", "swift_host", "Package.swift"),
+    ...findFiles(path.join(root, "examples", "ai_gate", "swift_host", "Sources"), ".swift"),
+    path.join(root, "examples", "borrowed_slices", ".npmignore")
+  ]) {
+    add(file, "reviewable public source fixtures", "full source review tests");
+  }
   for (const file of findFiles(path.join(root, "test", "fixtures"), ".air")) {
     add(file, "test/fixtures/**/*.air", "tests");
   }

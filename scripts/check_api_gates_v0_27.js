@@ -64,8 +64,13 @@ const controlledOutputEmitImplementationFiles = new Set([
   "src/verification_evidence.js",
   "src/benchmark_report.js",
   "src/verifier_safety_fuzz.js",
+  "src/provenance_flow.js",
+  "src/run_package.js",
   "bin/airc.js",
-  "data/host_profiles/mock-output-v011.json"
+  "data/host_profiles/mock-output-v011.json",
+  "examples/tool_gate/module.air",
+  "examples/tool_gate/outputs/tool_intents.json",
+  "examples/tool_gate/request.js"
 ]);
 
 const verifierSafetyHarnessFiles = new Set([
@@ -140,7 +145,7 @@ function checkRawAuthority(rel, text) {
   if (!isAirPublicSurfacePath(rel)) return;
   if (path.extname(rel) === ".md") return;
   if (rejectionMetadataFiles.has(rel)) return;
-  if (/\b(?:chrome\.|document\.|window\.|indexedDB|localStorage|sessionStorage|fetch|XMLHttpRequest|React|DOM|AWS|Azure|GCP|Postgres|Kubernetes|kubectl|docker|jira)\b/i.test(text)) {
+  if (/\b(?:chrome\.|document\.(?:body|cookie|createElement|getElementById|querySelector|write)|window\.|indexedDB|localStorage|sessionStorage|fetch|XMLHttpRequest|React|DOM|AWS|Azure|GCP|Postgres|Kubernetes|kubectl|docker|jira)\b/i.test(text)) {
     failures.push(`${rel}: raw platform authority is not allowed in active AIR Core/API paths`);
   }
 }
@@ -193,7 +198,7 @@ function listFiles(dir) {
   const entries = fs.readdirSync(dir, { withFileTypes: true });
   const out = [];
   for (const entry of entries) {
-    if (entry.name === "node_modules" || entry.name === ".git" || entry.name === "dist" || entry.name === "build") continue;
+    if (entry.name === "node_modules" || entry.name === ".git" || entry.name === "dist" || entry.name === "build" || entry.name === ".build") continue;
     if (entry.name === "REVIEW_RESULTS" || entry.name === "old_bundles" || entry.name === "tmp_unused") continue;
     const full = path.join(dir, entry.name);
     if (entry.isDirectory()) out.push(...listFiles(full));

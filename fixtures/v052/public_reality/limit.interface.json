@@ -1,0 +1,45 @@
+{
+  "air_abi_lane": "0.12",
+  "schema": "air.typed-interface/0.12-candidate.1",
+  "module_id": "public_limit",
+  "exports": [
+    {
+      "function": "within_business_limit",
+      "name": "within_business_limit",
+      "parameters": [
+        {
+          "name": "value",
+          "type": "i64"
+        }
+      ],
+      "return_type": "bool"
+    },
+    {
+      "function": "echo",
+      "name": "echo",
+      "parameters": [
+        {
+          "name": "value",
+          "type": "i64"
+        }
+      ],
+      "return_type": "i64"
+    },
+    {
+      "function": "checked_add",
+      "name": "checked_add",
+      "parameters": [
+        {
+          "name": "left",
+          "type": "i64"
+        },
+        {
+          "name": "right",
+          "type": "i64"
+        }
+      ],
+      "return_type": "i64"
+    }
+  ],
+  "types": []
+}

@@ -78,6 +78,17 @@ function splitTopLevel(text) {
 
 function parseTypeReference(value, { allowVoid = false } = {}) {
   if (typeof value !== "string" || value !== value.trim() || !value) fail("air.v051.type_reference_invalid", "type reference must be canonical text");
+  // Admitted ABI 0.12 types contain only flat sums. This ceiling is an
+  // implementation guard for already-invalid input, not a new type rule.
+  // Reject before recursive descent can turn a small hostile descriptor into
+  // a native RangeError. Existing shallow diagnostics remain unchanged.
+  let nesting = 0;
+  for (let index = 0; index < value.length; index += 1) {
+    if (value[index] === "<" && ++nesting > 64) {
+      fail("air.decision.payload_type_unsupported", "type nesting exceeds the supported flat-sum surface");
+    }
+    if (value[index] === ">") nesting -= 1;
+  }
   if (allowVoid && value === "void") return { kind: "void", canonical: "void" };
   if (PRIMITIVES.has(value)) return { kind: "primitive", canonical: value };
   const enumMatch = value.match(/^([a-z][a-z0-9._-]{0,127})::([A-Z][A-Za-z0-9_]{0,127})$/);

@@ -3,10 +3,17 @@
 const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
-const { parseAir } = require("../src/parser");
+const { AirError } = require("../src/errors");
+const {
+  SOURCE_PROFILE_LEGACY,
+  formatSource,
+  isTypedSourceProfile,
+  normalizeSourceProfile,
+  parseSource,
+  verifySource
+} = require("../src/source_profile");
 const { assertWasmTargetSupport, verifyModule, VerificationError } = require("../src/verifier");
 const { ProvenanceFlowError } = require("../src/provenance_flow");
-const { formatModule } = require("../src/format");
 const { explainModule } = require("../src/explain");
 const { auditModule } = require("../src/audit");
 const { lowerToWat, watToWasm } = require("../src/lower_wasm");
@@ -50,12 +57,40 @@ const { createE2eProofReport, stableStringify: stableE2eProofStringify } = requi
 const { createEvidenceMarkdownReport } = require("../src/evidence_report");
 const { AIR_VERSION, AIR_ABI_VERSION } = require("../src/version");
 
+const SOURCE_FILE_COMMANDS = new Set([
+  "fmt",
+  "verify",
+  "explain",
+  "audit",
+  "report",
+  "audio-check",
+  "wit",
+  "gfx-check",
+  "input-check",
+  "app-check",
+  "gfx-wit",
+  "gfx-build",
+  "build"
+]);
+const SOURCE_COMMAND_OPTIONS = Object.freeze({
+  "app-check": { values: ["--manifest", "--source-profile"] },
+  "audio-check": { values: ["--audio-manifest", "--source-profile"] },
+  audit: { values: ["--source-profile"] },
+  build: { values: ["--emit", "--output", "--source-profile", "-o"] },
+  explain: { values: ["--source-profile"] },
+  format: { flags: ["--canonical", "--check", "--json", "--stdin", "--write"], values: ["--source-profile"] },
+  fmt: { values: ["--source-profile"] },
+  "gfx-build": { values: ["--manifest", "--out", "--source-profile"] },
+  "gfx-check": { values: ["--manifest", "--source-profile"] },
+  "gfx-wit": { values: ["--manifest", "--source-profile"] },
+  "input-check": { values: ["--manifest", "--source-profile"] },
+  report: { flags: ["--ai-review"], values: ["--audio-manifest", "--manifest", "--profile", "--source-profile"] },
+  verify: { flags: ["--library"], values: ["--source-profile"] },
+  wit: { values: ["--source-profile"] }
+});
+
 async function main(argv) {
   let [command, file, ...rest] = argv;
-  if (command === "verify" && file === "--library") {
-    file = rest.shift();
-    rest.unshift("--library");
-  }
   if (command === "gfx-stdlib") {
     process.stdout.write(emitGfxStdlib());
     return 0;
@@ -106,7 +141,7 @@ async function main(argv) {
     return 0;
   }
 
-  if (!command || (!file && !["help", "--help", "version"].includes(command)) || command === "help" || command === "--help") {
+  if (!command || command === "help" || command === "--help") {
     printHelp();
     return command ? 0 : 1;
   }
@@ -139,6 +174,9 @@ async function main(argv) {
 
   if (command === "check") {
     const args = [file, ...rest].filter(Boolean);
+    if (args.some((arg) => arg === "--source-profile" || arg.startsWith("--source-profile="))) {
+      throw new AirError("air.source_profile.command_unsupported: 'check' does not support --source-profile");
+    }
     const target = args.find((arg) => !arg.startsWith("-"));
     if (!target) throw new Error("missing target: airc check <file-or-package> --lsp-json");
     const lspJson = args.includes("--lsp-json");
@@ -636,18 +674,39 @@ async function main(argv) {
     return runFormatCommand([file, ...rest].filter(Boolean));
   }
 
-  const source = fs.readFileSync(file, "utf8");
-  const mod = parseAir(source, file);
+  if (!SOURCE_FILE_COMMANDS.has(command)) {
+    throw new AirError(`air.cli.command_unknown: ${command}`);
+  }
+
+  const sourceInvocation = parseSourceInvocation([file, ...rest].filter(Boolean), { command });
+  file = sourceInvocation.file;
+  rest = sourceInvocation.rest;
+  let source;
+  source = readSourceFile(file);
+  const sourceProfile = sourceInvocation.sourceProfile;
+  let mod;
+  try {
+    mod = parseSource(source, file, { sourceProfile });
+  } catch (error) {
+    if (sourceProfile === SOURCE_PROFILE_LEGACY && !rest.includes("--source-profile") && error instanceof AirError) {
+      error.message += " (default profile: legacy-v0.50; typed sources require --source-profile typed-v0.51)";
+    }
+    throw error;
+  }
 
   if (command === "fmt" || command === "format") {
-    process.stdout.write(formatModule(mod));
+    process.stdout.write(formatSource(mod, { sourceProfile }));
     return 0;
   }
 
   if (command === "verify") {
-    verifyModule(mod, { library: rest.includes("--library") });
+    verifySource(mod, { sourceProfile, library: rest.includes("--library") });
     console.log(`ok: ${file}`);
     return 0;
+  }
+
+  if (isTypedSourceProfile(sourceProfile) && command !== "build") {
+    throw new AirError(`air.source_profile.command_unsupported: '${command}' does not support '${sourceProfile}' source`);
   }
 
   if (command === "explain") {
@@ -729,8 +788,8 @@ async function main(argv) {
   }
 
   if (command === "build") {
-    verifyModule(mod);
-    assertWasmTargetSupport(mod);
+    verifySource(mod, { sourceProfile });
+    if (!isTypedSourceProfile(sourceProfile)) assertWasmTargetSupport(mod);
     const emit = readOption(rest, "--emit") || "wat";
     const output = readOption(rest, "-o") || readOption(rest, "--output");
     if (!["wat", "wasm"].includes(emit)) {
@@ -749,7 +808,7 @@ async function main(argv) {
     return 0;
   }
 
-  throw new Error(`unknown command: ${command}`);
+  throw new AirError(`air.cli.command_unknown: ${command}`);
 }
 
 async function buildConformanceFixture(name, outDir) {
@@ -779,14 +838,14 @@ async function buildConformanceFixture(name, outDir) {
 
 function runFormatCommand(args) {
   const opts = parseFormatArgs(args);
-  const source = opts.stdin ? fs.readFileSync(0, "utf8") : fs.readFileSync(opts.file, "utf8");
+  const source = opts.stdin ? fs.readFileSync(0, "utf8") : readSourceFile(opts.file);
   const inputKind = opts.stdin ? "stdin" : "file";
   const diagnostics = [];
   let canonical = "";
 
   try {
-    const mod = parseAir(source, opts.file || "<stdin>");
-    canonical = formatModule(mod);
+    const mod = parseSource(source, opts.file || "<stdin>", { sourceProfile: opts.sourceProfile });
+    canonical = formatSource(mod, { sourceProfile: opts.sourceProfile });
   } catch (err) {
     diagnostics.push(formatDiagnostic("air.format.parse_failed", "fail", sanitizeDiagnosticMessage(err && err.message ? err.message : String(err))));
     return finishFormatResult({ opts, inputKind, changed: false, canonical: "", diagnostics });
@@ -815,21 +874,52 @@ function runFormatCommand(args) {
   return finishFormatResult({ opts, inputKind, changed, canonical, diagnostics });
 }
 
+// Open nonblocking, then inspect and read the same descriptor. This rejects
+// FIFOs/devices without blocking and bounds reads even if a regular file grows.
+function readSourceFile(file) {
+  const maxBytes = 4 * 1024 * 1024;
+  let fd;
+  try {
+    fd = fs.openSync(file, fs.constants.O_RDONLY | fs.constants.O_NONBLOCK);
+    const stat = fs.fstatSync(fd);
+    if (!stat.isFile()) throw new AirError("air.cli.file_invalid: source must be a regular file");
+    if (stat.size > maxBytes) throw new AirError("air.cli.file_too_large: source exceeds 4194304 bytes");
+    const chunks = [];
+    let total = 0;
+    while (total <= maxBytes) {
+      const chunk = Buffer.alloc(Math.min(64 * 1024, maxBytes + 1 - total));
+      const count = fs.readSync(fd, chunk, 0, chunk.length, null);
+      if (!count) return Buffer.concat(chunks, total).toString("utf8");
+      total += count;
+      if (total > maxBytes) throw new AirError("air.cli.file_too_large: source exceeds 4194304 bytes");
+      chunks.push(chunk.subarray(0, count));
+    }
+  } catch (error) {
+    if (error instanceof AirError) throw error;
+    if (error && error.code === "ENOENT") throw new AirError("air.cli.file_missing: source file does not exist");
+    if (error && ["EISDIR", "ENOTDIR", "ELOOP", "ENAMETOOLONG", "EINVAL"].includes(error.code)) {
+      throw new AirError("air.cli.file_invalid: invalid source file path");
+    }
+    throw new AirError("air.cli.file_read_failed: source file could not be read");
+  } finally {
+    if (fd !== undefined) fs.closeSync(fd);
+  }
+}
+
 function parseFormatArgs(args) {
   const stdin = args.includes("--stdin");
+  const sourceInvocation = parseSourceInvocation(args, { command: "format", requireFile: !stdin });
   const opts = {
     check: args.includes("--check"),
     write: args.includes("--write"),
     stdin,
     json: args.includes("--json"),
     canonical: args.includes("--canonical"),
-    file: null
+    sourceProfile: sourceInvocation.sourceProfile,
+    file: stdin ? "<stdin>" : sourceInvocation.file
   };
-  const target = args.find((arg) => !arg.startsWith("-"));
-  if (stdin && target) throw new Error("format --stdin does not accept a file argument");
+  if (stdin && sourceInvocation.file) throw new Error("format --stdin does not accept a file argument");
   if (stdin && opts.write) throw new Error("format --stdin does not support --write");
-  if (!stdin && !target) throw new Error("missing file: airc format <file>");
-  opts.file = stdin ? "<stdin>" : target;
   return opts;
 }
 
@@ -897,6 +987,55 @@ function sanitizeDiagnosticMessage(message) {
 function readOption(args, name) {
   const idx = args.indexOf(name);
   return idx >= 0 ? args[idx + 1] : undefined;
+}
+
+function readSourceProfileOption(args) {
+  let profile = SOURCE_PROFILE_LEGACY;
+  let seen = false;
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index];
+    if (arg.startsWith("--source-profile=")) {
+      throw new AirError("air.source_profile.invalid_form: use '--source-profile <profile>'");
+    }
+    if (arg !== "--source-profile") continue;
+    if (seen) {
+      throw new AirError("air.source_profile.duplicate: specify --source-profile at most once");
+    }
+    const value = args[index + 1];
+    if (!value || value.startsWith("-")) {
+      throw new AirError("air.source_profile.missing: expected a versioned profile after --source-profile");
+    }
+    profile = normalizeSourceProfile(value);
+    seen = true;
+  }
+  return profile;
+}
+
+function parseSourceInvocation(args, { command, requireFile = true } = {}) {
+  const sourceProfile = readSourceProfileOption(args);
+  const commandOptions = SOURCE_COMMAND_OPTIONS[command] || { flags: [], values: [] };
+  const flags = new Set(commandOptions.flags || []);
+  const valueFlags = new Set(commandOptions.values || []);
+  const optionValues = new Set();
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index];
+    if (!arg.startsWith("-")) continue;
+    if (valueFlags.has(arg)) {
+      optionValues.add(index + 1);
+      continue;
+    }
+    if (flags.has(arg)) continue;
+    throw new AirError(`air.cli.option_unknown: '${arg}' is not supported by '${command}'`);
+  }
+  const fileIndex = args.findIndex((arg, index) => !arg.startsWith("-") && !optionValues.has(index));
+  if (fileIndex < 0 && requireFile) {
+    throw new AirError("air.source_profile.file_missing: expected an AIR source file");
+  }
+  return {
+    sourceProfile,
+    file: fileIndex < 0 ? null : args[fileIndex],
+    rest: args.filter((_, index) => index !== fileIndex)
+  };
 }
 
 function loadManifestOption(args) {
@@ -1088,6 +1227,8 @@ Commands:
   version  Print compiler/runtime ABI version
 
 Build options:
+  --source-profile legacy-v0.50|typed-v0.51
+           Select the versioned source grammar explicitly (default: legacy-v0.50)
   --emit wat|wasm
   -o, --output <path>
 
@@ -1114,7 +1255,7 @@ Conformance fixtures:
 main(process.argv.slice(2)).then((code) => {
   if (typeof code === "number") process.exitCode = code;
 }).catch((err) => {
-  if (err instanceof VerificationError) {
+  if (err instanceof VerificationError || err instanceof AirError) {
     console.error(err.message);
   } else if (err instanceof ProvenanceFlowError) {
     for (const diagnostic of err.diagnostics || []) {

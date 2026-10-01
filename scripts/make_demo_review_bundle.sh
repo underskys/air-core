@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+ascii_lower() {
+  printf '%s' "$1" | LC_ALL=C tr '[:upper:]' '[:lower:]'
+}
+
 # AIR demo review bundle builder.
 #
 # Creates a demo-only orientation/evidence archive. The source tree is not
@@ -243,14 +247,14 @@ log_replaced() {
 }
 
 is_image() {
-  case "${1,,}" in
+  case "$(ascii_lower "$1")" in
     *.png|*.jpg|*.jpeg|*.webp|*.gif|*.svg) return 0 ;;
   esac
   return 1
 }
 
 is_audio() {
-  case "${1,,}" in
+  case "$(ascii_lower "$1")" in
     *.mp3|*.wav|*.ogg|*.m4a|*.flac|*.aac) return 0 ;;
   esac
   return 1
@@ -261,7 +265,7 @@ write_image_placeholder() {
   local dest="$BUNDLE/$p"
   mkdir -p "$(dirname "$dest")"
 
-  case "${p,,}" in
+  case "$(ascii_lower "$p")" in
     *.svg)
       cat > "$dest" <<'EOF_SVG'
 <svg xmlns="http://www.w3.org/2000/svg" width="1" height="1" viewBox="0 0 1 1"><rect width="1" height="1" fill="#bde7ff"/></svg>
@@ -284,7 +288,7 @@ write_audio_placeholder() {
   local dest="$BUNDLE/$p"
   mkdir -p "$(dirname "$dest")"
 
-  case "${p,,}" in
+  case "$(ascii_lower "$p")" in
     *.wav)
       # Valid tiny PCM WAV header with zero samples.
       write_base64_file "UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YQAAAAA=" "$dest"

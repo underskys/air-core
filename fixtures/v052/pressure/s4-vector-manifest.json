@@ -1,0 +1,137 @@
+{
+  "schema": "air.v052.s4.pressure-conformance/1",
+  "task_id": "AIR-0052-RC-S4-PRESSURE-CONFORMANCE-0001",
+  "status": "FROZEN_EXPECTATIONS_BEFORE_RUNNER",
+  "authority": {
+    "new_core_semantics": false,
+    "new_digest_domain": false,
+    "fixed_point": false,
+    "u64": false,
+    "general_f64_arithmetic": false,
+    "host_contract_change": false,
+    "effect_receipt_change": false
+  },
+  "source_anchors": {
+    "s4_base_commit": "b8677c5a7eb8567e0311adfaa35610be67fff863",
+    "s4_base_tree": "ac1fba159280fbf80242572213e9a0c17f212122",
+    "s3_qa_bundle_sha256": "180ab67aa6d968aaf79383699cf9fc6ba6134e6c46e1bcc114e874f488f5c07f",
+    "s4_correction": {
+      "base_commit": "6c3d6cf71544f05da88872b2a9ee04684242b5e3",
+      "base_tree": "08e379307c188d3f49e34c3bd911608f8c4c66d7",
+      "prior_manifest_sha256": "80f76e783b43fd1dea59633c2c4cae9d53e28f71fc247d7c591d737bc33c65c7",
+      "qa_disposition": "REQUEST_CHANGES_AIR_V052_RC_S4",
+      "qa_report_sha256": "5c859b459c20dc24102a4980a044a763bbf05c4ada6f9acd1493b3988aff56a6"
+    },
+    "g2_manifest": {
+      "path": "fixtures/v052/numerics/g2-vector-manifest.json",
+      "sha256": "c11cffbd551b654586e873131b8b80483b1f4b5c529dbada326836db1821033a"
+    },
+    "existing_typed_source": {
+      "path": "fixtures/v052/numerics/g2_existing_numeric.air",
+      "sha256": "b88311b395652332743f6b07599cd709c40977957bbcd8fef645e65cad761745"
+    },
+    "s4_typed_descriptor": {
+      "path": "fixtures/v052/pressure/s4_i64.interface.json",
+      "sha256": "0e64b3ef820d3ea909c58bff47eb6c838e9104a0f7ef0fb294eada4ee78870a1"
+    },
+    "research_commit": "69a1756e232ed76f20007c51333d550a8df67aae",
+    "research_inputs": [
+      {
+        "path": "docs/v0.52/RFC_DETERMINISTIC_STATE_REPLAY_PROFILE.md",
+        "sha256": "4f76ddc358ae835ed775e5b2ea63f5ff9c9ae438e6f05e7d0193262abdf4f40f"
+      },
+      {
+        "path": "docs/v0.52/RFC_BOUNDED_WORK_VERIFICATION.md",
+        "sha256": "f499945db23fa4cfc6ed4b7098bcc72f2f51a74042b431cc0b4b433f727a4b98"
+      },
+      {
+        "path": "docs/v0.52/DETERMINISTIC_RUNTIME_NEGATIVE_AUTHORITY.md",
+        "sha256": "43f7768c73a48e21270e57888f7d54a8c2cdf147877ba40a89741b5a2da7ebc1"
+      },
+      {
+        "path": "fixtures/v052/dss01_draft_vectors.json",
+        "sha256": "7e444f89c8a615e86b60e8c5d21676efc8bab572690db7f877e785bfb13a3c11"
+      }
+    ]
+  },
+  "fixture_boundaries": {
+    "state_representation": "existing canonical typed i64 bytes only; not a DSS state schema or state_digest",
+    "event_representation": "runner-local ordered fixture data only; not an AIR Core event schema",
+    "work_representation": "existing verifier certificate facts and S3 runtime limits only; not a WorkBound record",
+    "authority_boundary": "createVerifiedTypedRuntime admit callback only",
+    "not_yet_proven_is_not_pass": true
+  },
+  "replay_fixture": {
+    "initial_state": "0",
+    "primary_events": [
+      { "tick": 1, "operation": "i64_checked_add", "operand": "1500" },
+      { "tick": 2, "operation": "i64_checked_sub", "operand": "250" },
+      { "tick": 3, "operation": "i64_checked_mul", "operand": "2" },
+      { "tick": 4, "operation": "i64_checked_div", "operand": "5" }
+    ],
+    "divergent_events": [
+      { "tick": 1, "operation": "i64_checked_add", "operand": "1500" },
+      { "tick": 2, "operation": "i64_checked_mul", "operand": "2" },
+      { "tick": 3, "operation": "i64_checked_sub", "operand": "250" },
+      { "tick": 4, "operation": "i64_checked_div", "operand": "5" }
+    ]
+  },
+  "vectors": [
+    { "VECTOR_ID": "S4-G2-01", "family": "g2_anchor", "EXPECTED": "38/38_PASS", "match": "literal" },
+    {
+      "VECTOR_ID": "S4-G2-02",
+      "family": "g2_anchor",
+      "EXPECTED": "HOLD_CROSS_HOST_SWIFT",
+      "match": "one_of",
+      "accepted_actual": [
+        "HOLD_CROSS_HOST_SWIFT_WASM_BACKEND_UNAVAILABLE",
+        "HOLD_CROSS_HOST_SWIFT_ENVIRONMENT"
+      ]
+    },
+
+    { "VECTOR_ID": "S4-STATE-01", "family": "deterministic_state_replay", "EXPECTED": "sha256:98f1f65c512aa2d8cb8dd8c12bf9b656bcd9844cd2062559024f2a82b7876766", "match": "literal" },
+    { "VECTOR_ID": "S4-STATE-02", "family": "deterministic_state_replay", "EXPECTED": "sha256:98f1f65c512aa2d8cb8dd8c12bf9b656bcd9844cd2062559024f2a82b7876766|sha256:3139f4131c494f827b0b2159a706f7a25ca354f838d9e832d8252ce3448d5839|sha256:febcd28297e7a8425c32286907d094e356591cb4363c10f7237df61a1da27b9e|sha256:746e1099617c03814d7db13c60067423a33b476c594c434acf39e71ecd723dce|sha256:bae37efec555edc82ff78bb27bd483dcbb412b98ec82cee923031d98d79f9c6b", "match": "literal" },
+    { "VECTOR_ID": "S4-STATE-03", "family": "deterministic_state_replay", "EXPECTED": "500", "match": "literal" },
+    { "VECTOR_ID": "S4-STATE-04", "family": "deterministic_state_replay", "EXPECTED": "2", "match": "literal" },
+    {
+      "VECTOR_ID": "S4-STATE-05",
+      "family": "deterministic_state_replay",
+      "EXPECTED": "IDENTICAL",
+      "match": "literal",
+      "comparison": {
+        "left": "primary_replay.state",
+        "right": "repeated_replay.state",
+        "runtime_construction": "distinct_createVerifiedTypedRuntime"
+      }
+    },
+    { "VECTOR_ID": "S4-STATE-06", "family": "deterministic_state_replay", "EXPECTED": "air.numeric.checked_failure:overflow", "match": "literal" },
+
+    { "VECTOR_ID": "S4-WORK-01", "family": "bounded_work", "EXPECTED": "15", "match": "literal" },
+    { "VECTOR_ID": "S4-WORK-02", "family": "bounded_work", "EXPECTED": "maximumDynamicLoopFuel=3;maximumStaticallyBoundedIterations=1;totalDynamicLoopFuelUpperBound=3;totalStaticallyBoundedIterations=1", "match": "literal" },
+    { "VECTOR_ID": "S4-WORK-03", "family": "bounded_work", "EXPECTED": "air.v052.work_limit_source_bytes", "match": "literal" },
+    { "VECTOR_ID": "S4-WORK-04", "family": "bounded_work", "EXPECTED": "16777216", "match": "literal" },
+    { "VECTOR_ID": "S4-WORK-05", "family": "bounded_work", "EXPECTED": "air.numeric.checked_failure:overflow", "match": "literal" },
+    { "VECTOR_ID": "S4-WORK-06", "family": "bounded_work", "EXPECTED": "air.v052.runtime_admission_denied", "match": "literal" },
+
+    { "VECTOR_ID": "S4-NA-01", "family": "message_not_grant", "EXPECTED": "air.v052.runtime_admission_denied", "match": "literal" },
+    { "VECTOR_ID": "S4-NA-02", "family": "transcript_spoof", "EXPECTED": "air.v052.runtime_admission_denied", "match": "literal" },
+    { "VECTOR_ID": "S4-NA-03", "family": "evidence_mutation", "EXPECTED": "air.v052.runtime_handle_untrusted", "match": "literal" },
+    { "VECTOR_ID": "S4-NA-04", "family": "stale_generation", "EXPECTED": "air.v052.runtime_admission_denied", "match": "literal" },
+    { "VECTOR_ID": "S4-NA-05", "family": "digest_not_grant", "EXPECTED": "air.v052.runtime_admission_denied", "match": "literal" },
+    { "VECTOR_ID": "S4-NA-06", "family": "invalidated_handle", "EXPECTED": "air.v052.runtime_handle_stale", "match": "literal" },
+
+    { "VECTOR_ID": "S4-NYP-01", "family": "not_yet_proven", "EXPECTED": "NOT_YET_PROVEN:DSS_PROFILE_NOT_FROZEN", "match": "literal" },
+    { "VECTOR_ID": "S4-NYP-02", "family": "not_yet_proven", "EXPECTED": "NOT_YET_PROVEN:BROKER_GENERATION_TRANSPORT_NOT_RUNNABLE", "match": "literal" },
+    { "VECTOR_ID": "S4-NYP-03", "family": "not_yet_proven", "EXPECTED": "NOT_YET_PROVEN:CONSUMER_TRANSPORT_FIXTURE_EXTERNAL", "match": "literal" },
+    {
+      "VECTOR_ID": "S4-NYP-04",
+      "family": "not_yet_proven",
+      "EXPECTED": "NOT_YET_PROVEN:SWIFT_WASM_CROSS_HOST",
+      "match": "one_of",
+      "accepted_actual": [
+        "NOT_YET_PROVEN:HOLD_CROSS_HOST_SWIFT_WASM_BACKEND_UNAVAILABLE",
+        "NOT_YET_PROVEN:HOLD_CROSS_HOST_SWIFT_ENVIRONMENT"
+      ]
+    }
+  ]
+}

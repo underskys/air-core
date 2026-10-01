@@ -9,6 +9,53 @@ compact format:
 - Security
 - Breaking / Migration
 
+## v0.52.0 - Verified Typed Runtime Technical Release Candidate
+
+S5 bounded correction passed independent exact-SHA QA at public commit
+`4c62489f34a8149f758bc23dda892a031bae1023` and accepted unpublished
+tarball SHA-256
+`627ced8529caa5c91c9fe80f6e315e82ace189aeacec19bd8230c1929d540433`.
+This version is not yet tagged or published.
+
+### Added
+
+- Explicit `legacy-v0.50` and `typed-v0.51` source profiles; the typed profile
+  must be selected explicitly.
+- Verified typed build/invoke and a process-local generic runtime with bounded
+  compilation, immutable module caching, fresh instances and host admission
+  rechecks on build and invocation.
+- Executable deterministic-numerics and hostile-pressure conformance evidence,
+  including portable cross-host HOLD classification.
+- Installed-package reality checks with exact tarball, lockfile integrity and
+  file-inventory verification.
+
+### Changed
+
+- Public package and CLI version are aligned at `0.52.0` for this candidate.
+- Stable diagnostics are exposed through `.code` on parser and verifier errors.
+
+### Security
+
+- Reject unknown typed capability declarations and statements after return.
+  Support the frozen exact decimal `const.i64` carrier only in typed initializer
+  and return positions. Arithmetic operands still take bare i64 literals;
+  formatting the carrier preserves the exact value but prints the bare literal.
+- Bound CLI source-file reads to regular files of at most 4 MiB and return
+  stable diagnostics. Browser evidence records actually executed versions
+  and executable hashes separately from expected registry revisions.
+- Unknown source-command options, malformed deep descriptors, untrusted build
+  handles, stale runtime handles and revoked host admission fail closed.
+- AIR ABI `0.12` remains candidate-only. Host ABI `0.10` and `0.11` are
+  unchanged, and the runtime admission callback is not a CapabilityGrant or an
+  effect authorization implementation.
+
+### Breaking / Migration
+
+- Legacy source remains the default. Typed source requires
+  `--source-profile typed-v0.51` or the equivalent SDK option.
+- Typed-v0.51 is a finite subset and does not admit user calls, loops,
+  recursion, branches, imports or host effects.
+
 ## v0.51.0-alpha - Frozen Typed Decisions Candidate
 
 ### Added

@@ -1,0 +1,68 @@
+{
+  "schema": "air.v052.dss01-draft-vectors/0.0-candidate.1",
+  "status": "NON_AUTHORITATIVE_CANDIDATE_NOT_CONFORMANCE",
+  "profile": "air.deterministic-state-replay/0.0-candidate.1",
+  "authority": {
+    "creates_host_authority": false,
+    "creates_capability_grant": false,
+    "creates_effect_receipt": false,
+    "golden_hashes_frozen": false
+  },
+  "state_schema": {
+    "initialization": "all_explicit_fields_zero",
+    "representation": "candidate_schema_directed_canonical_bytes_not_native_layout",
+    "fields": [
+      { "field_id": 1, "name": "position_x", "type": "scaled_i64" },
+      { "field_id": 2, "name": "position_y", "type": "scaled_i64" },
+      { "field_id": 3, "name": "velocity_x", "type": "scaled_i64" },
+      { "field_id": 4, "name": "velocity_y", "type": "scaled_i64" },
+      { "field_id": 5, "name": "flags", "type": "closed_i32_flags" }
+    ]
+  },
+  "input_schema": {
+    "fields": [
+      { "field_id": 1, "name": "delta_x", "type": "scaled_i64" },
+      { "field_id": 2, "name": "delta_y", "type": "scaled_i64" },
+      { "field_id": 3, "name": "command_flags", "type": "closed_i32_flags" }
+    ],
+    "tick_order": "strictly_ascending_unique_nonnegative"
+  },
+  "candidate_transition_order": [
+    "validate_input",
+    "apply_delta_to_velocity_checked",
+    "apply_velocity_to_position_checked",
+    "apply_declared_boundary_rule",
+    "emit_checkpoint_when_scheduled"
+  ],
+  "candidate_boundary_handling": "reject_out_of_profile_range_without_clamping",
+  "vectors": [
+    {
+      "id": "DSS01-INIT-01",
+      "ticks": 0,
+      "checkpoint_ticks": [0],
+      "expected": "CANDIDATE_INITIAL_STATE_BYTES_REQUIRED",
+      "golden_state_digest": null
+    },
+    {
+      "id": "DSS01-RUN-64",
+      "ticks": 64,
+      "checkpoint_ticks": [0, 1, 8, 16, 32, 48, 64],
+      "expected": "CANDIDATE_CROSS_HOST_REPLAY_REQUIRED",
+      "golden_state_digest": null
+    },
+    {
+      "id": "DSS01-RUN-256",
+      "ticks": 256,
+      "checkpoint_ticks": [0, 1, 16, 32, 64, 128, 192, 256],
+      "expected": "CANDIDATE_CROSS_HOST_REPLAY_REQUIRED",
+      "golden_state_digest": null
+    },
+    {
+      "id": "DSS01-INVALID-INPUT-01",
+      "ticks": 1,
+      "input_condition": "unknown_command_flag",
+      "expected": "CANDIDATE_FAIL_CLOSED",
+      "golden_state_digest": null
+    }
+  ]
+}

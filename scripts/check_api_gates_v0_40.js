@@ -3,6 +3,7 @@
 const childProcess = require("child_process");
 const fs = require("fs");
 const path = require("path");
+const { declaresHostAbi012 } = require("./api_gate_detection");
 
 const root = path.resolve(__dirname, "..");
 const failures = [];
@@ -127,10 +128,10 @@ function checkNoAbiExpansion() {
   for (const rel of listRelevantFiles()) {
     if (rel.startsWith("docs/") || rel.startsWith("spec/")) continue;
     const text = read(rel);
-    if (/["']0\.12["']/.test(text) && /\b(?:HOST_ABI|hostAbi|Host ABI)\b/.test(text)) {
+    if (declaresHostAbi012(text)) {
       failures.push(`${rel}: Host ABI expansion is rejected in v0.40`);
     }
-    if (/AIR_ABI_VERSION\s*=\s*["'](?!0\.10)/.test(text)) {
+    if (/(?:^|[^A-Za-z0-9_])AIR_ABI_VERSION\s*=\s*["'](?!0\.10)/.test(text)) {
       failures.push(`${rel}: AIR ABI expansion is rejected in v0.40`);
     }
   }

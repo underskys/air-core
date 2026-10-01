@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+ascii_lower() {
+  printf '%s' "$1" | LC_ALL=C tr '[:upper:]' '[:lower:]'
+}
+
 # AIR consumer evidence bundle builder.
 #
 # Packages standardized downstream demo/consumer evidence descriptors. This is
@@ -68,7 +72,8 @@ is_included() {
 }
 
 exclude_reason() {
-  local p="${1,,}"
+  local p
+  p="$(ascii_lower "$1")"
 
   case "$p" in
     */node_modules/*|node_modules/*) echo "node_modules excluded"; return 0 ;;

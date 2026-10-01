@@ -1,5 +1,6 @@
 module.exports = {
   ...require("./parser"),
+  ...require("./source_profile"),
   ...require("./verifier"),
   ...require("./format"),
   ...require("./explain"),
@@ -37,5 +38,6 @@ module.exports = {
   ...require("./run_package"),
   ...require("./host_abi"),
   ...require("./lower_wasm"),
-  ...require("./v051_reference")
+  ...require("./v051_reference"),
+  ...require("./v052_verified_build")
 };

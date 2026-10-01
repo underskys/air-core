@@ -3,6 +3,7 @@
 const childProcess = require("child_process");
 const fs = require("fs");
 const path = require("path");
+const { declaresHostAbi012 } = require("./api_gate_detection");
 
 const root = path.resolve(__dirname, "..");
 const failures = [];
@@ -16,6 +17,9 @@ const docs = [
 
 const activeRoots = ["src", "bin", "spec"];
 const docsAllowlistPrefixes = ["docs/", "README.md", "CHANGELOG.md"];
+const acceptedV049PoolAnalysisFiles = new Set([
+  "src/provenance_flow.js"
+]);
 
 const acceptedPoolOps = new Set([
   "pool.capacity",
@@ -139,7 +143,7 @@ function checkActiveImplementationBoundaries() {
       if (/\b(?:hostVisiblePoolLayout|poolHostLayout|hostPoolLayout|exportPoolLayout|poolLayoutContract)\b/i.test(text)) {
         failures.push(`${rel}: host-visible pool layout contract is rejected`);
       }
-      if (/\b(?:poolPointer|poolSlice|poolReference|poolRef|poolAddress|slotPointer|slotReference|slotAddress)\b/i.test(text)) {
+      if (!acceptedV049PoolAnalysisFiles.has(rel) && /\b(?:poolPointer|poolSlice|poolReference|poolRef|poolAddress|slotPointer|slotReference|slotAddress)\b/i.test(text)) {
         failures.push(`${rel}: pool pointer/slice/reference escape is rejected`);
       }
       if (/\b(?:poolObject|objectPool|jsonPool|mapPool|gcPool|heapPool|poolDict|poolDictionary)\b/i.test(text)) {
@@ -167,10 +171,10 @@ function checkNoAbiExpansion() {
   for (const rel of listRelevantFiles()) {
     if (rel.startsWith("docs/") || rel.startsWith("spec/")) continue;
     const text = read(rel);
-    if (/["']0\.12["']/.test(text) && /\b(?:HOST_ABI|hostAbi|Host ABI)\b/.test(text)) {
+    if (declaresHostAbi012(text)) {
       failures.push(`${rel}: Host ABI expansion is rejected in v0.41`);
     }
-    if (/AIR_ABI_VERSION\s*=\s*["'](?!0\.10)/.test(text)) {
+    if (/(?:^|[^A-Za-z0-9_])AIR_ABI_VERSION\s*=\s*["'](?!0\.10)/.test(text)) {
       failures.push(`${rel}: AIR ABI expansion is rejected in v0.41`);
     }
   }

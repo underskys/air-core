@@ -1,0 +1,14 @@
+module panel.control
+
+enum Badge {
+  idle = 0,
+  alert = 1,
+}
+
+export func show_badge(visible: option<bool>, badge: Badge) -> option<Badge> {
+  %out: option<Badge> = match %visible {
+    none => option.none<Badge>,
+    some(flag) => option.some<Badge> %badge,
+  }
+  return %out
+}

@@ -3,6 +3,7 @@
 const childProcess = require("child_process");
 const fs = require("fs");
 const path = require("path");
+const { declaresHostAbi012, hostAbiDetectorInvariants } = require("./api_gate_detection");
 
 const root = path.resolve(__dirname, "..");
 const failures = [];
@@ -47,6 +48,7 @@ const allowedRuntimeJsonRejectors = new Set([
   "src/structured_io_schema.js",
   "src/surface.js",
   "src/verification_evidence.js",
+  "src/verified_execution_session.js",
   "src/verifier_safety_fuzz.js"
 ]);
 
@@ -66,6 +68,12 @@ const acceptedImplementationFiles = new Set([
 // implementing runtime structured IO, tablegroups, or declared pools.
 const acceptedOwnershipMetadataFiles = new Set([
   "src/package_graph_ownership.js"
+]);
+
+const acceptedV049StructuredIoConsumers = new Set([
+  "src/provenance_flow.js",
+  "src/run_package.js",
+  "src/semantic_patch.js"
 ]);
 
 const acceptedV037TablegroupFiles = new Set([
@@ -90,6 +98,7 @@ const existingAuthorityMetadataFiles = new Set([
 
 function main() {
   runPriorGate();
+  checkDetectorInvariants();
 
   const files = scanRoots.flatMap((dir) => listFiles(path.join(root, dir)));
   for (const file of files) {
@@ -126,11 +135,12 @@ function checkRuntimeObjectDrift(rel, text) {
   if (/^(?:hosts|examples|kits)\//.test(rel)) return;
   if (path.extname(rel) === ".md") return;
   if (allowedRuntimeJsonRejectors.has(rel)) return;
+  if (acceptedV049StructuredIoConsumers.has(rel)) return;
   if (v037TablegroupsAccepted() && acceptedV037TablegroupFiles.has(rel)) return;
   if (/(?:^|[,{]\s*)["']?(?:runtimeJson|jsonObject|jsonValue|dynamicMap|objectFields|objectModel|hostObject|hostHandle)["']?\s*:/.test(text)) {
     failures.push(`${rel}: runtime JSON/object/dynamic-map/host-object fields are rejected in v0.32 Core`);
   }
-  if (/\b(?:JSON\.parse|JSON\.stringify)\b/.test(text) && /\b(?:structuredIO|rowset|record|tablegroup|pool)\b/i.test(text)) {
+  if (hasStructuredIoRuntimeJson(rel, text)) {
     failures.push(`${rel}: structured IO first slice must not introduce runtime JSON parsing/serialization semantics`);
   }
 }
@@ -152,22 +162,63 @@ function checkTablegroupsAndPools(rel, text) {
 
 function checkStructuredIoSourceOfTruth(rel, text) {
   if (!isActiveImplementationPath(rel)) return;
-  if (!/\bstructuredIO\b/.test(text)) return;
-  if (!acceptedImplementationFiles.has(rel) && !acceptedOwnershipMetadataFiles.has(rel) && !isAcceptedStructuredIoConsumer(rel)) {
+  const implementationText = withoutAcceptedManifestMetadata(rel, text);
+  if (!/\bstructuredIO\b/.test(implementationText)) return;
+  if (!acceptedImplementationFiles.has(rel) && !acceptedOwnershipMetadataFiles.has(rel) && !acceptedV049StructuredIoConsumers.has(rel) && !isAcceptedStructuredIoConsumer(rel)) {
     failures.push(`${rel}: structured IO implementation surface is outside the accepted v0.32 first-slice files`);
   }
-  if (/\b(?:generatedBindingsAreSourceOfTruth|generatedArtifactsAreSourceOfTruth|sourceOfTruth\s*:\s*["']generated)/.test(text)) {
+  if (/\b(?:generatedBindingsAreSourceOfTruth|generatedArtifactsAreSourceOfTruth|sourceOfTruth\s*:\s*["']generated)/.test(implementationText)) {
     failures.push(`${rel}: generated structured IO bindings must remain derived artifacts, not source of truth`);
   }
 }
 
 function checkHostExpansion(rel, text) {
   if (!isActiveImplementationPath(rel)) return;
-  if (/["']0\.12["']/.test(text) && /\b(?:HOST_ABI|hostAbi|Host ABI)\b/.test(text)) {
+  if (declaresHostAbi012(text)) {
     failures.push(`${rel}: Host ABI expansion beyond bounded output.emit is rejected in v0.32`);
   }
   if (/\b(?:output\.event|audio\.event|effect\.event|effect_event)\b/.test(text) && !allowedRuntimeJsonRejectors.has(rel)) {
     failures.push(`${rel}: output/audio/effect event APIs remain rejected in v0.32 implementation`);
+  }
+}
+
+function hasStructuredIoRuntimeJson(rel, text) {
+  const implementationText = withoutAcceptedManifestMetadata(rel, text);
+  return /\b(?:JSON\.parse|JSON\.stringify)\b/.test(implementationText) &&
+    /\b(?:structuredIO|rowset|tablegroup|pool)\b/i.test(implementationText);
+}
+
+function withoutAcceptedManifestMetadata(rel, text) {
+  if (rel !== "src/typed_interface.js") return text;
+  let insideCandidateKeys = false;
+  return text.split("\n").map((line) => {
+    if (/^const CANDIDATE_MANIFEST_KEYS = new Set\(\[$/.test(line)) insideCandidateKeys = true;
+    const normalized = insideCandidateKeys
+      ? line.replace(/(["'])structuredIO\1\s*,?/, "")
+      : line;
+    if (insideCandidateKeys && /^\]\);$/.test(line)) insideCandidateKeys = false;
+    return normalized;
+  }).join("\n");
+}
+
+function checkDetectorInvariants() {
+  const checks = [
+    [
+      hasStructuredIoRuntimeJson("src/example.js", "const structuredIO = JSON.parse(input);"),
+      "structured IO JSON detector must reject an implementation surface"
+    ],
+    [
+      !hasStructuredIoRuntimeJson("src/example.js", "const record = JSON.parse(input);"),
+      "canonical record JSON must not be classified as structured IO by name alone"
+    ],
+    [
+      !hasStructuredIoRuntimeJson("src/typed_interface.js", "const CANDIDATE_MANIFEST_KEYS = new Set([\n  \"structuredIO\",\n]);\nconst value = JSON.parse(input);"),
+      "the legacy manifest key must remain metadata rather than an implementation surface"
+    ],
+    ...hostAbiDetectorInvariants()
+  ];
+  for (const [passed, message] of checks) {
+    if (!passed) failures.push(`scripts/check_api_gates_v0_32.js: detector invariant failed: ${message}`);
   }
 }
 
@@ -177,7 +228,7 @@ function checkRawAuthority(rel, text) {
   if (/^(?:hosts|examples|kits)\//.test(rel)) return;
   if (existingAuthorityMetadataFiles.has(rel)) return;
   if (allowedRuntimeJsonRejectors.has(rel)) return;
-  if (/\b(?:chrome\.|document\.|window\.|indexedDB|localStorage|sessionStorage|fetch|XMLHttpRequest|React|DOM|Canvas|ImageData|AWS|Azure|GCP|Postgres|Kubernetes|kubectl|docker|jira)\b/i.test(text)) {
+  if (/\b(?:chrome\.|document\.(?:body|cookie|createElement|getElementById|querySelector|write)|window\.|indexedDB|localStorage|sessionStorage|fetch|XMLHttpRequest|React|DOM|Canvas|ImageData|AWS|Azure|GCP|Postgres|Kubernetes|kubectl|docker|jira)\b/i.test(text)) {
     failures.push(`${rel}: raw platform authority is not allowed in active AIR Core/API paths`);
   }
 }

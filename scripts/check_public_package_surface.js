@@ -2,6 +2,7 @@
 "use strict";
 
 const { execFileSync } = require("child_process");
+const fs = require("fs");
 const path = require("path");
 
 const root = path.resolve(__dirname, "..");
@@ -104,6 +105,7 @@ const allowedExact = new Set([
   "docs/RELEASE_NOTES_0_50_1.md",
   "docs/RELEASE_NOTES_0_50_2.md",
   "docs/RELEASE_NOTES_0_51_0.md",
+  "docs/RELEASE_NOTES_0_52_0.md",
   "package.json",
   "package-lock.json"
 ]);
@@ -112,6 +114,7 @@ const allowedPrefixes = [
   "bin/",
   "data/host_profiles/",
   "fixtures/v051/",
+  "fixtures/v052/",
   "src/",
   "spec/",
   "stdlib/",
@@ -135,6 +138,7 @@ function isAllowlisted(p) {
 const pack = runPackDryRun();
 const files = pack.files.map((entry) => normalizePackagePath(entry.path)).sort();
 const failures = [];
+const manifest = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
 
 for (const p of files) {
   for (const rule of forbiddenPathRules) {
@@ -157,6 +161,9 @@ for (const p of files) {
 
 if (!files.includes("bin/airc.js")) {
   failures.push("bin/airc.js: missing CLI entrypoint");
+}
+if (manifest.main !== "src/index.js" || !files.includes("src/index.js")) {
+  failures.push("src/index.js: package must expose the public SDK entrypoint through package.json main");
 }
 if (!files.some((p) => p.startsWith("src/"))) {
   failures.push("src/: missing Core source");

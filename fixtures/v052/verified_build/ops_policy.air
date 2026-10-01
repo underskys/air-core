@@ -1,0 +1,27 @@
+module ops.policy
+
+enum Action {
+  pause = 0,
+  resume = 1,
+}
+
+enum Admission {
+  deny = 0,
+  allow = 1,
+}
+
+error enum PolicyError {
+  invalid = 7,
+}
+
+export func decide(sequence: i64, action: Action) -> result<Admission,PolicyError> {
+  %admission: Admission = match %action {
+    Action.pause => Admission.deny,
+    Action.resume => Admission.allow,
+  }
+  return result.ok<Admission,PolicyError> %admission
+}
+
+export func roundtrip_sequence(sequence: i64) -> i64 {
+  return %sequence
+}

@@ -1,0 +1,11 @@
+module public_bad_branch
+capabilities { }
+
+export func sample() -> i32 {
+entry:
+  %c:bool = const.bool true
+  br_if %c, , done
+done:
+  %out:i32 = const.i32 1
+  return %out
+}
