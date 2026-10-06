@@ -23,7 +23,7 @@ before_script:
 variables:
   AIR_NPM_DIST_TAG: "latest"
   AIR_NPM_EXPECTED_NAME: "@underskys/air-core"
-  AIR_NPM_EXPECTED_VERSION: "0.52.0"
+  AIR_NPM_EXPECTED_VERSION: "0.52.1"
   AIR_NPM_EXPECTED_TAG: "v0.50.2"
 
 test:
