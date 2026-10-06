@@ -6,7 +6,8 @@ No merge, tag, npm publication or deployment is implied.
 
 | Surface | Status | Boundary |
 | --- | --- | --- |
-| Package and CLI | 0.52.0 | `@underskys/air-core` is the public projection; candidate not yet published. |
+| Package and CLI | 0.52.1 | `@underskys/air-core` is the public projection. 0.52.0 was a candidate that was never published; 0.52.1 is the first public release candidate of the 0.52 line. |
+| 0.52.1 soundness maintenance | Implemented, awaiting independent QA | Phi-loop charging, exact work totals, cross-module and typed certificate fail-closed, region slots, live-region views and host capacities, AIR-owned memory for borrowed views, CLI typed build caps, bounded CLI JSON/check intake. See `docs/v0.52/V0521_SOUNDNESS_MAINTENANCE.md`. |
 | Source profiles | Implemented | Legacy is default; typed-v0.51 requires explicit selection. |
 | Typed subset | Implemented, finite | Checked i64, closed enums and flat sums; no calls, loops, recursion, imports or host effects. |
 | `const.i64 N` | Implemented in initializer and return | Direct arithmetic-operand carrier spelling is rejected; bare i64 operands remain valid. Formatter emits the exact bare decimal value and is idempotent. |

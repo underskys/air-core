@@ -1,4 +1,5 @@
 const fs = require("fs");
+const { readBoundedJsonFile } = require("./bounded_file");
 const path = require("path");
 const { reportPackageDir } = require("./sdk");
 const { createPackageVerificationEvidence } = require("./verification_evidence");
@@ -496,7 +497,7 @@ function readJsonOptional(file, base) {
   if (!file) return null;
   if (file && typeof file === "object") return sanitizeValue(file, base);
   const absolute = path.resolve(file);
-  const value = JSON.parse(fs.readFileSync(absolute, "utf8"));
+  const value = readBoundedJsonFile(absolute, { label: "evidence input" });
   return sanitizeValue(value, base);
 }
 

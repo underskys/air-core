@@ -5,15 +5,20 @@ const {
   REGION_BOUNDS_FAILURE_FUNCTION,
   REGION_BOUNDS_RUNTIME_CODE
 } = require("./region_bounds");
-const { assertWasmTargetSupport, verifyV051Air } = require("./verifier");
+const { STRUCTURED_PHI_LOOP_FUEL_LIMIT, assertWasmTargetSupport, verifyV051Air } = require("./verifier");
+
+const REGION_SLOT_BYTES = 4096;
+const WASM_PAGE_BYTES = 65536;
+const AIR_STATIC_DATA_BASE = 1024;
 const { parseTypeReference } = require("./typed_interface");
 const {
+  AIR_OWNED_MEMORY_BASE_EXPORT,
+  AIR_OWNED_MEMORY_END_EXPORT,
   BORROWED_SLICE_TYPE,
   borrowedSliceInterfaceDescriptor,
   borrowedSliceInterfaceDigest
 } = require("./borrowed_slices");
 
-const STRUCTURED_PHI_LOOP_FUEL_LIMIT = 4096;
 const BORROW_FAILURE_FUNCTION = "__air_borrow_failure";
 const BORROWED_SLICE_FEATURE_MARKER = 0x000b0001;
 const BORROW_FAILURE = Object.freeze({
@@ -30,7 +35,7 @@ function lowerToWat(mod, options = {}) {
   assertWasmTargetSupport(mod);
   const borrowedDescriptor = borrowedSliceInterfaceDescriptor(mod);
   const ctx = {
-    dataOffset: 1024,
+    dataOffset: AIR_STATIC_DATA_BASE,
     data: [],
     usesFdWrite: false,
     externs: new Map((mod.externs || []).map((ex) => [ex.name, ex])),
@@ -105,7 +110,9 @@ function lowerToWat(mod, options = {}) {
         `  ;; air-abi: ${borrowedDescriptor.airAbi}`,
         `  ;; air-feature: ${borrowedDescriptor.feature}`,
         `  ;; air-interface-sha256: ${borrowedSliceInterfaceDigest(mod)}`,
-        `  (global (export "__air_abi_feature_borrowed_slice_v1") i32 (i32.const ${BORROWED_SLICE_FEATURE_MARKER}))`
+        `  (global (export "__air_abi_feature_borrowed_slice_v1") i32 (i32.const ${BORROWED_SLICE_FEATURE_MARKER}))`,
+        `  (global (export "${AIR_OWNED_MEMORY_BASE_EXPORT}") i32 (i32.const ${ctx.usesFdWrite ? 0 : AIR_STATIC_DATA_BASE}))`,
+        `  (global (export "${AIR_OWNED_MEMORY_END_EXPORT}") i32 (i32.const ${ctx.dataOffset}))`
       ]
     : [];
   const data = ctx.data.map((d) => `  (data (i32.const ${d.offset}) ${d.bytes ? watBytes(d.bytes) : watString(d.value)})`);
@@ -113,7 +120,7 @@ function lowerToWat(mod, options = {}) {
   return [
     `(module`,
     ...imports,
-    `  (memory (export "memory") 1)`,
+    `  (memory (export "memory") ${Math.max(1, Math.ceil(ctx.dataOffset / WASM_PAGE_BYTES))})`,
     ...borrowedInterface,
     ...globalsWat,
     ...stateCellsWat,
@@ -1577,6 +1584,9 @@ function lowerInstruction(ins, state) {
     return;
   }
   if (ins.op === "buffer.from_ptr") {
+    const buffer = parseBufferType(ins.resultType);
+    const viewBytes = buffer.length * scalarByteWidth(buffer.element);
+    emitRawRegionBoundsCheck(state, ins, ins.args[0], { kind: "number", value: 0, raw: "0" }, viewBytes);
     lowerValue(state, ins.args[0]);
     state.instr.push(`local.set ${scalarLocal(state, ins.result)}`);
     return;
@@ -1620,10 +1630,13 @@ function lowerInstruction(ins, state) {
     return;
   }
   if (ins.op === "alloc_region") {
+    // X-SND-05: one disjoint slot per allocation site, covering the verified
+    // maximum size; a non-constant size is checked against the slot.
+    const slotBytes = Number.isSafeInteger(ins.regionSlotBytes) ? ins.regionSlotBytes : REGION_SLOT_BYTES;
     const offset = state.globals.dataOffset;
-    state.globals.dataOffset += 4096;
-    state.regions.set(ins.result, { sizeArg: ins.args[0] });
-    if (ins.regionSizeCheck !== "static") emitRuntimeRegionSizeCheck(state, ins.args[0]);
+    state.globals.dataOffset += slotBytes;
+    state.regions.set(ins.result, { sizeArg: ins.args[0], slotBytes });
+    if (!ins.regionSizeConstant) emitRuntimeRegionSlotCheck(state, ins.args[0], slotBytes);
     state.instr.push(`i32.const ${offset}`);
     state.instr.push(`local.set ${scalarLocal(state, ins.result)}`);
     return;
@@ -1662,6 +1675,9 @@ function lowerInstruction(ins, state) {
     return;
   }
   if (ins.op === "call") {
+    for (const check of ins.hostBufferChecks || []) {
+      if (check.status !== "static") emitRegionLengthCheck(state, ins, ins.args[check.ptrIndex], ins.args[check.capIndex]);
+    }
     for (const arg of ins.args) lowerCallArgument(state, arg);
     state.instr.push(`call $${wasmName(ins.callee)}`);
     if (ins.result) {
@@ -1758,6 +1774,7 @@ function lowerInstruction(ins, state) {
     return;
   }
   if (ins.op === "slice.from_region") {
+    if (ins.regionLengthCheck !== "static") emitRegionLengthCheck(state, ins, ins.args[0], ins.args[1]);
     lowerValue(state, ins.args[0]);
     state.instr.push(`local.set ${scalarLocal(state, ins.result)}`);
     declareLocal(state, `${ins.result}$len`, "i32");
@@ -1839,11 +1856,37 @@ function emitRawRegionBoundsCheck(state, ins, ptrArg, offsetArg, width) {
   emitRegionBoundsFailureIf(state);
 }
 
-function emitRuntimeRegionSizeCheck(state, sizeArg) {
+function emitRuntimeRegionSlotCheck(state, sizeArg, slotBytes) {
   const sizeLocal = declareTemp(state, "i32");
   lowerValue(state, sizeArg);
   state.instr.push(`local.set ${sizeLocal}`);
   emitNegativeRuntimeCheck(state, sizeLocal);
+  state.instr.push(`local.get ${sizeLocal}`);
+  state.instr.push(`i32.const ${slotBytes}`);
+  state.instr.push("i32.gt_u");
+  emitRegionBoundsFailureIf(state);
+}
+
+// Fails when `length` is negative or larger than the region's runtime size.
+function emitRegionLengthCheck(state, ins, ptrArg, lengthArg) {
+  if (!ptrArg || ptrArg.kind !== "value") {
+    throw new Error(`cannot bind region length for ${ins.op}: expected direct region pointer`);
+  }
+  const region = state.regions.get(ptrArg.name);
+  if (!region) {
+    throw new Error(`cannot bind region length for ${ins.op}: unknown region ${ptrArg.name}`);
+  }
+  const sizeLocal = declareTemp(state, "i32");
+  const lengthLocal = declareTemp(state, "i32");
+  lowerValue(state, region.sizeArg);
+  state.instr.push(`local.set ${sizeLocal}`);
+  lowerValue(state, lengthArg);
+  state.instr.push(`local.set ${lengthLocal}`);
+  emitNegativeRuntimeCheck(state, lengthLocal);
+  state.instr.push(`local.get ${lengthLocal}`);
+  state.instr.push(`local.get ${sizeLocal}`);
+  state.instr.push("i32.gt_u");
+  emitRegionBoundsFailureIf(state);
 }
 
 function emitNegativeRuntimeCheck(state, local) {

@@ -83,7 +83,7 @@ function exactInventory(root,expected) {
 }
 function reviewPublicClaims(installed,expectedVersion) {
   const read=name=>readLimited(path.join(installed.root,name),2*1024*1024).toString("utf8");
-  const readme=read("README.md");const changelog=read("CHANGELOG.md");const notes=read("docs/RELEASE_NOTES_0_52_0.md");
+  const readme=read("README.md");const changelog=read("CHANGELOG.md");const notes=read(`docs/RELEASE_NOTES_${String(expectedVersion).replace(/\./g,"_")}.md`);
   const combined=[readme,changelog,notes].join("\n");
   demand(readme.includes(`@underskys/air-core@${expectedVersion}`),"gate.claims_invalid","README candidate version is missing");
   demand(changelog.includes(`v${expectedVersion}`) && notes.includes(`@underskys/air-core@${expectedVersion}`),"gate.claims_invalid","release history version is missing");

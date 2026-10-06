@@ -1,4 +1,4 @@
-const AIR_VERSION = "0.52.0";
+const AIR_VERSION = "0.52.1";
 const AIR_ABI_VERSION = "0.10";
 const BORROWED_SLICES_AIR_ABI_VERSION = "0.11";
 const SUPPORTED_AIR_ABI_VERSIONS = Object.freeze([

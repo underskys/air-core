@@ -1,4 +1,5 @@
 const fs = require("fs");
+const { readBoundedRegularFile } = require("./bounded_file");
 const path = require("path");
 const { parseAir } = require("./parser");
 const { verifyModule } = require("./verifier");
@@ -18,7 +19,7 @@ function createLspDiagnostics(target, options = {}) {
 function createFileLspDiagnostics(file, options = {}) {
   const diagnostics = [];
   try {
-    const source = typeof options.sourceText === "string" ? options.sourceText : fs.readFileSync(file, "utf8");
+    const source = typeof options.sourceText === "string" ? options.sourceText : readBoundedRegularFile(file, { label: "source" });
     let mod = null;
     try {
       mod = parseAir(source, file);

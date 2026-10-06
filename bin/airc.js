@@ -4,6 +4,7 @@ const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
 const { AirError } = require("../src/errors");
+const { readBoundedRegularFile } = require("../src/bounded_file");
 const {
   SOURCE_PROFILE_LEGACY,
   formatSource,
@@ -17,6 +18,11 @@ const { ProvenanceFlowError } = require("../src/provenance_flow");
 const { explainModule } = require("../src/explain");
 const { auditModule } = require("../src/audit");
 const { lowerToWat, watToWasm } = require("../src/lower_wasm");
+const {
+  VERIFIED_TYPED_RUNTIME_LIMITS,
+  enforceVerifiedTypedBuildLimit,
+  verifiedTypedAstNodeCount
+} = require("../src/v052_verified_build");
 const { emitWit } = require("../src/wit");
 const { loadGfxManifest, validateGfxManifest, emitGfxWit, buildGfxPackage } = require("../src/gfx_manifest");
 const { createGfxImportManifest } = require("../src/gfx_import");
@@ -795,15 +801,32 @@ async function main(argv) {
     if (!["wat", "wasm"].includes(emit)) {
       throw new Error(`unsupported --emit ${emit}; expected wat or wasm`);
     }
-    const wat = lowerToWat(mod);
+    const typed = isTypedSourceProfile(sourceProfile);
+    let wat;
+    let wasm;
+    try {
+      if (typed) {
+        // Same work limits as the verified typed builder (X-BND-01).
+        enforceVerifiedTypedBuildLimit("sourceBytes", Buffer.byteLength(source, "utf8"));
+        enforceVerifiedTypedBuildLimit("astNodes", verifiedTypedAstNodeCount(mod));
+        wat = lowerToWat(mod, { maxWatBytes: VERIFIED_TYPED_RUNTIME_LIMITS.maxWatBytes });
+        enforceVerifiedTypedBuildLimit("watBytes", Buffer.byteLength(wat, "utf8"));
+      } else {
+        wat = lowerToWat(mod);
+      }
+      if (emit === "wasm") {
+        wasm = await watToWasm(wat, file);
+        if (typed) enforceVerifiedTypedBuildLimit("wasmBytes", wasm.length);
+      }
+    } catch (error) {
+      if (typed && error && typeof error.code === "string" && error.code.startsWith("air.") && !(error instanceof AirError)) {
+        throw new AirError(String(error.message).startsWith(error.code) ? error.message : `${error.code}: ${error.message}`);
+      }
+      throw error;
+    }
     const outPath = output || replaceExt(file, emit);
     fs.mkdirSync(path.dirname(path.resolve(outPath)), { recursive: true });
-    if (emit === "wat") {
-      fs.writeFileSync(outPath, wat);
-    } else {
-      const wasm = await watToWasm(wat, file);
-      fs.writeFileSync(outPath, wasm);
-    }
+    fs.writeFileSync(outPath, emit === "wat" ? wat : wasm);
     console.log(`wrote ${outPath}`);
     return 0;
   }
@@ -874,36 +897,9 @@ function runFormatCommand(args) {
   return finishFormatResult({ opts, inputKind, changed, canonical, diagnostics });
 }
 
-// Open nonblocking, then inspect and read the same descriptor. This rejects
-// FIFOs/devices without blocking and bounds reads even if a regular file grows.
+// Shared bounded regular-file reader (src/bounded_file.js).
 function readSourceFile(file) {
-  const maxBytes = 4 * 1024 * 1024;
-  let fd;
-  try {
-    fd = fs.openSync(file, fs.constants.O_RDONLY | fs.constants.O_NONBLOCK);
-    const stat = fs.fstatSync(fd);
-    if (!stat.isFile()) throw new AirError("air.cli.file_invalid: source must be a regular file");
-    if (stat.size > maxBytes) throw new AirError("air.cli.file_too_large: source exceeds 4194304 bytes");
-    const chunks = [];
-    let total = 0;
-    while (total <= maxBytes) {
-      const chunk = Buffer.alloc(Math.min(64 * 1024, maxBytes + 1 - total));
-      const count = fs.readSync(fd, chunk, 0, chunk.length, null);
-      if (!count) return Buffer.concat(chunks, total).toString("utf8");
-      total += count;
-      if (total > maxBytes) throw new AirError("air.cli.file_too_large: source exceeds 4194304 bytes");
-      chunks.push(chunk.subarray(0, count));
-    }
-  } catch (error) {
-    if (error instanceof AirError) throw error;
-    if (error && error.code === "ENOENT") throw new AirError("air.cli.file_missing: source file does not exist");
-    if (error && ["EISDIR", "ENOTDIR", "ELOOP", "ENAMETOOLONG", "EINVAL"].includes(error.code)) {
-      throw new AirError("air.cli.file_invalid: invalid source file path");
-    }
-    throw new AirError("air.cli.file_read_failed: source file could not be read");
-  } finally {
-    if (fd !== undefined) fs.closeSync(fd);
-  }
+  return readBoundedRegularFile(file, { label: "source" });
 }
 
 function parseFormatArgs(args) {

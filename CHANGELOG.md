@@ -9,6 +9,39 @@ compact format:
 - Security
 - Breaking / Migration
 
+## v0.52.1 - Bounded Soundness Maintenance
+
+First public release candidate of the 0.52 line; the 0.52.0 candidate below was
+never published. See `docs/RELEASE_NOTES_0_52_1.md`.
+
+### Fixed
+
+- Charge structured phi loops at their 4096-iteration fuel in effect budgets,
+  metric contracts, the Verified Resource Certificate and `realtime_safe`.
+- Keep certificate work totals exact; overflowing totals are unknown and
+  budgets on them fail with `air.resource.work_bound_overflow`.
+- Report cross-module certificate work as unknown; reject typed-v0.51 modules
+  in the legacy certificate.
+
+### Security
+
+- Give each `alloc_region` site a slot that covers its verified maximum size;
+  check dynamic sizes against it.
+- Require live regions and in-bounds sizes for `buffer.from_ptr`,
+  `slice.from_region` and host `(ptr, capacity)` arguments.
+- Export the AIR-owned memory range from borrowed-lane modules; reject Wasm-view
+  bindings that intersect it.
+- Apply the verified typed build limits to `airc build --source-profile
+  typed-v0.51`; make verifier work linear in the call graph; bound `airc
+  check`, `semantic-patch` and `evidence report` JSON file inputs.
+
+### Breaking / Migration
+
+- The legacy certificate no longer reports `verified` for unsupported shapes
+  and cannot authorize admission for them. Programs that would overrun a
+  budget, region, view or host capacity are rejected or trap before the overrun.
+- AIR ABI and Host ABI versions are unchanged; typed-v0.51 acceptance is unchanged.
+
 ## v0.52.0 - Verified Typed Runtime Technical Release Candidate
 
 S5 bounded correction passed independent exact-SHA QA at public commit

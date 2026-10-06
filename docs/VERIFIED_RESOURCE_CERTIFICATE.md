@@ -126,6 +126,31 @@ and host-side resource accounting remain separate host responsibilities.
 - `air.resource_certificate.manifest_mismatch`
 - `air.resource_certificate.required_bound_unknown`
 - `air.resource_certificate.creation_failed`
+- `air.resource_certificate.bound_invalid` (0.52.1)
+- `air.resource_certificate.profile_unsupported` (0.52.1)
+
+## AIR 0.52.1 Soundness Corrections
+
+- Structured phi loops are charged at their lowering fuel. The body counts
+  4096 times and the header 4097 times per entry, and the loop counts as a
+  dynamic loop with 4096 iterations of fuel.
+- Work and effect totals must stay exact safe integers. Any overflowing total
+  makes the `loops`, `hostCalls`, `effects` and `outputs` categories `unknown`
+  with reason `work_bound_overflow`, and their numbers are reported as `null`.
+  A required-mode certificate is then `incomplete`, never `verified`.
+- When a module calls a function of another package module, the same four
+  categories are `unknown` with reason `package_call_composition_unproven`.
+  Cross-module composition is not proven by this certificate.
+- `createVerifiedResourceCertificate` rejects a typed-v0.51 AST with
+  `air.resource_certificate.profile_unsupported`. This certificate walks only
+  legacy block IR.
+- `validateVerifiedResourceCertificate` returns
+  `air.resource_certificate.bound_invalid` when a `verified` certificate
+  carries a non-exact bound or an unverified required work category.
+
+Compatibility: a certificate that 0.52.0 reported as `verified` for these
+shapes is now `incomplete`, and an admission path that requires `verified` now
+fails closed. This is an intentional breaking-safety correction.
 
 ## Compatibility And Rollback
 

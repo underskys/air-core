@@ -2,8 +2,10 @@
 
 const crypto = require("crypto");
 const {
+  airOwnedMemoryRange,
   borrowedOverlapAllowed,
   borrowedRangesOverlap,
+  rangeIntersectsAirOwnedMemory,
   classifyBorrowedRange
 } = require("./borrowed_slices");
 
@@ -82,7 +84,7 @@ function prepareBorrowedMemoryInvocation(options = {}) {
 
   const prepared = transferModes.has("copied_into_wasm")
     ? prepareCopiedBindings(memory, bindings)
-    : prepareWasmViewBindings(memory, bindings);
+    : prepareWasmViewBindings(memory, bindings, instance);
   const wasmArguments = flattenArguments(entry, prepared.bindings, scalarArguments);
   const entrypoint = instance.exports[entry.name];
   if (typeof entrypoint !== "function") {
@@ -437,8 +439,15 @@ function prepareCopiedBindings(memory, bindings) {
   return { bindings: preparedBindings, memoryBuffer };
 }
 
-function prepareWasmViewBindings(memory, bindings) {
+function prepareWasmViewBindings(memory, bindings, instance) {
   const memoryBuffer = memory.buffer;
+  const owned = airOwnedMemoryRange(instance);
+  if (!owned) {
+    bindingFail(
+      "air.borrow.air_memory_layout_unknown",
+      "selected instance does not export its AIR-owned memory range; Wasm-view bindings are rejected"
+    );
+  }
   const preparedBindings = bindings.map((binding) => {
     if (binding.hostBuffer !== memoryBuffer) {
       bindingFail(
@@ -452,6 +461,14 @@ function prepareWasmViewBindings(memory, bindings) {
     });
   });
   for (const binding of preparedBindings) assertRangeInMemory(binding, memoryBuffer);
+  for (const binding of preparedBindings) {
+    if (rangeIntersectsAirOwnedMemory(owned, binding.wasmPointer, binding.actualLength)) {
+      bindingFail(
+        "air.borrow.air_owned_memory_overlap",
+        `bindings.${binding.name} overlaps AIR-owned module memory [${owned.start}, ${owned.end})`
+      );
+    }
+  }
   rejectWasmOverlap(preparedBindings);
   return { bindings: preparedBindings, memoryBuffer };
 }

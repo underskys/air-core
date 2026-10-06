@@ -204,6 +204,16 @@ Current resource budget keys include:
 - `gpu.calls`, `gpu.draw_calls`, `gpu.instances`, `gpu.render_graph_calls`
 - legacy aliases `static_alloc_bytes` and `dynamic_allocations`
 
+Effect totals are exact integers. A total that leaves the exact safe-integer
+range (`2^53 - 1`) never satisfies a budget or contract; the verifier rejects
+it with `air.resource.work_bound_overflow` (AIR 0.52.1).
+
+Budgets declared in a module count that module's own operations. A call into
+another package module counts as one call site (`call.package_external`); the
+callee's operations count against the callee module's budgets, not the
+caller's. The Verified Resource Certificate therefore reports cross-module work
+categories as unknown rather than verified (AIR 0.52.1).
+
 ## Bounded Loops
 
 AIR v0.10 does not expose arbitrary back-edge CFG. Instead, small deterministic loops are written as bounded function iteration:
@@ -257,6 +267,11 @@ exit:
 ```
 
 The verifier requires a single entry edge, a single backedge, a phi header, and a dedicated exit block. The lowerer maps phi values to mutable Wasm locals before each loop iteration and inserts a deterministic fuel cap of 4096 body iterations. A structured phi loop that does not reach its exit within the fuel cap traps under AIR's fail-fast semantics. General phi joins, unbounded CFG backedges, and irreducible CFG are still rejected.
+
+For effect budgets, metric contracts, the Verified Resource Certificate and
+`realtime_safe`, a structured phi loop is charged at its fuel cap: the loop
+body counts 4096 times and the loop header 4097 times per entry, and the loop
+counts as one dynamic loop with 4096 iterations of fuel (AIR 0.52.1).
 
 ## Interactive Input
 

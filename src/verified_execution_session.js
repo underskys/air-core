@@ -3,7 +3,13 @@
 const crypto = require("crypto");
 const fs = require("fs");
 const path = require("path");
-const { borrowedOverlapAllowed, borrowedRangesOverlap, borrowedSliceInterfaceDescriptor } = require("./borrowed_slices");
+const {
+  airOwnedMemoryRange,
+  borrowedOverlapAllowed,
+  borrowedRangesOverlap,
+  borrowedSliceInterfaceDescriptor,
+  rangeIntersectsAirOwnedMemory
+} = require("./borrowed_slices");
 const { lowerToWat, watToWasm } = require("./lower_wasm");
 const { validatePackageManifest, normalizePackageMetadata } = require("./package_manifest");
 const { parseAir } = require("./parser");
@@ -125,6 +131,7 @@ async function createVerifiedExecutionSession(options) {
     memory,
     metadata.executionProfile.stateParameters
   );
+  rejectAirOwnedMemoryOverlap(instance, plan.records);
   const scalarArguments = normalizeScalarArguments(options.arguments, entry);
   const callArguments = lowerInvocationArguments(entry, plan, scalarArguments);
   const entryFunction = instance.exports[entry.name];
@@ -426,6 +433,22 @@ function lowerInvocationArguments(entry, plan, scalarArguments) {
     }
   }
   return Object.freeze(out);
+}
+
+// X-SND-07: realtime views must not alias memory the module itself owns.
+function rejectAirOwnedMemoryOverlap(instance, records) {
+  const owned = airOwnedMemoryRange(instance);
+  if (!owned) {
+    sessionFail("air.realtime.air_memory_layout_unknown", "Wasm does not export its AIR-owned memory range");
+  }
+  for (const record of records) {
+    if (rangeIntersectsAirOwnedMemory(owned, record.byteOffset, record.actualLength)) {
+      sessionFail(
+        "air.realtime.air_owned_memory_overlap",
+        `memoryPlan.${record.name} overlaps AIR-owned module memory [${owned.start}, ${owned.end})`
+      );
+    }
+  }
 }
 
 function assertNoMutableOverlap(records) {

@@ -15,13 +15,22 @@ Canonical AIR should use explicit offsets for raw pointer memory operations. The
 
 ## Rules
 
-- `alloc_region size` produces a `ptr`.
+- `alloc_region size` produces a `ptr`. Each allocation site owns a disjoint
+  linear-memory slot that covers the verified maximum size (at least 4096
+  bytes; at most 16 MiB). A size that is not a compile-time constant is checked
+  at runtime against the slot and traps above it (AIR 0.52.1).
 - `free_region ptr` marks the region dead.
 - `load.i32` and `store.i32` require a live region pointer. Canonical form is `load.i32 ptr, offset` and `store.i32 ptr, offset, value`.
 - Use-after-free is rejected by the verifier.
 - If region size and offset are statically known, out-of-region access is rejected.
 - Dynamic offsets lower with runtime bounds checks when the access goes through `buffer<T,N>` or `slice`.
 - Raw `load.*` / `store.*` on `ptr` still rely on verifier-visible region checks when offsets are static.
+- `buffer.from_ptr`, `slice.from_region` and host imports that take a
+  `(ptr, capacity)` pair require a live region pointer. The view size, slice
+  length or capacity must fit inside the region: statically when provable,
+  otherwise by a runtime check that traps before the view or host call
+  (AIR 0.52.1). A buffer or slice view may not be used after its region is
+  freed.
 
 ## Slices
 

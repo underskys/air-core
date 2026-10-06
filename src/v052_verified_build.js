@@ -170,6 +170,26 @@ function enforceWorkLimit(code, actual, maximum, label) {
   if (actual > maximum) fail(code, `${label} exceeds the configured limit of ${maximum}`);
 }
 
+const TYPED_CLI_BUILD_LIMIT_CHECKS = Object.freeze({
+  sourceBytes: ["air.v052.work_limit_source_bytes", "maxSourceBytes", "source bytes"],
+  astNodes: ["air.v052.work_limit_ast_nodes", "maxAstNodes", "parsed AST nodes"],
+  watBytes: ["air.v052.work_limit_wat_bytes", "maxWatBytes", "lowered WAT bytes"],
+  wasmBytes: ["air.v052.work_limit_wasm_bytes", "maxWasmBytes", "emitted Wasm bytes"]
+});
+
+// Applies the verified typed build work limits to other typed build entrypoints
+// (for example `airc build --source-profile typed-v0.51`), so that no typed
+// lowering path is uncapped.
+function enforceVerifiedTypedBuildLimit(kind, actual) {
+  const check = TYPED_CLI_BUILD_LIMIT_CHECKS[kind];
+  if (!check) throw new TypeError(`unknown verified typed build limit '${kind}'`);
+  enforceWorkLimit(check[0], actual, VERIFIED_TYPED_RUNTIME_LIMITS[check[1]], check[2]);
+}
+
+function verifiedTypedAstNodeCount(mod) {
+  return structuredObjectCount(mod);
+}
+
 function structuredObjectCount(root) {
   let count = 0;
   const stack = [root];
@@ -912,6 +932,8 @@ module.exports = {
   V052VerifiedBuildError,
   buildVerifiedTypedModule,
   createVerifiedTypedRuntime,
+  enforceVerifiedTypedBuildLimit,
   inspectVerifiedTypedBuild,
-  invokeVerifiedTypedExport
+  invokeVerifiedTypedExport,
+  verifiedTypedAstNodeCount
 };

@@ -1,6 +1,7 @@
 "use strict";
 
 const crypto = require("crypto");
+const { readBoundedJsonFile } = require("./bounded_file");
 const fs = require("fs");
 const path = require("path");
 const { parseAir } = require("./parser");
@@ -1271,7 +1272,7 @@ function graphDependencyDepth(graph) {
 }
 
 function loadPatch(input) {
-  if (typeof input === "string") return JSON.parse(fs.readFileSync(path.resolve(input), "utf8"));
+  if (typeof input === "string") return readBoundedJsonFile(path.resolve(input), { label: "semantic patch" });
   if (input && typeof input === "object" && !Array.isArray(input)) return stableObject(input);
   throw new SemanticPatchError("air.semantic_patch.invalid", "patch must be a JSON object or file path");
 }

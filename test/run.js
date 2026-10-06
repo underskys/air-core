@@ -248,7 +248,7 @@ entry:
 
   await test("compiler package version and AIR ABI report from one source", () => {
     assert.strictEqual(AIR_ABI_VERSION, "0.10");
-    assert.strictEqual(AIR_VERSION, "0.52.0");
+    assert.strictEqual(AIR_VERSION, "0.52.1");
     const pkg = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
     const lock = JSON.parse(fs.readFileSync(path.join(root, "package-lock.json"), "utf8"));
     assert.strictEqual(pkg.version, AIR_VERSION);

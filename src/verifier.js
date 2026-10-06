@@ -53,6 +53,8 @@ const REALTIME_SAFE_REQUIRED_BOUNDS = Object.freeze([
   "loops",
   "memory"
 ]);
+// Runtime fuel of one structured phi loop entry; lowering traps beyond it.
+const STRUCTURED_PHI_LOOP_FUEL_LIMIT = 4096;
 const RESOURCE_BOUND_CATEGORIES = new Set(["borrowedMemory", "loops", "memory", "hostCalls", "effects"]);
 const RESOURCE_CERTIFICATE_VALIDATION_OPTION_KEYS = new Set([
   "certificateDigest",
@@ -711,7 +713,8 @@ function collectEffectUsage(mod, constants = constantValuesForModule(mod)) {
   const usage = new Map();
   const functions = functionMapForUsage(mod);
   const entries = (mod.functions || []).filter((fn) => fn.exported || fn.name === "main");
-  for (const fn of entries.length ? entries : mod.functions || []) mergeUsage(usage, collectFunctionUsage(fn, functions, [], constants));
+  const memo = new Map();
+  for (const fn of entries.length ? entries : mod.functions || []) mergeUsage(usage, collectFunctionUsage(fn, functions, [], constants, memo));
   usage.set("exports", (mod.functions || []).filter((fn) => fn.exported).length);
   usage.set("memory.static_readonly_bytes", staticReadonlyBytesForTables(mod));
   usage.set("static_readonly_bytes", staticReadonlyBytesForTables(mod));
@@ -745,7 +748,9 @@ function createVerifiedResourceCertificate(input, options = {}) {
       manifestDigest,
       modules: moduleRecords.map((item) => ({ path: item.path, digest: item.digest }))
     });
-  const bounds = combineResourceBounds(moduleRecords);
+  const combinedBounds = combineResourceBounds(moduleRecords);
+  const workUnknown = workBoundUnknownReasons(moduleRecords, combinedBounds);
+  const bounds = applyWorkBoundUnknown(combinedBounds, workUnknown);
   const normalizedPolicy = normalizeCertificatePolicy(options.policy, options.mode);
   const policy = bounds.borrowedMemory.borrowedParameterCount > 0 && normalizedPolicy.mode === "required"
     ? {
@@ -755,7 +760,7 @@ function createVerifiedResourceCertificate(input, options = {}) {
         )).sort()
       }
     : normalizedPolicy;
-  const unknown = unknownResourceReasons(bounds);
+  const unknown = unknownResourceReasons(bounds).concat(workUnknown);
   const unsupported = [
     {
       code: "host_enforcement_separate",
@@ -840,6 +845,7 @@ function validateVerifiedResourceCertificate(certificate, options = {}) {
     ));
   }
   validateBorrowedMemoryCertificateSection(certificate, diagnostics);
+  validateCertificateWorkBounds(certificate, diagnostics);
   compareCertificateExpectation(diagnostics, "package.digest", certificate.package && certificate.package.digest, normalizedOptions.packageDigest, "air.resource_certificate.package_substitution");
   compareCertificateExpectation(diagnostics, "package.name", certificate.package && certificate.package.name, normalizedOptions.packageName, "air.resource_certificate.package_substitution");
   compareCertificateExpectation(diagnostics, "verifier.digest", certificate.verifier && certificate.verifier.digest, normalizedOptions.verifierDigest, "air.resource_certificate.verifier_mismatch");
@@ -851,6 +857,27 @@ function validateVerifiedResourceCertificate(certificate, options = {}) {
     ));
   }
   return resourceCertificateValidation(diagnostics);
+}
+
+// X-SND-02: a `verified` certificate must not carry a work category that is
+// not verified, or a bound that is not an exact safe integer.
+function validateCertificateWorkBounds(certificate, diagnostics) {
+  if (certificate.status !== "verified") return;
+  const bounds = certificate.bounds && typeof certificate.bounds === "object" ? certificate.bounds : {};
+  const required = new Set(Array.isArray(certificate.requiredBounds) ? certificate.requiredBounds : []);
+  for (const category of ["loops", "memory", "hostCalls", "effects", "outputs"]) {
+    const section = bounds[category];
+    if (!section || typeof section !== "object") continue;
+    const unsafe = hasUnsafeNumber(section);
+    const unverifiedRequired = required.has(category) && section.status !== "verified";
+    if (unsafe || unverifiedRequired) {
+      diagnostics.push(resourceCertificateDiagnostic(
+        "air.resource_certificate.bound_invalid",
+        `verified certificate has an invalid '${category}' bound`,
+        { category }
+      ));
+    }
+  }
 }
 
 function validateBorrowedMemoryCertificateSection(certificate, diagnostics) {
@@ -983,21 +1010,105 @@ function resourceVerifierIdentity() {
 
 function resourceFactsForModule(mod) {
   const usage = collectEffectUsage(mod);
+  // X-SND-02: totals are exact only inside the safe-integer range; a total
+  // outside it is unknown, never a verified bound.
+  const overflowKeys = Array.from(usage.entries())
+    .filter(([, value]) => typeof value === "number" && !Number.isSafeInteger(value))
+    .map(([key]) => key)
+    .sort();
+  const packageExternalCalls = usage.get("call.package_external") || 0;
+  const workKnown = overflowKeys.length === 0 && packageExternalCalls === 0;
   const loops = loopCertificateFacts(mod, usage);
   const memory = memoryCertificateFacts(usage);
   const hostCalls = hostCallCertificateFacts(mod, usage);
   const effects = Array.from(usage.entries())
-    .filter(([, value]) => Number.isFinite(value) && value !== 0)
+    .filter(([, value]) => Number.isSafeInteger(value) && value !== 0)
     .map(([key, upperBound]) => ({ key, upperBound }))
     .sort((a, b) => a.key.localeCompare(b.key));
   return stableCertificateObject({
-    loops,
+    loops: workKnown ? loops : nullUnsafeNumbers({ ...loops, status: "unknown" }),
     memory,
-    hostCalls,
+    hostCalls: workKnown ? hostCalls : nullUnsafeNumbers({ ...hostCalls, status: "unknown" }),
     borrowedMemory: borrowedMemoryCertificateFacts(mod),
     effects,
-    effectBudgets: effectBudgetFacts(mod)
+    effectBudgets: effectBudgetFacts(mod),
+    workBoundOverflowKeys: overflowKeys,
+    packageExternalCalls
   });
+}
+
+function nullUnsafeNumbers(value) {
+  if (typeof value === "number") return Number.isSafeInteger(value) ? value : null;
+  if (Array.isArray(value)) return value.map(nullUnsafeNumbers);
+  if (value && typeof value === "object") {
+    const out = {};
+    for (const [key, item] of Object.entries(value)) out[key] = nullUnsafeNumbers(item);
+    return out;
+  }
+  return value;
+}
+
+function hasUnsafeNumber(value) {
+  if (typeof value === "number") return !Number.isSafeInteger(value);
+  if (Array.isArray(value)) return value.some(hasUnsafeNumber);
+  if (value && typeof value === "object") return Object.values(value).some(hasUnsafeNumber);
+  return false;
+}
+
+const WORK_BOUND_CATEGORIES = Object.freeze(["loops", "hostCalls", "effects", "outputs"]);
+
+// X-SND-02/X-SND-03: work categories stay unknown when any module total
+// overflows, the package-level sum overflows, or a module calls another
+// package module (cross-module composition is not proven by this certificate).
+function workBoundUnknownReasons(moduleRecords, bounds) {
+  const reasons = [];
+  const overflowModules = moduleRecords.filter((item) => (item.facts.workBoundOverflowKeys || []).length > 0);
+  const packageOverflow = WORK_BOUND_CATEGORIES.some((category) => hasUnsafeNumber(bounds[category]));
+  if (overflowModules.length || packageOverflow) {
+    for (const category of WORK_BOUND_CATEGORIES) {
+      reasons.push({
+        code: "work_bound_overflow",
+        category,
+        reason: "A work or effect total exceeds the exact safe-integer range; no verified upper bound is reported."
+      });
+    }
+  }
+  const externalModules = moduleRecords.filter((item) => (item.facts.packageExternalCalls || 0) > 0);
+  if (externalModules.length) {
+    for (const category of WORK_BOUND_CATEGORIES) {
+      reasons.push({
+        code: "package_call_composition_unproven",
+        category,
+        reason: `${externalModules.length} module(s) call functions of another package module; cross-module work and host-call composition is not proven by this certificate.`
+      });
+    }
+  }
+  return reasons;
+}
+
+function applyWorkBoundUnknown(bounds, reasons) {
+  const categories = new Set(reasons.map((item) => item.category));
+  if (!categories.size) return bounds;
+  const overflowed = new Set(reasons.filter((item) => item.code === "work_bound_overflow").map((item) => item.category));
+  const out = { ...bounds };
+  for (const category of categories) {
+    if (!out[category]) continue;
+    out[category] = overflowed.has(category)
+      ? nullAllNumbers({ ...out[category], status: "unknown" })
+      : nullUnsafeNumbers({ ...out[category], status: "unknown" });
+  }
+  return stableCertificateObject(out);
+}
+
+function nullAllNumbers(value) {
+  if (typeof value === "number") return null;
+  if (Array.isArray(value)) return value.map(nullAllNumbers);
+  if (value && typeof value === "object") {
+    const out = {};
+    for (const [key, item] of Object.entries(value)) out[key] = nullAllNumbers(item);
+    return out;
+  }
+  return value;
 }
 
 function borrowedMemoryCertificateFacts(mod) {
@@ -1153,6 +1264,10 @@ function loopCertificateFacts(mod, usage) {
   let dynamicLoops = 0;
   const constants = constantValuesForModule(mod);
   for (const fn of mod.functions || []) {
+    if (Array.isArray(fn.blocks) && fn.blocks.length === 4 && detectStructuredPhiLoop(fn)) {
+      dynamicLoops += 1;
+      maximumDynamicFuel = Math.max(maximumDynamicFuel, STRUCTURED_PHI_LOOP_FUEL_LIMIT);
+    }
     const consts = new Map();
     for (const [name, value] of constants.entries()) consts.set(name, value.constValue);
     const valueTypes = new Map((fn.params || []).map((param) => [param.name, param.type]));
@@ -1462,6 +1577,10 @@ function normalizeCertificateModules(input, options) {
   return source.map((entry, index) => {
     const normalized = entry && entry.mod ? entry : { mod: entry };
     if (!normalized.mod || typeof normalized.mod !== "object") throw new Error(`resource certificate module ${index} is invalid`);
+    if (normalized.mod.v051TypedAst) {
+      // X-SND-04: this certificate walks the legacy block IR only.
+      throw new VerificationError(`air.resource_certificate.profile_unsupported: module ${index} uses the typed-v0.51 source profile; the legacy resource certificate cannot bound typed modules`);
+    }
     return {
       mod: normalized.mod,
       path: normalized.path || normalized.mod.name || `module-${index}`,
@@ -1778,15 +1897,31 @@ function validateConstantRange(constant, value) {
   }
 }
 
-function collectFunctionUsage(fn, functions = new Map(), stack = [], constants = new Map()) {
+function collectFunctionUsage(fn, functions = new Map(), stack = [], constants = new Map(), memo = new Map()) {
   const usage = new Map();
   let staticAllocBytes = 0;
   let dynamicAllocations = 0;
-  const add = (key, amount = 1) => usage.set(key, (usage.get(key) || 0) + amount);
+  // `add` targets the current block; block usage is merged into the function
+  // usage scaled by how often that block can execute (structured phi loops).
+  let blockUsage = usage;
+  const add = (key, amount = 1) => blockUsage.set(key, (blockUsage.get(key) || 0) + amount);
   const consts = new Map();
   for (const [name, constant] of constants.entries()) consts.set(name, constant.constValue);
   const valueTypes = new Map((fn.params || []).map((param) => [param.name, param.type]));
+  const phiLoop = Array.isArray(fn.blocks) && fn.blocks.length === 4 ? detectStructuredPhiLoop(fn) : null;
+  if (phiLoop) {
+    // X-SND-01: a structured phi loop runs its body up to the lowering fuel
+    // limit per entry and evaluates its header once more; charge it as one
+    // dynamic loop with that fuel instead of counting each block once.
+    add("cpu.loops");
+    add("cpu.dynamic_loops");
+    add("cpu.phi_loops");
+    add("effects.dynamic");
+    add("cpu.loop_iterations_upper_bound", STRUCTURED_PHI_LOOP_FUEL_LIMIT);
+  }
   for (const block of fn.blocks || []) {
+    const multiplicity = phiLoop ? structuredPhiLoopBlockMultiplicity(phiLoop, block.label) : 1;
+    blockUsage = multiplicity === 1 ? usage : new Map();
     add("cpu.blocks");
     for (const ins of block.instructions || []) {
       add("cpu.instructions");
@@ -1797,9 +1932,12 @@ function collectFunctionUsage(fn, functions = new Map(), stack = [], constants =
         const callee = functions.get(ins.callee);
         if (callee && !callee.external) {
           add(`call.${ins.callee}`);
-          mergeUsage(usage, collectNestedFunctionUsage(callee, functions, stack.concat(fn.name), constants));
+          mergeUsage(blockUsage, collectNestedFunctionUsage(callee, functions, stack.concat(fn.name), constants, memo));
         } else {
           add(ins.callee);
+          // X-SND-03: the callee lives in another package module, so its own
+          // work and host calls are not part of this module's usage.
+          if (!callee || callee.packageExternal) add("call.package_external");
         }
         if (ins.callee.startsWith("gpu.")) add("gpu.calls");
         if (ins.callee.startsWith("gpu.draw")) {
@@ -1826,7 +1964,7 @@ function collectFunctionUsage(fn, functions = new Map(), stack = [], constants =
           const calleeArg = ins.args[0];
           const callee = calleeArg && calleeArg.kind === "function" ? functions.get(calleeArg.name) : null;
           if (callee && !callee.external) {
-            mergeUsage(usage, scaledUsage(collectNestedFunctionUsage(callee, functions, stack.concat(fn.name), constants), count));
+            mergeUsage(blockUsage, scaledUsage(collectNestedFunctionUsage(callee, functions, stack.concat(fn.name), constants, memo), count));
           }
         }
       }
@@ -1892,7 +2030,9 @@ function collectFunctionUsage(fn, functions = new Map(), stack = [], constants =
       }
       if (ins.op === "slice.sub") add("memory.slice_sub");
     }
+    if (blockUsage !== usage) mergeUsage(usage, scaledUsage(blockUsage, multiplicity));
   }
+  blockUsage = usage;
   usage.set("static_alloc_bytes", staticAllocBytes);
   usage.set("memory.static_alloc_bytes", staticAllocBytes);
   usage.set("dynamic_allocations", dynamicAllocations);
@@ -1900,14 +2040,26 @@ function collectFunctionUsage(fn, functions = new Map(), stack = [], constants =
   return usage;
 }
 
-function collectNestedFunctionUsage(fn, functions, stack, constants) {
+// X-BND-02: a callee's usage does not depend on its call site, so it is
+// computed once per top-level collection and reused. Without this, verifier
+// work grows exponentially with call-DAG depth.
+function collectNestedFunctionUsage(fn, functions, stack, constants, memo = new Map()) {
   if (stack.includes(fn.name)) {
     const usage = new Map();
     usage.set("effects.dynamic", 1);
     usage.set("cpu.recursive_calls", 1);
     return usage;
   }
-  return collectFunctionUsage(fn, functions, stack, constants);
+  if (memo.has(fn.name)) return memo.get(fn.name);
+  const usage = collectFunctionUsage(fn, functions, stack, constants, memo);
+  memo.set(fn.name, usage);
+  return usage;
+}
+
+function structuredPhiLoopBlockMultiplicity(loop, label) {
+  if (label === loop.header) return STRUCTURED_PHI_LOOP_FUEL_LIMIT + 1;
+  if (label === loop.body) return STRUCTURED_PHI_LOOP_FUEL_LIMIT;
+  return 1;
 }
 
 function valueTypeForArg(arg, valueTypes) {
@@ -2014,7 +2166,7 @@ function constNumberForArg(arg, consts) {
 
 function verifyEffectsAndContracts(mod, usage) {
   for (const budget of mod.effects || []) {
-    const actual = effectCount(usage, budget.key);
+    const actual = checkedEffectCount(usage, budget.key, budget.loc);
     if (!compareMetric(actual, budget.op || "<=", budget.limit)) {
       fail(`effect budget '${budget.key} ${budget.op || "<="} ${budget.limit}' is not satisfied: ${actual}; repair: tighten bounded loops, reduce matching operations, or raise the explicit budget`, budget.loc);
     }
@@ -2033,7 +2185,7 @@ function verifyEffectsAndContracts(mod, usage) {
       fail(`requires export '${contract.name}' is not satisfied`, contract.loc);
     }
     if (contract.kind === "metric") {
-      const actual = effectCount(usage, contract.key);
+      const actual = checkedEffectCount(usage, contract.key, contract.loc);
       if (!compareMetric(actual, contract.op || "<=", contract.limit)) {
         fail(`requires ${contract.key} ${contract.op || "<="} ${contract.limit} is not satisfied: ${actual}; repair: adjust the contract or the counted operations`, contract.loc);
       }
@@ -2050,7 +2202,7 @@ function verifyEffectsAndContracts(mod, usage) {
       fail(`ensures export '${contract.name}' is not satisfied`, contract.loc);
     }
     if (contract.kind === "metric") {
-      const actual = effectCount(usage, contract.key);
+      const actual = checkedEffectCount(usage, contract.key, contract.loc);
       if (!compareMetric(actual, contract.op || "<=", contract.limit)) {
         fail(`ensures ${contract.key} ${contract.op || "<="} ${contract.limit} is not satisfied: ${actual}; repair: adjust the contract or the counted operations`, contract.loc);
       }
@@ -2072,14 +2224,14 @@ function requireBudgetedEffectFamily(mod, usage, family) {
 
 function verifyFunctionEffectsAndContracts(mod, fn, usage) {
   for (const budget of fn.effects || []) {
-    const actual = effectCount(usage, budget.key);
+    const actual = checkedEffectCount(usage, budget.key, budget.loc);
     if (!compareMetric(actual, budget.op || "<=", budget.limit)) {
       fail(`function '${fn.name}' effect budget '${budget.key} ${budget.op || "<="} ${budget.limit}' is not satisfied: ${actual}; repair: tighten bounded loops, reduce matching operations, or raise the explicit budget`, budget.loc);
     }
   }
   for (const contract of [...(fn.requires || []), ...(fn.ensures || [])]) {
     if (contract.kind === "metric") {
-      const actual = effectCount(usage, contract.key);
+      const actual = checkedEffectCount(usage, contract.key, contract.loc);
       if (!compareMetric(actual, contract.op || "<=", contract.limit)) {
         fail(`function '${fn.name}' contract ${contract.key} ${contract.op || "<="} ${contract.limit} is not satisfied: ${actual}; repair: adjust the contract or the counted operations`, contract.loc);
       }
@@ -2161,6 +2313,16 @@ function compareMetric(actual, op, limit) {
   if (op === "==") return actual === limit;
   if (op === ">=") return actual >= limit;
   return false;
+}
+
+// X-SND-02: a budget or metric contract is never satisfied by a total that
+// left the exact safe-integer range.
+function checkedEffectCount(usage, key, loc) {
+  const actual = effectCount(usage, key);
+  if (!Number.isSafeInteger(actual)) {
+    fail(`air.resource.work_bound_overflow: '${key}' total exceeds the exact safe-integer range; reduce nested bounded loops or call fan-out`, loc);
+  }
+  return actual;
 }
 
 function effectCount(usage, key) {
@@ -2367,6 +2529,12 @@ function verifyFunction(mod, fn, functions, globals, types, constants = new Map(
 function verifyRegionLifetimes(fn) {
   if (!fn.blocks || fn.blocks.length === 0) return;
   const blocks = new Map(fn.blocks.map((block) => [block.label, block]));
+  const regionNames = new Set();
+  for (const block of fn.blocks) {
+    for (const ins of block.instructions || []) {
+      if (ins.op === "alloc_region" && ins.result) regionNames.add(ins.result);
+    }
+  }
   const work = [{ label: fn.blocks[0].label, state: emptyRegionState() }];
   const seen = new Set();
 
@@ -2380,7 +2548,7 @@ function verifyRegionLifetimes(fn) {
     const state = cloneRegionState(item.state);
 
     for (const ins of block.instructions || []) {
-      applyRegionInstruction(state, ins, block);
+      applyRegionInstruction(state, ins, block, regionNames);
       if (ins.op === "return") {
         failIfRegionsLeakAtReturn(state, block, ins);
         break;
@@ -2415,7 +2583,7 @@ function regionStateKey(state) {
   ].join("|");
 }
 
-function applyRegionInstruction(state, ins, block) {
+function applyRegionInstruction(state, ins, block, regionNames = new Set()) {
   if (ins.op === "alloc_region" && ins.result) {
     state.live.set(ins.result, { loc: ins.loc, block: block.label });
     return;
@@ -2428,6 +2596,23 @@ function applyRegionInstruction(state, ins, block) {
   }
   const ptr = directRegionUseArg(ins);
   if (ptr) requireRegionLiveForLifetime(state, ptr, ins.loc);
+  if (ins.op === "call") {
+    for (const arg of ins.args || []) {
+      const name = valueArgName(arg);
+      if (name && regionNames.has(name)) requireRegionLiveForLifetime(state, name, ins.loc);
+    }
+  }
+  if (ins.op === "buffer.from_ptr" && ins.result) {
+    const base = valueArgName(ins.args[0]);
+    if (base && state.live.has(base)) state.slices.set(ins.result, base);
+    return;
+  }
+  if (ins.op === "buffer.load" || ins.op === "buffer.store" || ins.op === "loop.buffer.f32") {
+    const view = valueArgName(ins.op === "loop.buffer.f32" ? ins.args[1] : ins.args[0]);
+    const base = view ? state.slices.get(view) : null;
+    if (base) requireRegionLiveForLifetime(state, base, ins.loc);
+    return;
+  }
   if (ins.op === "slice.from_region" && ins.result) {
     const base = valueArgName(ins.args[0]);
     if (base && state.live.has(base)) state.slices.set(ins.result, base);
@@ -2450,7 +2635,7 @@ function applyRegionInstruction(state, ins, block) {
 }
 
 function directRegionUseArg(ins) {
-  if (ins.op === "load.i32" || ins.op === "load.f32" || ins.op === "store.i32" || ins.op === "store.f32" || ins.op === "slice.from_region") {
+  if (ins.op === "load.i32" || ins.op === "load.f32" || ins.op === "store.i32" || ins.op === "store.f32" || ins.op === "slice.from_region" || ins.op === "buffer.from_ptr") {
     return valueArgName(ins.args[0]);
   }
   if (ins.op === "mat4.store_f32") return valueArgName(ins.args[1]);
@@ -2705,6 +2890,9 @@ function verifyInstruction(mod, fn, ins, functions, globals, labels, values, reg
       fail("output.emit output_id must be a statically resolvable i32 literal or module constant in v0.26", ins.loc);
     }
     validateCallPreconditions(callee, values, ins.args, ins.loc);
+    if (callee.external && !callee.packageExternal) {
+      ins.hostBufferChecks = verifyHostBufferArguments(callee, values, regions, ins);
+    }
     if (!ins.result && callee.returnType !== "void") fail(`call @${ins.callee} result must be assigned`, ins.loc);
     if (ins.result && ins.resultType !== callee.returnType) {
       fail(`call @${ins.callee} returns ${callee.returnType}, assigned to ${ins.resultType}`, ins.loc);
@@ -3388,9 +3576,12 @@ function verifyInstruction(mod, fn, ins, functions, globals, labels, values, reg
 
   if (ins.op === "buffer.from_ptr") {
     requireResult(ins);
-    expectBuffer(ins.resultType, ins.loc);
+    const buffer = expectBuffer(ins.resultType, ins.loc);
     expectArgCount(ins, 1);
-    expectType(values, ins.args[0], "ptr", ins.loc);
+    // X-SND-06: a buffer view must lie inside a live AIR region.
+    const region = expectLivePtr(values, regions, ins.args[0], ins.loc);
+    const viewBytes = buffer.length * scalarByteWidth(buffer.element);
+    ins.regionBoundsCheck = expectRegionBounds(region, { min: 0, max: 0 }, viewBytes, ins.loc);
     return;
   }
 
@@ -3429,8 +3620,10 @@ function verifyInstruction(mod, fn, ins, functions, globals, labels, values, reg
     requireResult(ins);
     if (ins.resultType !== "slice") fail("slice.from_region produces slice", ins.loc);
     expectArgCount(ins, 2);
-    expectLivePtr(values, regions, ins.args[0], ins.loc);
+    const region = expectLivePtr(values, regions, ins.args[0], ins.loc);
     expectType(values, ins.args[1], "i32", ins.loc);
+    // X-SND-06: the slice length must not exceed the region size.
+    ins.regionLengthCheck = expectRegionLength(region, rangeOf(values, ins.args[1]), "slice.from_region length", ins.loc);
     return;
   }
 
@@ -3503,11 +3696,21 @@ function verifyInstruction(mod, fn, ins, functions, globals, labels, values, reg
     if (ins.resultType !== "ptr") fail("alloc_region produces ptr", ins.loc);
     expectArgCount(ins, 1);
     expectType(values, ins.args[0], "i32", ins.loc);
-    const classification = classifyRegionSize(rangeOf(values, ins.args[0]));
+    const sizeRange = rangeOf(values, ins.args[0]);
+    const classification = classifyRegionSize(sizeRange);
     if (classification.status === "invalid") {
       fail(`${REGION_BOUNDS_STATIC_CODE}: alloc_region ${classification.detail}`, ins.loc);
     }
     ins.regionSizeCheck = classification.status;
+    // X-SND-05: each allocation site owns a disjoint slot that covers its
+    // largest possible size; a size that is not a compile-time constant is
+    // also checked against the slot at runtime.
+    const slot = regionSlotBytesForRange(sizeRange);
+    if (slot === null) {
+      fail(`air.memory.region_size_unsupported: alloc_region upper bound ${sizeRange.max} exceeds ${REGION_SLOT_MAX_BYTES} bytes`, ins.loc);
+    }
+    ins.regionSlotBytes = slot;
+    ins.regionSizeConstant = constValueOf(values, ins.args[0]) !== undefined;
     return;
   }
 
@@ -3601,6 +3804,47 @@ function expectRegionBounds(region, offsetRange, width, loc) {
     fail(`${REGION_BOUNDS_STATIC_CODE}: raw memory access out of region bounds: ${classification.detail}`, loc);
   }
   return classification.status;
+}
+
+const REGION_SLOT_BYTES = 4096;
+const REGION_SLOT_MAX_BYTES = 16 * 1024 * 1024;
+
+function regionSlotBytesForRange(sizeRange) {
+  if (!sizeRange || sizeRange.min < 0) return REGION_SLOT_BYTES;
+  if (sizeRange.max > REGION_SLOT_MAX_BYTES) return null;
+  return Math.max(REGION_SLOT_BYTES, Math.ceil(sizeRange.max / 16) * 16);
+}
+
+// Classifies `length` bytes starting at region offset 0: static when proven
+// within the region size, dynamic when a runtime check is required.
+function expectRegionLength(region, lengthRange, label, loc) {
+  const sizeRange = region.sizeRange;
+  if (lengthRange && lengthRange.max < 0) {
+    fail(`${REGION_BOUNDS_STATIC_CODE}: ${label} ${lengthRange.max} is always negative`, loc);
+  }
+  if (lengthRange && sizeRange && lengthRange.min > sizeRange.max) {
+    fail(`${REGION_BOUNDS_STATIC_CODE}: ${label} exceeds the region size`, loc);
+  }
+  if (lengthRange && sizeRange && lengthRange.min >= 0 && sizeRange.min >= 0 && lengthRange.max <= sizeRange.min) {
+    return "static";
+  }
+  return "dynamic";
+}
+
+// X-SND-06: a host import that receives an AIR pointer and a capacity may
+// write that many bytes, so the pointer must be a live region and the
+// capacity must fit inside it.
+function verifyHostBufferArguments(callee, values, regions, ins) {
+  const checks = [];
+  callee.params.forEach((param, idx) => {
+    if (param.type !== "ptr") return;
+    const region = expectLivePtr(values, regions, ins.args[idx], ins.loc);
+    const capParam = callee.params[idx + 1];
+    if (!capParam || capParam.type !== "i32") return;
+    const status = expectRegionLength(region, rangeOf(values, ins.args[idx + 1]), `@${ins.callee} capacity argument ${idx + 1}`, ins.loc);
+    checks.push({ ptrIndex: idx, capIndex: idx + 1, status });
+  });
+  return checks;
 }
 
 function expectStaticSliceBounds(values, sliceArg, offset, width, loc) {
@@ -4392,6 +4636,7 @@ const KNOWN_INSTRUCTIONS = [
 module.exports = {
   RESOURCE_CERTIFICATE_KIND,
   RESOURCE_CERTIFICATE_SCHEMA_VERSION,
+  STRUCTURED_PHI_LOOP_FUEL_LIMIT,
   VerificationError,
   collectEffectUsage,
   createVerifiedResourceCertificate,

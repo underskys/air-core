@@ -286,7 +286,31 @@ function borrowedFail(suffix, message, loc) {
   throw new AirError(`air.borrow.${suffix}: ${message}`, loc);
 }
 
+// X-SND-07: borrowed-lane modules export the linear-memory range that AIR
+// itself owns (static data and region slots). A host view that intersects it
+// could be mutated by the module or could mutate module-owned memory.
+const AIR_OWNED_MEMORY_BASE_EXPORT = "__air_owned_memory_base";
+const AIR_OWNED_MEMORY_END_EXPORT = "__air_owned_memory_end";
+
+function airOwnedMemoryRange(instance) {
+  const exports = instance && instance.exports ? instance.exports : {};
+  const base = exports[AIR_OWNED_MEMORY_BASE_EXPORT];
+  const end = exports[AIR_OWNED_MEMORY_END_EXPORT];
+  if (!(base instanceof WebAssembly.Global) || !(end instanceof WebAssembly.Global)) return null;
+  const start = Number(base.value);
+  const stop = Number(end.value);
+  if (!Number.isSafeInteger(start) || !Number.isSafeInteger(stop) || start < 0 || stop < start) return null;
+  return { start, end: stop };
+}
+
+function rangeIntersectsAirOwnedMemory(owned, offset, length) {
+  if (!owned || owned.end <= owned.start || length <= 0) return false;
+  return offset < owned.end && offset + length > owned.start;
+}
+
 module.exports = {
+  AIR_OWNED_MEMORY_BASE_EXPORT,
+  AIR_OWNED_MEMORY_END_EXPORT,
   BORROWED_SLICE_TYPE,
   BORROWED_SLICE_LENGTH_MAX,
   BORROWED_SLICE_ACCESS,
@@ -294,6 +318,7 @@ module.exports = {
   BORROWED_SLICE_DOMAINS,
   WASM32_MAX_ADDRESS,
   WASM32_BYTE_CAPACITY,
+  airOwnedMemoryRange,
   borrowedAccessAllows,
   borrowedArgumentCompatible,
   borrowedOverlapAllowed,
@@ -303,5 +328,6 @@ module.exports = {
   classifyBorrowedRange,
   moduleUsesBorrowedSlices,
   requiredAirAbiForModule,
-  parseBorrowedSliceType
+  parseBorrowedSliceType,
+  rangeIntersectsAirOwnedMemory
 };

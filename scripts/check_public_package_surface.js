@@ -106,6 +106,7 @@ const allowedExact = new Set([
   "docs/RELEASE_NOTES_0_50_2.md",
   "docs/RELEASE_NOTES_0_51_0.md",
   "docs/RELEASE_NOTES_0_52_0.md",
+  "docs/RELEASE_NOTES_0_52_1.md",
   "package.json",
   "package-lock.json"
 ]);

@@ -104,13 +104,15 @@ node bin/airc.js report package examples/public/evidence_report --json
 
 The v0.52 typed-source candidate is explicit and does not replace legacy AIR.
 
-The bounded S5 correction passed independent exact-SHA QA at public source
-`4c62489f34a8149f758bc23dda892a031bae1023`. Technical release-candidate
-preparation does not publish the package. In `typed-v0.51`, `const.i64 N` is
-accepted in typed initializer and return positions, not directly in arithmetic
-operands; bare i64 operands remain accepted. The formatter prints the exact
-bare decimal value. See [v0.52 release notes](docs/RELEASE_NOTES_0_52_0.md)
-for the release boundary; the source repository also carries
+`@underskys/air-core@0.52.1` is bounded soundness maintenance of the 0.52
+line. It corrects loop work accounting, certificate totals, region isolation,
+borrowed views and tooling bounds. See
+[0.52.1 release notes](docs/RELEASE_NOTES_0_52_1.md). The 0.52.0 technical
+candidate was never published. In `typed-v0.51`, `const.i64 N` is accepted in
+typed initializer and return positions, not directly in arithmetic operands;
+bare i64 operands remain accepted. The formatter prints the exact bare decimal
+value. See [v0.52 release notes](docs/RELEASE_NOTES_0_52_0.md) for the
+typed-runtime boundary; the source repository also carries
 `docs/FEATURE_STATUS_v0.52.md` for review.
 
 Select the typed profile explicitly:
@@ -131,12 +133,14 @@ review artifacts. Those artifacts are for review workflow, not source of truth.
 
 ## Installation
 
-Install the public alpha package with:
+Install an exact package version with:
 
 ```sh
-npm install -g @underskys/air-core@alpha
+npm install -g @underskys/air-core@0.52.1
 airc version --json
 ```
+
+Check `npm view @underskys/air-core dist-tags` for the current tags.
 
 ## What AIR Rejects
 
@@ -195,15 +199,15 @@ shipped as public Core package authority.
 | `@underskys/air-core@0.50.1` | published public presentation patch | `0.10`, with opt-in `0.11` borrowed slices | `0.10` | `0.50` public surface | repo test/conformance suite plus release gates | Public identity and documentation correction; no language or ABI change. |
 | `@underskys/air-core@0.50.2` | public identity correction candidate | `0.10`, with opt-in `0.11` borrowed slices | `0.10` | `0.50` public surface | release gates pending | Aligns package, CLI, and public documentation versions; no language or ABI change. |
 | `@underskys/air-core@0.51.0` | published public release | `0.10` and `0.11` remain supported; `0.12` typed decisions is candidate-only | `0.10` and `0.11` unchanged | frozen `0.51` semantics | published package plus source conformance | The typed-decisions surface requires explicit `allowCandidateAbi012: true`; it is not a stable ABI release. |
-| `@underskys/air-core@0.52.0` | technical stable RC, not published | `0.10` and `0.11` remain supported; `0.12` remains candidate-only | `0.10` and `0.11` unchanged | explicit source profiles and verified typed runtime | S0-S5 bounded QA accepted; final release checks separate | Legacy source remains the default. Typed-v0.51 and the generic pure runtime are explicit candidate surfaces, not production effect authority. |
+| `@underskys/air-core@0.52.0` | technical candidate, never published | `0.10` and `0.11` remain supported; `0.12` remains candidate-only | `0.10` and `0.11` unchanged | explicit source profiles and verified typed runtime | S0-S5 bounded QA accepted | Superseded by 0.52.1 before publication. |
+| `@underskys/air-core@0.52.1` | bounded soundness maintenance of the 0.52 line | `0.10` and `0.11` remain supported; `0.12` remains candidate-only | `0.10` and `0.11` unchanged | explicit source profiles, verified typed runtime, corrected resource and memory guarantees | regression vectors plus independent exact-SHA QA | Legacy source remains the default. Typed-v0.51 and the generic pure runtime are explicit candidate surfaces, not production effect authority. |
 
 Current active milestone:
 
-- Current published public package: `@underskys/air-core@0.51.0`
-- npm `latest`: `0.51.0`
-- npm `alpha`: `0.51.0`
-- Next release candidate: `@underskys/air-core@0.52.0`
-- Install path: `npm install -g @underskys/air-core`
+- This package: `@underskys/air-core@0.52.1`. The npm registry is the source
+  of truth for publication state and dist-tags; this file does not assert them.
+- Previous published line: `@underskys/air-core@0.51.0`.
+- Install path: `npm install -g @underskys/air-core@0.52.1`
 - AIR ABI compatibility: existing `0.10` and `0.11` modules remain supported.
   Typed decisions are a candidate lane, AIR ABI `0.12`, enabled only by the
   explicit `allowCandidateAbi012: true` option; it may change before `v1.0`.
