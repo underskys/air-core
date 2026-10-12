@@ -30,7 +30,11 @@ Canonical AIR should use explicit offsets for raw pointer memory operations. The
   length or capacity must fit inside the region: statically when provable,
   otherwise by a runtime check that traps before the view or host call
   (AIR 0.52.1). A buffer or slice view may not be used after its region is
-  freed.
+  freed, including as an argument of a call.
+- The checked sum of one module's region slots must not exceed 256 MiB; above
+  it the verifier and the lowerer reject the module with
+  `air.memory.region_backing_unsupported` (AIR 0.52.1). Linked package output
+  uses the same verified slots and the same ceiling as a single module.
 
 ## Slices
 

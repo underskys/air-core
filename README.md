@@ -105,9 +105,12 @@ node bin/airc.js report package examples/public/evidence_report --json
 The v0.52 typed-source candidate is explicit and does not replace legacy AIR.
 
 `@underskys/air-core@0.52.1` is bounded soundness maintenance of the 0.52
-line. It corrects loop work accounting, certificate totals, region isolation,
-borrowed views and tooling bounds. See
-[0.52.1 release notes](docs/RELEASE_NOTES_0_52_1.md). The 0.52.0 technical
+line. It corrects loop work accounting, certificate totals, run admission,
+region isolation (including linked package builds), borrowed views and
+tooling bounds. Effect budgets stay module-local, and a 0.52.1 borrowed-lane
+artifact on an older host is unprotected. See
+[0.52.1 release notes](docs/RELEASE_NOTES_0_52_1.md) for the mixed-version
+table and the duties of hosts that call exports directly. The 0.52.0 technical
 candidate was never published. In `typed-v0.51`, `const.i64 N` is accepted in
 typed initializer and return positions, not directly in arithmetic operands;
 bare i64 operands remain accepted. The formatter prints the exact bare decimal

@@ -1,8 +1,8 @@
 const crypto = require("crypto");
 const fs = require("fs");
 const path = require("path");
-const { parseAir } = require("./parser");
 const { lowerToWat, watToWasm } = require("./lower_wasm");
+const { verifiedPackageModuleAsts } = require("./module_graph");
 const { createPackageLinkPlan, stableStringify } = require("./link_plan");
 const { mangleSymbol, moduleIdForPath, symbolKey } = require("./link_symbols");
 const { normalizePackageMetadata, validatePackageManifest } = require("./package_manifest");
@@ -26,7 +26,11 @@ async function buildLinkedPackage(packageDir, output, options = {}) {
     profile,
     releaseCandidate: options.releaseCandidate
   });
-  const merged = mergePackageModules(base, metadata, packageReport, linkPlan);
+  // QA52 P1-2: lower the module ASTs package-check verified, with their
+  // region slot, region bounds and host (ptr, capacity) facts, instead of
+  // re-parsed sources that carry none of them.
+  const verifiedModules = verifiedPackageModuleAsts(base, metadata.entry);
+  const merged = mergePackageModules(base, metadata, packageReport, linkPlan, verifiedModules);
   const wat = withPackageExportWrappers(lowerToWat(merged.module), merged.exportWrappers);
   const linkedWatHash = fingerprintText(wat);
   const emit = options.emit || (String(output).endsWith(".wat") ? "wat" : "wasm");
@@ -60,15 +64,13 @@ async function buildLinkedPackage(packageDir, output, options = {}) {
   return { output: outPath, sidecar, wat, report };
 }
 
-function mergePackageModules(base, metadata, packageReport, linkPlan) {
+function mergePackageModules(base, metadata, packageReport, linkPlan, verifiedModules) {
   const symbolByKey = new Map(linkPlan.symbols.map((symbol) => [symbolKey(symbol.module, symbol.kind, symbol.sourceName), symbol]));
   const modules = [];
   for (const rel of linkPlan.moduleOrder) {
-    const file = path.join(base, rel);
-    modules.push({
-      path: rel,
-      ast: parseAir(fs.readFileSync(file, "utf8"), rel, { resolveSourceImports: false })
-    });
+    const ast = verifiedModules && verifiedModules.get(rel);
+    if (!ast) throw new Error(`cannot build linked package: module ${rel} has no verified AST`);
+    modules.push({ path: rel, ast });
   }
   const callEdges = new Map();
   for (const edge of linkPlan.crossModuleCalls || []) {

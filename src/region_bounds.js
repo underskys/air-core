@@ -3,6 +3,10 @@
 const REGION_BOUNDS_STATIC_CODE = "air.memory.region_bounds_static";
 const REGION_BOUNDS_RUNTIME_CODE = "air.memory.region_bounds_runtime";
 const REGION_BOUNDS_FAILURE_FUNCTION = "__air_region_bounds_fail";
+// QA52 P2-4: maintenance ceiling on the total of one module's region slots
+// (16 slots of the 16 MiB per-site maximum). A build/admission resource
+// limit, not a semantic WorkBound.
+const REGION_BACKING_MAX_BYTES = 256 * 1024 * 1024;
 
 function classifyRegionSize(sizeRange) {
   if (!sizeRange) return { status: "dynamic" };
@@ -70,6 +74,7 @@ function formatRange(range) {
 }
 
 module.exports = {
+  REGION_BACKING_MAX_BYTES,
   REGION_BOUNDS_FAILURE_FUNCTION,
   REGION_BOUNDS_RUNTIME_CODE,
   REGION_BOUNDS_STATIC_CODE,

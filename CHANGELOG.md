@@ -21,7 +21,10 @@ never published. See `docs/RELEASE_NOTES_0_52_1.md`.
 - Keep certificate work totals exact; overflowing totals are unknown and
   budgets on them fail with `air.resource.work_bound_overflow`.
 - Report cross-module certificate work as unknown; reject typed-v0.51 modules
-  in the legacy certificate.
+  in the legacy certificate, also when the typed marker is missing.
+- Report unresolved `std.*` import work as unknown with its own reason,
+  `stdlib_call_composition_unproven`.
+- `airc check` reports bounded file errors with their `air.cli.file_*` code.
 
 ### Security
 
@@ -31,9 +34,19 @@ never published. See `docs/RELEASE_NOTES_0_52_1.md`.
   `slice.from_region` and host `(ptr, capacity)` arguments.
 - Export the AIR-owned memory range from borrowed-lane modules; reject Wasm-view
   bindings that intersect it.
+- Deny `run_package` admission before execution when a certified host-call or
+  output bound is unknown, overflowed or malformed; a missing bound is never
+  zero (`air.run.resource_bound_*`).
+- Apply the same host `(ptr, capacity)` checks and region slots in
+  `airc build package --linked-wasm` as in the single-module build; reject a
+  view passed to a call after its region is freed; cap one module's region
+  slots at 256 MiB (`air.memory.region_backing_unsupported`).
 - Apply the verified typed build limits to `airc build --source-profile
-  typed-v0.51`; make verifier work linear in the call graph; bound `airc
-  check`, `semantic-patch` and `evidence report` JSON file inputs.
+  typed-v0.51`; walk legacy call graphs without recursion, summarise each
+  function once and enforce deterministic verifier analysis limits
+  (`air.verifier.analysis_limit_exceeded`); bound the observation-safety
+  analysis; bound `airc check`, `semantic-patch` and `evidence report` JSON
+  file inputs. Verifier work is not claimed to be linear.
 
 ### Breaking / Migration
 
@@ -41,6 +54,11 @@ never published. See `docs/RELEASE_NOTES_0_52_1.md`.
   and cannot authorize admission for them. Programs that would overrun a
   budget, region, view or host capacity are rejected or trap before the overrun.
 - AIR ABI and Host ABI versions are unchanged; typed-v0.51 acceptance is unchanged.
+- A 0.52.1 borrowed-lane artifact on an older host is unprotected and gets no
+  signal; hosts that call exports directly must apply the AIR-owned memory
+  range check themselves. See the mixed-version table in the release notes.
+- Effect budgets are module-local; package-global composition is an open
+  residual. 0.52.1 does not define the typed-v0.53 WorkBound.
 
 ## v0.52.0 - Verified Typed Runtime Technical Release Candidate
 

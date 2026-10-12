@@ -152,6 +152,26 @@ Compatibility: a certificate that 0.52.0 reported as `verified` for these
 shapes is now `incomplete`, and an admission path that requires `verified` now
 fails closed. This is an intentional breaking-safety correction.
 
+### QA52 correction (0.52.1)
+
+- A consumer reads a bound only from a category whose status is `verified`
+  and whose value is an exact non-negative safe integer. A missing or `null`
+  value is never zero. `run_package` denies before execution with
+  `air.run.resource_bound_unproven` (status `unknown`),
+  `air.run.resource_bound_overflow` (reason `work_bound_overflow`) or
+  `air.run.resource_bound_invalid` (malformed section, status or value).
+- `validateVerifiedResourceCertificate` also returns
+  `air.resource_certificate.bound_invalid` when a `verified` category's total
+  is missing, `null` or negative, or when a required category is absent.
+- Calls into an unresolved `std.*` source import make the work categories
+  `unknown` with reason `stdlib_call_composition_unproven` (module facts field
+  `stdlibExternalCalls`), distinct from `package_call_composition_unproven`.
+  Neither composition is proven by this certificate.
+- The certificate accepts only the legacy block-IR shape: every function must
+  be a list of blocks, with no statement body, enum declarations or typed
+  marker. Any other AST is `air.resource_certificate.profile_unsupported`,
+  whether or not the `v051TypedAst` marker is present.
+
 ## Compatibility And Rollback
 
 No parser syntax, type syntax, lowering rule, AIR ABI, Host ABI, Protocol, or

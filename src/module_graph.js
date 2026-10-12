@@ -58,6 +58,9 @@ function analyzePackageModuleGraph(packageRoot, entry, options = {}) {
   if (entryRef) visit(entryRef, []);
 
   validateCrossModuleCalls();
+  if (typeof options.onVerifiedModules === "function" && !errors.length) {
+    options.onVerifiedModules(new Map(order.map((relative) => [relative, modulesByPath.get(relative).mod])));
+  }
   const provenanceFlow = analyzeProvenancePackage(
     order.map((relative) => {
       const item = modulesByPath.get(relative);
@@ -119,7 +122,7 @@ function analyzePackageModuleGraph(packageRoot, entry, options = {}) {
     effectUsageOrigins,
     effectComposition: {
       status: "per-module-only",
-      message: "package-check validates each reachable module and reports effect usage by origin; linked cross-module effect budget composition is deferred until linked output is implemented."
+      message: "package-check validates each reachable module and reports effect usage by origin; effect budgets are module-local, and cross-module effect and work composition is not proven, including in linked output."
     },
     linking: {
       status: "available",
@@ -749,7 +752,28 @@ function errorMessage(err) {
   return err && err.message ? err.message : String(err);
 }
 
+// QA52 P1-2: the module ASTs exactly as package-check verified them, keyed by
+// package-relative path. Verification attaches the region and host-buffer
+// facts lowering needs, so a linked build lowers these instead of re-parsed,
+// unverified sources. Throws when any module fails verification; later
+// package-level findings (provenance policy) stay with package-check.
+function verifiedPackageModuleAsts(packageRoot, entry) {
+  let verified = null;
+  try {
+    analyzePackageModuleGraph(packageRoot, entry, {
+      onVerifiedModules(modules) {
+        verified = modules;
+      }
+    });
+  } catch (err) {
+    if (!verified) throw err;
+  }
+  if (!verified) throw new ModuleGraphError(["package modules were not verified"]);
+  return verified;
+}
+
 module.exports = {
   ModuleGraphError,
-  analyzePackageModuleGraph
+  analyzePackageModuleGraph,
+  verifiedPackageModuleAsts
 };

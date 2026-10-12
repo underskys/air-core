@@ -2,13 +2,16 @@ const { formatArg } = require("./format");
 const { parseArrayType, parseBufferType, isStructName, scalarByteWidth, parseRefinementType } = require("./types");
 const { tableStorageByteWidth } = require("./table_metadata");
 const {
+  REGION_BACKING_MAX_BYTES,
   REGION_BOUNDS_FAILURE_FUNCTION,
   REGION_BOUNDS_RUNTIME_CODE
 } = require("./region_bounds");
+const { AirError } = require("./errors");
 const { STRUCTURED_PHI_LOOP_FUEL_LIMIT, assertWasmTargetSupport, verifyV051Air } = require("./verifier");
 
 const REGION_SLOT_BYTES = 4096;
 const WASM_PAGE_BYTES = 65536;
+const WASM32_MAX_PAGES = 65536;
 const AIR_STATIC_DATA_BASE = 1024;
 const { parseTypeReference } = require("./typed_interface");
 const {
@@ -49,7 +52,8 @@ function lowerToWat(mod, options = {}) {
     poolCells: new Map(),
     structs: new Map((mod.structs || []).map((struct) => [struct.name, struct])),
     usesRegionBoundsFailure: false,
-    usesBorrowFailure: false
+    usesBorrowFailure: false,
+    regionBackingBytes: 0
   };
   allocateCompactTables(ctx, mod.tables || []);
   allocateStateCells(ctx, mod.states || []);
@@ -116,11 +120,15 @@ function lowerToWat(mod, options = {}) {
       ]
     : [];
   const data = ctx.data.map((d) => `  (data (i32.const ${d.offset}) ${d.bytes ? watBytes(d.bytes) : watString(d.value)})`);
+  const memoryPages = Math.max(1, Math.ceil(ctx.dataOffset / WASM_PAGE_BYTES));
+  if (memoryPages > WASM32_MAX_PAGES) {
+    throw new AirError(`air.memory.region_backing_unsupported: linear memory needs ${memoryPages} pages; wasm32 allows ${WASM32_MAX_PAGES}`);
+  }
 
   return [
     `(module`,
     ...imports,
-    `  (memory (export "memory") ${Math.max(1, Math.ceil(ctx.dataOffset / WASM_PAGE_BYTES))})`,
+    `  (memory (export "memory") ${memoryPages})`,
     ...borrowedInterface,
     ...globalsWat,
     ...stateCellsWat,
@@ -1633,6 +1641,11 @@ function lowerInstruction(ins, state) {
     // X-SND-05: one disjoint slot per allocation site, covering the verified
     // maximum size; a non-constant size is checked against the slot.
     const slotBytes = Number.isSafeInteger(ins.regionSlotBytes) ? ins.regionSlotBytes : REGION_SLOT_BYTES;
+    // QA52 P2-4: checked total of region slots per lowered module.
+    state.globals.regionBackingBytes += slotBytes;
+    if (state.globals.regionBackingBytes > REGION_BACKING_MAX_BYTES) {
+      throw new AirError(`air.memory.region_backing_unsupported: region slots need ${state.globals.regionBackingBytes} bytes; the maintenance limit is ${REGION_BACKING_MAX_BYTES} bytes`);
+    }
     const offset = state.globals.dataOffset;
     state.globals.dataOffset += slotBytes;
     state.regions.set(ins.result, { sizeArg: ins.args[0], slotBytes });
@@ -1675,7 +1688,7 @@ function lowerInstruction(ins, state) {
     return;
   }
   if (ins.op === "call") {
-    for (const check of ins.hostBufferChecks || []) {
+    for (const check of hostBufferChecksForCall(state, ins)) {
       if (check.status !== "static") emitRegionLengthCheck(state, ins, ins.args[check.ptrIndex], ins.args[check.capIndex]);
     }
     for (const arg of ins.args) lowerCallArgument(state, arg);
@@ -1854,6 +1867,28 @@ function emitRawRegionBoundsCheck(state, ins, ptrArg, offsetArg, width) {
   state.instr.push("i32.sub");
   state.instr.push("i32.gt_u");
   emitRegionBoundsFailureIf(state);
+}
+
+// X-SND-06 / QA52 P1-2: a host import call always carries its (ptr, capacity)
+// checks. The verifier annotates which ones it proved statically; a call it
+// did not annotate (for example an AST lowered without verification) is
+// checked at runtime for every ptr parameter followed by an i32 capacity, and
+// a ptr that is not a live region of this function fails the build.
+function hostBufferChecksForCall(state, ins) {
+  if (Array.isArray(ins.hostBufferChecks)) return ins.hostBufferChecks;
+  const extern = state.globals.externs && state.globals.externs.get(ins.callee);
+  if (!extern) return [];
+  const checks = [];
+  (extern.params || []).forEach((param, idx) => {
+    if (param.type !== "ptr") return;
+    const ptrArg = ins.args[idx];
+    if (!ptrArg || ptrArg.kind !== "value" || !state.regions.has(ptrArg.name)) {
+      throw new Error(`cannot bind host buffer for @${ins.callee}: argument ${idx} is not a live region pointer`);
+    }
+    const capParam = extern.params[idx + 1];
+    if (capParam && capParam.type === "i32") checks.push({ ptrIndex: idx, capIndex: idx + 1, status: "dynamic" });
+  });
+  return checks;
 }
 
 function emitRuntimeRegionSlotCheck(state, sizeArg, slotBytes) {

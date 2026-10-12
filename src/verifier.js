@@ -20,6 +20,7 @@ const { validateUseBundles, bundleForExtern } = require("./bundles");
 const { AIR_VERSION } = require("./version");
 const { analyzeProvenanceModule, assertProvenanceFlow } = require("./provenance_flow");
 const {
+  REGION_BACKING_MAX_BYTES,
   REGION_BOUNDS_STATIC_CODE,
   classifyRegionAccess,
   classifyRegionSize
@@ -83,7 +84,10 @@ function verifyModule(mod, options = {}) {
   const tableGroups = buildTableGroupEnv(mod, tables, constants);
   const states = buildStateEnv(mod, constants, tables, tableGroups);
   const pools = buildPoolEnv(mod, constants, tables, tableGroups, states);
-  const effectUsage = collectEffectUsage(mod, constants);
+  // QA52 P1-3: the shape scan inside the usage analysis runs before any
+  // call-graph walk, and its callee summaries are reused for every function.
+  const usageAnalysis = createLegacyUsageAnalysis(mod, functionMapForUsage(mod), constants);
+  const effectUsage = collectEffectUsage(mod, constants, usageAnalysis);
   validateUseBundles(mod, fail);
   for (const cap of mod.generatedCapabilities || []) {
     if ((mod.explicitCapabilities || new Set()).has(cap)) {
@@ -188,7 +192,8 @@ function verifyModule(mod, options = {}) {
     }
   }
   rejectLocalCallCycles(mod);
-  for (const fn of mod.functions) verifyFunction(mod, fn, functions, globals, types, constants, tables, states, pools);
+  for (const fn of mod.functions) verifyFunction(mod, fn, functions, globals, types, constants, tables, states, pools, usageAnalysis);
+  assertRegionBackingWithinLimit(mod);
   if (!options.skipProvenance) {
     const provenanceFlow = analyzeProvenanceModule(mod, {
       path: options.modulePath,
@@ -683,9 +688,10 @@ function assertRealtimeSafeProfile(mod, profile, certificate) {
   const instructionRecord = effectBounds.find((item) => item.key === "cpu.instructions");
   const instructionUpperBound = instructionRecord && instructionRecord.upperBound;
   const loops = bounds.loops || {};
-  const loopFuelUpperBound =
-    Number(loops.totalStaticallyBoundedIterations || 0) +
-    Number(loops.totalDynamicLoopFuelUpperBound || 0);
+  // QA52 P1-1: an absent loop total is unproven, never zero.
+  const loopFuelUpperBound = loops.status === "verified" && bounds.effects && bounds.effects.status === "verified"
+    ? loops.totalStaticallyBoundedIterations + loops.totalDynamicLoopFuelUpperBound
+    : null;
   if (!Number.isSafeInteger(instructionUpperBound) || instructionUpperBound < 0 ||
       !Number.isSafeInteger(loopFuelUpperBound) || loopFuelUpperBound < 0) {
     failProfile("air.realtime.fuel_unproven", "instruction and loop fuel must be statically bounded");
@@ -709,12 +715,18 @@ function assertRealtimeSafeProfile(mod, profile, certificate) {
   });
 }
 
-function collectEffectUsage(mod, constants = constantValuesForModule(mod)) {
+function collectEffectUsage(mod, constants = constantValuesForModule(mod), analysis = null) {
   const usage = new Map();
-  const functions = functionMapForUsage(mod);
+  const active = analysis || createLegacyUsageAnalysis(mod, functionMapForUsage(mod), constants);
   const entries = (mod.functions || []).filter((fn) => fn.exported || fn.name === "main");
-  const memo = new Map();
-  for (const fn of entries.length ? entries : mod.functions || []) mergeUsage(usage, collectFunctionUsage(fn, functions, [], constants, memo));
+  // A cyclic module keeps the former walk: one memo shared by the entries,
+  // entries themselves never read from or stored in it.
+  const cyclicMemo = active.shape.acyclic ? null : new Map();
+  for (const fn of entries.length ? entries : mod.functions || []) {
+    const entryUsage = cyclicMemo ? runUsageCollection(fn, active, cyclicMemo) : usageForFunction(fn, active);
+    chargeLegacyAnalysis(active.meter, entryUsage.size, fn.loc);
+    mergeUsage(usage, entryUsage);
+  }
   usage.set("exports", (mod.functions || []).filter((fn) => fn.exported).length);
   usage.set("memory.static_readonly_bytes", staticReadonlyBytesForTables(mod));
   usage.set("static_readonly_bytes", staticReadonlyBytesForTables(mod));
@@ -859,18 +871,46 @@ function validateVerifiedResourceCertificate(certificate, options = {}) {
   return resourceCertificateValidation(diagnostics);
 }
 
+// Totals a consumer may read from a `verified` category (QA52 P1-1).
+const CERTIFICATE_TOTAL_FIELDS = Object.freeze({
+  loops: Object.freeze([
+    "maximumStaticallyBoundedIterations",
+    "totalStaticallyBoundedIterations",
+    "maximumDynamicLoopFuel",
+    "totalDynamicLoopFuelUpperBound"
+  ]),
+  memory: Object.freeze(["totalStaticBytesUpperBound", "dynamicAllocationBytesUpperBound"]),
+  hostCalls: Object.freeze(["totalUpperBound"]),
+  outputs: Object.freeze(["totalHostCallUpperBound"]),
+  effects: Object.freeze([])
+});
+
 // X-SND-02: a `verified` certificate must not carry a work category that is
-// not verified, or a bound that is not an exact safe integer.
+// not verified, or a bound that is not an exact safe integer. QA52 P1-1: a
+// verified category must also carry every total as a non-negative safe
+// integer; a missing (null) or negative total is malformed, never zero.
 function validateCertificateWorkBounds(certificate, diagnostics) {
   if (certificate.status !== "verified") return;
   const bounds = certificate.bounds && typeof certificate.bounds === "object" ? certificate.bounds : {};
   const required = new Set(Array.isArray(certificate.requiredBounds) ? certificate.requiredBounds : []);
   for (const category of ["loops", "memory", "hostCalls", "effects", "outputs"]) {
     const section = bounds[category];
-    if (!section || typeof section !== "object") continue;
-    const unsafe = hasUnsafeNumber(section);
+    if (!section || typeof section !== "object" || Array.isArray(section)) {
+      if (required.has(category)) {
+        diagnostics.push(resourceCertificateDiagnostic(
+          "air.resource_certificate.bound_invalid",
+          `verified certificate has an invalid '${category}' bound`,
+          { category }
+        ));
+      }
+      continue;
+    }
+    const { declaredBudgets, ...boundValues } = section;
+    const unsafe = hasUnsafeNumber(boundValues) || hasNegativeNumber(boundValues);
+    const totalMissing = section.status === "verified" &&
+      CERTIFICATE_TOTAL_FIELDS[category].some((field) => typeof section[field] !== "number");
     const unverifiedRequired = required.has(category) && section.status !== "verified";
-    if (unsafe || unverifiedRequired) {
+    if (unsafe || totalMissing || unverifiedRequired) {
       diagnostics.push(resourceCertificateDiagnostic(
         "air.resource_certificate.bound_invalid",
         `verified certificate has an invalid '${category}' bound`,
@@ -1017,7 +1057,8 @@ function resourceFactsForModule(mod) {
     .map(([key]) => key)
     .sort();
   const packageExternalCalls = usage.get("call.package_external") || 0;
-  const workKnown = overflowKeys.length === 0 && packageExternalCalls === 0;
+  const stdlibExternalCalls = usage.get("call.stdlib_external") || 0;
+  const workKnown = overflowKeys.length === 0 && packageExternalCalls === 0 && stdlibExternalCalls === 0;
   const loops = loopCertificateFacts(mod, usage);
   const memory = memoryCertificateFacts(usage);
   const hostCalls = hostCallCertificateFacts(mod, usage);
@@ -1033,7 +1074,8 @@ function resourceFactsForModule(mod) {
     effects,
     effectBudgets: effectBudgetFacts(mod),
     workBoundOverflowKeys: overflowKeys,
-    packageExternalCalls
+    packageExternalCalls,
+    stdlibExternalCalls
   });
 }
 
@@ -1052,6 +1094,13 @@ function hasUnsafeNumber(value) {
   if (typeof value === "number") return !Number.isSafeInteger(value);
   if (Array.isArray(value)) return value.some(hasUnsafeNumber);
   if (value && typeof value === "object") return Object.values(value).some(hasUnsafeNumber);
+  return false;
+}
+
+function hasNegativeNumber(value) {
+  if (typeof value === "number") return value < 0;
+  if (Array.isArray(value)) return value.some(hasNegativeNumber);
+  if (value && typeof value === "object") return Object.values(value).some(hasNegativeNumber);
   return false;
 }
 
@@ -1080,6 +1129,16 @@ function workBoundUnknownReasons(moduleRecords, bounds) {
         code: "package_call_composition_unproven",
         category,
         reason: `${externalModules.length} module(s) call functions of another package module; cross-module work and host-call composition is not proven by this certificate.`
+      });
+    }
+  }
+  const stdlibModules = moduleRecords.filter((item) => (item.facts.stdlibExternalCalls || 0) > 0);
+  if (stdlibModules.length) {
+    for (const category of WORK_BOUND_CATEGORIES) {
+      reasons.push({
+        code: "stdlib_call_composition_unproven",
+        category,
+        reason: `${stdlibModules.length} module(s) call functions of an unresolved std.* source import; the imported functions' work and host calls are not composed by this certificate.`
       });
     }
   }
@@ -1114,6 +1173,7 @@ function nullAllNumbers(value) {
 function borrowedMemoryCertificateFacts(mod) {
   const functions = functionMapForUsage(mod);
   const constants = buildConstantEnv(mod);
+  const usageAnalysis = createLegacyUsageAnalysis(mod, functions, constants);
   const exports = [];
   const parameters = [];
   const relations = [];
@@ -1123,7 +1183,7 @@ function borrowedMemoryCertificateFacts(mod) {
     if (!fn.exported) continue;
     const borrowedParams = (fn.params || []).filter((param) => param.type === BORROWED_SLICE_TYPE);
     if (!borrowedParams.length) continue;
-    const usage = collectFunctionUsage(fn, functions, [], constants);
+    const usage = usageForFunction(fn, usageAnalysis);
     const relationRecords = (fn.requires || [])
       .filter((contract) => contract.kind === "checked_borrow_length")
       .map((contract) => stableCertificateObject({
@@ -1268,8 +1328,7 @@ function loopCertificateFacts(mod, usage) {
       dynamicLoops += 1;
       maximumDynamicFuel = Math.max(maximumDynamicFuel, STRUCTURED_PHI_LOOP_FUEL_LIMIT);
     }
-    const consts = new Map();
-    for (const [name, value] of constants.entries()) consts.set(name, value.constValue);
+    const consts = createConstScope(constants);
     const valueTypes = new Map((fn.params || []).map((param) => [param.name, param.type]));
     for (const block of fn.blocks || []) {
       for (const ins of block.instructions || []) {
@@ -1581,12 +1640,36 @@ function normalizeCertificateModules(input, options) {
       // X-SND-04: this certificate walks the legacy block IR only.
       throw new VerificationError(`air.resource_certificate.profile_unsupported: module ${index} uses the typed-v0.51 source profile; the legacy resource certificate cannot bound typed modules`);
     }
+    const shapeProblem = legacyCertificateShapeProblem(normalized.mod);
+    if (shapeProblem) {
+      // QA52 P2-5: legacy safety is never inferred from a missing marker.
+      throw new VerificationError(`air.resource_certificate.profile_unsupported: module ${index} is not a legacy block-IR module (${shapeProblem}); the legacy resource certificate cannot bound it`);
+    }
     return {
       mod: normalized.mod,
       path: normalized.path || normalized.mod.name || `module-${index}`,
       digest: validSha256(normalized.digest) ? normalized.digest : null
     };
   });
+}
+
+// QA52 P2-5: the legacy certificate binds to the legacy AST shape itself:
+// every function is a list of labelled blocks, and no typed-profile field
+// (statement bodies, enums, typed markers) is present. Returns null when the
+// module has that shape, otherwise the first reason it does not.
+function legacyCertificateShapeProblem(mod) {
+  if (mod.v051TypedDecisionCandidate) return "typed-v0.51 candidate marker";
+  if (Object.prototype.hasOwnProperty.call(mod, "enums")) return "typed enum declarations";
+  if (!Array.isArray(mod.functions)) return "functions are not a list";
+  for (const fn of mod.functions) {
+    if (!fn || typeof fn !== "object") return "function record is invalid";
+    if (Object.prototype.hasOwnProperty.call(fn, "statements")) return `function '${fn.name}' has a statement body`;
+    if (!Array.isArray(fn.blocks)) return `function '${fn.name}' has no block list`;
+    for (const block of fn.blocks) {
+      if (!block || !Array.isArray(block.instructions)) return `function '${fn.name}' has a block without instructions`;
+    }
+  }
+  return null;
 }
 
 function normalizeCertificatePolicy(policy, modeOverride) {
@@ -1897,7 +1980,223 @@ function validateConstantRange(constant, value) {
   }
 }
 
-function collectFunctionUsage(fn, functions = new Map(), stack = [], constants = new Map(), memo = new Map()) {
+// X-BND-02 / QA52 P1-3: deterministic structural bound on legacy verifier
+// analysis. These are tooling-safety limits only: they are not wall-clock
+// based, not a Host Budget and not the typed-v0.53 WorkBound, and they never
+// change what a call or loop means. A module inside the limits is analysed
+// exactly as before; a module outside them is rejected with
+// air.verifier.analysis_limit_exceeded before any recursion or long walk.
+const LEGACY_VERIFIER_ANALYSIS_LIMITS = Object.freeze({
+  maxFunctions: 4096,
+  maxCallEdges: 65536,
+  maxCallDepth: 256,
+  maxStructuralVisits: 4194304,
+  maxSummaryWork: 4194304
+});
+
+function analysisLimitExceeded(resource, observed, limit, loc) {
+  fail(`air.verifier.analysis_limit_exceeded: legacy verifier ${resource} ${observed} exceeds the maintenance limit ${limit}`, loc);
+}
+
+// Local call targets that usage collection descends into: direct calls and
+// loop callbacks (every loop.* form except loop.poll).
+function localUsageCallee(ins, localFunctions) {
+  if (!ins || typeof ins.op !== "string") return null;
+  if (ins.op === "call") return localFunctions.has(ins.callee) ? ins.callee : null;
+  if (ins.op.startsWith("loop.") && ins.op !== "loop.poll") {
+    const arg = ins.args && ins.args[0];
+    return arg && arg.kind === "function" && localFunctions.has(arg.name) ? arg.name : null;
+  }
+  return null;
+}
+
+// Checked, iterative shape scan run before any call-graph analysis: function
+// count, local call edges, structural visits (instructions, plus the
+// per-function constant scope the verifier builds) and the longest local call
+// chain. Back edges (local recursion) do not count toward depth; they are
+// rejected separately by rejectLocalCallCycles.
+function assertLegacyAnalysisShape(mod) {
+  const limits = LEGACY_VERIFIER_ANALYSIS_LIMITS;
+  const loc = mod && mod.loc;
+  const functions = mod && Array.isArray(mod.functions) ? mod.functions : [];
+  if (functions.length > limits.maxFunctions) analysisLimitExceeded("function count", functions.length, limits.maxFunctions, loc);
+  const constantCount = mod && Array.isArray(mod.constants) ? mod.constants.length : 0;
+  const localFunctions = new Map(functions.map((fn) => [fn.name, fn]));
+  const edges = new Map();
+  let edgeCount = 0;
+  let visits = functions.length * constantCount;
+  if (visits > limits.maxStructuralVisits) analysisLimitExceeded("structural visits", visits, limits.maxStructuralVisits, loc);
+  for (const fn of functions) {
+    const targets = edges.get(fn.name) || [];
+    for (const block of fn.blocks || []) {
+      for (const ins of block.instructions || []) {
+        visits += 1;
+        if (visits > limits.maxStructuralVisits) analysisLimitExceeded("structural visits", visits, limits.maxStructuralVisits, ins.loc);
+        const callee = localUsageCallee(ins, localFunctions);
+        if (callee === null) continue;
+        edgeCount += 1;
+        if (edgeCount > limits.maxCallEdges) analysisLimitExceeded("call edge count", edgeCount, limits.maxCallEdges, ins.loc);
+        targets.push(callee);
+      }
+    }
+    edges.set(fn.name, targets);
+  }
+  const state = new Map();
+  const depth = new Map();
+  let callDepth = 0;
+  let acyclic = true;
+  for (const root of localFunctions.keys()) {
+    if (state.has(root)) continue;
+    const stack = [{ name: root, next: 0 }];
+    state.set(root, "active");
+    while (stack.length) {
+      const top = stack[stack.length - 1];
+      const targets = edges.get(top.name) || [];
+      if (top.next < targets.length) {
+        const callee = targets[top.next];
+        top.next += 1;
+        const seen = state.get(callee);
+        if (seen === "active") acyclic = false;
+        if (!seen) {
+          state.set(callee, "active");
+          stack.push({ name: callee, next: 0 });
+        }
+        continue;
+      }
+      let chain = 1;
+      for (const callee of targets) {
+        if (state.get(callee) === "done") chain = Math.max(chain, depth.get(callee) + 1);
+      }
+      depth.set(top.name, chain);
+      state.set(top.name, "done");
+      stack.pop();
+      if (chain > callDepth) callDepth = chain;
+      if (callDepth > limits.maxCallDepth) {
+        analysisLimitExceeded("call depth", callDepth, limits.maxCallDepth, localFunctions.get(top.name).loc);
+      }
+    }
+  }
+  return { functions: functions.length, callEdges: edgeCount, callDepth, structuralVisits: visits, acyclic };
+}
+
+// One analysis per module walk: the shape scan, a checked work meter and the
+// callee summary memo. Summaries are shared across roots only when the local
+// call graph is acyclic, where a summary does not depend on the call path; a
+// cyclic module keeps the former per-root memo so its result is unchanged.
+function createLegacyUsageAnalysis(mod, functions, constants) {
+  return {
+    functions,
+    constants,
+    stdlibAliases: stdlibImportAliases(mod),
+    shape: assertLegacyAnalysisShape(mod),
+    memo: new Map(),
+    meter: { units: 0, limit: LEGACY_VERIFIER_ANALYSIS_LIMITS.maxSummaryWork, loc: mod && mod.loc }
+  };
+}
+
+// Shape and summary-work counters of one effect-usage walk, for evidence and
+// boundary vectors. Throws the same analysis_limit_exceeded error as the
+// verifier when a limit is crossed.
+function legacyVerifierAnalysisProfile(mod) {
+  const analysis = createLegacyUsageAnalysis(mod, functionMapForUsage(mod), constantValuesForModule(mod));
+  collectEffectUsage(mod, analysis.constants, analysis);
+  return { ...analysis.shape, summaryWork: analysis.meter.units };
+}
+
+function chargeLegacyAnalysis(meter, units, loc) {
+  meter.units += units;
+  if (meter.units > meter.limit) analysisLimitExceeded("summary work", meter.units, meter.limit, loc || meter.loc);
+}
+
+// Summary of one function. In an acyclic module it is memoised for every
+// later root and caller.
+function usageForFunction(fn, analysis) {
+  if (!analysis.shape.acyclic) return runUsageCollection(fn, analysis, new Map());
+  if (analysis.memo.has(fn.name)) {
+    chargeLegacyAnalysis(analysis.meter, 1, fn.loc);
+    return analysis.memo.get(fn.name);
+  }
+  const usage = runUsageCollection(fn, analysis, analysis.memo);
+  analysis.memo.set(fn.name, usage);
+  return usage;
+}
+
+// Drives functionUsageSteps with an explicit frame stack. It reproduces the
+// former recursive walk exactly: a callee already on the active call path
+// contributes the recursion marker, a summarised callee is reused from `memo`,
+// and any other callee is summarised once and stored in `memo`. The root's own
+// summary is returned and left to the caller to store.
+function runUsageCollection(root, analysis, memo) {
+  const { functions, constants, meter } = analysis;
+  const frames = [];
+  const active = new Map();
+  const enter = (fn) => {
+    if (frames.length >= LEGACY_VERIFIER_ANALYSIS_LIMITS.maxCallDepth) {
+      analysisLimitExceeded("call depth", frames.length + 1, LEGACY_VERIFIER_ANALYSIS_LIMITS.maxCallDepth, fn.loc);
+    }
+    chargeLegacyAnalysis(meter, 1, fn.loc);
+    frames.push({ fn, steps: functionUsageSteps(fn, functions, constants, meter, analysis.stdlibAliases) });
+    active.set(fn.name, (active.get(fn.name) || 0) + 1);
+  };
+  enter(root);
+  let input;
+  for (;;) {
+    const frame = frames[frames.length - 1];
+    const step = frame.steps.next(input);
+    input = undefined;
+    if (step.done) {
+      frames.pop();
+      const remaining = active.get(frame.fn.name) - 1;
+      if (remaining) active.set(frame.fn.name, remaining);
+      else active.delete(frame.fn.name);
+      if (!frames.length) return step.value;
+      memo.set(frame.fn.name, step.value);
+      input = step.value;
+      continue;
+    }
+    const callee = step.value;
+    chargeLegacyAnalysis(meter, 1, callee.loc);
+    if (active.has(callee.name)) {
+      input = new Map([["effects.dynamic", 1], ["cpu.recursive_calls", 1]]);
+    } else if (memo.has(callee.name)) {
+      input = memo.get(callee.name);
+    } else {
+      enter(callee);
+    }
+  }
+}
+
+// Aliases of unresolved `use std.*` source imports (QA52 P2-2).
+function stdlibImportAliases(mod) {
+  const aliases = new Set();
+  for (const use of mod && mod.uses || []) {
+    if (!use || use.kind !== "source" || !String(use.name || "").startsWith("std.")) continue;
+    aliases.add(use.alias || String(use.name).slice("std.".length));
+  }
+  return aliases;
+}
+
+// Module constants seen through a per-function overlay, so building a
+// function's constant scope costs nothing per module constant.
+function createConstScope(constants) {
+  const local = new Map();
+  return {
+    get(name) {
+      if (local.has(name)) return local.get(name);
+      const constant = constants.get(name);
+      return constant === undefined ? undefined : constant.constValue;
+    },
+    set(name, value) {
+      local.set(name, value);
+    }
+  };
+}
+
+// One function's usage, written as a generator: every nested callee summary is
+// requested with `yield` and supplied by runUsageCollection, so call depth
+// never becomes JavaScript recursion (QA52 P1-3). The counting rules are
+// unchanged from 0.52.1.
+function* functionUsageSteps(fn, functions, constants, meter, stdlibAliases) {
   const usage = new Map();
   let staticAllocBytes = 0;
   let dynamicAllocations = 0;
@@ -1905,8 +2204,7 @@ function collectFunctionUsage(fn, functions = new Map(), stack = [], constants =
   // usage scaled by how often that block can execute (structured phi loops).
   let blockUsage = usage;
   const add = (key, amount = 1) => blockUsage.set(key, (blockUsage.get(key) || 0) + amount);
-  const consts = new Map();
-  for (const [name, constant] of constants.entries()) consts.set(name, constant.constValue);
+  const consts = createConstScope(constants);
   const valueTypes = new Map((fn.params || []).map((param) => [param.name, param.type]));
   const phiLoop = Array.isArray(fn.blocks) && fn.blocks.length === 4 ? detectStructuredPhiLoop(fn) : null;
   if (phiLoop) {
@@ -1924,6 +2222,7 @@ function collectFunctionUsage(fn, functions = new Map(), stack = [], constants =
     blockUsage = multiplicity === 1 ? usage : new Map();
     add("cpu.blocks");
     for (const ins of block.instructions || []) {
+      chargeLegacyAnalysis(meter, 1, ins.loc);
       add("cpu.instructions");
       if (ins.result && ins.op === "const.i32" && ins.args[0] && ins.args[0].kind === "number") {
         consts.set(ins.result, ins.args[0].value);
@@ -1932,12 +2231,18 @@ function collectFunctionUsage(fn, functions = new Map(), stack = [], constants =
         const callee = functions.get(ins.callee);
         if (callee && !callee.external) {
           add(`call.${ins.callee}`);
-          mergeUsage(blockUsage, collectNestedFunctionUsage(callee, functions, stack.concat(fn.name), constants, memo));
+          const nested = yield callee;
+          chargeLegacyAnalysis(meter, nested.size, ins.loc);
+          mergeUsage(blockUsage, nested);
         } else {
           add(ins.callee);
           // X-SND-03: the callee lives in another package module, so its own
-          // work and host calls are not part of this module's usage.
-          if (!callee || callee.packageExternal) add("call.package_external");
+          // work and host calls are not part of this module's usage. QA52
+          // P2-2: an unresolved `use std.*` callee is counted separately so
+          // the certificate names the right unproven composition.
+          if (!callee || callee.packageExternal) {
+            add(stdlibAliases.has(String(ins.callee).split(".")[0]) ? "call.stdlib_external" : "call.package_external");
+          }
         }
         if (ins.callee.startsWith("gpu.")) add("gpu.calls");
         if (ins.callee.startsWith("gpu.draw")) {
@@ -1964,7 +2269,9 @@ function collectFunctionUsage(fn, functions = new Map(), stack = [], constants =
           const calleeArg = ins.args[0];
           const callee = calleeArg && calleeArg.kind === "function" ? functions.get(calleeArg.name) : null;
           if (callee && !callee.external) {
-            mergeUsage(blockUsage, scaledUsage(collectNestedFunctionUsage(callee, functions, stack.concat(fn.name), constants, memo), count));
+            const nested = yield callee;
+            chargeLegacyAnalysis(meter, 2 * nested.size, ins.loc);
+            mergeUsage(blockUsage, scaledUsage(nested, count));
           }
         }
       }
@@ -2030,29 +2337,16 @@ function collectFunctionUsage(fn, functions = new Map(), stack = [], constants =
       }
       if (ins.op === "slice.sub") add("memory.slice_sub");
     }
-    if (blockUsage !== usage) mergeUsage(usage, scaledUsage(blockUsage, multiplicity));
+    if (blockUsage !== usage) {
+      chargeLegacyAnalysis(meter, 2 * blockUsage.size, fn.loc);
+      mergeUsage(usage, scaledUsage(blockUsage, multiplicity));
+    }
   }
   blockUsage = usage;
   usage.set("static_alloc_bytes", staticAllocBytes);
   usage.set("memory.static_alloc_bytes", staticAllocBytes);
   usage.set("dynamic_allocations", dynamicAllocations);
   usage.set("memory.dynamic_allocations", dynamicAllocations);
-  return usage;
-}
-
-// X-BND-02: a callee's usage does not depend on its call site, so it is
-// computed once per top-level collection and reused. Without this, verifier
-// work grows exponentially with call-DAG depth.
-function collectNestedFunctionUsage(fn, functions, stack, constants, memo = new Map()) {
-  if (stack.includes(fn.name)) {
-    const usage = new Map();
-    usage.set("effects.dynamic", 1);
-    usage.set("cpu.recursive_calls", 1);
-    return usage;
-  }
-  if (memo.has(fn.name)) return memo.get(fn.name);
-  const usage = collectFunctionUsage(fn, functions, stack, constants, memo);
-  memo.set(fn.name, usage);
   return usage;
 }
 
@@ -2078,26 +2372,37 @@ function rejectLocalCallCycles(mod) {
   const visited = new Set();
   const stack = [];
 
-  function visit(name) {
-    if (visited.has(name)) return;
-    if (visiting.has(name)) return;
-    visiting.add(name);
-    stack.push(name);
-    for (const edge of graph.get(name) || []) {
+  // Iterative depth-first search (QA52 P1-3): same visiting order and the
+  // same first reported cycle as the former recursive search, without
+  // JavaScript recursion.
+  for (const fn of mod.functions || []) {
+    if (visited.has(fn.name) || visiting.has(fn.name)) continue;
+    const frames = [{ name: fn.name, edges: graph.get(fn.name) || [], next: 0 }];
+    visiting.add(fn.name);
+    stack.push(fn.name);
+    while (frames.length) {
+      const frame = frames[frames.length - 1];
+      if (frame.next >= frame.edges.length) {
+        frames.pop();
+        stack.pop();
+        visiting.delete(frame.name);
+        visited.add(frame.name);
+        continue;
+      }
+      const edge = frame.edges[frame.next];
+      frame.next += 1;
       if (!localFunctions.has(edge.to)) continue;
       if (visiting.has(edge.to)) {
         const idx = stack.indexOf(edge.to);
         const cycle = stack.slice(idx).concat(edge.to);
-        fail(`air.call.recursion_rejected: local function call cycle ${formatCallCycle(cycle)}`, edge.loc || localFunctions.get(name).loc);
+        fail(`air.call.recursion_rejected: local function call cycle ${formatCallCycle(cycle)}`, edge.loc || localFunctions.get(frame.name).loc);
       }
-      visit(edge.to);
+      if (visited.has(edge.to)) continue;
+      visiting.add(edge.to);
+      stack.push(edge.to);
+      frames.push({ name: edge.to, edges: graph.get(edge.to) || [], next: 0 });
     }
-    stack.pop();
-    visiting.delete(name);
-    visited.add(name);
   }
-
-  for (const fn of mod.functions || []) visit(fn.name);
 }
 
 function collectLocalCallEdges(fn, localFunctions) {
@@ -2437,7 +2742,7 @@ function buildTypeEnv(mod) {
   return { structs };
 }
 
-function verifyFunction(mod, fn, functions, globals, types, constants = new Map(), tables = new Map(), states = new Map(), pools = new Map()) {
+function verifyFunction(mod, fn, functions, globals, types, constants = new Map(), tables = new Map(), states = new Map(), pools = new Map(), usageAnalysis = null) {
   const labels = new Set(fn.blocks.map((b) => b.label));
   if (labels.size !== fn.blocks.length) fail(`duplicate block label in '${fn.name}'`, fn.loc);
   const cfg = verifySupportedControlFlow(fn);
@@ -2522,7 +2827,7 @@ function verifyFunction(mod, fn, functions, globals, types, constants = new Map(
   const hasReturn = fn.blocks.some((block) => block.instructions.some((ins) => ins.op === "return"));
   if (!hasReturn) fail(`function '${fn.name}' has no return`, fn.loc);
   verifyRegionLifetimes(fn);
-  verifyFunctionEffectsAndContracts(mod, fn, collectFunctionUsage(fn, functions, [], constants));
+  verifyFunctionEffectsAndContracts(mod, fn, usageForFunction(fn, usageAnalysis || createLegacyUsageAnalysis(mod, functions, constants)));
   return cfg;
 }
 
@@ -2600,6 +2905,10 @@ function applyRegionInstruction(state, ins, block, regionNames = new Set()) {
     for (const arg of ins.args || []) {
       const name = valueArgName(arg);
       if (name && regionNames.has(name)) requireRegionLiveForLifetime(state, name, ins.loc);
+      // QA52 P2-10: a region-derived slice or buffer view passed across a
+      // call edge needs its region alive, like a direct use.
+      const base = name ? state.slices.get(name) : null;
+      if (base) requireRegionLiveForLifetime(state, base, ins.loc);
     }
   }
   if (ins.op === "buffer.from_ptr" && ins.result) {
@@ -3809,6 +4118,24 @@ function expectRegionBounds(region, offsetRange, width, loc) {
 const REGION_SLOT_BYTES = 4096;
 const REGION_SLOT_MAX_BYTES = 16 * 1024 * 1024;
 
+// QA52 P2-4: every allocation site owns a slot, so the module's physical
+// region backing is the checked sum of its slots. It must stay within the
+// maintenance ceiling before any WAT or Wasm is generated.
+function assertRegionBackingWithinLimit(mod) {
+  let total = 0;
+  for (const fn of mod.functions || []) {
+    for (const block of fn.blocks || []) {
+      for (const ins of block.instructions || []) {
+        if (ins.op !== "alloc_region" || !Number.isSafeInteger(ins.regionSlotBytes)) continue;
+        total += ins.regionSlotBytes;
+        if (total > REGION_BACKING_MAX_BYTES) {
+          fail(`air.memory.region_backing_unsupported: region slots need ${total} bytes; the maintenance limit is ${REGION_BACKING_MAX_BYTES} bytes`, ins.loc);
+        }
+      }
+    }
+  }
+}
+
 function regionSlotBytesForRange(sizeRange) {
   if (!sizeRange || sizeRange.min < 0) return REGION_SLOT_BYTES;
   if (sizeRange.max > REGION_SLOT_MAX_BYTES) return null;
@@ -4634,6 +4961,8 @@ const KNOWN_INSTRUCTIONS = [
 ];
 
 module.exports = {
+  LEGACY_VERIFIER_ANALYSIS_LIMITS,
+  legacyVerifierAnalysisProfile,
   RESOURCE_CERTIFICATE_KIND,
   RESOURCE_CERTIFICATE_SCHEMA_VERSION,
   STRUCTURED_PHI_LOOP_FUEL_LIMIT,

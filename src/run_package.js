@@ -55,6 +55,11 @@ const LIMIT_KEYS = new Set([
   "maxHostCalls"
 ]);
 const REQUIRED_LIMIT_KEYS = Array.from(LIMIT_KEYS).sort();
+const ADMISSION_BOUND_DIAGNOSTICS = Object.freeze({
+  unknown: "air.run.resource_bound_unproven",
+  overflow: "air.run.resource_bound_overflow",
+  invalid: "air.run.resource_bound_invalid"
+});
 const ARGUMENT_SOURCES = new Set(["facts", "grant", "limits", "effective", "literal"]);
 
 async function run(request = {}) {
@@ -396,27 +401,38 @@ function validatePreflight(input) {
     ));
   }
 
-  const bounds = resourceCertificate.bounds || {};
-  const hostCallUpperBound = bounds.hostCalls && bounds.hostCalls.totalUpperBound || 0;
-  const outputUpperBound = bounds.outputs && bounds.outputs.totalHostCallUpperBound || 0;
-  if (hostCallUpperBound > limits.maxHostCalls) {
+  const admission = [
+    { resource: "hostCalls", label: "host-call", limit: limits.maxHostCalls, bound: certifiedAdmissionBound(resourceCertificate, "hostCalls", "totalUpperBound") },
+    { resource: "outputs", label: "output", limit: limits.maxOutputs, bound: certifiedAdmissionBound(resourceCertificate, "outputs", "totalHostCallUpperBound") }
+  ];
+  let boundUnproven = false;
+  for (const item of admission) {
+    const fields = { limit: item.limit, resource: item.resource };
+    if (item.bound.state === "finite") {
+      if (item.bound.value > item.limit) {
+        diagnostics.push(runDiagnostic(
+          "air.run.resource_limit_exceeded",
+          "fail",
+          `certified ${item.label} upper bound exceeds the supplied limit`,
+          { ...fields, certified: item.bound.value }
+        ));
+      }
+      continue;
+    }
+    boundUnproven = true;
     diagnostics.push(runDiagnostic(
-      "air.run.resource_limit_exceeded",
+      ADMISSION_BOUND_DIAGNOSTICS[item.bound.state],
       "fail",
-      "certified host-call upper bound exceeds the supplied limit",
-      { certified: hostCallUpperBound, limit: limits.maxHostCalls, resource: "hostCalls" }
-    ));
-  }
-  if (outputUpperBound > limits.maxOutputs) {
-    diagnostics.push(runDiagnostic(
-      "air.run.resource_limit_exceeded",
-      "fail",
-      "certified output upper bound exceeds the supplied limit",
-      { certified: outputUpperBound, limit: limits.maxOutputs, resource: "outputs" }
+      `certified ${item.label} upper bound is ${item.bound.state === "invalid" ? "malformed" : item.bound.state}; admission fails closed`,
+      { ...fields, reasons: item.bound.reasons }
     ));
   }
   if (hasFailure(diagnostics)) {
-    return { diagnostics, decision: denyDecision("authority_mismatch"), effective: null };
+    return {
+      diagnostics,
+      decision: denyDecision(boundUnproven ? "resource_bound_unproven" : "authority_mismatch"),
+      effective: null
+    };
   }
 
   const amount = requiredFactInt(facts, "amount");
@@ -487,6 +503,39 @@ function validatePreflight(input) {
     return { diagnostics, decision: denyDecision("redaction_required"), effective };
   }
   return { diagnostics, decision: null, effective };
+}
+
+// QA52 P1-1: admission reads a certified bound only from a `verified`
+// category holding an exact non-negative safe integer. A missing value never
+// means zero. States: finite (proven), unknown (unproven, e.g. cross-module
+// composition), overflow (exact total left the safe-integer range) and invalid
+// (malformed section, status or value). Only `finite` can authorize admission.
+function certifiedAdmissionBound(certificate, category, field) {
+  const bounds = certificate && typeof certificate === "object" ? certificate.bounds : null;
+  const section = bounds && typeof bounds === "object" && !Array.isArray(bounds) ? bounds[category] : null;
+  if (!section || typeof section !== "object" || Array.isArray(section)) {
+    return { state: "invalid", reasons: ["section_missing"] };
+  }
+  if (section.status === "unknown") {
+    const reasons = unknownReasonCodes(certificate, category);
+    return { state: reasons.includes("work_bound_overflow") ? "overflow" : "unknown", reasons };
+  }
+  if (section.status !== "verified") return { state: "invalid", reasons: ["status_invalid"] };
+  const value = section[field];
+  if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 0) {
+    return { state: "invalid", reasons: [value === null || value === undefined ? "bound_missing" : "bound_not_exact"] };
+  }
+  return { state: "finite", value, reasons: [] };
+}
+
+function unknownReasonCodes(certificate, category) {
+  const unknown = certificate.classifications && Array.isArray(certificate.classifications.unknown)
+    ? certificate.classifications.unknown
+    : [];
+  const codes = unknown
+    .filter((item) => item && item.category === category && typeof item.code === "string")
+    .map((item) => item.code);
+  return codes.length ? sortedStrings(Array.from(new Set(codes))) : ["unknown_reason_missing"];
 }
 
 function loadExecutableModule(descriptor, packageReport) {
@@ -903,6 +952,7 @@ module.exports = {
   RUN_EVIDENCE_KIND,
   RUN_PACKAGE_KIND,
   RUN_PACKAGE_SCHEMA_VERSION,
+  certifiedAdmissionBound,
   run,
   runPackage,
   stableRunStringify: stableStringify

@@ -208,11 +208,16 @@ Effect totals are exact integers. A total that leaves the exact safe-integer
 range (`2^53 - 1`) never satisfies a budget or contract; the verifier rejects
 it with `air.resource.work_bound_overflow` (AIR 0.52.1).
 
-Budgets declared in a module count that module's own operations. A call into
-another package module counts as one call site (`call.package_external`); the
-callee's operations count against the callee module's budgets, not the
-caller's. The Verified Resource Certificate therefore reports cross-module work
-categories as unknown rather than verified (AIR 0.52.1).
+Scope of budgets in AIR 0.52.x (a narrower guarantee, not package-global
+composition): a budget declared in a module is checked against that module's
+own operations. A call into another package module counts as one call site
+(`call.package_external`), and an unresolved `std.*` source import call as
+`call.stdlib_external`; the callee's operations are not part of the caller's
+count. No 0.52.x check bounds a package's effects or work across its modules.
+The Verified Resource Certificate therefore reports those work categories as
+unknown rather than verified, and required-mode admission fails closed.
+Package-global composition is an open residual of X-SND-03; it is not defined
+by 0.52.x (AIR 0.52.1).
 
 ## Bounded Loops
 

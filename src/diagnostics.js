@@ -92,6 +92,7 @@ const REPAIR_HINTS_BY_CODE = Object.freeze({
   "air.generated.state_metadata_invalid": "Regenerate state handle metadata from state declarations.",
   "air.memory.region_bounds_runtime": "Keep runtime offsets and access widths inside the exact allocated region boundary.",
   "air.memory.region_bounds_static": "Keep offset non-negative and prove offset plus access width is within the allocated region, or use a verifier-bounded dynamic offset.",
+  "air.verifier.analysis_limit_exceeded": "Split the module or flatten its local call graph so function count, call edges, call depth and analysis work stay within the documented legacy verifier maintenance limits.",
   "air.memory.region_leak": "Call free_region on all paths before returning from the function.",
   "air.output_emit.host_abi_unsupported": `Use Host ABI 0.11 only for bounded ${OUT_EMIT_LABEL} packages, or remove ${OUT_EMIT_LABEL}.`,
   "air.output_emit.output_handle_required": "Use the generated OUTPUT_* handle constant for canonical bounded output authoring.",
@@ -271,6 +272,34 @@ function diagnosticHintsFromMessage(message) {
         region: match[1],
         allocationLine: match[2] === undefined ? null : Number(match[2]),
         returnBlock: match[3],
+        path: loc.file
+      }
+    });
+  }
+
+  // QA52 P2-7: bounded CLI file reads keep their stable air.cli.file_* code.
+  match = text.match(/air\.cli\.(file_[a-z_]+): ([^\n]+)/);
+  if (match) {
+    return withLocation(loc, {
+      legacyId: `cli-${match[1].replace(/_/g, "-")}`,
+      code: `air.cli.${match[1]}`,
+      severity: "error",
+      fields: {
+        detail: match[2],
+        path: loc.file
+      }
+    });
+  }
+
+  // QA52 P1-3: deterministic legacy verifier analysis limit.
+  match = text.match(/air\.verifier\.analysis_limit_exceeded: ([^\n]+)/);
+  if (match) {
+    return withLocation(loc, {
+      legacyId: "verifier-analysis-limit-exceeded",
+      code: "air.verifier.analysis_limit_exceeded",
+      severity: "error",
+      fields: {
+        detail: match[1],
         path: loc.file
       }
     });
