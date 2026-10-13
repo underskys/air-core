@@ -1,0 +1,150 @@
+{
+  "id": "air.workbound.cost/1",
+  "revision": "P0-02",
+  "rows": [
+    {
+      "construct": "statement.scalar",
+      "ct1": "scalar SSA statement: atom assignment, conversion, comparison, arithmetic, bit operation, select, block yield, over a scalar, an enum, or an option/result",
+      "steps": "1",
+      "calls": "0",
+      "iterations": "0"
+    },
+    {
+      "construct": "statement.constructor",
+      "ct1": "constructor of option/result (outside a match arm)",
+      "steps": "1",
+      "calls": "0",
+      "iterations": "0"
+    },
+    {
+      "construct": "refinement.check",
+      "ct1": "check that a value enters a refined type from another type: assignment, call argument, yield, return or ingress; charged even when lowering elides the check",
+      "steps": "1",
+      "calls": "0",
+      "iterations": "0"
+    },
+    {
+      "construct": "match",
+      "ct1": "match with k arms: steps 1+k (dispatch compare chain), plus the componentwise max over the arms' block summaries",
+      "steps": "1",
+      "steps_per_arm": "1",
+      "calls": "0",
+      "iterations": "0"
+    },
+    {
+      "construct": "match.atom_arm",
+      "ct1": "an atom arm, including a constructor atom, costs 0",
+      "steps": "0",
+      "calls": "0",
+      "iterations": "0"
+    },
+    {
+      "construct": "return",
+      "ct1": "return: steps 1 (plus a refinement check row if applicable)",
+      "steps": "1",
+      "calls": "0",
+      "iterations": "0"
+    },
+    {
+      "construct": "call",
+      "ct1": "local call, sub-node c2 = c1 + (steps 1, calls 1); c3 = c2 + B(f); c1 is empty because no aggregate is admitted",
+      "steps": "1",
+      "calls": "1",
+      "iterations": "0"
+    },
+    {
+      "construct": "extern.call",
+      "ct1": "host extern call to key k: (steps 1, effects[k] 1)",
+      "steps": "1",
+      "calls": "0",
+      "iterations": "0",
+      "effect_per_key": "1"
+    },
+    {
+      "construct": "branch",
+      "ct1": "structured branch: steps 1 + max(then, else)",
+      "steps": "1",
+      "calls": "0",
+      "iterations": "0"
+    },
+    {
+      "construct": "loop.iteration",
+      "ct1": "bounded loop, sub-node t1 = (steps 1, iterations 1) + Bd",
+      "steps": "1",
+      "calls": "0",
+      "iterations": "1"
+    },
+    {
+      "construct": "loop.exit",
+      "ct1": "bounded loop, sub-node t3 = (steps 1 + L_T) + t2; L_T = 0 because no aggregate accumulator is admitted",
+      "steps": "1",
+      "calls": "0",
+      "iterations": "0"
+    },
+    {
+      "construct": "ingress.i32",
+      "ct1": "entry ingress per exported parameter: i32",
+      "steps": "0",
+      "calls": "0",
+      "iterations": "0"
+    },
+    {
+      "construct": "ingress.i64",
+      "ct1": "entry ingress per exported parameter: i64",
+      "steps": "0",
+      "calls": "0",
+      "iterations": "0"
+    },
+    {
+      "construct": "ingress.f32",
+      "ct1": "entry ingress per exported parameter: f32",
+      "steps": "0",
+      "calls": "0",
+      "iterations": "0"
+    },
+    {
+      "construct": "ingress.f64",
+      "ct1": "entry ingress per exported parameter: f64",
+      "steps": "0",
+      "calls": "0",
+      "iterations": "0"
+    },
+    {
+      "construct": "ingress.bool",
+      "ct1": "entry ingress per exported parameter: bool",
+      "steps": "1",
+      "calls": "0",
+      "iterations": "0"
+    },
+    {
+      "construct": "ingress.refined_i32",
+      "ct1": "entry ingress per exported parameter: refined i32<..>",
+      "steps": "1",
+      "calls": "0",
+      "iterations": "0"
+    },
+    {
+      "construct": "ingress.enum",
+      "ct1": "entry ingress per exported parameter: enum with c cases: c",
+      "steps": "0",
+      "steps_per_case": "1",
+      "calls": "0",
+      "iterations": "0"
+    },
+    {
+      "construct": "ingress.option",
+      "ct1": "entry ingress per exported parameter: option<T>: 1 + ingress(T)",
+      "steps": "1",
+      "calls": "0",
+      "iterations": "0"
+    },
+    {
+      "construct": "ingress.result",
+      "ct1": "entry ingress per exported parameter: result<T,E>: 1 + max(ingress(T), ingress(E))",
+      "steps": "1",
+      "calls": "0",
+      "iterations": "0"
+    }
+  ],
+  "schema": "air.workbound.costTable/1"
+}

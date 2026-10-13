@@ -93,6 +93,12 @@ const REPAIR_HINTS_BY_CODE = Object.freeze({
   "air.memory.region_bounds_runtime": "Keep runtime offsets and access widths inside the exact allocated region boundary.",
   "air.memory.region_bounds_static": "Keep offset non-negative and prove offset plus access width is within the allocated region, or use a verifier-bounded dynamic offset.",
   "air.verifier.analysis_limit_exceeded": "Split the module or flatten its local call graph so function count, call edges, call depth and analysis work stay within the documented legacy verifier maintenance limits.",
+  "air.workbound.overflow": "Reduce loop counts, call fan-out or nesting so every WorkBound dimension stays within 9223372036854775807.",
+  "air.workbound.unknown_bound": "Give the loop count, index range or allocation size a proven maximum; unknown is not a WorkBound value.",
+  "air.workbound.missing_summary": "Call only functions whose summary is in the verified closure; external, opaque or missing targets have no summary.",
+  "air.workbound.invalid_bound": "Declare the maximum as a non-negative integer literal within the profile cap.",
+  "air.workbound.identity_mismatch": "Discard the supplied WorkBound summary or record; summaries are recomputed from bytes bound by identity and never lowered.",
+  "air.workbound.cost_undefined": "Implementation defect: a construct reached the WorkBound summarizer without a CT-1 row. Report it; do not change the source.",
   "air.memory.region_leak": "Call free_region on all paths before returning from the function.",
   "air.output_emit.host_abi_unsupported": `Use Host ABI 0.11 only for bounded ${OUT_EMIT_LABEL} packages, or remove ${OUT_EMIT_LABEL}.`,
   "air.output_emit.output_handle_required": "Use the generated OUTPUT_* handle constant for canonical bounded output authoring.",
@@ -286,6 +292,22 @@ function diagnosticHintsFromMessage(message) {
       severity: "error",
       fields: {
         detail: match[2],
+        path: loc.file
+      }
+    });
+  }
+
+  // typed-v0.53 P0-02: WorkBound family (RFC R3.1 §6.6). cost_undefined is an
+  // implementation defect, never a language disposition (R-WB-26).
+  match = text.match(/air\.workbound\.(overflow|unknown_bound|missing_summary|invalid_bound|identity_mismatch|cost_undefined): ([^\n]+)/);
+  if (match) {
+    return withLocation(loc, {
+      legacyId: `workbound-${match[1].replace(/_/g, "-")}`,
+      code: `air.workbound.${match[1]}`,
+      severity: "error",
+      fields: {
+        detail: match[2],
+        disposition: match[1] === "cost_undefined" ? "IMPLEMENTATION_DEFECT" : "STATIC_REJECT",
         path: loc.file
       }
     });

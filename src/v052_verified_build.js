@@ -26,6 +26,13 @@ const { canonical, typedValue } = require("./v051_reference");
 const { AIR_VERSION } = require("./version");
 const { checkedNumericFailureReason } = require("./v052_numeric_diagnostic");
 const { createToolchainGuard } = require("./v052_toolchain_identity");
+const {
+  WorkBoundError,
+  analysisError,
+  analyzeVerifiedTypedModule,
+  bindVerifiedTypedWorkBound,
+  registerBindingReader
+} = require("./workbound");
 const TOOLCHAIN = createToolchainGuard(__dirname);
 
 const VERIFIED_TYPED_BUILD_SCHEMA = "air.v052.verifiedTypedBuild/2";
@@ -49,6 +56,14 @@ const VERIFIED_TYPED_RUNTIME_LIMITS = Object.freeze({
   maxWatBytes: 4 * 1024 * 1024
 });
 const BUILDS = new WeakMap();
+// Private WorkBound binding of runtime handles (P0-02, R-WB-20); never read
+// by admission, invocation or the cache key.
+const HANDLE_WORKBOUND = new WeakMap();
+registerBindingReader((target) => {
+  const state = BUILDS.get(target);
+  if (state) return state.workBound;
+  return HANDLE_WORKBOUND.get(target) || null;
+});
 let pinnedToolchain;
 let pinnedLoweringDigest;
 
@@ -110,6 +125,29 @@ function throwBuildSourceError(error, phase) {
   if (error.loc) wrapped.loc = { ...error.loc };
   wrapped.cause = error;
   throw wrapped;
+}
+
+function throwWorkBoundError(error) {
+  const wrapped = new V052VerifiedBuildError(error.code, error.detail);
+  if (error.loc) wrapped.loc = { ...error.loc };
+  wrapped.disposition = error.disposition;
+  wrapped.cause = error;
+  throw wrapped;
+}
+
+// RFC R3.1 §6.12 (P0-02): WorkBound summaries of the verified typed AST, part
+// of phase S. typed-v0.51 has no calls or loops, so no typed-v0.51 source can
+// fail here; a failure would still be reported with its stable code.
+function summarizeVerifiedTypedBuild(mod) {
+  let analysis;
+  try {
+    analysis = analyzeVerifiedTypedModule(mod);
+  } catch (error) {
+    if (error instanceof WorkBoundError) throwWorkBoundError(error);
+    throw error;
+  }
+  if (analysis.status !== "ok") throwWorkBoundError(analysisError(analysis));
+  return analysis;
 }
 
 function requireObject(value, label) {
@@ -331,6 +369,7 @@ async function buildVerifiedTypedModuleInternal(input, controls = {}) {
   try {
     verifySource(mod, { sourceProfile: SOURCE_PROFILE_TYPED_V051 });
   } catch (error) { throwBuildSourceError(error, "verify"); }
+  const workBoundAnalysis = summarizeVerifiedTypedBuild(mod);
   const descriptor = validateDescriptorAgainstSource(input.descriptor, mod);
   const descriptorBytes = Buffer.byteLength(canonicalDescriptor(descriptor), "utf8");
   if (limits) {
@@ -365,8 +404,15 @@ async function buildVerifiedTypedModuleInternal(input, controls = {}) {
     artifactDigest: digestCanonical(record),
     wasmBytes: Buffer.from(wasmBytes)
   });
-  const work = Object.freeze({ astNodes, descriptorBytes, sourceBytes, sourceNameBytes, wasmBytes: wasmBytes.length, watBytes });
-  BUILDS.set(build, { record, wasmBytes: Buffer.from(wasmBytes), work });
+  // R-WB-20: the summaries are bound to the existing identities of this
+  // build (sourceProfile, sourceDigest, compiler.implementationDigest) plus
+  // the cost-table id and content digest, in the private build state.
+  const workBound = bindVerifiedTypedWorkBound(workBoundAnalysis, {
+    compilerImplementationDigest: record.compiler.implementationDigest,
+    sourceDigest: record.sourceDigest,
+    sourceProfile: record.sourceProfile
+  });
+  BUILDS.set(build, { record, wasmBytes: Buffer.from(wasmBytes), workBound });
   return build;
 }
 
@@ -764,6 +810,7 @@ function createVerifiedTypedRuntime(options) {
       wasmDigest: entry.record.wasmDigest
     });
     handles.set(handle, { artifactDigest: entry.artifactDigest, key: entry.key, token: entry.token });
+    HANDLE_WORKBOUND.set(handle, entry.workBound);
     return handle;
   }
 
@@ -795,7 +842,8 @@ function createVerifiedTypedRuntime(options) {
       module,
       record: trusted.record,
       token: Object.freeze({}),
-      wasmBytes: trusted.wasmBytes.length
+      wasmBytes: trusted.wasmBytes.length,
+      workBound: BUILDS.get(build).workBound
     });
     if (generation !== cacheGeneration) {
       fail("air.v052.runtime_handle_stale", "runtime cache was cleared while the module was compiling");
