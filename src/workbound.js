@@ -704,10 +704,10 @@ function analysisError(analysis) {
 
 // ---------------------------------------------------------------------------
 // typed-v0.51 ASTs (RFC §6.12): straight-line functions with `local`, `match`
-// and `return` statements. Each statement is one CT-1 statement row chosen by
-// its form; atoms used as operands (literals, enum constants, constructor
-// atoms, references) add no row of their own; a value that enters a refined
-// type from another type adds one `refinement.check` row.
+// and `return` statements. Numeric expression operands contribute their own
+// scalar row. RD-3 charges a constructor outside a match arm once, including
+// in a return operand; literal/reference operands and constructor atom arms
+// add no row. Entering a refined type adds one `refinement.check` row.
 
 function refinementOf(typeName, loc) {
   try { return parseRefinementType(typeName, loc); } catch (_) { return costUndefined(`type '${typeName}'`, loc); }
@@ -754,6 +754,17 @@ function withRefinementCheck(base, destinationType, value, loc) {
   return add(base, row("refinement.check", loc), loc);
 }
 
+function typedOperandNode(value, loc, inMatchArm = false) {
+  if (typeof value === "string") {
+    if (inMatchArm) return atomArm(loc);
+    return isConstructorAtom(value) ? row("statement.constructor", loc) : null;
+  }
+  // The caller supplies a verified typed-v0.51 AST: numeric_operation is its
+  // existing arithmetic/comparison/conversion shape, with atomic arguments.
+  if (value && value.kind === "numeric_operation") return row("statement.scalar", loc);
+  return costUndefined(`expression.${value && value.kind || "<invalid>"}`, loc);
+}
+
 function typedStatementNode(fn, statement) {
   const loc = statement && statement.loc;
   if (!statement || typeof statement !== "object") costUndefined("statement.<invalid>", fn.loc);
@@ -763,11 +774,15 @@ function typedStatementNode(fn, statement) {
   }
   if (statement.kind === "match") {
     if (!Array.isArray(statement.arms) || !statement.arms.length) costUndefined("match.<no arms>", loc);
-    const arms = statement.arms.map((arm) => withRefinementCheck(atomArm(arm.loc || loc), statement.destinationType, arm.expression, arm.loc || loc));
+    const arms = statement.arms.map((arm) => withRefinementCheck(
+      typedOperandNode(arm.expression, arm.loc || loc, true), statement.destinationType, arm.expression, arm.loc || loc
+    ));
     return match(arms, loc);
   }
   if (statement.kind === "return") {
-    return withRefinementCheck(row("return", loc), fn.returnType, statement.value, loc);
+    const operand = typedOperandNode(statement.value, loc);
+    const returned = operand ? add(operand, row("return", loc), loc) : row("return", loc);
+    return withRefinementCheck(returned, fn.returnType, statement.value, loc);
   }
   return costUndefined(`statement.${statement.kind}`, loc);
 }

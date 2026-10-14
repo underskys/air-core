@@ -1,17 +1,17 @@
 {
   "id": "air.workbound.cost/1",
-  "revision": "P0-02",
+  "revision": "P0-02-F1-RD3",
   "rows": [
     {
       "construct": "statement.scalar",
-      "ct1": "scalar SSA statement: atom assignment, conversion, comparison, arithmetic, bit operation, select, block yield, over a scalar, an enum, or an option/result",
+      "ct1": "scalar SSA statement: atom assignment, conversion, comparison, arithmetic, bit operation, select, block yield, over a scalar, an enum, or an option/result; an operation used directly as a return operand or match-arm expression contributes this row",
       "steps": "1",
       "calls": "0",
       "iterations": "0"
     },
     {
       "construct": "statement.constructor",
-      "ct1": "constructor of option/result (outside a match arm)",
+      "ct1": "constructor of option/result outside a match arm, including a return operand; charged once, with the return row separate (owner clarification RD-3=2, 2026-10-14)",
       "steps": "1",
       "calls": "0",
       "iterations": "0"

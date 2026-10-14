@@ -6,7 +6,9 @@
 // Every expected value below is copied from the R3.1 catalogue (VECTORS.md,
 // sha256 f5353705...), the frozen V53-WB-H10-INGRESS review (REVIEW.md, sha256
 // bd5c91f5...) or a frozen v0.51/v0.52 record. None is taken from the output of
-// the implementation under test. Set AIR_P0_02_VECTOR_RESULTS=<file> to write
+// the implementation under test. The separate F1/RD-3 correction cases follow
+// the owner-authorized CT1_RD3_CLARIFICATION.md, not amended catalogue goldens.
+// Set AIR_P0_02_VECTOR_RESULTS=<file> to write
 // one canonical result record per vector.
 const assert = require("node:assert/strict");
 const childProcess = require("node:child_process");
@@ -16,7 +18,7 @@ const os = require("node:os");
 const path = require("node:path");
 
 const wb = require("../src/workbound");
-const { lowerToWat } = require("../src/lower_wasm");
+const { lowerToWat, watToWasm } = require("../src/lower_wasm");
 const { SOURCE_PROFILE_TYPED_V051, parseSource, verifySource } = require("../src/source_profile");
 const { descriptorDigest } = require("../src/typed_interface");
 const reference = require("../src/v051_reference");
@@ -37,6 +39,7 @@ const loc = (line, column = 1) => ({ column, file: "<p0-02-model>", line });
 const results = [];
 const failures = [];
 const parts = {};
+const correctionResults = [];
 
 function sha256(bytes) {
   return `sha256:${crypto.createHash("sha256").update(bytes).digest("hex")}`;
@@ -86,6 +89,42 @@ async function vector(id, action) {
     failures.push(`${id}: ${error && error.stack || error}`);
     results.push(resultRecord(id, "FAIL", { error: String(error && error.message || error) }));
   }
+}
+
+async function correction(id, wanted, action) {
+  const record = { VECTOR_ID: id, EXPECTED: plain(wanted), ACTUAL: null, PASS: false };
+  try {
+    record.ACTUAL = plain(await action());
+    assert.deepEqual(record.ACTUAL, record.EXPECTED, id);
+    record.PASS = true;
+  } catch (error) {
+    failures.push(`${id}: ${error && error.stack || error}`);
+    record.ERROR = String(error && error.message || error);
+  }
+  correctionResults.push(record);
+}
+
+async function compiledCorrection(body, params, sourceReturnType, args, context = {}) {
+  const moduleId = "wb.correction";
+  const source = `module ${moduleId}\n${context.declarations || ""}export func f(${params.map((p) => `${p.name}: ${p.type}`).join(", ")}) -> ${sourceReturnType} {\n${body}\n}\n`;
+  const mod = typedModule(source, "correction.air");
+  const analysis = wb.analyzeVerifiedTypedModule(mod);
+  assert.equal(analysis.status, "ok");
+  const descriptor = {
+    air_abi_lane: "0.12", module_id: moduleId, schema: "air.typed-interface/0.12-candidate.1",
+    exports: [{ function: "f", name: "f", parameters: params, return_type: context.descriptorReturnType || sourceReturnType }],
+    types: context.types || []
+  };
+  const build = await buildVerifiedTypedModule({ descriptor, source });
+  const binding = wb.inspectBoundWorkBound(build);
+  assertBindingKey(binding, build, wb.COST_TABLE_DIGEST);
+  const { instance } = await WebAssembly.instantiate(build.wasmBytes, {});
+  return {
+    B: analysis.functions.get("f").value.steps.toString(),
+    E: analysis.entries.get("f").value.steps.toString(),
+    bound_E: binding.record.entries.f.steps,
+    result: plain(instance.exports.f(...args))
+  };
 }
 
 function expected(value) {
@@ -817,9 +856,9 @@ function envWithout(names, extra = {}) {
       assert.deepEqual(value, { B: "0", E: "0" });
       return value;
     });
-    reading("RD-2 a constructor atom as return operand adds no row", () => {
+    reading("RD-2 / owner RD-3=2: constructor return charges constructor + return", () => {
       const value = entrySteps("module v53.rd\nexport func f(a: i32) -> option<i32> {\nreturn option.some<i32> %a\n}\n", "rd2");
-      assert.deepEqual(value, { B: "1", E: "1" });
+      assert.deepEqual(value, { B: "2", E: "2" });
       return value;
     });
     reading("RD-3 a constructor statement is one statement.constructor row", () => {
@@ -863,6 +902,148 @@ function envWithout(names, extra = {}) {
     });
 
     // ------------------------------------------------------------------
+    // F1/RD-3 correction cases, separate from the unchanged frozen catalogue.
+    // Arithmetic values are explicit examples; integer operands use BigInt.
+    // Every numeric case has one scalar row + one return row = 2, in either
+    // direct or SSA form. No expected value is read from WorkBound output.
+    const i64Pair = [{ name: "x", type: "i64" }, { name: "y", type: "i64" }];
+    const i64Single = [{ name: "x", type: "i64" }];
+    const numericCases = [
+      ["ADD", "i64.checked_add %x, %y", "i64", i64Pair, [40n, 2n], 42n],
+      ["SUB", "i64.checked_sub %x, %y", "i64", i64Pair, [40n, 2n], 38n],
+      ["MUL", "i64.checked_mul %x, %y", "i64", i64Pair, [40n, 2n], 80n],
+      ["DIV", "i64.checked_div_s %x, %y", "i64", i64Pair, [40n, 2n], 20n],
+      ["REM", "i64.checked_rem_s %x, %y", "i64", i64Pair, [40n, 2n], 0n],
+      ["NEG", "i64.checked_neg %x", "i64", i64Single, [40n], -40n],
+      ["EQ", "i64.eq %x, %y", "bool", i64Pair, [40n, 2n], 0],
+      ["NE", "i64.ne %x, %y", "bool", i64Pair, [40n, 2n], 1],
+      ["LT", "i64.lt_s %x, %y", "bool", i64Pair, [40n, 2n], 0],
+      ["LE", "i64.le_s %x, %y", "bool", i64Pair, [40n, 2n], 0],
+      ["GT", "i64.gt_s %x, %y", "bool", i64Pair, [40n, 2n], 1],
+      ["GE", "i64.ge_s %x, %y", "bool", i64Pair, [40n, 2n], 1],
+      ["NARROW_I64", "i64.to_i32_checked %x", "i32", i64Single, [40n], 40],
+      ["WIDEN_I32", "i32.to_i64 %x", "i64", [{ name: "x", type: "i32" }], [7], 7n],
+      ["WIDEN_F32", "f32.to_f64 %x", "f64", [{ name: "x", type: "f32" }], [1.5], 1.5],
+      ["NARROW_F64", "f64.to_f32_checked %x", "f32", [{ name: "x", type: "f64" }], [1.5], 1.5]
+    ];
+    for (const [id, expression, returnType, params, args, value] of numericCases) {
+      const wanted = { B: "2", E: "2", bound_E: "2", result: plain(value) };
+      await correction(`P002-F1-${id}`, { direct: wanted, ssa: wanted }, async () => ({
+        direct: await compiledCorrection(`return ${expression}`, params, returnType, args),
+        ssa: await compiledCorrection(`%o: ${returnType} = ${expression}\nreturn %o`, params, returnType, args)
+      }));
+    }
+    const refinedForm = async (body) => {
+      const source = `module wb.correction\nexport func f(x: i64) -> i32<0..100> {\n${body}\n}\n`;
+      const mod = typedModule(source, "refined-return.air");
+      const analysis = wb.analyzeVerifiedTypedModule(mod);
+      assert.equal(analysis.status, "ok");
+      const descriptor = {
+        air_abi_lane: "0.12", module_id: "wb.correction", schema: "air.typed-interface/0.12-candidate.1", types: [],
+        exports: [{ function: "f", name: "f", parameters: i64Single, return_type: "i32" }]
+      };
+      // The frozen builder compares source and descriptor types exactly; do
+      // not add refinement descriptor erasure as part of this correction.
+      await assert.rejects(() => buildVerifiedTypedModule({ source, descriptor }),
+        (error) => error.code === "air.v051.typed_interface_source_invalid");
+      const bytes = await watToWasm(lowerToWat(mod, { maxWatBytes: VERIFIED_TYPED_RUNTIME_LIMITS.maxWatBytes }), "refined-return.air");
+      const { instance } = await WebAssembly.instantiate(bytes, {});
+      const value = instance.exports.f(40n);
+      assert.throws(() => instance.exports.f(101n), WebAssembly.RuntimeError);
+      return {
+        B: analysis.functions.get("f").value.steps.toString(), E: analysis.entries.get("f").value.steps.toString(),
+        result: value, verified_builder: "air.v051.typed_interface_source_invalid"
+      };
+    };
+    const refinedExpected = { B: "3", E: "3", result: 40, verified_builder: "air.v051.typed_interface_source_invalid" };
+    await correction("P002-F1-REFINED_RETURN", { direct: refinedExpected, ssa: refinedExpected }, async () => ({
+      direct: await refinedForm("return i64.to_i32_checked %x"),
+      ssa: await refinedForm("%o: i32<0..100> = i64.to_i32_checked %x\nreturn %o")
+    }));
+    await correction("P002-F1-LITERAL_RETURN", { B: "1", E: "1", bound_E: "1", result: "9007199254740993" },
+      () => compiledCorrection("return const.i64 9007199254740993", [], "i64", []));
+    await correction("P002-F1-REFERENCE_RETURN", { B: "1", E: "1", bound_E: "1", result: "9007199254740993" },
+      () => compiledCorrection("return %x", i64Single, "i64", [9007199254740993n]));
+
+    const errorContext = {
+      declarations: "error enum ParseError {\ninvalid = 7,\n}\n",
+      types: [{ kind: "error_enum", type_id: "wb.correction::ParseError", cases: [{ discriminant: 7, name: "invalid" }] }]
+    };
+    const constructorCases = [
+      ["NONE", "option.none<i32>", "option<i32>", "option<i32>", [0, 0]],
+      ["SOME", "option.some<i32> %a", "option<i32>", "option<i32>", [1, 7]],
+      ["OK", "result.ok<i32,ParseError> %a", "result<i32,ParseError>", "result<i32,wb.correction::ParseError>", [0, 7, 0]],
+      ["ERR", "result.err<i32,ParseError> ParseError.invalid", "result<i32,ParseError>", "result<i32,wb.correction::ParseError>", [1, 0, 7]]
+    ];
+    for (const [id, expression, returnType, descriptorReturnType, value] of constructorCases) {
+      const wanted = { B: "2", E: "2", bound_E: "2", result: value };
+      const context = returnType.startsWith("result") ? { ...errorContext, descriptorReturnType } : {};
+      const params = [{ name: "a", type: "i32" }];
+      await correction(`P002-RD3-${id}`, { direct: wanted, ssa: wanted }, async () => ({
+        direct: await compiledCorrection(`return ${expression}`, params, returnType, [7], context),
+        ssa: await compiledCorrection(`%o: ${returnType} = ${expression}\nreturn %o`, params, returnType, [7], context)
+      }));
+    }
+    // 2 enum ingress + 3 dispatch + max(0, 0) + 1 return = 6. The explicit
+    // zero-cost constructor atom-arm exemption must survive RD-3.
+    const enumContext = {
+      declarations: "enum E {\na = 0,\nb = 1,\n}\n",
+      types: [{ kind: "enum", type_id: "wb.correction::E", cases: [{ discriminant: 0, name: "a" }, { discriminant: 1, name: "b" }] }]
+    };
+    const armParams = [{ name: "e", type: "wb.correction::E" }, { name: "a", type: "i32" }];
+    const atomArmBody = "%o: option<i32> = match %e {\nE.a => option.some<i32> %a,\nE.b => option.none<i32>,\n}\nreturn %o";
+    await correction("P002-RD3-CONSTRUCTOR_ARMS", {
+      some: { B: "4", E: "6", bound_E: "6", result: [1, 7] },
+      none: { B: "4", E: "6", bound_E: "6", result: [0, 0] }
+    }, async () => ({
+      some: await compiledCorrection(atomArmBody, armParams, "option<i32>", [0, 7], enumContext),
+      none: await compiledCorrection(atomArmBody, armParams, "option<i32>", [1, 7], enumContext)
+    }));
+
+    // Operation arms verify but still do not lower in the frozen profile. Do
+    // not widen that grammar/runtime surface to make these accounting tests pass.
+    for (const [id, destination, armA, armB, B, E] of [
+      ["MIXED_ARM", "i64", "i64.checked_add %x, %y", "%x", "5", "7"],
+      ["TWO_OPERATION_ARMS", "i64", "i64.checked_add %x, %y", "i64.checked_sub %x, %y", "5", "7"],
+      ["REFINED_ARM", "i32<0..10>", "i64.to_i32_checked %x", "1", "6", "8"]
+    ]) {
+      const source = `module wb.correction\n${enumContext.declarations}export func f(e: E, x: i64, y: i64) -> ${destination} {\n%o: ${destination} = match %e {\nE.a => ${armA},\nE.b => ${armB},\n}\nreturn %o\n}\n`;
+      const buildFailure = destination.startsWith("i32") ? "air.v051.typed_interface_source_invalid" : "air.v052.verified_build_emission_failure";
+      await correction(`P002-F1-${id}`, { B, E, build: buildFailure }, async () => {
+        const analysis = wb.analyzeVerifiedTypedModule(typedModule(source, `${id}.air`));
+        assert.equal(analysis.status, "ok");
+        const descriptor = {
+          air_abi_lane: "0.12", module_id: "wb.correction", schema: "air.typed-interface/0.12-candidate.1", types: enumContext.types,
+          exports: [{ function: "f", name: "f", parameters: [{ name: "e", type: "wb.correction::E" }, ...i64Pair], return_type: destination.startsWith("i32") ? "i32" : destination }]
+        };
+        await assert.rejects(() => buildVerifiedTypedModule({ source, descriptor }),
+          (error) => error.code === buildFailure);
+        return { B: analysis.functions.get("f").value.steps.toString(), E: analysis.entries.get("f").value.steps.toString(), build: buildFailure };
+      });
+    }
+    await correction("P002-F1-UNKNOWN_EXPRESSION", { code: "air.workbound.cost_undefined", disposition: "IMPLEMENTATION_DEFECT" }, () => {
+      const mod = typedModule("module wb.correction\nexport func f() -> i64 {\nreturn 1\n}\n", "unknown-expression.air");
+      mod.functions[0].statements[0].value = { kind: "unmodelled_expression" };
+      let actual;
+      assert.throws(() => wb.analyzeVerifiedTypedModule(mod), (error) => {
+        actual = { code: error.code, disposition: error.disposition };
+        return error.code === "air.workbound.cost_undefined";
+      });
+      return actual;
+    });
+    // Existing fixture: 2 Action ingress + 3 match dispatch + 2 constructor
+    // return = 7. Its source/Wasm is unchanged, only the RD-3 summary changes.
+    await correction("P002-RD3-OPS_POLICY", { decide: "7", roundtrip_sequence: "1" }, () => {
+      const analysis = wb.analyzeVerifiedTypedModule(typedModule(readFixture("fixtures/v052/verified_build/ops_policy.air"), "ops_policy.air"));
+      assert.equal(analysis.status, "ok");
+      return Object.fromEntries([...analysis.entries].map(([name, value]) => [name, value.value.steps.toString()]));
+    });
+    await correction("P002-RD3-COST_TABLE_REVISION", { revision: "P0-02-F1-RD3", prior_digest_reused: false }, () => ({
+      revision: ctTable.revision,
+      prior_digest_reused: wb.COST_TABLE_DIGEST === "sha256:fca8c3db1c12077748e77e40c28324343cc851af79ea806ce34ecd18973768b5"
+    }));
+
+    // ------------------------------------------------------------------
     // Corpus: every repository source that verifies as typed-v0.51 has a
     // finite summary, and no real construct reaches the cost_undefined guard.
     const corpus = [];
@@ -888,6 +1069,7 @@ function envWithout(names, extra = {}) {
       fs.writeFileSync(process.env.AIR_P0_02_VECTOR_RESULTS, `${JSON.stringify({
         cost_table_digest: wb.COST_TABLE_DIGEST,
         ct1_file_sha256: wb.COST_TABLE_FILE_SHA256,
+        correction_results: correctionResults,
         readings,
         results: results.map((item) => JSON.parse(canonicalJson(item))),
         typed_v051_corpus: corpus.sort()
@@ -900,6 +1082,8 @@ function envWithout(names, extra = {}) {
     }
     console.log(JSON.stringify({
       cost_table_digest: wb.COST_TABLE_DIGEST,
+      correction_cases: correctionResults.length,
+      correction_passed: correctionResults.filter((item) => item.PASS).length,
       deferred,
       passed,
       readings: readings.length,
