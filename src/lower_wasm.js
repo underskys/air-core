@@ -6,8 +6,11 @@ const {
   REGION_BOUNDS_FAILURE_FUNCTION,
   REGION_BOUNDS_RUNTIME_CODE
 } = require("./region_bounds");
-const { AirError } = require("./errors");
-const { STRUCTURED_PHI_LOOP_FUEL_LIMIT, assertWasmTargetSupport, verifyV051Air } = require("./verifier");
+const { AirError, isTypedV053Ast } = require("./errors");
+const verifierModule = require("./verifier");
+const { STRUCTURED_PHI_LOOP_FUEL_LIMIT, assertWasmTargetSupport, verifyV051Air } = verifierModule;
+const parserModule = require("./parser");
+const { enforceAnalysisCapacity } = require("./analysis_capacity");
 
 const REGION_SLOT_BYTES = 4096;
 const WASM_PAGE_BYTES = 65536;
@@ -34,6 +37,7 @@ const BORROW_FAILURE = Object.freeze({
 });
 
 function lowerToWat(mod, options = {}) {
+  if (isTypedV053Ast(mod)) return lowerV053TypedToWat(mod, options);
   if (mod && mod.v051TypedAst) return lowerV051TypedToWat(mod, options);
   assertWasmTargetSupport(mod);
   const borrowedDescriptor = borrowedSliceInterfaceDescriptor(mod);
@@ -767,6 +771,386 @@ function splitV051TypedArguments(value) {
   if (depth !== 0) return null;
   parts.push(value.slice(start));
   return parts;
+}
+
+// ---------------------------------------------------------------------------
+// typed-v0.53 (SCALAR) lowering. A separate path keyed on the typed-v0.53 tag:
+// typed-v0.51 lowering and its WAT budget are unchanged (R-PROF-4). Atoms,
+// constructors, ingress validation, enum/option/result matches and the frozen
+// checked-i64 helpers are the typed-v0.51 emitters; the SCALAR operations and
+// `match` over `bool` are added here.
+
+// R-WB-17 as read by the slice text (R17-a, R17-b): every emitted byte counts,
+// exactly (module header, helpers, every function, line separators and the
+// closing parenthesis), and a WAT of exactly `maxWatBytes` bytes is produced.
+// The first emission that would exceed the cap stops lowering, so no WAT
+// beyond the cap is materialized.
+function v053WatWriter(maxWatBytes) {
+  if (maxWatBytes !== undefined && (!Number.isSafeInteger(maxWatBytes) || maxWatBytes < 1)) {
+    throw new V051TypedLoweringError("air.v052.runtime_limits_invalid", "maxWatBytes must be a positive safe integer");
+  }
+  return {
+    maximum: maxWatBytes,
+    total: 0,
+    charge(bytes) {
+      if (this.maximum !== undefined && this.total + bytes > this.maximum) {
+        const error = new V051TypedLoweringError("air.v052.work_limit_wat_bytes", `lowered WAT would exceed the configured limit of ${this.maximum}`);
+        error.disposition = "BUILD_REFUSED";
+        throw error;
+      }
+      this.total += bytes;
+    }
+  };
+}
+
+// A WAT line list that charges each line as it is pushed: the separator
+// before it, its indentation and its bytes. In counting mode (phase-B
+// planning) nothing is kept, only counted.
+class V053WatLines {
+  constructor(writer, indentBytes, counting = false) {
+    this.writer = writer;
+    this.indentBytes = indentBytes;
+    this.lines = counting ? null : [];
+    this.count = 0;
+  }
+
+  push(...lines) {
+    for (const line of lines) {
+      if (this.writer) this.writer.charge(1 + this.indentBytes + Buffer.byteLength(line, "utf8"));
+      if (this.lines) this.lines.push(line);
+      this.count += 1;
+    }
+    return this.count;
+  }
+
+  get length() { return this.count; }
+}
+
+const V053_CHECKED_OPERATIONS = new Set([
+  "i32.checked_add", "i32.checked_sub", "i32.checked_mul", "i32.checked_div_s", "i32.checked_rem_s",
+  "i32.to_f32_checked", "f32.trunc_to_i32_checked",
+  "i64.checked_add", "i64.checked_sub", "i64.checked_mul", "i64.checked_div_s", "i64.checked_rem_s", "i64.checked_neg",
+  "i64.to_i32_checked", "f64.to_f32_checked"
+]);
+// Lowered by the frozen typed-v0.51 emitters, unchanged.
+const V053_FROZEN_V051_OPERATIONS = new Set([
+  "i64.checked_add", "i64.checked_sub", "i64.checked_mul", "i64.checked_div_s", "i64.checked_rem_s", "i64.checked_neg",
+  "i64.eq", "i64.ne", "i64.lt_s", "i64.le_s", "i64.gt_s", "i64.ge_s",
+  "i64.to_i32_checked", "i32.to_i64", "f32.to_f64", "f64.to_f32_checked"
+]);
+
+function v053FunctionUsesCheckedNumeric(fn) {
+  return (fn.statements || []).some((statement) => (statement.kind === "local" || statement.kind === "return") &&
+    statement.value && typeof statement.value === "object" && V053_CHECKED_OPERATIONS.has(statement.value.op));
+}
+
+function v053ModuleFeatures(mod) {
+  const declarations = new Map((mod.enums || []).map((item) => [item.type_id, item]));
+  const functions = mod.functions || [];
+  return {
+    declarations,
+    usesCanonicalSumIngress: functions.some((fn) => (fn.params || []).some((parameter) => {
+      const type = v051TypedTypeInfo(parameter.type, declarations);
+      return type.kind === "option" || type.kind === "result";
+    })),
+    usesCheckedNumeric: functions.some(v053FunctionUsesCheckedNumeric),
+    usesTypedRefinement: functions.some(v051TypedFunctionUsesRefinement)
+  };
+}
+
+function v053ModuleHeaderLines(features) {
+  return [
+    "(module",
+    "  (func $__air_v051_invalid_tag unreachable)",
+    "  (func $__air_v051_invalid_enum_discriminant unreachable)",
+    "  (func $__air_v051_invalid_bool unreachable)",
+    ...(features.usesTypedRefinement ? ["  (func $__air_v051_refinement_out_of_range unreachable)"] : []),
+    ...(features.usesCanonicalSumIngress ? ["  (func $__air_v051_noncanonical_sum_lane unreachable)"] : []),
+    ...(features.usesCheckedNumeric ? [
+      "  (global $__air_v051_checked_numeric_failure (export \"__air_v051_checked_numeric_failure\") (mut i32) (i32.const 0))",
+      "  (func $__air_v051_numeric_overflow i32.const 1 global.set $__air_v051_checked_numeric_failure unreachable)",
+      "  (func $__air_v051_numeric_division_by_zero i32.const 2 global.set $__air_v051_checked_numeric_failure unreachable)",
+      "  (func $__air_v051_numeric_invalid_conversion i32.const 3 global.set $__air_v051_checked_numeric_failure unreachable)"
+    ] : [])
+  ];
+}
+
+function lowerV053TypedToWat(mod, options = {}) {
+  const opts = options || {};
+  // An AST entrypoint recomputes both capacity measures before lowering
+  // (slice text §3.1), then verifies (phase S).
+  enforceAnalysisCapacity(mod, opts.analysisCapacity);
+  verifierModule.typedV053.verify(mod);
+  const writer = v053WatWriter(opts.maxWatBytes);
+  try {
+    const features = v053ModuleFeatures(mod);
+    const header = v053ModuleHeaderLines(features);
+    header.forEach((line, index) => writer.charge((index ? 1 : 0) + Buffer.byteLength(line, "utf8")));
+    const functions = (mod.functions || []).map((fn) => lowerV053TypedFunction(fn, features.declarations, writer, false));
+    writer.charge(1 + 1);
+    const wat = [...header, ...functions, ")"].join("\n");
+    if (Buffer.byteLength(wat, "utf8") !== writer.total) {
+      typedLowerFail("air.v051.typed_lowering_unsupported", "typed-v0.53 WAT byte accounting mismatch");
+    }
+    return wat;
+  } catch (error) {
+    if (error instanceof V051TypedLoweringError) throw error;
+    typedLowerFail("air.v051.typed_lowering_unsupported", error && error.message ? error.message : "unsupported typed AST");
+  }
+}
+
+function lowerV053TypedFunction(fn, declarations, writer, counting) {
+  if (fn.returnType === "void") {
+    typedLowerFail("air.v051.typed_lowering_unsupported", "void typed functions are not admitted in typed-v0.53 before P0-04");
+  }
+  const state = {
+    declarations,
+    localDecls: new V053WatLines(writer, 4, counting),
+    locals: new Map(),
+    body: new V053WatLines(writer, 4, counting),
+    tempId: 0,
+    usesCheckedNumeric: v053FunctionUsesCheckedNumeric(fn)
+  };
+  const params = [];
+  const records = [];
+  let parameterLanes = 0;
+  for (const parameter of fn.params || []) {
+    const info = v051TypedTypeInfo(parameter.type, declarations);
+    const record = v051TypedRecord(parameter.name, parameter.type, info, true);
+    state.locals.set(parameter.name, record);
+    records.push(record);
+    parameterLanes += record.names.length;
+    if (!counting) {
+      for (let index = 0; index < record.names.length; index += 1) params.push(`(param ${record.names[index]} ${info.watTypes[index]})`);
+    }
+  }
+  const resultInfo = v051TypedTypeInfo(fn.returnType, declarations);
+  let headerLine = null;
+  if (!counting) {
+    const result = resultInfo.watTypes.length ? ` (result ${resultInfo.watTypes.join(" ")})` : "";
+    const exportDecl = fn.exported ? ` (export "${fn.name}")` : "";
+    headerLine = `  (func $${wasmName(fn.name)}${exportDecl}${params.length ? ` ${params.join(" ")}` : ""}${result}`;
+    writer.charge(1 + Buffer.byteLength(headerLine, "utf8"));
+  }
+  for (const record of records) emitV051TypedRuntimeValidation(state, record);
+  if (state.usesCheckedNumeric) state.body.push("i32.const 0", "global.set $__air_v051_checked_numeric_failure");
+  for (const statement of fn.statements || []) {
+    if (statement.kind === "local") {
+      const info = v051TypedTypeInfo(statement.type, declarations);
+      const record = v051TypedRecord(statement.name, statement.type, info, false);
+      state.locals.set(statement.name, record);
+      state.localDecls.push(...record.names.map((name, index) => `(local ${name} ${info.watTypes[index]})`));
+      emitV053TypedExpression(state, statement.value, statement.type);
+      emitV051TypedRefinementAssignmentCheck(state, record.info);
+      emitV051TypedSet(state, record);
+      continue;
+    }
+    if (statement.kind === "match") {
+      const info = v051TypedTypeInfo(statement.destinationType, declarations);
+      const record = v051TypedRecord(statement.destination, statement.destinationType, info, false);
+      state.locals.set(statement.destination, record);
+      state.localDecls.push(...record.names.map((name, index) => `(local ${name} ${info.watTypes[index]})`));
+      emitV053TypedMatch(state, statement, record);
+      continue;
+    }
+    if (statement.kind === "return") {
+      emitV053TypedExpression(state, statement.value, fn.returnType);
+      emitV051TypedRefinementAssignmentCheck(state, resultInfo);
+      state.body.push("return");
+      continue;
+    }
+    typedLowerFail("air.v051.typed_lowering_unsupported", `unsupported statement kind '${statement.kind}'`);
+  }
+  if (counting) {
+    return { locals: parameterLanes + state.localDecls.count, name: fn.name, parameters: parameterLanes, results: resultInfo.watTypes.length };
+  }
+  writer.charge(1 + 3);
+  return [
+    headerLine,
+    ...state.localDecls.lines.map((line) => `    ${line}`),
+    ...state.body.lines.map((line) => `    ${line}`),
+    "  )"
+  ].join("\n");
+}
+
+function emitV053TypedExpression(state, value, expectedType) {
+  if (value && typeof value === "object" && value.kind === "numeric_operation") {
+    emitV053TypedOperation(state, value, expectedType);
+    return;
+  }
+  emitV051TypedExpression(state, value, expectedType);
+}
+
+function emitV053TypedOperation(state, operation, expectedType) {
+  const signature = Object.prototype.hasOwnProperty.call(parserModule.typedV053.OPERATIONS, operation.op)
+    ? parserModule.typedV053.OPERATIONS[operation.op]
+    : null;
+  const args = operation.args;
+  if (!signature || !Array.isArray(args) || args.length !== signature.args.length || v051TypedBaseTypeName(expectedType) !== signature.result) {
+    typedLowerFail("air.v051.typed_lowering_unsupported", `invalid typed-v0.53 operation '${operation.op}'`);
+  }
+  if (V053_FROZEN_V051_OPERATIONS.has(operation.op)) {
+    emitV051TypedNumericOperation(state, operation, expectedType);
+    return;
+  }
+  if (signature.fold === "checked" && signature.width === 32) {
+    emitV053CheckedI32(state, signature.operation, args);
+    return;
+  }
+  if (operation.op === "i32.to_f32_checked") {
+    emitV053CheckedI32ToF32(state, args[0]);
+    return;
+  }
+  if (operation.op === "f32.trunc_to_i32_checked") {
+    emitV053CheckedF32ToI32(state, args[0]);
+    return;
+  }
+  if (signature.wat === "select") {
+    // Wasm `select` takes (a, b, condition) and keeps a when the condition is 1.
+    emitV051TypedExpression(state, args[1], signature.args[1]);
+    emitV051TypedExpression(state, args[2], signature.args[2]);
+    emitV051TypedExpression(state, args[0], signature.args[0]);
+    state.body.push("select");
+    return;
+  }
+  if (signature.wat) {
+    for (let index = 0; index < args.length; index += 1) emitV051TypedExpression(state, args[index], signature.args[index]);
+    state.body.push(signature.wat);
+    return;
+  }
+  typedLowerFail("air.v051.typed_lowering_unsupported", `unlowerable typed-v0.53 operation '${operation.op}'`);
+}
+
+// RFC §5.1: exact signed i32 arithmetic; a result outside the range fails
+// with reason 1 overflow, division or remainder by zero with reason 2, through
+// the existing failure global (R-SCL-3). checked_rem_s(MIN, -1) returns 0.
+function emitV053CheckedI32(state, operation, args) {
+  const left = declareV051TypedTemporary(state, "i32");
+  const right = declareV051TypedTemporary(state, "i32");
+  emitV051TypedExpression(state, args[0], "i32");
+  state.body.push(`local.set ${left}`);
+  emitV051TypedExpression(state, args[1], "i32");
+  state.body.push(`local.set ${right}`);
+  if (operation === "add" || operation === "sub" || operation === "mul") {
+    const wide = declareV051TypedTemporary(state, "i64");
+    state.body.push(`local.get ${left}`, "i64.extend_i32_s", `local.get ${right}`, "i64.extend_i32_s", `i64.${operation}`, `local.set ${wide}`);
+    state.body.push(`local.get ${wide}`, "i64.const 2147483647", "i64.gt_s", `local.get ${wide}`, "i64.const -2147483648", "i64.lt_s", "i32.or", "if", "call $__air_v051_numeric_overflow", "end");
+    state.body.push(`local.get ${wide}`, "i32.wrap_i64");
+    return;
+  }
+  state.body.push(`local.get ${right}`, "i32.eqz", "if", "call $__air_v051_numeric_division_by_zero", "end");
+  if (operation === "div_s") {
+    state.body.push(`local.get ${left}`, "i32.const -2147483648", "i32.eq", `local.get ${right}`, "i32.const -1", "i32.eq", "i32.and", "if", "call $__air_v051_numeric_overflow", "end");
+    state.body.push(`local.get ${left}`, `local.get ${right}`, "i32.div_s");
+    return;
+  }
+  state.body.push(`local.get ${left}`, "i32.const -2147483648", "i32.eq", `local.get ${right}`, "i32.const -1", "i32.eq", "i32.and", "if (result i32)", "i32.const 0", "else", `local.get ${left}`, `local.get ${right}`, "i32.rem_s", "end");
+}
+
+// RFC §5.2 (OPEN-6 (a)): fails with invalid_conversion unless the binary32
+// result is exact; compared in f64, where every i32 and every f32 is exact.
+function emitV053CheckedI32ToF32(state, arg) {
+  const value = declareV051TypedTemporary(state, "i32");
+  const narrowed = declareV051TypedTemporary(state, "f32");
+  emitV051TypedExpression(state, arg, "i32");
+  state.body.push(`local.set ${value}`, `local.get ${value}`, "f32.convert_i32_s", `local.set ${narrowed}`);
+  state.body.push(`local.get ${narrowed}`, "f64.promote_f32", `local.get ${value}`, "f64.convert_i32_s", "f64.ne", "if", "call $__air_v051_numeric_invalid_conversion", "end", `local.get ${narrowed}`);
+}
+
+// RFC §5.2 (OPEN-6 (a)): truncates toward zero; NaN, ±∞ and values outside
+// [-2^31, 2^31) fail with invalid_conversion before the trapping instruction.
+function emitV053CheckedF32ToI32(state, arg) {
+  const value = declareV051TypedTemporary(state, "f32");
+  emitV051TypedExpression(state, arg, "f32");
+  state.body.push(`local.set ${value}`);
+  state.body.push(`local.get ${value}`, `local.get ${value}`, "f32.ne", `local.get ${value}`, "f32.const -2147483648", "f32.lt", "i32.or", `local.get ${value}`, "f32.const 2147483648", "f32.ge", "i32.or", "if", "call $__air_v051_numeric_invalid_conversion", "end");
+  state.body.push(`local.get ${value}`, "i32.trunc_f32_s");
+}
+
+function emitV053TypedMatch(state, statement, destination) {
+  const subject = state.locals.get(statement.value);
+  if (!subject) typedLowerFail("air.v051.typed_lowering_unsupported", `unknown match value '${statement.value}'`);
+  if (!(subject.info.kind === "scalar" && subject.info.type.canonical === "bool")) {
+    emitV051TypedMatch(state, statement, destination);
+    return;
+  }
+  // RFC §5.4: value-level branch-on-bool. Bool lanes are validated at ingress
+  // (0 or 1), so the final call is only reached by an invalid lane.
+  const arms = new Map((statement.arms || []).map((arm) => [String(arm.pattern).trim(), arm]));
+  const endLabel = `$__air_v051_match_end_${state.tempId++}`;
+  state.body.push(`block ${endLabel}`);
+  ["false", "true"].forEach((key, lane) => {
+    const arm = arms.get(key);
+    if (!arm) typedLowerFail("air.v051.typed_lowering_unsupported", `missing verified match arm '${key}'`);
+    state.body.push(`local.get ${subject.names[0]}`, `i32.const ${lane}`, "i32.eq", "if");
+    emitV051TypedExpression(state, arm.expression, destination.type);
+    emitV051TypedSet(state, destination);
+    state.body.push(`br ${endLabel}`, "end");
+  });
+  state.body.push("call $__air_v051_invalid_bool", "end");
+}
+
+// Phase-B engine-structural limits (slice text §6.2; owner decision OD-2 (a)):
+// the compile-time "Implementation-defined Limits" of the WebAssembly
+// JavaScript Interface, W3C Candidate Recommendation Draft of 22 October 2026,
+// §8 (https://www.w3.org/TR/2026/CRD-wasm-js-api-2-20261022/#limits; content
+// sha256 80a91c1a616752ef40838cffff18e839f9bde4a62de6c9154a86e69e1b47306e).
+// The count limits that apply to a typed-v0.53 module are checked before
+// lowering starts; a count equal to a limit is admitted. The two size limits
+// are covered by maxWasmBytes (AMD-10).
+const V053_ENGINE_LIMITS = Object.freeze([
+  Object.freeze({ key: "functions", label: "functions", maximum: 1000000 }),
+  Object.freeze({ key: "types", label: "types", maximum: 1000000 }),
+  Object.freeze({ key: "imports", label: "imports", maximum: 1000000 }),
+  Object.freeze({ key: "exports", label: "exports", maximum: 1000000 }),
+  Object.freeze({ key: "globals", label: "globals", maximum: 1000000 }),
+  Object.freeze({ key: "parameters", label: "parameters per function or block", maximum: 1000, perFunction: true }),
+  Object.freeze({ key: "results", label: "results per function or block", maximum: 1000, perFunction: true }),
+  Object.freeze({ key: "locals", label: "locals per function (incl. parameters)", maximum: 50000, perFunction: true })
+]);
+
+class V053EngineLimitError extends Error {
+  constructor(limit, actual, subject) {
+    super(`air.build.engine_limit: BUILD_REFUSED ${subject} has ${actual} ${limit.label}; the WebAssembly JavaScript Interface limit is ${limit.maximum} (W3C CRD 2026-10-22, §8)`);
+    this.name = "V053EngineLimitError";
+    this.code = "air.build.engine_limit";
+    this.disposition = "BUILD_REFUSED";
+    this.limit = limit.label;
+    this.actual = actual;
+    this.maximum = limit.maximum;
+  }
+}
+
+// Counts the module the build would emit: every lane after expansion and every
+// lowering temporary, by running the typed-v0.53 lowering in counting mode
+// (no WAT is kept). Throws V053EngineLimitError on the first exceeded limit.
+function checkV053EngineLimits(mod) {
+  if (!isTypedV053Ast(mod)) typedLowerFail("air.v051.typed_lowering_unsupported", "engine-limit planning requires a typed-v0.53 AST");
+  const features = v053ModuleFeatures(mod);
+  const helpers = v053ModuleHeaderLines(features).filter((line) => line.startsWith("  (func ")).length;
+  const plans = (mod.functions || []).map((fn) => lowerV053TypedFunction(fn, features.declarations, null, true));
+  const signatures = new Set(helpers ? ["->"] : []);
+  for (const fn of mod.functions || []) {
+    const lanes = (fn.params || []).flatMap((parameter) => v051TypedTypeInfo(parameter.type, features.declarations).watTypes);
+    signatures.add(`${lanes.join(",")}->${v051TypedTypeInfo(fn.returnType, features.declarations).watTypes.join(",")}`);
+  }
+  const totals = {
+    exports: (mod.functions || []).filter((fn) => fn.exported).length + (features.usesCheckedNumeric ? 1 : 0),
+    functions: (mod.functions || []).length + helpers,
+    globals: features.usesCheckedNumeric ? 1 : 0,
+    imports: 0,
+    types: signatures.size
+  };
+  for (const limit of V053_ENGINE_LIMITS) {
+    if (limit.perFunction) {
+      for (const plan of plans) {
+        if (plan[limit.key] > limit.maximum) throw new V053EngineLimitError(limit, plan[limit.key], `function '${plan.name}'`);
+      }
+    } else if (totals[limit.key] > limit.maximum) {
+      throw new V053EngineLimitError(limit, totals[limit.key], "the module");
+    }
+  }
+  return Object.freeze({ functions: plans.map((plan) => Object.freeze({ ...plan })), totals: Object.freeze(totals) });
 }
 
 function lowerGlobal(global) {
@@ -3225,3 +3609,9 @@ async function watToWasm(wat, name = "module.air") {
 }
 
 module.exports = { lowerToWat, watToWasm };
+// Internal typed-v0.53 build planning, used by the gated build entrypoints;
+// not part of the enumerable exports that the public index spreads.
+Object.defineProperty(module.exports, "typedV053", {
+  enumerable: false,
+  value: Object.freeze({ ENGINE_LIMITS: V053_ENGINE_LIMITS, checkEngineLimits: checkV053EngineLimits })
+});

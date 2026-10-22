@@ -1,10 +1,11 @@
 const fs = require("fs");
-const { readBoundedRegularFile } = require("./bounded_file");
+const { BOUNDED_FILE_MAX_BYTES, readBoundedRegularFile } = require("./bounded_file");
 const path = require("path");
 const { parseAir } = require("./parser");
 const { verifyModule } = require("./verifier");
 const { checkPackageDir } = require("./sdk");
 const { diagnosticHintsFromMessage, normalizeDiagnostic } = require("./diagnostics");
+const { AirError, SOURCE_PROFILE_TYPED_V053 } = require("./errors");
 
 const LSP_SCHEMA_VERSION = "0.15";
 
@@ -16,7 +17,60 @@ function createLspDiagnostics(target, options = {}) {
     : createFileLspDiagnostics(target, options);
 }
 
+// R-LSP-1 for typed-v0.53: the profile is selected explicitly (candidate
+// gate), the bounded 4 MiB reader applies, typed codes are reported as they
+// are thrown (`err.code` preserved), and a refusal (INTAKE_REFUSED,
+// ANALYSIS_REFUSED) keeps its own disposition: it is never reported as a
+// rejection, and the envelope status is `refused` (slice text R-4, R-14).
+function typedV053Diagnostic(err, file) {
+  const loc = err && err.loc ? err.loc : {};
+  const message = cleanErrorMessage(err);
+  const hints = diagnosticHintsFromMessage(message);
+  const code = err && typeof err.code === "string" && err.code.startsWith("air.") ? err.code : (hints.code || "air.parser.syntax");
+  const disposition = err && err.disposition ? err.disposition
+    : code === "air.cli.file_too_large" || /^air\.v052\.work_limit_/.test(code) ? "INTAKE_REFUSED" : "STATIC_REJECT";
+  const refused = disposition === "INTAKE_REFUSED" || disposition === "ANALYSIS_REFUSED";
+  const fields = { ...(hints.fields || {}), disposition };
+  for (const key of ["capacity", "measure", "required"]) if (err && err[key] !== undefined) fields[key] = err[key];
+  return normalizeDiagnostic({
+    code,
+    severity: refused ? "info" : "fail",
+    source: refused ? "phase-a" : "typed-v0.53",
+    message,
+    file: loc.file || file || null,
+    line: loc.line,
+    col: loc.col,
+    module: loc.file || file || null,
+    fields,
+    packageStatusImpact: refused ? "none" : "fail"
+  });
+}
+
+function createTypedV053FileLspDiagnostics(file, options = {}) {
+  const { parseSource, verifySource } = require("./source_profile");
+  const profile = { allowCandidateProfile: options.allowCandidateProfile, sourceProfile: SOURCE_PROFILE_TYPED_V053 };
+  const diagnostics = [];
+  try {
+    const source = typeof options.sourceText === "string" ? options.sourceText : readBoundedRegularFile(file, { label: "source" });
+    if (Buffer.byteLength(source, "utf8") > BOUNDED_FILE_MAX_BYTES) {
+      throw new AirError(`air.cli.file_too_large: source exceeds ${BOUNDED_FILE_MAX_BYTES} bytes`);
+    }
+    const mod = parseSource(source, file, profile);
+    verifySource(mod, profile);
+  } catch (err) {
+    diagnostics.push(typedV053Diagnostic(err, file));
+  }
+  const result = envelope(file, "file", diagnostics);
+  const refusal = diagnostics.find((item) => item.fields && (item.fields.disposition === "INTAKE_REFUSED" || item.fields.disposition === "ANALYSIS_REFUSED"));
+  return {
+    ...result,
+    sourceProfile: SOURCE_PROFILE_TYPED_V053,
+    ...(refusal ? { disposition: refusal.fields.disposition, status: "refused" } : {})
+  };
+}
+
 function createFileLspDiagnostics(file, options = {}) {
+  if (options.sourceProfile === SOURCE_PROFILE_TYPED_V053) return createTypedV053FileLspDiagnostics(file, options);
   const diagnostics = [];
   try {
     const source = typeof options.sourceText === "string" ? options.sourceText : readBoundedRegularFile(file, { label: "source" });

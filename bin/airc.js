@@ -7,6 +7,7 @@ const { AirError } = require("../src/errors");
 const { readBoundedRegularFile } = require("../src/bounded_file");
 const {
   SOURCE_PROFILE_LEGACY,
+  SOURCE_PROFILE_TYPED_V053,
   formatSource,
   isTypedSourceProfile,
   normalizeSourceProfile,
@@ -17,7 +18,9 @@ const { assertWasmTargetSupport, verifyModule, VerificationError } = require("..
 const { ProvenanceFlowError } = require("../src/provenance_flow");
 const { explainModule } = require("../src/explain");
 const { auditModule } = require("../src/audit");
-const { lowerToWat, watToWasm } = require("../src/lower_wasm");
+const lowerWasmModule = require("../src/lower_wasm");
+const { lowerToWat, watToWasm } = lowerWasmModule;
+const { createToolchainGuard } = require("../src/v052_toolchain_identity");
 const {
   VERIFIED_TYPED_RUNTIME_LIMITS,
   enforceVerifiedTypedBuildLimit,
@@ -94,6 +97,10 @@ const SOURCE_COMMAND_OPTIONS = Object.freeze({
   verify: { flags: ["--library"], values: ["--source-profile"] },
   wit: { values: ["--source-profile"] }
 });
+// R-PROF-1 (OPEN-1 (a)): the candidate opt-in for typed-v0.53. It is accepted
+// only together with `--source-profile typed-v0.53`; every other invocation
+// keeps its 388c790 option handling (`air.cli.option_unknown`).
+const CANDIDATE_PROFILE_FLAG = "--allow-candidate-profile";
 
 async function main(argv) {
   let [command, file, ...rest] = argv;
@@ -128,7 +135,13 @@ async function main(argv) {
   if (command === "lsp") {
     const args = [file, ...rest].filter(Boolean);
     if (!args.includes("--stdio")) throw new Error("unsupported LSP transport; expected airc lsp --stdio");
-    runLspStdio({ profile: readOption(args, "--profile") || "cli" });
+    const lspOptions = { profile: readOption(args, "--profile") || "cli" };
+    // R-LSP-1: the LSP selects typed-v0.53 explicitly, under the candidate gate.
+    if (readOption(args, "--source-profile") === SOURCE_PROFILE_TYPED_V053) {
+      lspOptions.sourceProfile = normalizeSourceProfile(SOURCE_PROFILE_TYPED_V053, { allowCandidateProfile: args.includes(CANDIDATE_PROFILE_FLAG) });
+      lspOptions.allowCandidateProfile = true;
+    }
+    runLspStdio(lspOptions);
     return null;
   }
 
@@ -181,7 +194,28 @@ async function main(argv) {
   if (command === "check") {
     const args = [file, ...rest].filter(Boolean);
     if (args.some((arg) => arg === "--source-profile" || arg.startsWith("--source-profile="))) {
-      throw new AirError("air.source_profile.command_unsupported: 'check' does not support --source-profile");
+      // R-LSP-1: `check` accepts exactly `--source-profile typed-v0.53` (with the
+      // candidate opt-in). Every other profile request keeps its 388c790 refusal.
+      const profileIndex = args.indexOf("--source-profile");
+      const singleTypedV053 = profileIndex >= 0 && args[profileIndex + 1] === SOURCE_PROFILE_TYPED_V053 &&
+        args.filter((arg) => arg === "--source-profile" || arg.startsWith("--source-profile=")).length === 1;
+      if (!singleTypedV053) {
+        throw new AirError("air.source_profile.command_unsupported: 'check' does not support --source-profile");
+      }
+      normalizeSourceProfile(SOURCE_PROFILE_TYPED_V053, { allowCandidateProfile: args.includes(CANDIDATE_PROFILE_FLAG) });
+      const typedTarget = args.find((arg, index) => !arg.startsWith("-") && index !== profileIndex + 1);
+      if (!typedTarget) throw new Error("missing target: airc check <file> --source-profile typed-v0.53 --allow-candidate-profile --lsp-json");
+      if (fs.existsSync(typedTarget) && fs.statSync(typedTarget).isDirectory()) {
+        throw new AirError(`air.source_profile.command_unsupported: 'check' does not support package targets under '${SOURCE_PROFILE_TYPED_V053}'`);
+      }
+      const typedResult = createLspDiagnostics(typedTarget, { allowCandidateProfile: true, sourceProfile: SOURCE_PROFILE_TYPED_V053 });
+      if (!args.includes("--lsp-json")) {
+        printLspDiagnosticSummary(typedResult);
+      } else {
+        process.stdout.write(`${JSON.stringify(typedResult, null, 2)}\n`);
+      }
+      // No verdict was reached on a refusal, so it is not a success either.
+      return typedResult.status === "pass" || typedResult.status === "warn" ? 0 : 1;
     }
     const target = args.find((arg) => !arg.startsWith("-"));
     if (!target) throw new Error("missing target: airc check <file-or-package> --lsp-json");
@@ -690,9 +724,12 @@ async function main(argv) {
   let source;
   source = readSourceFile(file);
   const sourceProfile = sourceInvocation.sourceProfile;
+  // typed-v0.53 was selected with the candidate opt-in (parseSourceInvocation);
+  // its phase A (source bytes, parse, AST nodes, capacity) runs inside parseSource.
+  const candidate = sourceProfile === SOURCE_PROFILE_TYPED_V053 ? { allowCandidateProfile: true } : {};
   let mod;
   try {
-    mod = parseSource(source, file, { sourceProfile });
+    mod = parseSource(source, file, { sourceProfile, ...candidate });
   } catch (error) {
     if (sourceProfile === SOURCE_PROFILE_LEGACY && !rest.includes("--source-profile") && error instanceof AirError) {
       error.message += " (default profile: legacy-v0.50; typed sources require --source-profile typed-v0.51)";
@@ -701,14 +738,18 @@ async function main(argv) {
   }
 
   if (command === "fmt" || command === "format") {
-    process.stdout.write(formatSource(mod, { sourceProfile }));
+    process.stdout.write(formatSource(mod, { sourceProfile, ...candidate }));
     return 0;
   }
 
   if (command === "verify") {
-    verifySource(mod, { sourceProfile, library: rest.includes("--library") });
+    verifySource(mod, { sourceProfile, library: rest.includes("--library"), ...candidate });
     console.log(`ok: ${file}`);
     return 0;
+  }
+
+  if (command === "build" && sourceProfile === SOURCE_PROFILE_TYPED_V053) {
+    return buildTypedV053(mod, file, rest);
   }
 
   if (isTypedSourceProfile(sourceProfile) && command !== "build") {
@@ -834,6 +875,43 @@ async function main(argv) {
   throw new AirError(`air.cli.command_unknown: ${command}`);
 }
 
+// E1: `airc build --source-profile typed-v0.53 --allow-candidate-profile`.
+// Phase A already ran in parseSource (source bytes, iterative parse, AST
+// nodes, capacity); then verify (phase S), the phase-B engine limits, the
+// WABT toolchain guard for `--emit wasm` (F3: a stable environment code, never
+// a raw module error), lowering with the exact incremental WAT cap, and the
+// Wasm cap on the assembler output before the file is written (AMD-10).
+async function buildTypedV053(mod, file, rest) {
+  verifySource(mod, { allowCandidateProfile: true, sourceProfile: SOURCE_PROFILE_TYPED_V053 });
+  const emit = readOption(rest, "--emit") || "wat";
+  const output = readOption(rest, "-o") || readOption(rest, "--output");
+  if (!["wat", "wasm"].includes(emit)) {
+    throw new AirError(`air.cli.option_unknown: unsupported --emit '${emit}'; expected wat or wasm`);
+  }
+  let wat;
+  let wasm;
+  try {
+    lowerWasmModule.typedV053.checkEngineLimits(mod);
+    if (emit === "wasm") createToolchainGuard(path.join(__dirname, "..", "src")).snapshot();
+    wat = lowerToWat(mod, { maxWatBytes: VERIFIED_TYPED_RUNTIME_LIMITS.maxWatBytes });
+    enforceVerifiedTypedBuildLimit("watBytes", Buffer.byteLength(wat, "utf8"));
+    if (emit === "wasm") {
+      wasm = await watToWasm(wat, file);
+      enforceVerifiedTypedBuildLimit("wasmBytes", wasm.length);
+    }
+  } catch (error) {
+    if (error && typeof error.code === "string" && error.code.startsWith("air.") && !(error instanceof AirError)) {
+      throw new AirError(String(error.message).startsWith(error.code) ? error.message : `${error.code}: ${error.message}`);
+    }
+    throw error;
+  }
+  const outPath = output || replaceExt(file, emit);
+  fs.mkdirSync(path.dirname(path.resolve(outPath)), { recursive: true });
+  fs.writeFileSync(outPath, emit === "wat" ? wat : wasm);
+  console.log(`wrote ${outPath}`);
+  return 0;
+}
+
 async function buildConformanceFixture(name, outDir) {
   const root = path.resolve(__dirname, "..");
   const fixtures = {
@@ -866,11 +944,20 @@ function runFormatCommand(args) {
   const diagnostics = [];
   let canonical = "";
 
+  const typedV053 = opts.sourceProfile === SOURCE_PROFILE_TYPED_V053;
+  const candidate = typedV053 ? { allowCandidateProfile: true } : {};
   try {
-    const mod = parseSource(source, opts.file || "<stdin>", { sourceProfile: opts.sourceProfile });
-    canonical = formatSource(mod, { sourceProfile: opts.sourceProfile });
+    const mod = parseSource(source, opts.file || "<stdin>", { sourceProfile: opts.sourceProfile, ...candidate });
+    canonical = formatSource(mod, { sourceProfile: opts.sourceProfile, ...candidate });
   } catch (err) {
-    diagnostics.push(formatDiagnostic("air.format.parse_failed", "fail", sanitizeDiagnosticMessage(err && err.message ? err.message : String(err))));
+    const message = sanitizeDiagnosticMessage(err && err.message ? err.message : String(err));
+    if (typedV053 && err && typeof err.code === "string" && err.code.startsWith("air.")) {
+      // R-14 / R-DIAG-1: typed-v0.53 keeps the stable code, and a refusal
+      // (ANALYSIS_REFUSED, INTAKE_REFUSED) keeps its own disposition.
+      diagnostics.push({ ...formatDiagnostic(err.code, "fail", message), disposition: err.disposition || "STATIC_REJECT" });
+    } else {
+      diagnostics.push(formatDiagnostic("air.format.parse_failed", "fail", message));
+    }
     return finishFormatResult({ opts, inputKind, changed: false, canonical: "", diagnostics });
   }
 
@@ -1001,7 +1088,7 @@ function readSourceProfileOption(args) {
     if (!value || value.startsWith("-")) {
       throw new AirError("air.source_profile.missing: expected a versioned profile after --source-profile");
     }
-    profile = normalizeSourceProfile(value);
+    profile = normalizeSourceProfile(value, { allowCandidateProfile: args.includes(CANDIDATE_PROFILE_FLAG) });
     seen = true;
   }
   return profile;
@@ -1021,6 +1108,7 @@ function parseSourceInvocation(args, { command, requireFile = true } = {}) {
       continue;
     }
     if (flags.has(arg)) continue;
+    if (arg === CANDIDATE_PROFILE_FLAG && sourceProfile === SOURCE_PROFILE_TYPED_V053) continue;
     throw new AirError(`air.cli.option_unknown: '${arg}' is not supported by '${command}'`);
   }
   const fileIndex = args.findIndex((arg, index) => !arg.startsWith("-") && !optionValues.has(index));

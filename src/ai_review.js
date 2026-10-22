@@ -1,4 +1,5 @@
 const { normalizeDiagnostic } = require("./diagnostics");
+const { assuranceProfileUnsupported, isTypedV053Ast } = require("./errors");
 
 const DEFAULT_AI_REVIEW_THRESHOLDS = Object.freeze({
   repeatedLiteralCount: 3,
@@ -14,6 +15,8 @@ const DEFAULT_AI_REVIEW_THRESHOLDS = Object.freeze({
 });
 
 function createAiReviewReport(mod, options = {}) {
+  // R-ASSUR-1 floor: never a silent PASS for a typed-v0.53 AST.
+  if (isTypedV053Ast(mod)) throw assuranceProfileUnsupported("createAiReviewReport");
   const thresholds = { ...DEFAULT_AI_REVIEW_THRESHOLDS, ...normalizeThresholdAliases(options.thresholds || {}) };
   const source = typeof options.source === "string" ? options.source : "";
   const warnings = [];

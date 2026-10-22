@@ -4,6 +4,7 @@ const { pathToFileURL, fileURLToPath } = require("url");
 const { createFileLspDiagnostics, createPackageLspDiagnostics } = require("./lsp_diagnostics");
 const { parseAir } = require("./parser");
 const { formatModule } = require("./format");
+const { SOURCE_PROFILE_TYPED_V053 } = require("./errors");
 
 const JSON_RPC_VERSION = "2.0";
 const LSP_TEXT_SYNC_FULL = 1;
@@ -15,6 +16,19 @@ class AirLspSession {
     this.rootPath = options.rootPath || null;
     this.profile = options.profile || "cli";
     this.shutdownRequested = false;
+    // R-LSP-1: typed-v0.53 is selected explicitly, under the candidate gate.
+    this.sourceProfile = null;
+    if (options.sourceProfile !== undefined) this.selectSourceProfile(options.sourceProfile, options.allowCandidateProfile);
+  }
+
+  selectSourceProfile(sourceProfile, allowCandidateProfile) {
+    if (sourceProfile !== SOURCE_PROFILE_TYPED_V053) return;
+    const { normalizeSourceProfile } = require("./source_profile");
+    this.sourceProfile = normalizeSourceProfile(sourceProfile, { allowCandidateProfile });
+  }
+
+  typedV053Options() {
+    return { allowCandidateProfile: true, sourceProfile: SOURCE_PROFILE_TYPED_V053 };
   }
 
   handleMessage(message) {
@@ -48,6 +62,9 @@ class AirLspSession {
     this.rootPath = params.rootPath || (this.rootUri ? uriToFilePath(this.rootUri) : this.rootPath);
     const initializationOptions = params.initializationOptions || {};
     if (initializationOptions.profile) this.profile = initializationOptions.profile;
+    if (initializationOptions.sourceProfile !== undefined) {
+      this.selectSourceProfile(initializationOptions.sourceProfile, initializationOptions.allowCandidateProfile);
+    }
     return {
       capabilities: {
         textDocumentSync: {
@@ -102,7 +119,7 @@ class AirLspSession {
     if (typeof params.text === "string") {
       this.documents.set(uri, { ...current, text: params.text });
     }
-    const packageRoot = findPackageRoot(current.path || uriToFilePath(uri));
+    const packageRoot = this.sourceProfile ? null : findPackageRoot(current.path || uriToFilePath(uri));
     if (packageRoot) return this.publishPackageDiagnostics(uri, packageRoot);
     return this.publishFileDiagnostics(uri);
   }
@@ -122,7 +139,13 @@ class AirLspSession {
     if (hasAirComment(doc.text)) {
       throw new Error("air.format.comments_not_preserved: editor formatting refuses comment-bearing input");
     }
-    const canonical = formatModule(parseAir(doc.text, doc.path));
+    let canonical;
+    if (this.sourceProfile) {
+      const { formatSource, parseSource } = require("./source_profile");
+      canonical = formatSource(parseSource(doc.text, doc.path, this.typedV053Options()), this.typedV053Options());
+    } else {
+      canonical = formatModule(parseAir(doc.text, doc.path));
+    }
     if (canonical === doc.text) return [];
     return [{
       range: fullDocumentRange(doc.text),
@@ -136,7 +159,9 @@ class AirLspSession {
     if (!doc) return null;
     let mod;
     try {
-      mod = parseAir(doc.text, doc.path);
+      mod = this.sourceProfile
+        ? require("./source_profile").parseSource(doc.text, doc.path, this.typedV053Options())
+        : parseAir(doc.text, doc.path);
     } catch {
       return null;
     }
@@ -169,7 +194,9 @@ class AirLspSession {
   publishFileDiagnostics(uri) {
     const doc = this.documents.get(uri);
     if (!doc) return [];
-    const result = createFileLspDiagnostics(doc.path, { sourceText: doc.text });
+    const result = createFileLspDiagnostics(doc.path, this.sourceProfile
+      ? { ...this.typedV053Options(), sourceText: doc.text }
+      : { sourceText: doc.text });
     return [publishDiagnostics(uri, result.diagnostics.map(toProtocolDiagnostic))];
   }
 

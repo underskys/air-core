@@ -99,6 +99,13 @@ const REPAIR_HINTS_BY_CODE = Object.freeze({
   "air.workbound.invalid_bound": "Declare the maximum as a non-negative integer literal within the profile cap.",
   "air.workbound.identity_mismatch": "Discard the supplied WorkBound summary or record; summaries are recomputed from bytes bound by identity and never lowered.",
   "air.workbound.cost_undefined": "Implementation defect: a construct reached the WorkBound summarizer without a CT-1 row. Report it; do not change the source.",
+  // typed-v0.53 SCALAR (RFC §15; docs/v0.53/SCALAR.md §6).
+  "air.analysis.capacity_exceeded": "ANALYSIS_REFUSED is not a verdict: this host's analysis capacity is below the measure the source requires. Use a host with more capacity or a smaller closure; the program's validity is unchanged.",
+  "air.assurance.profile_unsupported": "This assurance tool does not support typed-v0.53 sources in v0.53; use the typed-v0.53 verifier, WorkBound summaries and diagnostics instead.",
+  "air.build.engine_limit": "The admitted build plan exceeds a WebAssembly engine limit (JS API §8); split the function or reduce its parameters or locals.",
+  "air.numeric.operation_mode_required": "Choose an explicit i32 family: i32.checked_* fails on overflow, i32.wrapping_* wraps modulo 2^32; division and remainder exist only as i32.checked_div_s and i32.checked_rem_s.",
+  "air.source_profile.ast_mismatch": "Process the AST under the source profile it was parsed with.",
+  "air.source_profile.candidate_disabled": "typed-v0.53 is a candidate profile: select it with allowCandidateProfile: true or --allow-candidate-profile.",
   "air.memory.region_leak": "Call free_region on all paths before returning from the function.",
   "air.output_emit.host_abi_unsupported": `Use Host ABI 0.11 only for bounded ${OUT_EMIT_LABEL} packages, or remove ${OUT_EMIT_LABEL}.`,
   "air.output_emit.output_handle_required": "Use the generated OUTPUT_* handle constant for canonical bounded output authoring.",

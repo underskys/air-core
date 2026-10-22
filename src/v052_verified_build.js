@@ -7,13 +7,19 @@
 const crypto = require("crypto");
 const fs = require("fs");
 const path = require("path");
-const { lowerToWat, watToWasm } = require("./lower_wasm");
+const lowerWasmModule = require("./lower_wasm");
+const { lowerToWat, watToWasm } = lowerWasmModule;
 const {
   SOURCE_PROFILE_TYPED_V051,
+  SOURCE_PROFILE_TYPED_V053,
   isTypedSourceProfile,
+  normalizeSourceProfile,
   parseSource,
   verifySource
 } = require("./source_profile");
+const parserModule = require("./parser");
+const verifierModule = require("./verifier");
+const { AnalysisRefusedError, enforceAnalysisCapacity, normalizeAnalysisCapacity } = require("./analysis_capacity");
 const {
   canonicalDescriptor,
   descriptorDigest,
@@ -294,7 +300,7 @@ function normalizedBuildRecord(record) {
   if (record.kind !== VERIFIED_TYPED_BUILD_KIND || record.schema !== VERIFIED_TYPED_BUILD_SCHEMA) {
     fail("air.v052.verified_build_invalid", "verified build schema is invalid");
   }
-  if (record.sourceProfile !== SOURCE_PROFILE_TYPED_V051) {
+  if (record.sourceProfile !== SOURCE_PROFILE_TYPED_V051 && record.sourceProfile !== SOURCE_PROFILE_TYPED_V053) {
     fail("air.v052.verified_build_invalid", "verified build source profile is invalid");
   }
   const descriptor = normalizeTypedInterfaceDescriptor(record.descriptor);
@@ -331,7 +337,7 @@ function normalizedBuildRecord(record) {
     },
     schema: VERIFIED_TYPED_BUILD_SCHEMA,
     sourceDigest: record.sourceDigest,
-    sourceProfile: SOURCE_PROFILE_TYPED_V051,
+    sourceProfile: record.sourceProfile,
     wasmDigest: record.wasmDigest
   };
 }
@@ -342,6 +348,7 @@ function publicBuildRecord(record) {
 
 async function buildVerifiedTypedModuleInternal(input, controls = {}) {
   requireObject(input, "verified build input");
+  if (input.sourceProfile === SOURCE_PROFILE_TYPED_V053) return buildVerifiedTypedV053Internal(input, controls);
   const source = requireAsciiText(input.source, "source");
   const sourceName = typeof input.sourceName === "string" && input.sourceName
     ? input.sourceName
@@ -418,6 +425,88 @@ async function buildVerifiedTypedModuleInternal(input, controls = {}) {
 
 async function buildVerifiedTypedModule(input) {
   return buildVerifiedTypedModuleInternal(input, { limits: VERIFIED_TYPED_RUNTIME_LIMITS });
+}
+
+function rethrowCodedSourceError(error, phase) {
+  if (error instanceof AnalysisRefusedError) throw error;
+  throwBuildSourceError(error, phase);
+}
+
+// typed-v0.53 (SCALAR) build under the candidate gate (R-PROF-1, slice text
+// R-1). Phase order (slice text §3.1, §4.2 R17-d): source bytes → iterative
+// parse → AST-node intake → capacity check → verify → WorkBound summaries →
+// descriptor → phase-B engine limits → toolchain → lowering with the exact
+// incremental WAT cap → assembly → Wasm cap on the assembler output before
+// the bytes are hashed, compiled, cached or returned (AMD-10).
+async function buildVerifiedTypedV053Internal(input, controls = {}) {
+  try {
+    normalizeSourceProfile(SOURCE_PROFILE_TYPED_V053, { allowCandidateProfile: input.allowCandidateProfile });
+  } catch (error) { throwBuildSourceError(error, "parse"); }
+  let analysisCapacity;
+  try {
+    analysisCapacity = normalizeAnalysisCapacity(controls.analysisCapacity !== undefined ? controls.analysisCapacity : input.analysisCapacity);
+  } catch (error) { throwBuildSourceError(error, "parse"); }
+  const source = requireAsciiText(input.source, "source");
+  const sourceName = typeof input.sourceName === "string" && input.sourceName
+    ? input.sourceName
+    : "<typed-source>";
+  const limits = controls.limits;
+  if (limits) {
+    enforceWorkLimit("air.v052.work_limit_source_bytes", Buffer.byteLength(source, "utf8"), limits.maxSourceBytes, "source bytes");
+    enforceWorkLimit("air.v052.work_limit_source_name_bytes", Buffer.byteLength(sourceName, "utf8"), limits.maxSourceNameBytes, "sourceName bytes");
+  }
+  let mod;
+  try {
+    mod = parserModule.typedV053.parse(source, sourceName);
+  } catch (error) { throwBuildSourceError(error, "parse"); }
+  if (limits) enforceWorkLimit("air.v052.work_limit_ast_nodes", structuredObjectCount(mod), limits.maxAstNodes, "parsed AST nodes");
+  try {
+    enforceAnalysisCapacity(mod, analysisCapacity);
+    verifierModule.typedV053.verify(mod);
+  } catch (error) { rethrowCodedSourceError(error, "verify"); }
+  const workBoundAnalysis = summarizeVerifiedTypedBuild(mod);
+  const descriptor = validateDescriptorAgainstSource(input.descriptor, mod);
+  const descriptorBytes = Buffer.byteLength(canonicalDescriptor(descriptor), "utf8");
+  if (limits) {
+    enforceWorkLimit("air.v052.work_limit_descriptor_bytes", descriptorBytes, limits.maxDescriptorBytes, "canonical descriptor bytes");
+  }
+  lowerWasmModule.typedV053.checkEngineLimits(mod);
+  const toolchain = currentToolchainIdentity();
+  const wat = lowerToWat(mod, limits ? { analysisCapacity, maxWatBytes: limits.maxWatBytes } : { analysisCapacity });
+  if (limits) enforceWorkLimit("air.v052.work_limit_wat_bytes", Buffer.byteLength(wat, "utf8"), limits.maxWatBytes, "lowered WAT bytes");
+  let wasmBytes;
+  try {
+    wasmBytes = Buffer.from(await watToWasm(wat, sourceName));
+  } catch (_) {
+    fail("air.v052.verified_build_emission_failure", "verified typed WAT could not be emitted as Wasm");
+  }
+  if (limits) enforceWorkLimit("air.v052.work_limit_wasm_bytes", wasmBytes.length, limits.maxWasmBytes, "emitted Wasm bytes");
+  // Do not label old loaded code with new on-disk identities after an await.
+  TOOLCHAIN.snapshot();
+  const record = publicBuildRecord({
+    compiler: { implementationDigest: toolchain.implementationDigest, name: "airc", version: AIR_VERSION },
+    descriptor,
+    descriptorDigest: descriptorDigest(descriptor),
+    kind: VERIFIED_TYPED_BUILD_KIND,
+    lowering: { implementationDigest: loweringImplementationDigest(), name: LOWERING_ID },
+    schema: VERIFIED_TYPED_BUILD_SCHEMA,
+    sourceDigest: digestBytes(Buffer.from(source, "utf8")),
+    sourceProfile: SOURCE_PROFILE_TYPED_V053,
+    wasmDigest: digestBytes(wasmBytes)
+  });
+  const build = Object.freeze({
+    ...record,
+    artifactDigest: digestCanonical(record),
+    wasmBytes: Buffer.from(wasmBytes)
+  });
+  // R-WB-20 with the typed-v0.53 profile in the key (V53-WB-ID-01).
+  const workBound = bindVerifiedTypedWorkBound(workBoundAnalysis, {
+    compilerImplementationDigest: record.compiler.implementationDigest,
+    sourceDigest: record.sourceDigest,
+    sourceProfile: record.sourceProfile
+  });
+  BUILDS.set(build, { record, wasmBytes: Buffer.from(wasmBytes), workBound });
+  return build;
 }
 
 function assertTrustedBuild(build) {
@@ -663,13 +752,23 @@ async function invokeVerifiedTypedExport(build, exportName, args = []) {
   return invokeInstantiatedExport(record, instance, exportName, args);
 }
 
-function normalizeRuntimeBuildRequest(input, limits) {
+function normalizeRuntimeBuildRequest(input, limits, analysisCapacity) {
   requireRuntimeObject(input, "runtime build input");
+  // typed-v0.53 requests also accept the candidate opt-in (slice text R-1);
+  // a typed-v0.51 request keeps its key set and behaviour.
+  const typedV053 = input.sourceProfile === SOURCE_PROFILE_TYPED_V053;
   requireNoUnknownKeys(
     input,
-    ["buildOptions", "descriptor", "source", "sourceName", "sourceProfile"],
+    typedV053
+      ? ["allowCandidateProfile", "buildOptions", "descriptor", "source", "sourceName", "sourceProfile"]
+      : ["buildOptions", "descriptor", "source", "sourceName", "sourceProfile"],
     "runtime build input"
   );
+  if (typedV053) {
+    try {
+      normalizeSourceProfile(SOURCE_PROFILE_TYPED_V053, { allowCandidateProfile: input.allowCandidateProfile });
+    } catch (error) { throwBuildSourceError(error, "parse"); }
+  }
   const source = requireAsciiText(input.source, "source");
   const sourceName = input.sourceName === undefined ? "<typed-source>" : input.sourceName;
   if (typeof sourceName !== "string" || !sourceName) {
@@ -678,7 +777,7 @@ function normalizeRuntimeBuildRequest(input, limits) {
   const sourceProfile = input.sourceProfile === undefined
     ? SOURCE_PROFILE_TYPED_V051
     : input.sourceProfile;
-  if (!isTypedSourceProfile(sourceProfile)) {
+  if (!typedV053 && !isTypedSourceProfile(sourceProfile)) {
     fail("air.v052.verified_build_profile_invalid", "runtime build requires source profile typed-v0.51");
   }
   const buildOptions = input.buildOptions === undefined ? {} : input.buildOptions;
@@ -696,6 +795,17 @@ function normalizeRuntimeBuildRequest(input, limits) {
     limits.maxSourceNameBytes,
     "sourceName bytes"
   );
+  if (typedV053) {
+    // End of phase A on every build request, before the compile cache is
+    // consulted (slice text R-13): a result cached under a larger capacity is
+    // never served to a request that this runtime's capacity refuses.
+    let mod;
+    try {
+      mod = parserModule.typedV053.parse(source, "<typed-source>");
+    } catch (error) { throwBuildSourceError(error, "parse"); }
+    enforceWorkLimit("air.v052.work_limit_ast_nodes", structuredObjectCount(mod), limits.maxAstNodes, "parsed AST nodes");
+    enforceAnalysisCapacity(mod, analysisCapacity);
+  }
   enforceStructuredInputLimit(input.descriptor, limits.maxDescriptorBytes, "descriptor input bytes");
   const descriptor = normalizeTypedInterfaceDescriptor(input.descriptor);
   enforceWorkLimit(
@@ -711,12 +821,14 @@ function normalizeRuntimeBuildRequest(input, limits) {
     descriptorDigest: descriptorDigest(descriptor),
     schema: VERIFIED_TYPED_RUNTIME_CACHE_KEY_SCHEMA,
     sourceDigest: digestBytes(Buffer.from(source, "utf8")),
-    sourceProfile: SOURCE_PROFILE_TYPED_V051
+    sourceProfile: typedV053 ? SOURCE_PROFILE_TYPED_V053 : SOURCE_PROFILE_TYPED_V051
   });
   return {
     // sourceName is non-semantic display metadata. A fixed internal name also
     // prevents one single-flight caller's path from leaking to another caller.
-    buildInput: { buildOptions: {}, descriptor, source, sourceName: "<typed-source>", sourceProfile },
+    buildInput: typedV053
+      ? { allowCandidateProfile: true, buildOptions: {}, descriptor, source, sourceName: "<typed-source>", sourceProfile }
+      : { buildOptions: {}, descriptor, source, sourceName: "<typed-source>", sourceProfile },
     key: digestCanonical(keyRecord),
     keyRecord
   };
@@ -724,12 +836,19 @@ function normalizeRuntimeBuildRequest(input, limits) {
 
 function createVerifiedTypedRuntime(options) {
   requireRuntimeObject(options, "runtime options");
-  requireNoUnknownKeys(options, ["admit", "limits"], "runtime options");
+  requireNoUnknownKeys(options, ["admit", "analysisCapacity", "limits"], "runtime options");
   if (typeof options.admit !== "function") {
     fail("air.v052.runtime_input_invalid", "runtime admit callback is required");
   }
   const admit = options.admit;
   const limits = normalizeRuntimeLimits(options.limits);
+  // PS-1 (slice text R-12, R-13): the analysis capacity of this runtime
+  // instance, applied to typed-v0.53 requests only. It is not part of the
+  // `limits` object, whose key set is pinned.
+  let analysisCapacity;
+  try {
+    analysisCapacity = normalizeAnalysisCapacity(options.analysisCapacity);
+  } catch (error) { throwBuildSourceError(error, "parse"); }
   const toolchain = pinnedToolchainIdentity();
   const cache = new Map();
   const inFlight = new Map();
@@ -827,7 +946,7 @@ function createVerifiedTypedRuntime(options) {
   }
 
   async function compileEntry(request, generation) {
-    const build = await buildVerifiedTypedModuleInternal(request.buildInput, { limits });
+    const build = await buildVerifiedTypedModuleInternal(request.buildInput, { analysisCapacity, limits });
     const trusted = assertTrustedBuild(build);
     let module;
     try {
@@ -856,7 +975,7 @@ function createVerifiedTypedRuntime(options) {
 
   async function build(input, admissionContext) {
     counters.buildRequests += 1;
-    const request = normalizeRuntimeBuildRequest(input, limits);
+    const request = normalizeRuntimeBuildRequest(input, limits, analysisCapacity);
     let entry = cache.get(request.key);
     await requireAdmission("build", {
       ...request.keyRecord,

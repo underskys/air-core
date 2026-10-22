@@ -1,5 +1,6 @@
 const fs = require("fs");
 const path = require("path");
+const { assuranceProfileUnsupported, isTypedV053Ast } = require("./errors");
 
 const AUDIO_SOURCES = new Set(["host-owned", "module-driven", "direct-import"]);
 
@@ -12,6 +13,9 @@ function loadAudioManifest(file) {
 }
 
 function createAudioAuthorityReport(mod, options = {}) {
+  // R-ASSUR-1 floor as extended by OD-8 (b); keyed on the typed-v0.53 tag, so
+  // untagged module-like metadata objects are unaffected.
+  if (isTypedV053Ast(mod)) throw assuranceProfileUnsupported("createAudioAuthorityReport");
   const manifest = options.manifest || null;
   const errors = [];
   const warnings = [];

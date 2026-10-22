@@ -1,6 +1,16 @@
 const { formatV051Contract } = require("./v051_reference");
+const { AirError, isTypedV053Ast } = require("./errors");
+
+// R-PROF-7 for typed-v0.53 ASTs (OD-4 (b)): never a TypeError and never a
+// silent format in another profile.
+function rejectTypedV053Ast(mod, requested) {
+  if (isTypedV053Ast(mod)) {
+    throw new AirError(`air.source_profile.ast_mismatch: the AST was parsed as 'typed-v0.53' and cannot be processed as '${requested}'`);
+  }
+}
 
 function formatModule(mod) {
+  rejectTypedV053Ast(mod, "legacy-v0.50");
   const out = [];
   out.push(`module ${mod.name}`);
   for (const use of mod.uses || []) out.push(`use ${formatUseName(use.name)}${use.alias ? ` as ${use.alias}` : ""}`);
@@ -74,6 +84,7 @@ function formatModule(mod) {
 }
 
 function formatV051Air(mod) {
+  rejectTypedV053Ast(mod, "typed-v0.51");
   if (mod && mod.v051TypedAst) return formatV051TypedAir(mod);
   let formatted = formatModule(mod);
   for (const fn of mod.functions || []) {
@@ -286,4 +297,21 @@ function compareFlowDeclarations(a, b) {
     formatFlowDeclaration(a).localeCompare(formatFlowDeclaration(b));
 }
 
+// typed-v0.53 canonical form (R-FMT-1; OPEN-3 (a), OPEN-4 (a)): the
+// typed-v0.51 rules (alphabetical functions, qualified types, arm order) plus
+// exactly one trailing LF. Carriers and integer-spelled floats are already
+// normalized by the typed-v0.53 parser (`N.0`, `-0.0` kept). `match` over
+// `bool` uses the frozen arm order: equal rank, ASCII, so `false` first (R-7).
+function formatV053TypedAir(mod) {
+  if (!isTypedV053Ast(mod)) {
+    throw new AirError("air.source_profile.ast_mismatch: typed-v0.53 formatting requires a typed-v0.53 AST");
+  }
+  return `${formatV051TypedAir(mod)}\n`;
+}
+
 module.exports = { formatModule, formatV051Air, formatInstruction, formatArg, formatV051Contract };
+// Reached only through the candidate-gated source profile (R-PROF-2).
+Object.defineProperty(module.exports, "typedV053", {
+  enumerable: false,
+  value: Object.freeze({ format: formatV053TypedAir })
+});

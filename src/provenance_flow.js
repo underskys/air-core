@@ -1,4 +1,5 @@
 const crypto = require("crypto");
+const { assuranceProfileUnsupported, isTypedV053Ast } = require("./errors");
 
 const FLOW_LABELS = Object.freeze(["public", "internal", "sensitive", "restricted"]);
 const FLOW_LABEL_INDEX = new Map(FLOW_LABELS.map((label, index) => [label, index]));
@@ -39,6 +40,8 @@ class ProvenanceFlowError extends Error {
 }
 
 function analyzeProvenanceModule(mod, options = {}) {
+  // R-ASSUR-1 floor (OPEN-30 (a)): never `not_enabled` for a typed-v0.53 AST.
+  if (isTypedV053Ast(mod)) throw assuranceProfileUnsupported("analyzeProvenanceModule");
   return analyzeProvenancePackage([{
     path: options.path || modulePath(mod),
     mod,
@@ -47,6 +50,9 @@ function analyzeProvenanceModule(mod, options = {}) {
 }
 
 function analyzeProvenancePackage(records, policy = null, context = {}) {
+  if ((Array.isArray(records) ? records : []).some((record) => record && isTypedV053Ast(record.mod))) {
+    throw assuranceProfileUnsupported("analyzeProvenancePackage");
+  }
   const normalizedRecords = (records || []).map((record) => ({
     path: normalizePath(record.path || modulePath(record.mod)),
     mod: record.mod,

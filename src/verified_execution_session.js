@@ -23,7 +23,8 @@ const SESSION_OPTION_KEYS = new Set([
   "entrypoint",
   "memoryPlan",
   "packageDir",
-  "resourceCertificate"
+  "resourceCertificate",
+  "sourceProfile"
 ]);
 const MEMORY_PLAN_KEYS = new Set([
   "access",
@@ -57,6 +58,16 @@ class VerifiedExecutionSessionError extends Error {
 async function createVerifiedExecutionSession(options) {
   requirePlainObject(options, "options");
   rejectUnknownKeys(options, SESSION_OPTION_KEYS, "options");
+  // R-ASSUR-1 floor with the caller-supplied profile (OD-3 (c); OPEN-34 (a):
+  // typed realtime sessions are DEFERRED_V054). A typed profile is refused
+  // before the package is read or parsed; legacy-v0.50 (the default) is unchanged.
+  const sourceProfile = options.sourceProfile;
+  if (sourceProfile === "typed-v0.53" || sourceProfile === "typed-v0.51") {
+    sessionFail("air.assurance.profile_unsupported", `createVerifiedExecutionSession does not support the '${sourceProfile}' source profile`);
+  }
+  if (sourceProfile !== undefined && sourceProfile !== "legacy-v0.50") {
+    require("./source_profile").normalizeSourceProfile(sourceProfile);
+  }
   const base = path.resolve(requireString(options.packageDir, "options.packageDir"));
   const packageManifest = validatePackageManifest(base, { built: true });
   const metadata = normalizePackageMetadata(packageManifest);

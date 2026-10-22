@@ -7,8 +7,12 @@ const { createAiReviewReport } = require("./ai_review");
 const { staticTableMetadata, staticTableSummary, tableGroupMetadata, tableGroupSummary } = require("./table_metadata");
 const { stateSegmentMetadata, stateSegmentSummary } = require("./state_metadata");
 const { poolMetadata, poolSummary } = require("./pool_metadata");
+const { assuranceProfileUnsupported, isTypedV053Ast } = require("./errors");
 
 function createConformanceReport(mod, options = {}) {
+  // R-ASSUR-1 floor as extended by OD-8 (b): before the legacy verifier or the
+  // audio report runs.
+  if (isTypedV053Ast(mod)) throw assuranceProfileUnsupported("createConformanceReport");
   const errors = [];
   const warnings = [];
   let strictHostAbiStatus = "pass";

@@ -1,4 +1,4 @@
-const { AirError } = require("./errors");
+const { AirError, SOURCE_PROFILE_TYPED_V053 } = require("./errors");
 const { assertType, parseRefinementType } = require("./types");
 const { applyUseBundles } = require("./bundles");
 const { resolveSourceImports } = require("./imports");
@@ -1175,4 +1175,339 @@ function compareAscii(left, right) {
   return left < right ? -1 : left > right ? 1 : 0;
 }
 
+// ---------------------------------------------------------------------------
+// typed-v0.53 (SCALAR; RFC §5, D-VAL-12..14). The surface is typed-v0.51 plus
+// the SCALAR operations. These functions are reached only through the
+// candidate-gated source profile; they are deliberately not part of the
+// enumerable exports, so the public index does not expose an ungated
+// typed-v0.53 entry (R-PROF-2).
+
+// The SCALAR operation set. `args` and `result` are source types; `wat` is the
+// single Wasm instruction for the operations that lower to one. `fold` names
+// the static evaluation of R-SCL-2 (slice text R-16): checked integer
+// operations, integer comparisons and the two integer-operand checked
+// conversions are evaluated when every operand is statically known.
+const V053_OPERATIONS = Object.freeze(Object.fromEntries([
+  ...["add", "sub", "mul", "div_s", "rem_s"].map((name) => [`i32.checked_${name}`, { args: ["i32", "i32"], fold: "checked", operation: name, result: "i32", width: 32 }]),
+  ...["add", "sub", "mul"].map((name) => [`i32.wrapping_${name}`, { args: ["i32", "i32"], result: "i32", wat: `i32.${name}` }]),
+  ...["and", "or", "xor", "shl", "shr_u"].map((name) => [`i32.${name}`, { args: ["i32", "i32"], result: "i32", wat: `i32.${name}` }]),
+  ...["eq", "ne", "lt_s", "le_s", "gt_s", "ge_s"].map((name) => [`i32.${name}`, { args: ["i32", "i32"], fold: "comparison", operation: name, result: "bool", wat: `i32.${name}` }]),
+  ["i32.to_f32_checked", { args: ["i32"], fold: "to_f32", result: "f32" }],
+  ["f32.trunc_to_i32_checked", { args: ["f32"], result: "i32" }],
+  ["i32.to_i64", { args: ["i32"], result: "i64" }],
+  ["i64.to_i32_checked", { args: ["i64"], fold: "to_i32", result: "i32" }],
+  ["f32.to_f64", { args: ["f32"], result: "f64" }],
+  ["f64.to_f32_checked", { args: ["f64"], result: "f32" }],
+  ...["add", "sub", "mul", "div_s", "rem_s"].map((name) => [`i64.checked_${name}`, { args: ["i64", "i64"], fold: "checked", operation: name, result: "i64", width: 64 }]),
+  ["i64.checked_neg", { args: ["i64"], fold: "checked", operation: "neg", result: "i64", width: 64 }],
+  ...["eq", "ne", "lt_s", "le_s", "gt_s", "ge_s"].map((name) => [`i64.${name}`, { args: ["i64", "i64"], fold: "comparison", operation: name, result: "bool" }]),
+  ...["add", "sub", "mul", "div", "min", "max"].map((name) => [`f32.${name}`, { args: ["f32", "f32"], result: "f32", wat: `f32.${name}` }]),
+  ...["eq", "ne", "lt", "le", "gt", "ge"].map((name) => [`f32.${name}`, { args: ["f32", "f32"], result: "bool", wat: `f32.${name}` }]),
+  ["bool.and", { args: ["bool", "bool"], result: "bool", wat: "i32.and" }],
+  ["bool.or", { args: ["bool", "bool"], result: "bool", wat: "i32.or" }],
+  ["bool.not", { args: ["bool"], result: "bool", wat: "i32.eqz" }],
+  ...["i32", "i64", "f32", "f64", "bool"].map((type) => [`select.${type}`, { args: ["bool", type, type], result: type, wat: "select" }])
+].map(([op, signature]) => [op, Object.freeze({ ...signature, args: Object.freeze(signature.args) })])));
+
+const V053_TYPE_NESTING_LIMIT = 64;
+const V053_INTEGER_LITERAL = /^-?(0|[1-9][0-9]*)$/;
+const V053_DECIMAL_LITERAL = /^-?(?:0|[1-9][0-9]*)(?:\.[0-9]+)?(?:[eE][+-]?[0-9]+)?$/;
+const V053_OPERATION_FORM = /^([a-z][a-z0-9_]*(?:\.[a-z0-9_]+)*)\s+(.+)$/;
+
+// AMD-2: the existing type-nesting guard of 64 is applied before any recursive
+// processing of the type text, with the guard's existing code.
+function guardV053TypeNesting(text, loc) {
+  let nesting = 0;
+  for (let index = 0; index < text.length; index += 1) {
+    if (text[index] === "<" && ++nesting > V053_TYPE_NESTING_LIMIT) {
+      throw new AirError("air.decision.payload_type_unsupported: type nesting exceeds the supported flat-sum surface", loc);
+    }
+    if (text[index] === ">") nesting -= 1;
+  }
+}
+
+function withV053Location(action, loc) {
+  try {
+    return action();
+  } catch (error) {
+    if (error instanceof AirError) throw error;
+    throw new AirError(String(error && error.message || error), loc);
+  }
+}
+
+function parseV053TypedType(value, moduleId, allowVoid, loc) {
+  const text = String(value || "").trim();
+  guardV053TypeNesting(text, loc);
+  return withV053Location(() => parseV051TypedType(text, moduleId, allowVoid, loc), loc);
+}
+
+function canonicalizeV053SourceType(value, moduleId, loc) {
+  const text = String(value || "").trim();
+  guardV053TypeNesting(text, loc);
+  return withV053Location(() => canonicalizeV051SourceType(text, moduleId, false, loc), loc);
+}
+
+function v053BaseType(expectedType) {
+  const refinement = parseRefinementType(expectedType);
+  return refinement ? refinement.base : expectedType;
+}
+
+// OPEN-4 (a): literal carriers normalize to the bare literal; integer-spelled
+// floats normalize to `N.0` (sign kept, so `-0` is `-0.0`). Integer `-0` is `0`.
+function normalizeV053Literal(text, type) {
+  const base = v053BaseType(type);
+  if ((base === "i32" || base === "i64") && V053_INTEGER_LITERAL.test(text)) return text === "-0" ? "0" : text;
+  if ((base === "f32" || base === "f64") && V053_DECIMAL_LITERAL.test(text)) {
+    return V053_INTEGER_LITERAL.test(text) ? `${text}.0` : text;
+  }
+  return text;
+}
+
+function normalizeV053Carrier(text, expectedType, loc) {
+  const carrier = text.match(/^const\.(i32|i64|f32|f64|bool)(?:\s+(.*))?$/);
+  if (!carrier) return null;
+  const type = carrier[1];
+  const literal = String(carrier[2] || "").trim();
+  if (v053BaseType(expectedType) !== type) {
+    throw new AirError(`air.v051.typed_atom_type_mismatch: const.${type} requires ${type}`, loc);
+  }
+  const valid = type === "bool"
+    ? literal === "true" || literal === "false"
+    : (type === "i32" || type === "i64") ? V053_INTEGER_LITERAL.test(literal) : V053_DECIMAL_LITERAL.test(literal);
+  if (!valid) throw new AirError(`air.v051.typed_atom_invalid: const.${type} requires an exact literal`, loc);
+  return normalizeV053Literal(literal, type);
+}
+
+function normalizeV053Value(value, expectedType, moduleId, loc) {
+  const text = String(value || "").trim();
+  if (expectedType === "void") {
+    if (text) throw new AirError("air.v051.return_type_mismatch: void return must not contain a value", loc);
+    return "";
+  }
+  const carrier = normalizeV053Carrier(text, expectedType, loc);
+  if (carrier !== null) return carrier;
+  if (/^%[A-Za-z_][A-Za-z0-9_]*$/.test(text)) return text;
+
+  const operation = text.match(V053_OPERATION_FORM);
+  if (operation) {
+    const signature = V053_OPERATIONS[operation[1]];
+    const args = splitComma(operation[2]).map((argument) => argument.trim());
+    return {
+      args: signature && signature.args.length === args.length
+        ? args.map((argument, index) => normalizeV053Literal(argument, signature.args[index]))
+        : args,
+      kind: "numeric_operation",
+      op: operation[1]
+    };
+  }
+
+  const refinement = parseRefinementType(expectedType, loc);
+  const expected = refinement
+    ? { baseCanonical: refinement.base, canonical: refinement.canonical, kind: "primitive", refinement: refinement.refinement }
+    : withV053Location(() => parseTypeReference(expectedType), loc);
+
+  if (expected.kind === "option") {
+    if (text === "none") return `option.none<${expected.payload.canonical}>`;
+    const shortSome = text.match(/^some\((.+)\)$/);
+    if (shortSome) return `option.some<${expected.payload.canonical}> ${normalizeV053Literal(shortSome[1].trim(), expected.payload.canonical)}`;
+    const none = text.match(/^option\.none<(.+)>$/);
+    if (none) return `option.none<${canonicalizeV053SourceType(none[1], moduleId, loc)}>`;
+    const some = text.match(/^option\.some<(.+)>\s+(.+)$/);
+    if (some) {
+      const payload = canonicalizeV053SourceType(some[1], moduleId, loc);
+      return `option.some<${payload}> ${normalizeV053Literal(some[2].trim(), payload)}`;
+    }
+  }
+
+  if (expected.kind === "result") {
+    if (text === "ok" || text === "err") {
+      throw new AirError("air.v051.typed_constructor_invalid: result constructor requires a payload", loc);
+    }
+    const short = text.match(/^(ok|err)\((.+)\)$/);
+    if (short) {
+      const laneType = short[1] === "ok" ? expected.payload.canonical : expected.error.canonical;
+      return `result.${short[1]}<${expected.payload.canonical},${expected.error.canonical}> ${normalizeV053Literal(short[2].trim(), laneType)}`;
+    }
+    const constructor = text.match(/^result\.(ok|err)<(.+)>\s+(.+)$/);
+    if (constructor) {
+      guardV053TypeNesting(constructor[2], loc);
+      const parts = splitComma(constructor[2]);
+      if (parts.length !== 2) throw new AirError("air.v051.typed_constructor_invalid: result constructor requires two type arguments", loc);
+      const payload = canonicalizeV053SourceType(parts[0], moduleId, loc);
+      const error = canonicalizeV053SourceType(parts[1], moduleId, loc);
+      const laneType = constructor[1] === "ok" ? payload : error;
+      return `result.${constructor[1]}<${payload},${error}> ${normalizeV053Literal(constructor[3].trim(), laneType)}`;
+    }
+  }
+
+  if (expected.kind === "enum") {
+    const literal = text.match(/^(?:(?<module>[a-z][a-z0-9._-]{0,127})::)?(?<type>[A-Z][A-Za-z0-9_]{0,127})\.(?<case>[A-Za-z_][A-Za-z0-9_]*)$/);
+    if (literal) return `${literal.groups.module || moduleId}::${literal.groups.type}.${literal.groups.case}`;
+  }
+
+  return normalizeV053Literal(text, expected.baseCanonical || expected.canonical);
+}
+
+// OPEN-9 (a): a qualified enum pattern of this module keeps the unqualified
+// canonical output.
+function normalizeV053Pattern(pattern, moduleId) {
+  const text = String(pattern || "").trim();
+  const qualified = text.match(/^([a-z][a-z0-9._-]{0,127})::([A-Z][A-Za-z0-9_]*\.[A-Za-z_][A-Za-z0-9_]*)$/);
+  return qualified && qualified[1] === moduleId ? qualified[2] : text;
+}
+
+function v053SyntaxError(message, loc) {
+  return new AirError(`air.v051.typed_syntax_invalid: ${message}`, loc);
+}
+
+// One pass over the lines with an explicit stack of open frames (AMD-1). No
+// parse step recurses on the host stack with the input; SCALAR has no block
+// statement, so a frame is a module item (enum, function) or a `match`.
+function parseV053TypedAir(source, file = "<input>") {
+  const lines = String(source).split(/\r?\n/);
+  const mod = {
+    name: null,
+    capabilities: new Set(),
+    capabilityDeclarations: 0,
+    enums: [],
+    functions: [],
+    v051TypedAst: true
+  };
+  Object.defineProperty(mod, "sourceProfile", { configurable: false, enumerable: true, value: SOURCE_PROFILE_TYPED_V053, writable: false });
+  const stack = [];
+  for (let index = 0; index < lines.length; index += 1) {
+    const loc = { file, line: index + 1 };
+    const line = stripComment(lines[index]).trim();
+    if (!line) continue;
+    const frame = stack[stack.length - 1];
+
+    if (!frame) {
+      const moduleMatch = line.match(/^module\s+([a-z][a-z0-9._-]{0,127})$/);
+      if (moduleMatch) {
+        if (mod.name) throw v053SyntaxError("duplicate module declaration", loc);
+        mod.name = moduleMatch[1];
+        continue;
+      }
+      const capabilitiesMatch = line.match(/^capabilities\s*\{\s*([^}]*)\s*\}$/);
+      if (capabilitiesMatch) {
+        for (const capability of splitComma(capabilitiesMatch[1])) {
+          if (capability) mod.capabilities.add(capability);
+        }
+        mod.capabilityDeclarations += 1;
+        continue;
+      }
+      if (!mod.name) throw v053SyntaxError("missing module declaration", loc);
+      const enumMatch = line.match(/^(error\s+)?enum\s+([A-Z][A-Za-z0-9_]{0,127})\s*\{$/);
+      if (enumMatch) {
+        stack.push({ cases: [], isError: Boolean(enumMatch[1]), kind: "enum", loc, typeName: enumMatch[2] });
+        continue;
+      }
+      const functionMatch = line.match(/^(export\s+)?func\s+([A-Za-z_][A-Za-z0-9_]*)\s*\((.*)\)\s*->\s*(.+)\s*\{$/);
+      if (functionMatch) {
+        if (mod.functions.some((item) => item.name === functionMatch[2])) {
+          throw new AirError(`air.v051.function_duplicate: duplicate function '${functionMatch[2]}'`, loc);
+        }
+        const params = functionMatch[3].trim() ? splitComma(functionMatch[3]).map((part) => {
+          const parameter = part.match(/^([A-Za-z_][A-Za-z0-9_]*)\s*:\s*(.+)$/);
+          if (!parameter) throw v053SyntaxError(`invalid parameter '${part}'`, loc);
+          return { name: parameter[1], type: parseV053TypedType(parameter[2], mod.name, false, loc) };
+        }) : [];
+        const returnType = parseV053TypedType(functionMatch[4], mod.name, true, loc);
+        const fn = { name: functionMatch[2], exported: Boolean(functionMatch[1]), params, returnType, statements: [], loc };
+        mod.functions.push(fn);
+        stack.push({ fn, kind: "function" });
+        continue;
+      }
+      throw v053SyntaxError(`unsupported typed source declaration '${line}'`, loc);
+    }
+
+    if (frame.kind === "enum") {
+      if (line === "}") {
+        stack.pop();
+        if (!frame.cases.length) throw new AirError("air.decision.enum_empty: enum must declare at least one case", loc);
+        const declaration = {
+          cases: frame.cases.sort((left, right) => left.discriminant - right.discriminant || compareAscii(left.name, right.name)),
+          kind: frame.isError ? "error_enum" : "enum",
+          type_id: `${mod.name}::${frame.typeName}`
+        };
+        if (mod.enums.some((item) => item.type_id === declaration.type_id)) {
+          throw new AirError(`air.decision.enum_duplicate_type: duplicate enum '${frame.typeName}'`, frame.loc);
+        }
+        mod.enums.push(declaration);
+        continue;
+      }
+      const match = line.match(/^([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(-?[0-9]+)\s*,?$/);
+      if (!match) throw new AirError("air.decision.enum_discriminant_required: enum cases require an explicit integer discriminant", loc);
+      const discriminant = Number(match[2]);
+      if (!Number.isSafeInteger(discriminant) || discriminant < 0 || discriminant > 2147483647) {
+        throw new AirError(`air.decision.enum_discriminant_out_of_range: '${match[2]}'`, loc);
+      }
+      if (frame.cases.some((item) => item.name === match[1])) throw new AirError(`air.decision.enum_duplicate_case: '${match[1]}'`, loc);
+      if (frame.cases.some((item) => item.discriminant === discriminant)) throw new AirError(`air.decision.enum_duplicate_discriminant: '${discriminant}'`, loc);
+      frame.cases.push({ discriminant, name: match[1] });
+      continue;
+    }
+
+    if (frame.kind === "match") {
+      if (line === "}") {
+        stack.pop();
+        continue;
+      }
+      const arm = line.match(/^(.+?)\s*=>\s*(.+?)\s*[,;]?$/);
+      if (!arm) throw new AirError("air.decision.match_arm_invalid: match arms must use pattern => expression", loc);
+      frame.statement.arms.push({
+        expression: normalizeV053Value(arm[2], frame.statement.destinationType, mod.name, loc),
+        loc,
+        pattern: normalizeV053Pattern(arm[1], mod.name)
+      });
+      continue;
+    }
+
+    // frame.kind === "function"
+    const fn = frame.fn;
+    if (line === "}") {
+      stack.pop();
+      continue;
+    }
+    const matchHeader = line.match(/^%([A-Za-z_][A-Za-z0-9_]*)\s*:\s*(.+?)\s*=\s*match\s+%([A-Za-z_][A-Za-z0-9_]*)\s*\{$/);
+    if (matchHeader) {
+      const statement = {
+        arms: [],
+        destination: matchHeader[1],
+        destinationType: parseV053TypedType(matchHeader[2], mod.name, false, loc),
+        kind: "match",
+        loc,
+        value: matchHeader[3]
+      };
+      fn.statements.push(statement);
+      stack.push({ kind: "match", statement });
+      continue;
+    }
+    const local = line.match(/^%([A-Za-z_][A-Za-z0-9_]*)\s*:\s*(.+?)\s*=\s*(.+)$/);
+    if (local) {
+      const type = parseV053TypedType(local[2], mod.name, false, loc);
+      fn.statements.push({ kind: "local", loc, name: local[1], type, value: normalizeV053Value(local[3], type, mod.name, loc) });
+      continue;
+    }
+    const returned = line.match(/^return\s+(.+)$/);
+    if (returned) {
+      fn.statements.push({ kind: "return", loc, value: normalizeV053Value(returned[1], fn.returnType, mod.name, loc) });
+      continue;
+    }
+    throw v053SyntaxError(`unsupported function statement '${line}'`, loc);
+  }
+  if (stack.length) {
+    const open = stack[stack.length - 1];
+    const loc = open.kind === "enum" ? open.loc : open.kind === "match" ? open.statement.loc : open.fn.loc;
+    const label = open.kind === "enum" ? `enum '${open.typeName}'` : open.kind === "match" ? "match" : `function '${open.fn.name}'`;
+    throw v053SyntaxError(`unclosed ${label}`, loc);
+  }
+  if (!mod.name) throw v053SyntaxError("missing module declaration", { file, line: 1 });
+  return mod;
+}
+
 module.exports = { parseAir, parseV051Air, parseV051TypedAir, canonicalizeV051SourceType, splitComma, parseV051Contract };
+Object.defineProperty(module.exports, "typedV053", {
+  enumerable: false,
+  value: Object.freeze({ OPERATIONS: V053_OPERATIONS, parse: parseV053TypedAir })
+});

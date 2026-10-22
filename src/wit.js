@@ -4,8 +4,11 @@ const {
   borrowedSliceInterfaceDescriptor,
   borrowedSliceInterfaceDigest
 } = require("./borrowed_slices");
+const { assuranceProfileUnsupported, isTypedV053Ast } = require("./errors");
 
 function emitWit(mod) {
+  // R-ASSUR-1 floor (OPEN-24 (a): WIT emission is unsupported for typed modules).
+  if (isTypedV053Ast(mod)) throw assuranceProfileUnsupported("emitWit");
   const lines = [];
   const packageName = sanitizePackageName(mod.name);
   const borrowedDescriptor = borrowedSliceInterfaceDescriptor(mod);

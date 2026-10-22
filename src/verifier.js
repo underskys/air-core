@@ -34,7 +34,8 @@ const {
 } = require("./borrowed_slices");
 const { checkAbi012Candidate, createDecisionEvidence, deriveEffectiveAuthority } = require("./v051_reference");
 const { parseTypeReference } = require("./typed_interface");
-const { semanticDiagnosticCode } = require("./errors");
+const { assuranceProfileUnsupported, isTypedV053Ast, semanticDiagnosticCode } = require("./errors");
+const parserModule = require("./parser");
 
 const RESOURCE_CERTIFICATE_SCHEMA_VERSION = "1.0";
 const RESOURCE_CERTIFICATE_KIND = "air.verifiedResourceCertificate";
@@ -76,6 +77,10 @@ class VerificationError extends Error {
 }
 
 function verifyModule(mod, options = {}) {
+  // R-PROF-7 for typed-v0.53 ASTs (OD-4 (b)): the legacy verifier never walks one.
+  if (isTypedV053Ast(mod)) {
+    throw new VerificationError("air.source_profile.ast_mismatch: the AST was parsed as 'typed-v0.53' and cannot be processed as 'legacy-v0.50'");
+  }
   const functions = new Map();
   const globals = new Map();
   const types = buildTypeEnv(mod);
@@ -207,6 +212,9 @@ function verifyModule(mod, options = {}) {
 }
 
 function verifyV051Air(mod, options = {}) {
+  if (isTypedV053Ast(mod)) {
+    throw new VerificationError("air.source_profile.ast_mismatch: the AST was parsed as 'typed-v0.53' and cannot be processed as 'typed-v0.51'");
+  }
   if (!mod || !mod.v051TypedDecisionCandidate) {
     throw new VerificationError("air.v051.parser_required: v0.51 verification requires parseV051Air");
   }
@@ -560,6 +568,9 @@ function splitV051TypeArguments(value) {
 }
 
 function assertRealtimeSafeProfile(mod, profile, certificate) {
+  // R-ASSUR-1 floor, first check whatever the other arguments (OPEN-34 (a):
+  // the typed realtime profile is DEFERRED_V054).
+  if (isTypedV053Ast(mod)) throw assuranceProfileUnsupported("assertRealtimeSafeProfile");
   const failProfile = (code, message, loc = mod && mod.loc) => {
     fail(`${code}: ${message}`, loc);
   };
@@ -1636,6 +1647,10 @@ function normalizeCertificateModules(input, options) {
   return source.map((entry, index) => {
     const normalized = entry && entry.mod ? entry : { mod: entry };
     if (!normalized.mod || typeof normalized.mod !== "object") throw new Error(`resource certificate module ${index} is invalid`);
+    if (isTypedV053Ast(normalized.mod)) {
+      // R-WB-24 / V53-ASSUR-01: the same refusal for typed-v0.53 ASTs.
+      throw new VerificationError(`air.resource_certificate.profile_unsupported: module ${index} uses the typed-v0.53 source profile; the legacy resource certificate cannot bound typed modules`);
+    }
     if (normalized.mod.v051TypedAst) {
       // X-SND-04: this certificate walks the legacy block IR only.
       throw new VerificationError(`air.resource_certificate.profile_unsupported: module ${index} uses the typed-v0.51 source profile; the legacy resource certificate cannot bound typed modules`);
@@ -4960,6 +4975,239 @@ const KNOWN_INSTRUCTIONS = [
   "br_if"
 ];
 
+// ---------------------------------------------------------------------------
+// typed-v0.53 (SCALAR) verification: typed-v0.51 plus the SCALAR operations
+// (RFC §5; D-VAL-12..14). A separate path keyed on the typed-v0.53 tag, so no
+// typed-v0.51 result, code or error order changes (R-PROF-4). Every code here
+// carries the `code:` delimiter (R-DIAG-1); codes are reused where the meaning
+// is identical (OPEN-2 (a)).
+
+// R-SCL-1 (OPEN-5 (a)): unqualified i32 arithmetic has no implicit mode.
+const V053_MODE_REQUIRED = Object.freeze({
+  add: "i32.checked_add or i32.wrapping_add",
+  "i32.add": "i32.checked_add or i32.wrapping_add",
+  "i32.div_s": "i32.checked_div_s",
+  "i32.mul": "i32.checked_mul or i32.wrapping_mul",
+  "i32.rem_s": "i32.checked_rem_s",
+  "i32.sub": "i32.checked_sub or i32.wrapping_sub",
+  mul: "i32.checked_mul or i32.wrapping_mul",
+  sub: "i32.checked_sub or i32.wrapping_sub"
+});
+const V053_INTEGER_RANGE = Object.freeze({
+  32: Object.freeze({ max: 2147483647n, min: -2147483648n }),
+  64: Object.freeze({ max: 9223372036854775807n, min: -9223372036854775808n })
+});
+
+function verifyV053TypedModule(mod) {
+  if (!isTypedV053Ast(mod)) {
+    throw new VerificationError("air.source_profile.ast_mismatch: typed-v0.53 verification requires a typed-v0.53 AST");
+  }
+  for (const capability of mod.capabilities || []) {
+    if (!KNOWN_CAPABILITIES.has(capability)) {
+      throw new VerificationError(`air.capability.unknown: unknown capability '${capability}'`);
+    }
+  }
+  const declarations = new Map();
+  for (const declaration of mod.enums || []) {
+    if (!declaration || (declaration.kind !== "enum" && declaration.kind !== "error_enum") || typeof declaration.type_id !== "string") {
+      throw new VerificationError("air.decision.enum_invalid: invalid enum declaration");
+    }
+    if (declarations.has(declaration.type_id)) throw new VerificationError(`air.decision.enum_duplicate_type: '${declaration.type_id}'`);
+    if (!Array.isArray(declaration.cases) || !declaration.cases.length) throw new VerificationError(`air.decision.enum_empty: '${declaration.type_id}'`);
+    const names = new Set(); const discriminants = new Set();
+    for (const entry of declaration.cases) {
+      if (!entry || !Number.isInteger(entry.discriminant) || entry.discriminant < 0 || entry.discriminant > 2147483647) throw new VerificationError(`air.decision.enum_discriminant_out_of_range: '${declaration.type_id}'`);
+      if (typeof entry.name !== "string" || names.has(entry.name)) throw new VerificationError(`air.decision.enum_duplicate_case: '${declaration.type_id}'`);
+      if (discriminants.has(entry.discriminant)) throw new VerificationError(`air.decision.enum_duplicate_discriminant: '${declaration.type_id}'`);
+      names.add(entry.name); discriminants.add(entry.discriminant);
+    }
+    declarations.set(declaration.type_id, declaration);
+  }
+  const functions = new Set();
+  for (const fn of mod.functions || []) {
+    if (!fn || typeof fn.name !== "string" || functions.has(fn.name)) throw new VerificationError("air.v051.function_duplicate: typed function names must be unique", fn && fn.loc);
+    functions.add(fn.name);
+    // OPEN-17 (a) admits void functions with P0-04 (bare return and statement
+    // calls). Before that, typed-v0.53 does not admit them: a void function
+    // verifies but never lowers in typed-v0.51 (RFC §3.2), and R-COMP-3 forbids
+    // a typed-v0.53 program that verifies and then fails to build.
+    if (fn.returnType === "void") {
+      throw new VerificationError(`air.v051.typed_syntax_invalid: void function '${fn.name}' is not admitted in typed-v0.53 before P0-04 (OPEN-17)`, fn.loc);
+    }
+    const locals = new Map();
+    const staticValues = new Map();
+    const parameterNames = new Set();
+    for (const parameter of fn.params || []) {
+      if (!parameter || typeof parameter.name !== "string" || parameterNames.has(parameter.name)) throw new VerificationError(`air.v051.parameter_duplicate: '${fn.name}'`, fn.loc);
+      parameterNames.add(parameter.name);
+      verifyV051TypedType(parameter.type, declarations, fn.loc, false);
+      locals.set(parameter.name, parameter.type);
+    }
+    const returnType = verifyV051TypedType(fn.returnType, declarations, fn.loc, false);
+    let hasReturn = false;
+    for (const statement of fn.statements || []) {
+      if (hasReturn) throw new VerificationError("air.control.statement_after_return: return must be the last statement", statement && statement.loc);
+      if (statement && statement.kind === "local") {
+        if (locals.has(statement.name)) throw new VerificationError(`air.v051.local_duplicate: '${statement.name}'`, statement.loc);
+        const declared = verifyV051TypedType(statement.type, declarations, statement.loc, false);
+        const staticValue = verifyV053TypedExpression(statement.value, declared, locals, declarations, statement.loc, staticValues);
+        locals.set(statement.name, statement.type);
+        if (staticValue !== undefined) staticValues.set(statement.name, staticValue);
+      } else if (statement && statement.kind === "match") {
+        if (locals.has(statement.destination)) throw new VerificationError(`air.v051.local_duplicate: '${statement.destination}'`, statement.loc);
+        verifyV053TypedMatch(statement, locals, declarations);
+        locals.set(statement.destination, statement.destinationType);
+      } else if (statement && statement.kind === "return") {
+        verifyV053TypedExpression(statement.value, returnType, locals, declarations, statement.loc, staticValues);
+        hasReturn = true;
+      } else {
+        throw new VerificationError("air.v051.typed_statement_invalid: unsupported statement", statement && statement.loc);
+      }
+    }
+    if (!hasReturn) throw new VerificationError(`air.v051.return_missing: '${fn.name}'`, fn.loc);
+  }
+  return mod;
+}
+
+function verifyV053TypedAtom(value, expected, locals, declarations, loc) {
+  if (typeof value !== "string" || !value.trim()) throw new VerificationError("air.v051.typed_atom_invalid: expected a typed atom", loc);
+  return verifyV051TypedAtom(value, expected, locals, declarations, loc);
+}
+
+// R-SCL-2 with the slice text's reading R-16: a value is statically known when
+// it is an integer literal, or a reference to a local whose initializer was
+// statically known (an integer literal, a statically known reference, or an
+// evaluated checked operation). Float literals and every other result are not.
+function v053StaticInteger(value, staticValues) {
+  const text = String(value || "").trim();
+  if (/^%[A-Za-z_][A-Za-z0-9_]*$/.test(text)) {
+    const known = staticValues.get(text.slice(1));
+    return typeof known === "bigint" ? known : undefined;
+  }
+  return /^-?(0|[1-9][0-9]*)$/.test(text) ? BigInt(text) : undefined;
+}
+
+function verifyV053TypedExpression(value, expected, locals, declarations, loc, staticValues) {
+  let staticValue;
+  if (value && typeof value === "object" && value.kind === "numeric_operation") {
+    staticValue = verifyV053TypedOperation(value, expected, locals, declarations, loc, staticValues);
+  } else {
+    verifyV053TypedAtom(value, expected, locals, declarations, loc);
+    const base = v051TypeBase(expected);
+    if (base === "i32" || base === "i64") staticValue = v053StaticInteger(value, staticValues);
+  }
+  if (expected.refinement && expected.refinement.kind === "i32_range" && typeof staticValue === "bigint" &&
+      (staticValue < BigInt(expected.refinement.min) || staticValue > BigInt(expected.refinement.max))) {
+    throw new VerificationError(`air.refinement.assignment_out_of_range: ${staticValue} is outside ${expected.canonical}`, loc);
+  }
+  return staticValue;
+}
+
+function verifyV053TypedOperation(operation, expected, locals, declarations, loc, staticValues) {
+  const op = String(operation.op || "");
+  if (Object.prototype.hasOwnProperty.call(V053_MODE_REQUIRED, op)) {
+    throw new VerificationError(`air.numeric.operation_mode_required: '${op}' has no implicit mode; use ${V053_MODE_REQUIRED[op]}`, loc);
+  }
+  const signature = Object.prototype.hasOwnProperty.call(parserModule.typedV053.OPERATIONS, op) ? parserModule.typedV053.OPERATIONS[op] : null;
+  if (!signature || !Array.isArray(operation.args) || operation.args.length !== signature.args.length) {
+    throw new VerificationError(`air.numeric.operation_invalid: '${op}'`, loc);
+  }
+  if (v051TypeBase(expected) !== signature.result) throw new VerificationError(`air.v051.typed_atom_type_mismatch: '${op}'`, loc);
+  for (let index = 0; index < signature.args.length; index += 1) {
+    verifyV053TypedAtom(operation.args[index], parseTypeReference(signature.args[index]), locals, declarations, loc);
+  }
+  if (!signature.fold) return undefined;
+  const values = operation.args.map((argument) => v053StaticInteger(argument, staticValues));
+  if (values.some((value) => value === undefined)) return undefined;
+  if (signature.fold === "comparison") return evaluateV051I64Comparison(signature.operation, values);
+  if (signature.fold === "to_i32") {
+    if (values[0] < V053_INTEGER_RANGE[32].min || values[0] > V053_INTEGER_RANGE[32].max) {
+      throw new VerificationError("air.numeric.checked_failure: invalid_conversion", loc);
+    }
+    return values[0];
+  }
+  if (signature.fold === "to_f32") {
+    // Exact iff the binary32 value equals the integer (|i32| < 2^53 is exact
+    // in a JS Number). The f32 result is not a statically known integer.
+    const number = Number(values[0]);
+    if (Math.fround(number) !== number) throw new VerificationError("air.numeric.checked_failure: invalid_conversion", loc);
+    return undefined;
+  }
+  return evaluateV053Checked(signature, values, loc);
+}
+
+function evaluateV053Checked(signature, values, loc) {
+  const { max, min } = V053_INTEGER_RANGE[signature.width];
+  const [left, right] = values;
+  let result;
+  if (signature.operation === "add") result = left + right;
+  else if (signature.operation === "sub") result = left - right;
+  else if (signature.operation === "mul") result = left * right;
+  else if (signature.operation === "neg") result = -left;
+  else if (signature.operation === "div_s") {
+    if (right === 0n) throw new VerificationError("air.numeric.checked_failure: division_by_zero", loc);
+    if (left === min && right === -1n) throw new VerificationError("air.numeric.checked_failure: overflow", loc);
+    result = left / right;
+  } else if (signature.operation === "rem_s") {
+    if (right === 0n) throw new VerificationError("air.numeric.checked_failure: division_by_zero", loc);
+    result = left === min && right === -1n ? 0n : left % right;
+  } else {
+    throw new VerificationError(`air.numeric.operation_invalid: '${signature.operation}'`, loc);
+  }
+  if (result < min || result > max) throw new VerificationError("air.numeric.checked_failure: overflow", loc);
+  return result;
+}
+
+function verifyV053TypedMatch(statement, locals, declarations) {
+  const typeName = locals.get(statement.value);
+  if (!typeName) throw new VerificationError(`air.decision.match_unknown_value: '${statement.value}'`, statement.loc);
+  const type = verifyV051TypedType(typeName, declarations, statement.loc, false);
+  const destination = verifyV051TypedType(statement.destinationType, declarations, statement.loc, false);
+  const isBool = type.kind === "primitive" && !type.refinement && type.canonical === "bool";
+  let expected;
+  if (type.kind === "enum") {
+    expected = new Set(declarations.get(type.canonical).cases.map((item) => item.name));
+  } else if (type.kind === "option") {
+    expected = new Set(["none", "some"]);
+  } else if (type.kind === "result") {
+    expected = new Set(["ok", "err"]);
+  } else if (isBool) {
+    // RFC §5.4: value-level branch-on-bool, patterns `true` and `false`, exhaustive.
+    expected = new Set(["false", "true"]);
+  } else {
+    throw new VerificationError("air.decision.match_type_unsupported: match requires enum, option, result or bool", statement.loc);
+  }
+  const seen = new Set();
+  for (const arm of statement.arms || []) {
+    const armLoc = arm.loc || statement.loc;
+    if (arm.expression && typeof arm.expression === "object") {
+      // OPEN-9 (a): numeric-operation arms are rejected (X-VL-01).
+      throw new VerificationError(`air.decision.match_arm_invalid: '${arm.pattern}' must yield an atom, not an operation`, armLoc);
+    }
+    let pattern;
+    if (isBool) {
+      const value = String(arm.pattern || "").trim();
+      if (value !== "true" && value !== "false") throw new VerificationError(`air.decision.match_arm_invalid: '${value}'`, armLoc);
+      pattern = { binding: null, bindingType: null, key: value };
+    } else {
+      pattern = parseV051TypedMatchPattern(arm.pattern, type, declarations, armLoc);
+    }
+    if (!pattern.key || !expected.has(pattern.key)) throw new VerificationError(`air.decision.match_arm_invalid: '${arm.pattern}'`, armLoc);
+    if (seen.has(pattern.key)) throw new VerificationError(`air.decision.match_duplicate_arm: '${pattern.key}'`, armLoc);
+    const armLocals = new Map(locals);
+    if (pattern.binding) {
+      if (armLocals.has(pattern.binding)) throw new VerificationError(`air.decision.match_binding_shadow: '${pattern.binding}'`, armLoc);
+      armLocals.set(pattern.binding, pattern.bindingType);
+    }
+    verifyV053TypedExpression(arm.expression, destination, armLocals, declarations, armLoc, new Map());
+    seen.add(pattern.key);
+  }
+  if (seen.size !== expected.size || [...expected].some((item) => !seen.has(item))) {
+    const missing = [...expected].filter((item) => !seen.has(item)).sort();
+    throw new VerificationError(`air.decision.match_nonexhaustive: match over '${typeName}' misses ${missing.map((item) => `'${item}'`).join(", ")}`, statement.loc);
+  }
+}
+
 module.exports = {
   LEGACY_VERIFIER_ANALYSIS_LIMITS,
   legacyVerifierAnalysisProfile,
@@ -4980,3 +5228,9 @@ module.exports = {
   createDecisionEvidence,
   deriveEffectiveAuthority
 };
+// Reached only through the candidate-gated source profile (R-PROF-2); not
+// part of the enumerable exports that the public index spreads.
+Object.defineProperty(module.exports, "typedV053", {
+  enumerable: false,
+  value: Object.freeze({ verify: verifyV053TypedModule })
+});

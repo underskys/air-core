@@ -9,6 +9,19 @@ const { formatModule } = require("./format");
 const { reportPackageDir } = require("./sdk");
 const { normalizePackageMetadata, validatePackageManifest } = require("./package_manifest");
 const { AIR_VERSION } = require("./version");
+const { SOURCE_PROFILE_TYPED_V053, assuranceProfileUnsupported } = require("./errors");
+
+// OD-3 (c): packages declare no source profile and R-PROF-8 forbids guessing,
+// so the caller supplies it. A typed profile is refused before any package is
+// read or parsed; without the option (or with legacy-v0.50) the default
+// applies unchanged; an unregistered value keeps its existing code. No
+// candidate opt-in is involved: typed-v0.53 is never selected here, only refused.
+function refuseTypedPackageProfile(options, entrypoint) {
+  const value = options && typeof options === "object" ? options.sourceProfile : undefined;
+  if (value === undefined || value === "legacy-v0.50") return;
+  if (value === SOURCE_PROFILE_TYPED_V053 || value === "typed-v0.51") throw assuranceProfileUnsupported(entrypoint, value);
+  require("./source_profile").normalizeSourceProfile(value);
+}
 
 const SEMANTIC_PATCH_SCHEMA_VERSION = "1.0";
 const SEMANTIC_PATCH_KIND = "air.semanticPatch";
@@ -50,6 +63,7 @@ class SemanticPatchError extends Error {
 }
 
 function createSemanticPatch(basePackageDir, resultPackageDir, options = {}) {
+  refuseTypedPackageProfile(options, "createSemanticPatch");
   const base = snapshotPackage(basePackageDir);
   const result = snapshotPackage(resultPackageDir);
   const operations = createOperations(base, result);
@@ -78,6 +92,7 @@ function createSemanticPatch(basePackageDir, resultPackageDir, options = {}) {
 }
 
 function inspectSemanticPatch(input, options = {}) {
+  refuseTypedPackageProfile(options, "inspectSemanticPatch");
   const patch = loadPatch(input);
   const validation = validatePatch(patch);
   const strict = options.strict === undefined ? patch.policyMode === "strict" : Boolean(options.strict);

@@ -1,7 +1,10 @@
 const { formatArg } = require("./format");
 const { collectGlobalDependencies, formatGlobalDependencies } = require("./global_deps");
+const { assuranceProfileUnsupported, isTypedV053Ast } = require("./errors");
 
 function explainModule(mod) {
+  // R-ASSUR-1 floor (OPEN-30 (a): no typed parity in v0.53); no TypeError.
+  if (isTypedV053Ast(mod)) throw assuranceProfileUnsupported("explainModule");
   const lines = [];
   lines.push(`# ${mod.name}`);
   lines.push("");
