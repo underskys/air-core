@@ -491,7 +491,11 @@ function emitV051TypedExpression(state, value, expectedType) {
   const info = v051TypedTypeInfo(expectedType, state.declarations);
   if (/^%[A-Za-z_][A-Za-z0-9_]*$/.test(text)) {
     const local = state.locals.get(text.slice(1));
-    if (!local || local.type !== expectedType) typedLowerFail("air.v051.typed_lowering_unsupported", `unknown or mismatched local '${text}'`);
+    // typed-v0.53 (P0-03) admits an i32-family reference into any i32-family
+    // slot (widening or a checked narrowing); the lane is the same i32. The
+    // narrowing check is emitted by the statement. typed-v0.51 is unchanged.
+    const widened = Boolean(local) && state.typedV053 === true && V053_I32_FAMILY.test(local.type) && V053_I32_FAMILY.test(expectedType);
+    if (!local || (local.type !== expectedType && !widened)) typedLowerFail("air.v051.typed_lowering_unsupported", `unknown or mismatched local '${text}'`);
     emitV051TypedGet(state, local);
     return;
   }
@@ -826,6 +830,8 @@ class V053WatLines {
   get length() { return this.count; }
 }
 
+const V053_I32_FAMILY = /^i32(?:<-?[0-9]+\.\.-?[0-9]+>)?$/;
+
 const V053_CHECKED_OPERATIONS = new Set([
   "i32.checked_add", "i32.checked_sub", "i32.checked_mul", "i32.checked_div_s", "i32.checked_rem_s",
   "i32.to_f32_checked", "f32.trunc_to_i32_checked",
@@ -858,19 +864,37 @@ function v053ModuleFeatures(mod) {
   };
 }
 
+// P0-03 failure transport (slice text §4.4; OPEN-38 (b), D-VAL-22): every
+// typed-v0.53 artifact exports `__air_failure_reason`, a mutable i32 starting
+// at 0, and nothing else carries a reason (T-1, T-2: no numeric global). Each
+// AIR-defined trap sets its R-REF-9 value (AMD-P3-1) immediately before
+// `unreachable`, on the failing path only (T-3). The helpers keep their
+// typed-v0.51 names so the shared ingress emitters call them; their bodies
+// here set the registry value. The exhaustive-match fall-through is not a
+// language failure and sets nothing (T-4).
+const V053_FAILURE_REASON_GLOBAL = "__air_failure_reason";
+
+function v053FailureHelper(name, value) {
+  return `  (func $${name} i32.const ${value} global.set $${V053_FAILURE_REASON_GLOBAL} unreachable)`;
+}
+
 function v053ModuleHeaderLines(features) {
   return [
     "(module",
-    "  (func $__air_v051_invalid_tag unreachable)",
-    "  (func $__air_v051_invalid_enum_discriminant unreachable)",
-    "  (func $__air_v051_invalid_bool unreachable)",
-    ...(features.usesTypedRefinement ? ["  (func $__air_v051_refinement_out_of_range unreachable)"] : []),
-    ...(features.usesCanonicalSumIngress ? ["  (func $__air_v051_noncanonical_sum_lane unreachable)"] : []),
+    `  (global $${V053_FAILURE_REASON_GLOBAL} (export "${V053_FAILURE_REASON_GLOBAL}") (mut i32) (i32.const 0))`,
+    v053FailureHelper("__air_v051_invalid_tag", 49),
+    v053FailureHelper("__air_v051_invalid_enum_discriminant", 48),
+    v053FailureHelper("__air_v051_invalid_bool", 50),
+    "  (func $__air_v053_match_unreachable unreachable)",
+    ...(features.usesTypedRefinement ? [
+      v053FailureHelper("__air_v053_refinement_ingress_out_of_range", 16),
+      v053FailureHelper("__air_v053_refinement_assignment_out_of_range", 17)
+    ] : []),
+    ...(features.usesCanonicalSumIngress ? [v053FailureHelper("__air_v051_noncanonical_sum_lane", 51)] : []),
     ...(features.usesCheckedNumeric ? [
-      "  (global $__air_v051_checked_numeric_failure (export \"__air_v051_checked_numeric_failure\") (mut i32) (i32.const 0))",
-      "  (func $__air_v051_numeric_overflow i32.const 1 global.set $__air_v051_checked_numeric_failure unreachable)",
-      "  (func $__air_v051_numeric_division_by_zero i32.const 2 global.set $__air_v051_checked_numeric_failure unreachable)",
-      "  (func $__air_v051_numeric_invalid_conversion i32.const 3 global.set $__air_v051_checked_numeric_failure unreachable)"
+      v053FailureHelper("__air_v051_numeric_overflow", 1),
+      v053FailureHelper("__air_v051_numeric_division_by_zero", 2),
+      v053FailureHelper("__air_v051_numeric_invalid_conversion", 3)
     ] : [])
   ];
 }
@@ -909,7 +933,7 @@ function lowerV053TypedFunction(fn, declarations, writer, counting) {
     locals: new Map(),
     body: new V053WatLines(writer, 4, counting),
     tempId: 0,
-    usesCheckedNumeric: v053FunctionUsesCheckedNumeric(fn)
+    typedV053: true
   };
   const params = [];
   const records = [];
@@ -932,8 +956,8 @@ function lowerV053TypedFunction(fn, declarations, writer, counting) {
     headerLine = `  (func $${wasmName(fn.name)}${exportDecl}${params.length ? ` ${params.join(" ")}` : ""}${result}`;
     writer.charge(1 + Buffer.byteLength(headerLine, "utf8"));
   }
-  for (const record of records) emitV051TypedRuntimeValidation(state, record);
-  if (state.usesCheckedNumeric) state.body.push("i32.const 0", "global.set $__air_v051_checked_numeric_failure");
+  // Ingress checks in parameter order, before any other evaluation (T-5).
+  for (const record of records) emitV053TypedRuntimeValidation(state, record);
   for (const statement of fn.statements || []) {
     if (statement.kind === "local") {
       const info = v051TypedTypeInfo(statement.type, declarations);
@@ -941,7 +965,7 @@ function lowerV053TypedFunction(fn, declarations, writer, counting) {
       state.locals.set(statement.name, record);
       state.localDecls.push(...record.names.map((name, index) => `(local ${name} ${info.watTypes[index]})`));
       emitV053TypedExpression(state, statement.value, statement.type);
-      emitV051TypedRefinementAssignmentCheck(state, record.info);
+      emitV053NarrowingCheck(state, info, statement.value);
       emitV051TypedSet(state, record);
       continue;
     }
@@ -955,7 +979,7 @@ function lowerV053TypedFunction(fn, declarations, writer, counting) {
     }
     if (statement.kind === "return") {
       emitV053TypedExpression(state, statement.value, fn.returnType);
-      emitV051TypedRefinementAssignmentCheck(state, resultInfo);
+      emitV053NarrowingCheck(state, resultInfo, statement.value);
       state.body.push("return");
       continue;
     }
@@ -1067,27 +1091,83 @@ function emitV053CheckedF32ToI32(state, arg) {
   state.body.push(`local.get ${value}`, "i32.trunc_f32_s");
 }
 
+// A `match` over enum, option, result or bool. Each arm is P0-03's yield
+// entry point (P3-R5): a value that narrows into a refined destination is
+// checked (17) before it is stored. Ingress validation and canonical
+// construction make the final fall-through unreachable; it sets no failure
+// reason, so it never shares the 49/50 ingress paths (T-4).
 function emitV053TypedMatch(state, statement, destination) {
   const subject = state.locals.get(statement.value);
   if (!subject) typedLowerFail("air.v051.typed_lowering_unsupported", `unknown match value '${statement.value}'`);
-  if (!(subject.info.kind === "scalar" && subject.info.type.canonical === "bool")) {
-    emitV051TypedMatch(state, statement, destination);
-    return;
-  }
-  // RFC §5.4: value-level branch-on-bool. Bool lanes are validated at ingress
-  // (0 or 1), so the final call is only reached by an invalid lane.
-  const arms = new Map((statement.arms || []).map((arm) => [String(arm.pattern).trim(), arm]));
+  const isBool = subject.info.kind === "scalar" && subject.info.type.canonical === "bool";
+  const keys = isBool ? ["false", "true"]
+    : subject.info.kind === "enum" ? subject.info.declaration.cases.map((entry) => entry.name)
+      : subject.info.kind === "option" ? ["none", "some"]
+        : subject.info.kind === "result" ? ["ok", "err"] : null;
+  if (!keys) typedLowerFail("air.v051.typed_lowering_unsupported", "match subject is not a tagged type or bool");
+  const arms = new Map((statement.arms || []).map((arm) => [isBool ? String(arm.pattern).trim() : v051TypedMatchKey(arm.pattern, subject.info), arm]));
   const endLabel = `$__air_v051_match_end_${state.tempId++}`;
   state.body.push(`block ${endLabel}`);
-  ["false", "true"].forEach((key, lane) => {
+  keys.forEach((key, index) => {
     const arm = arms.get(key);
     if (!arm) typedLowerFail("air.v051.typed_lowering_unsupported", `missing verified match arm '${key}'`);
-    state.body.push(`local.get ${subject.names[0]}`, `i32.const ${lane}`, "i32.eq", "if");
-    emitV051TypedExpression(state, arm.expression, destination.type);
+    if (isBool) state.body.push(`local.get ${subject.names[0]}`, `i32.const ${index}`, "i32.eq");
+    else emitV051TypedMatchCondition(state, subject, key, index);
+    state.body.push("if");
+    const binding = isBool ? null : v051TypedMatchBinding(arm.pattern, subject.info);
+    let previous;
+    if (binding) {
+      previous = state.locals.get(binding.name);
+      state.locals.set(binding.name, binding.record(subject));
+    }
+    emitV053TypedExpression(state, arm.expression, destination.type);
+    emitV053NarrowingCheck(state, destination.info, arm.expression);
     emitV051TypedSet(state, destination);
+    if (binding) {
+      if (previous) state.locals.set(binding.name, previous);
+      else state.locals.delete(binding.name);
+    }
     state.body.push(`br ${endLabel}`, "end");
   });
-  state.body.push("call $__air_v051_invalid_bool", "end");
+  state.body.push("call $__air_v053_match_unreachable", "end");
+}
+
+// Ingress (T-3, T-5): a refined parameter's entry check fails with 16; every
+// other parameter kind keeps the typed-v0.51 check order, whose helpers set
+// 48, 49, 50 and 51 in a typed-v0.53 module.
+function emitV053TypedRuntimeValidation(state, record) {
+  const { info } = record;
+  if (info.kind === "scalar" && info.refinement && info.refinement.kind === "i32_range") {
+    emitV053RangeCheck(state, record.names[0], info.refinement, "__air_v053_refinement_ingress_out_of_range");
+    return;
+  }
+  emitV051TypedRuntimeValidation(state, record);
+}
+
+function emitV053RangeCheck(state, local, refinement, failureFunction) {
+  state.body.push(`local.get ${local}`, `i32.const ${refinement.min}`, "i32.lt_s", `local.get ${local}`, `i32.const ${refinement.max}`, "i32.gt_s", "i32.or", "if", `call $${failureFunction}`, "end");
+}
+
+// A refinement entry point (assignment, match-arm yield, return) with the
+// value on the stack: no check when the value is a local reference whose
+// declared type is contained in the destination (widening, P3-R2); otherwise
+// the narrowing check, which fails with 17. Elision of a statically proven
+// check is optional (R-REF-4); this lowering keeps it.
+function emitV053NarrowingCheck(state, info, value) {
+  if (!info || !info.refinement || info.refinement.kind !== "i32_range") return;
+  if (v053ContainedReference(state, value, info.refinement)) return;
+  const temporary = declareV051TypedTemporary(state, "i32");
+  state.body.push(`local.set ${temporary}`);
+  emitV053RangeCheck(state, temporary, info.refinement, "__air_v053_refinement_assignment_out_of_range");
+  state.body.push(`local.get ${temporary}`);
+}
+
+function v053ContainedReference(state, value, destination) {
+  const text = typeof value === "string" ? value.trim() : "";
+  if (!/^%[A-Za-z_][A-Za-z0-9_]*$/.test(text)) return false;
+  const local = state.locals.get(text.slice(1));
+  const refinement = local && local.info && local.info.refinement;
+  return Boolean(refinement) && refinement.kind === "i32_range" && destination.min <= refinement.min && refinement.max <= destination.max;
 }
 
 // Phase-B engine-structural limits (slice text §6.2; owner decision OD-2 (a)):
@@ -1134,10 +1214,11 @@ function checkV053EngineLimits(mod) {
     const lanes = (fn.params || []).flatMap((parameter) => v051TypedTypeInfo(parameter.type, features.declarations).watTypes);
     signatures.add(`${lanes.join(",")}->${v051TypedTypeInfo(fn.returnType, features.declarations).watTypes.join(",")}`);
   }
+  // `__air_failure_reason` is the one global and one extra export (T-1).
   const totals = {
-    exports: (mod.functions || []).filter((fn) => fn.exported).length + (features.usesCheckedNumeric ? 1 : 0),
+    exports: (mod.functions || []).filter((fn) => fn.exported).length + 1,
     functions: (mod.functions || []).length + helpers,
-    globals: features.usesCheckedNumeric ? 1 : 0,
+    globals: 1,
     imports: 0,
     types: signatures.size
   };

@@ -5040,22 +5040,22 @@ function verifyV053TypedModule(mod) {
     for (const parameter of fn.params || []) {
       if (!parameter || typeof parameter.name !== "string" || parameterNames.has(parameter.name)) throw new VerificationError(`air.v051.parameter_duplicate: '${fn.name}'`, fn.loc);
       parameterNames.add(parameter.name);
-      verifyV051TypedType(parameter.type, declarations, fn.loc, false);
+      verifyV053TypedType(parameter.type, declarations, fn.loc);
       locals.set(parameter.name, parameter.type);
     }
-    const returnType = verifyV051TypedType(fn.returnType, declarations, fn.loc, false);
+    const returnType = verifyV053TypedType(fn.returnType, declarations, fn.loc);
     let hasReturn = false;
     for (const statement of fn.statements || []) {
       if (hasReturn) throw new VerificationError("air.control.statement_after_return: return must be the last statement", statement && statement.loc);
       if (statement && statement.kind === "local") {
         if (locals.has(statement.name)) throw new VerificationError(`air.v051.local_duplicate: '${statement.name}'`, statement.loc);
-        const declared = verifyV051TypedType(statement.type, declarations, statement.loc, false);
+        const declared = verifyV053TypedType(statement.type, declarations, statement.loc);
         const staticValue = verifyV053TypedExpression(statement.value, declared, locals, declarations, statement.loc, staticValues);
         locals.set(statement.name, statement.type);
         if (staticValue !== undefined) staticValues.set(statement.name, staticValue);
       } else if (statement && statement.kind === "match") {
         if (locals.has(statement.destination)) throw new VerificationError(`air.v051.local_duplicate: '${statement.destination}'`, statement.loc);
-        verifyV053TypedMatch(statement, locals, declarations);
+        verifyV053TypedMatch(statement, locals, declarations, staticValues);
         locals.set(statement.destination, statement.destinationType);
       } else if (statement && statement.kind === "return") {
         verifyV053TypedExpression(statement.value, returnType, locals, declarations, statement.loc, staticValues);
@@ -5069,8 +5069,43 @@ function verifyV053TypedModule(mod) {
   return mod;
 }
 
+// P0-03 (slice text §4.1): a declared type is checked by the typed-v0.51 type
+// rule after the typed-v0.53 refinement-form rule (R-REF-6, P3-R4, R-TYPE-4).
+function verifyV053TypedType(typeName, declarations, loc) {
+  try {
+    parserModule.typedV053.rejectRefinementForm(String(typeName || "").trim(), null);
+  } catch (error) {
+    throw new VerificationError(String(error.message), loc);
+  }
+  return verifyV051TypedType(typeName, declarations, loc, false);
+}
+
+const V053_I32_FAMILY = /^i32(?:<-?[0-9]+\.\.-?[0-9]+>)?$/;
+const V053_CONSTRUCTOR_PAYLOAD = /^(?:option\.some|result\.(?:ok|err))<.+>\s+%([A-Za-z_][A-Za-z0-9_]*)$/;
+
+// P0-03 (slice text §4.1, P3-R2; R-REF-5): for a reference of the i32 family
+// (`i32` or `i32<a..b>`) typed-v0.53 replaces the typed-v0.51 identity rule.
+// Into `i32`, or into a refinement that contains its declared type, it widens
+// implicitly; into any other refinement it is a narrowing at a refinement
+// entry point, statically proven or runtime-checked (R-REF-3). A constructor
+// payload slot is plain, so a refined payload reference widens into it.
+// Everything else keeps the typed-v0.51 atom rule and its codes.
 function verifyV053TypedAtom(value, expected, locals, declarations, loc) {
   if (typeof value !== "string" || !value.trim()) throw new VerificationError("air.v051.typed_atom_invalid: expected a typed atom", loc);
+  const text = value.trim();
+  if (/^%[A-Za-z_][A-Za-z0-9_]*$/.test(text)) {
+    const local = locals.get(text.slice(1));
+    if (local && V053_I32_FAMILY.test(local) && v051TypeBase(expected) === "i32") return expected;
+  }
+  const payload = text.match(V053_CONSTRUCTOR_PAYLOAD);
+  if (payload) {
+    const local = locals.get(payload[1]);
+    if (local && local !== "i32" && V053_I32_FAMILY.test(local)) {
+      const widened = new Map(locals);
+      widened.set(payload[1], "i32");
+      return verifyV051TypedAtom(value, expected, widened, declarations, loc);
+    }
+  }
   return verifyV051TypedAtom(value, expected, locals, declarations, loc);
 }
 
@@ -5158,11 +5193,11 @@ function evaluateV053Checked(signature, values, loc) {
   return result;
 }
 
-function verifyV053TypedMatch(statement, locals, declarations) {
+function verifyV053TypedMatch(statement, locals, declarations, staticValues) {
   const typeName = locals.get(statement.value);
   if (!typeName) throw new VerificationError(`air.decision.match_unknown_value: '${statement.value}'`, statement.loc);
-  const type = verifyV051TypedType(typeName, declarations, statement.loc, false);
-  const destination = verifyV051TypedType(statement.destinationType, declarations, statement.loc, false);
+  const type = verifyV053TypedType(typeName, declarations, statement.loc);
+  const destination = verifyV053TypedType(statement.destinationType, declarations, statement.loc);
   const isBool = type.kind === "primitive" && !type.refinement && type.canonical === "bool";
   let expected;
   if (type.kind === "enum") {
@@ -5199,7 +5234,10 @@ function verifyV053TypedMatch(statement, locals, declarations) {
       if (armLocals.has(pattern.binding)) throw new VerificationError(`air.decision.match_binding_shadow: '${pattern.binding}'`, armLoc);
       armLocals.set(pattern.binding, pattern.bindingType);
     }
-    verifyV053TypedExpression(arm.expression, destination, armLocals, declarations, armLoc, new Map());
+    // A match arm is P0-03's block-yield entry point (P3-R5): a statically
+    // known value outside a refined destination is rejected here (P3-R3).
+    // Arm bindings never shadow a local, so they have no static value.
+    verifyV053TypedExpression(arm.expression, destination, armLocals, declarations, armLoc, staticValues);
     seen.add(pattern.key);
   }
   if (seen.size !== expected.size || [...expected].some((item) => !seen.has(item))) {

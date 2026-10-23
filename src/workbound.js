@@ -12,6 +12,7 @@
 const crypto = require("crypto");
 const fs = require("fs");
 const path = require("path");
+const { isTypedV053Ast } = require("./errors");
 const { canonical } = require("./v051_reference");
 const { parseRefinementType } = require("./types");
 const { parseTypeReference } = require("./typed_interface");
@@ -747,11 +748,25 @@ function isConstructorAtom(value) {
   return typeof value === "string" && CONSTRUCTOR_ATOM.test(value.trim());
 }
 
-function withRefinementCheck(base, destinationType, value, loc) {
-  // The verifier admits a local reference into a refined type only when the
-  // types are identical, so only literals and operation results enter one.
-  if (!isRefinedType(destinationType, loc) || isLocalReference(value)) return base;
+function withRefinementCheck(base, destinationType, value, loc, scope = null) {
+  // typed-v0.51: the verifier admits a local reference into a refined type
+  // only when the types are identical, so only literals and operation results
+  // enter one. typed-v0.53 (P0-03 slice text §5.0, §5.2): a local reference is
+  // free only when its declared type is contained in the destination (P3-R2);
+  // literals and operation results always add the row (P3-R17).
+  if (!isRefinedType(destinationType, loc)) return base;
+  if (isLocalReference(value) && (!scope || referenceContained(scope, value, destinationType, loc))) return base;
   return add(base, row("refinement.check", loc), loc);
+}
+
+// `scope` maps the locals in scope to their declared types. A match-arm
+// binding is not in it: its payload type is never a refinement (P3-R4).
+function referenceContained(scope, value, destinationType, loc) {
+  const declared = scope.get(value.trim().slice(1));
+  const source = declared === undefined ? null : refinementOf(declared, loc);
+  const destination = refinementOf(destinationType, loc);
+  if (!source || source.base !== "i32" || !destination || destination.base !== "i32") return false;
+  return destination.refinement.min <= source.refinement.min && source.refinement.max <= destination.refinement.max;
 }
 
 function typedOperandNode(value, loc, inMatchArm = false) {
@@ -765,26 +780,38 @@ function typedOperandNode(value, loc, inMatchArm = false) {
   return costUndefined(`expression.${value && value.kind || "<invalid>"}`, loc);
 }
 
-function typedStatementNode(fn, statement) {
+function typedStatementNode(fn, statement, scope = null) {
   const loc = statement && statement.loc;
   if (!statement || typeof statement !== "object") costUndefined("statement.<invalid>", fn.loc);
   if (statement.kind === "local") {
     const construct = isConstructorAtom(statement.value) ? "statement.constructor" : "statement.scalar";
-    return withRefinementCheck(row(construct, loc), statement.type, statement.value, loc);
+    return withRefinementCheck(row(construct, loc), statement.type, statement.value, loc, scope);
   }
   if (statement.kind === "match") {
     if (!Array.isArray(statement.arms) || !statement.arms.length) costUndefined("match.<no arms>", loc);
     const arms = statement.arms.map((arm) => withRefinementCheck(
-      typedOperandNode(arm.expression, arm.loc || loc, true), statement.destinationType, arm.expression, arm.loc || loc
+      typedOperandNode(arm.expression, arm.loc || loc, true), statement.destinationType, arm.expression, arm.loc || loc, scope
     ));
     return match(arms, loc);
   }
   if (statement.kind === "return") {
     const operand = typedOperandNode(statement.value, loc);
     const returned = operand ? add(operand, row("return", loc), loc) : row("return", loc);
-    return withRefinementCheck(returned, fn.returnType, statement.value, loc);
+    return withRefinementCheck(returned, fn.returnType, statement.value, loc, scope);
   }
   return costUndefined(`statement.${statement.kind}`, loc);
+}
+
+// One function body. A typed-v0.53 AST tracks the declared type of every
+// local in scope for the containment exception; a typed-v0.51 AST has none.
+function typedFunctionBody(fn, typedV053) {
+  const scope = typedV053 ? new Map((fn.params || []).map((parameter) => [parameter.name, parameter.type])) : null;
+  return (fn.statements || []).map((statement) => {
+    const node = typedStatementNode(fn, statement, scope);
+    if (scope && statement.kind === "local") scope.set(statement.name, statement.type);
+    if (scope && statement.kind === "match") scope.set(statement.destination, statement.destinationType);
+    return node;
+  });
 }
 
 function typedV051Model(mod) {
@@ -795,7 +822,7 @@ function typedV051Model(mod) {
   const moduleId = typeof mod.name === "string" && MODULE_ID.test(mod.name) ? mod.name : "v53.model";
   return {
     functions: mod.functions.map((fn) => ({
-      body: seq((fn.statements || []).map((statement) => typedStatementNode(fn, statement)), fn.loc),
+      body: seq(typedFunctionBody(fn, isTypedV053Ast(mod)), fn.loc),
       exported: fn.exported === true,
       loc: fn.loc,
       name: fn.name,

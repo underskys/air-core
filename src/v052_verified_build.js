@@ -30,7 +30,8 @@ const {
 } = require("./typed_interface");
 const { canonical, typedValue } = require("./v051_reference");
 const { AIR_VERSION } = require("./version");
-const { checkedNumericFailureReason } = require("./v052_numeric_diagnostic");
+const { checkedNumericFailureReason, typedV053FailureIdentity } = require("./v052_numeric_diagnostic");
+const { parseRefinementType } = require("./types");
 const { createToolchainGuard } = require("./v052_toolchain_identity");
 const {
   WorkBoundError,
@@ -42,6 +43,10 @@ const {
 const TOOLCHAIN = createToolchainGuard(__dirname);
 
 const VERIFIED_TYPED_BUILD_SCHEMA = "air.v052.verifiedTypedBuild/2";
+// P0-03 (slice text §4.3; owner decision OD-P3-2 (a)): every typed-v0.53 build
+// record uses this schema, which adds `sourceSignature` to the /2 key set.
+// Not exported: src/index.js spreads this module's exports.
+const VERIFIED_TYPED_V053_BUILD_SCHEMA = "air.v053.verifiedTypedBuild/1";
 const VERIFIED_TYPED_BUILD_KIND = "air.verifiedTypedBuild";
 const CHECKED_TYPED_INVOCATION_KIND = "air.checkedTypedInvocation";
 const LOWERING_ID = "air.lower_wasm.v051-typed";
@@ -289,18 +294,21 @@ function enforceStructuredInputLimit(root, maximum, label) {
 
 function normalizedBuildRecord(record) {
   requireObject(record, "verified build record");
+  // /2 is typed-v0.51 only (P3-R7); typed-v0.53 records use the v053 schema,
+  // whose closed key set is /2's plus `sourceSignature` (slice text §4.3).
+  const typedV053 = record.schema === VERIFIED_TYPED_V053_BUILD_SCHEMA;
   const expected = [
     "compiler", "descriptor", "descriptorDigest", "kind", "lowering",
-    "schema", "sourceDigest", "sourceProfile", "wasmDigest"
+    "schema", "sourceDigest", "sourceProfile", ...(typedV053 ? ["sourceSignature"] : []), "wasmDigest"
   ];
   const actual = Object.keys(record).sort();
   if (actual.length !== expected.length || actual.some((key, index) => key !== expected[index])) {
     fail("air.v052.verified_build_invalid", "verified build record has missing or unknown fields");
   }
-  if (record.kind !== VERIFIED_TYPED_BUILD_KIND || record.schema !== VERIFIED_TYPED_BUILD_SCHEMA) {
+  if (record.kind !== VERIFIED_TYPED_BUILD_KIND || (!typedV053 && record.schema !== VERIFIED_TYPED_BUILD_SCHEMA)) {
     fail("air.v052.verified_build_invalid", "verified build schema is invalid");
   }
-  if (record.sourceProfile !== SOURCE_PROFILE_TYPED_V051 && record.sourceProfile !== SOURCE_PROFILE_TYPED_V053) {
+  if (record.sourceProfile !== (typedV053 ? SOURCE_PROFILE_TYPED_V053 : SOURCE_PROFILE_TYPED_V051)) {
     fail("air.v052.verified_build_invalid", "verified build source profile is invalid");
   }
   const descriptor = normalizeTypedInterfaceDescriptor(record.descriptor);
@@ -335,11 +343,71 @@ function normalizedBuildRecord(record) {
       implementationDigest: record.lowering.implementationDigest,
       name: LOWERING_ID
     },
-    schema: VERIFIED_TYPED_BUILD_SCHEMA,
+    schema: typedV053 ? VERIFIED_TYPED_V053_BUILD_SCHEMA : VERIFIED_TYPED_BUILD_SCHEMA,
     sourceDigest: record.sourceDigest,
     sourceProfile: record.sourceProfile,
+    ...(typedV053 ? { sourceSignature: normalizedSourceSignature(record.sourceSignature, descriptor) } : {}),
     wasmDigest: record.wasmDigest
   };
+}
+
+// Slice text §4.3 item 3: every descriptor export, in descriptor order, as
+// {name, function, parameters: [{name, type}], return_type} with the canonical
+// typed-v0.53 source types; names, functions and arities equal the
+// descriptor's, and desc(type) equals the descriptor type (R-TYPE-2).
+function normalizedSourceSignature(signature, descriptor) {
+  const mismatch = (message) => fail("air.v052.verified_build_descriptor_mismatch", `sourceSignature ${message}`);
+  const exactKeys = (value, keys) => value && typeof value === "object" && !Array.isArray(value) &&
+    Object.keys(value).sort().join(",") === keys;
+  if (!Array.isArray(signature) || signature.length !== descriptor.exports.length) {
+    mismatch("must list every descriptor export in descriptor order");
+  }
+  return signature.map((entry, index) => {
+    const exported = descriptor.exports[index];
+    if (!exactKeys(entry, "function,name,parameters,return_type")) mismatch(`entry ${index} has missing or unknown fields`);
+    if (entry.name !== exported.name || entry.function !== exported.function) mismatch(`entry ${index} does not match export '${exported.name}'`);
+    if (!Array.isArray(entry.parameters) || entry.parameters.length !== exported.parameters.length) {
+      mismatch(`export '${exported.name}' parameter count does not match the descriptor`);
+    }
+    const parameters = entry.parameters.map((parameter, position) => {
+      const declared = exported.parameters[position];
+      if (!exactKeys(parameter, "name,type") || parameter.name !== declared.name || sourceTypeDescriptorImage(parameter.type) !== declared.type) {
+        mismatch(`export '${exported.name}' parameter ${position} does not match the descriptor`);
+      }
+      return { name: parameter.name, type: parameter.type };
+    });
+    if (sourceTypeDescriptorImage(entry.return_type) !== exported.return_type) mismatch(`export '${exported.name}' return type does not match the descriptor`);
+    return { function: entry.function, name: entry.name, parameters, return_type: entry.return_type };
+  });
+}
+
+// desc (R-TYPE-2): `i32<a..b>` maps to `i32`, every descriptor type to itself.
+// Only canonical type text has an image; anything else has none (null).
+function sourceTypeDescriptorImage(typeText) {
+  if (typeof typeText !== "string") return null;
+  try {
+    const refinement = parseRefinementType(typeText);
+    if (refinement) return refinement.base === "i32" && refinement.canonical === typeText ? "i32" : null;
+    const type = parseTypeReference(typeText, { allowVoid: true });
+    return type.canonical === typeText ? typeText : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+// The source signature a typed-v0.53 build records (§4.3): taken from the
+// verified AST, whose types are the canonical text the formatter prints.
+function typedV053SourceSignature(mod, descriptor) {
+  const functions = new Map((mod.functions || []).map((fn) => [fn.name, fn]));
+  return descriptor.exports.map((entry) => {
+    const fn = functions.get(entry.function);
+    return {
+      function: entry.function,
+      name: entry.name,
+      parameters: fn.params.map((parameter) => ({ name: parameter.name, type: parameter.type })),
+      return_type: fn.returnType
+    };
+  });
 }
 
 function publicBuildRecord(record) {
@@ -489,9 +557,10 @@ async function buildVerifiedTypedV053Internal(input, controls = {}) {
     descriptorDigest: descriptorDigest(descriptor),
     kind: VERIFIED_TYPED_BUILD_KIND,
     lowering: { implementationDigest: loweringImplementationDigest(), name: LOWERING_ID },
-    schema: VERIFIED_TYPED_BUILD_SCHEMA,
+    schema: VERIFIED_TYPED_V053_BUILD_SCHEMA,
     sourceDigest: digestBytes(Buffer.from(source, "utf8")),
     sourceProfile: SOURCE_PROFILE_TYPED_V053,
+    sourceSignature: typedV053SourceSignature(mod, descriptor),
     wasmDigest: digestBytes(wasmBytes)
   });
   const build = Object.freeze({
@@ -523,6 +592,7 @@ function assertTrustedBuild(build) {
     schema: build.schema,
     sourceDigest: build.sourceDigest,
     sourceProfile: build.sourceProfile,
+    ...(state.record.schema === VERIFIED_TYPED_V053_BUILD_SCHEMA ? { sourceSignature: build.sourceSignature } : {}),
     wasmDigest: build.wasmDigest
   });
   if (canonical(record) !== canonical(state.record) || build.artifactDigest !== digestCanonical(state.record)) {
@@ -723,6 +793,19 @@ function invokeInstantiatedExport(record, instance, exportName, args = [], maxIn
   try {
     raw = exported(...wasmArgs);
   } catch (error) {
+    // The typed-v0.53 adapter (slice text §4.4 A-1, A-2): the registry value of
+    // this fresh instance; typed-v0.51 keeps the numeric mapping (A-5).
+    if (record.schema === VERIFIED_TYPED_V053_BUILD_SCHEMA) {
+      const identity = typedV053FailureIdentity(error, instance);
+      if (identity) {
+        const failure = new V052VerifiedBuildError(identity.code, identity.reason || typedV053FailureMessage(identity));
+        if (identity.reason) failure.reason = identity.reason;
+        if (identity.disposition) failure.disposition = identity.disposition;
+        failure.failureReason = identity.value;
+        throw failure;
+      }
+      fail("air.v052.invocation_runtime_failure", "verified Wasm trapped during checked invocation");
+    }
     const reason = checkedNumericFailureReason(error, instance);
     if (reason) {
       const failure = new V052VerifiedBuildError("air.numeric.checked_failure", reason);
@@ -738,6 +821,12 @@ function invokeInstantiatedExport(record, instance, exportName, args = [], maxIn
   const value = decodeFromWasm(lanes, cursor, returnType.canonical, enumContext, "result");
   if (cursor.index !== lanes.length) fail("air.v052.invocation_result_invalid", "Wasm returned extra lanes");
   return { kind: CHECKED_TYPED_INVOCATION_KIND, value };
+}
+
+function typedV053FailureMessage(identity) {
+  if (identity.code === "air.runtime.trap_unclassified") return "verified Wasm trapped with failure reason 0 (implementation defect)";
+  if (identity.code === "air.runtime.failure_reason_unknown") return `failure reason ${identity.value} is not in the registry`;
+  return `typed-v0.53 failure reason ${identity.value}`;
 }
 
 async function invokeVerifiedTypedExport(build, exportName, args = []) {

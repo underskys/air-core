@@ -5,8 +5,10 @@
 // semantic manifest records.
 const fs = require("fs");
 const path = require("path");
+const { isTypedV053Ast } = require("./errors");
 const { isExistingHostAbiLane } = require("./host_abi");
 const { listHostProfileIds } = require("./host_profiles");
+const { parseRefinementType } = require("./types");
 
 const ABI_012 = "0.12";
 const TYPED_INTERFACE_SCHEMA = "air.typed-interface/0.12-candidate.1";
@@ -245,8 +247,19 @@ function sortedAscii(value, label, validate) {
   return values.sort(compareAscii);
 }
 
+// desc (R-TYPE-2, R-REF-7; P0-03 slice text §4.2): a typed-v0.53 refined
+// source type `i32<a..b>` has the descriptor image `i32`; every other type is
+// its own image. typed-v0.51 sources keep exact equality.
+function descriptorImage(typeText, typedV053) {
+  if (!typedV053) return typeText;
+  const refinement = parseRefinementType(typeText);
+  return refinement && refinement.base === "i32" ? "i32" : typeText;
+}
+
 function validateDescriptorAgainstSource(descriptorInput, sourceModule) {
   const descriptor = normalizeTypedInterfaceDescriptor(descriptorInput);
+  // Dispatch on the profile tag before the shared typed-AST marker.
+  const typedV053 = isTypedV053Ast(sourceModule);
   if (!sourceModule || !sourceModule.v051TypedAst) fail("air.v051.typed_interface_source_invalid", "descriptor requires parsed and verified v0.51 typed source");
   if (sourceModule.name !== descriptor.module_id) fail("air.v051.typed_interface_source_invalid", "descriptor module_id does not match source module");
   const functions = new Map((sourceModule.functions || []).map((item) => [item.name, item]));
@@ -257,9 +270,9 @@ function validateDescriptorAgainstSource(descriptorInput, sourceModule) {
     if (fn.params.length !== entry.parameters.length) fail("air.v051.typed_interface_source_invalid", `export '${entry.name}' parameter count mismatches source`);
     for (let index = 0; index < entry.parameters.length; index += 1) {
       const actual = fn.params[index]; const expected = entry.parameters[index];
-      if (actual.name !== expected.name || actual.type !== expected.type) fail("air.v051.typed_interface_source_invalid", `export '${entry.name}' parameter ${index} mismatches source`);
+      if (actual.name !== expected.name || descriptorImage(actual.type, typedV053) !== expected.type) fail("air.v051.typed_interface_source_invalid", `export '${entry.name}' parameter ${index} mismatches source`);
     }
-    if (fn.returnType !== entry.return_type) fail("air.v051.typed_interface_source_invalid", `export '${entry.name}' return type mismatches source`);
+    if (descriptorImage(fn.returnType, typedV053) !== entry.return_type) fail("air.v051.typed_interface_source_invalid", `export '${entry.name}' return type mismatches source`);
   }
   for (const declaration of descriptor.types) {
     const source = sourceTypes.get(declaration.type_id);

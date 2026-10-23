@@ -1235,9 +1235,27 @@ function withV053Location(action, loc) {
   }
 }
 
+// P0-03 (slice text §4.1): a refinement is admitted only as a top-level
+// `i32<MIN..MAX>`. A refinement on another base is refused by R-REF-6, and a
+// refinement nested in a type by P3-R4 with the existing non-flat-payload code.
+// Neither message cites the ABI candidate (R-TYPE-4).
+const V053_TOP_REFINEMENT = /^(i32|i64|f32|f64)\s*</;
+const V053_NESTED_REFINEMENT = /[<,]\s*(?:i32|i64|f32|f64)\s*</;
+
+function rejectV053RefinementForm(text, loc) {
+  const top = text.match(V053_TOP_REFINEMENT);
+  if (top && top[1] !== "i32") {
+    throw new AirError(`air.refinement.base_type_unsupported: '${text}' refines ${top[1]}; typed-v0.53 refines only i32 (i32<MIN..MAX>)`, loc);
+  }
+  if (V053_NESTED_REFINEMENT.test(text)) {
+    throw new AirError(`air.decision.payload_type_unsupported: '${text}' nests a refinement; a refinement is a top-level i32<MIN..MAX> type only`, loc);
+  }
+}
+
 function parseV053TypedType(value, moduleId, allowVoid, loc) {
   const text = String(value || "").trim();
   guardV053TypeNesting(text, loc);
+  rejectV053RefinementForm(text, loc);
   return withV053Location(() => parseV051TypedType(text, moduleId, allowVoid, loc), loc);
 }
 
@@ -1509,5 +1527,5 @@ function parseV053TypedAir(source, file = "<input>") {
 module.exports = { parseAir, parseV051Air, parseV051TypedAir, canonicalizeV051SourceType, splitComma, parseV051Contract };
 Object.defineProperty(module.exports, "typedV053", {
   enumerable: false,
-  value: Object.freeze({ OPERATIONS: V053_OPERATIONS, parse: parseV053TypedAir })
+  value: Object.freeze({ OPERATIONS: V053_OPERATIONS, parse: parseV053TypedAir, rejectRefinementForm: rejectV053RefinementForm })
 });
