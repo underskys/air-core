@@ -1378,9 +1378,38 @@ function v053SyntaxError(message, loc) {
   return new AirError(`air.v051.typed_syntax_invalid: ${message}`, loc);
 }
 
+// P0-04 statement forms (slice text §4.1-§4.5). A call is a value object with
+// `op: "call"`, so the R-WB-15c measure counts it (P4-R17); a block statement
+// lists its blocks in `blocks`, each an object with a `statements` list.
+const V053_CALL_FORM = /^call\s+@([A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*)\s*\((.*)\)$/;
+const V053_LABEL_LINE = /^[A-Za-z_][A-Za-z0-9_.]*:$/;
+const V053_BRANCH_LINE = /^br(?:_if)?(?:\s|$)/;
+const V053_IF_HEADER = /^%([A-Za-z_][A-Za-z0-9_]*)\s*:\s*(.+?)\s*=\s*if\s+(.+?)\s*\{$/;
+const V053_MATCH_HEADER = /^%([A-Za-z_][A-Za-z0-9_]*)\s*:\s*(.+?)\s*=\s*match\s+%([A-Za-z_][A-Za-z0-9_]*)\s*\{$/;
+
+function v053CallValue(match) {
+  const args = match[2].trim() ? splitComma(match[2]).map((argument) => argument.trim()) : [];
+  return { args, callee: match[1], kind: "call", op: "call" };
+}
+
+function v053UnstructuredError(line, loc) {
+  return new AirError(`air.control.unstructured_unsupported: '${line}' is not admitted in typed-v0.53; branch with a value if or match ending in yield (R-CFG-1, R-CFG-3)`, loc);
+}
+
+// A call argument is an atom typed by the callee's parameter (slice text §4.1):
+// literals and constructors normalize as a local's value does. A non-atom stays
+// as written, and the verifier rejects it (P4-R4).
+function normalizeV053Argument(text, type, moduleId, loc) {
+  if (/^%[A-Za-z_][A-Za-z0-9_]*$/.test(text) || V053_CALL_FORM.test(text)) return text;
+  const value = normalizeV053Value(text, type, moduleId, loc);
+  return typeof value === "string" ? value : text;
+}
+
 // One pass over the lines with an explicit stack of open frames (AMD-1). No
-// parse step recurses on the host stack with the input; SCALAR has no block
-// statement, so a frame is a module item (enum, function) or a `match`.
+// parse step recurses on the host stack with the input. A frame is a module
+// item (enum, function), a `match`, or a block (P0-04: the then- and
+// else-block of a value `if`, a block-bodied `match` arm). A placement rule is
+// checked when its line is read (P4-R10, P4-R13, P4-R15).
 function parseV053TypedAir(source, file = "<input>") {
   const lines = String(source).split(/\r?\n/);
   const mod = {
@@ -1393,6 +1422,7 @@ function parseV053TypedAir(source, file = "<input>") {
   };
   Object.defineProperty(mod, "sourceProfile", { configurable: false, enumerable: true, value: SOURCE_PROFILE_TYPED_V053, writable: false });
   const stack = [];
+  const calls = [];
   for (let index = 0; index < lines.length; index += 1) {
     const loc = { file, line: index + 1 };
     const line = stripComment(lines[index]).trim();
@@ -1433,7 +1463,7 @@ function parseV053TypedAir(source, file = "<input>") {
         const returnType = parseV053TypedType(functionMatch[4], mod.name, true, loc);
         const fn = { name: functionMatch[2], exported: Boolean(functionMatch[1]), params, returnType, statements: [], loc };
         mod.functions.push(fn);
-        stack.push({ fn, kind: "function" });
+        stack.push({ fn, kind: "function", statements: fn.statements });
         continue;
       }
       throw v053SyntaxError(`unsupported typed source declaration '${line}'`, loc);
@@ -1471,6 +1501,16 @@ function parseV053TypedAir(source, file = "<input>") {
         stack.pop();
         continue;
       }
+      // P4-R9: a block-bodied arm opens a block frame; its closing line is `}`.
+      const blockArm = line.match(/^(.+?)\s*=>\s*\{$/);
+      if (blockArm) {
+        const block = { statements: [] };
+        frame.statement.arms.push({ block, loc, pattern: normalizeV053Pattern(blockArm[1], mod.name) });
+        if (!frame.statement.blocks) frame.statement.blocks = [];
+        frame.statement.blocks.push(block);
+        stack.push({ fn: frame.fn, kind: "block", openLoc: loc, owner: "arm", statement: frame.statement, statements: block.statements, yielded: false });
+        continue;
+      }
       const arm = line.match(/^(.+?)\s*=>\s*(.+?)\s*[,;]?$/);
       if (!arm) throw new AirError("air.decision.match_arm_invalid: match arms must use pattern => expression", loc);
       frame.statement.arms.push({
@@ -1481,13 +1521,74 @@ function parseV053TypedAir(source, file = "<input>") {
       continue;
     }
 
-    // frame.kind === "function"
+    // A statement frame: a function body or a block (R-CFG-1, R-CFG-2).
     const fn = frame.fn;
-    if (line === "}") {
+    const inBlock = frame.kind === "block";
+    if (inBlock && frame.owner === "then" && line === "} else {") {
+      // P4-R15: the then-block must end in its yield; reported at the `if` header.
+      if (!frame.yielded) throw new AirError("air.control.yield_missing: the then-block of a value if must end with yield", frame.statement.loc);
       stack.pop();
+      const block = frame.statement.blocks[1];
+      stack.push({ fn, kind: "block", openLoc: loc, owner: "else", statement: frame.statement, statements: block.statements, yielded: false });
       continue;
     }
-    const matchHeader = line.match(/^%([A-Za-z_][A-Za-z0-9_]*)\s*:\s*(.+?)\s*=\s*match\s+%([A-Za-z_][A-Za-z0-9_]*)\s*\{$/);
+    if (line === "}") {
+      stack.pop();
+      if (!inBlock) continue;
+      if (frame.owner === "then") {
+        // A value if without an else block (P4-R15), reported at the `if` header.
+        throw new AirError("air.control.yield_missing: a value if needs an else block ending with yield", frame.statement.loc);
+      }
+      if (!frame.yielded) {
+        const what = frame.owner === "else" ? "the else-block of a value if" : "a block-bodied match arm";
+        throw new AirError(`air.control.yield_missing: ${what} must end with yield`, frame.openLoc);
+      }
+      continue;
+    }
+    if (inBlock && frame.yielded) throw v053SyntaxError(`statement after the block's yield '${line}'`, loc);
+    // P4-R13: labels, br and br_if have no typed-v0.53 form.
+    if (V053_LABEL_LINE.test(line) || V053_BRANCH_LINE.test(line)) throw v053UnstructuredError(line, loc);
+    const yielded = line.match(/^yield\s+(.+)$/);
+    if (yielded || line === "yield") {
+      if (!inBlock) throw v053SyntaxError("yield outside a block", loc);
+      if (!yielded) throw v053SyntaxError("yield requires an atom", loc);
+      if (/^phi\./.test(yielded[1].trim())) throw v053UnstructuredError(line, loc);
+      const value = normalizeV053Value(yielded[1], frame.statement.destinationType, mod.name, loc);
+      // An operation is bound to a local first (OPEN-9 (a); no CT-1 row composes it with a yield).
+      if (typeof value !== "string") throw v053SyntaxError(`yield operand must be an atom, not '${yielded[1]}'`, loc);
+      frame.statements.push({ kind: "yield", loc, value });
+      frame.yielded = true;
+      continue;
+    }
+    const returned = line.match(/^return\s+(.+)$/);
+    if (returned || line === "return") {
+      if (inBlock) throw v053SyntaxError("return inside a block; a function has a single exit (R-CFG-2)", loc);
+      if (!returned) {
+        // P4-R12: a bare return in a function with a result.
+        if (fn.returnType !== "void") throw new AirError(`air.v051.return_type_mismatch: function '${fn.name}' must return a value`, loc);
+        frame.statements.push({ kind: "return", loc, value: "" });
+        continue;
+      }
+      if (/^phi\./.test(returned[1].trim())) throw v053UnstructuredError(line, loc);
+      frame.statements.push({ kind: "return", loc, value: normalizeV053Value(returned[1], fn.returnType, mod.name, loc) });
+      continue;
+    }
+    if (/^if\s/.test(line)) throw v053SyntaxError("an if must bind its value (%r: T = if %c { ... })", loc);
+    const ifHeader = line.match(V053_IF_HEADER);
+    if (ifHeader) {
+      const statement = {
+        blocks: [{ statements: [] }, { statements: [] }],
+        condition: ifHeader[3].trim(),
+        destination: ifHeader[1],
+        destinationType: parseV053TypedType(ifHeader[2], mod.name, false, loc),
+        kind: "if",
+        loc
+      };
+      frame.statements.push(statement);
+      stack.push({ fn, kind: "block", openLoc: loc, owner: "then", statement, statements: statement.blocks[0].statements, yielded: false });
+      continue;
+    }
+    const matchHeader = line.match(V053_MATCH_HEADER);
     if (matchHeader) {
       const statement = {
         arms: [],
@@ -1497,30 +1598,45 @@ function parseV053TypedAir(source, file = "<input>") {
         loc,
         value: matchHeader[3]
       };
-      fn.statements.push(statement);
-      stack.push({ kind: "match", statement });
+      frame.statements.push(statement);
+      stack.push({ fn, kind: "match", statement });
+      continue;
+    }
+    const callStatement = line.match(V053_CALL_FORM);
+    if (callStatement) {
+      const statement = { kind: "call", loc, value: v053CallValue(callStatement) };
+      frame.statements.push(statement);
+      calls.push(statement);
       continue;
     }
     const local = line.match(/^%([A-Za-z_][A-Za-z0-9_]*)\s*:\s*(.+?)\s*=\s*(.+)$/);
     if (local) {
       const type = parseV053TypedType(local[2], mod.name, false, loc);
-      fn.statements.push({ kind: "local", loc, name: local[1], type, value: normalizeV053Value(local[3], type, mod.name, loc) });
-      continue;
-    }
-    const returned = line.match(/^return\s+(.+)$/);
-    if (returned) {
-      fn.statements.push({ kind: "return", loc, value: normalizeV053Value(returned[1], fn.returnType, mod.name, loc) });
+      const valueText = local[3].trim();
+      if (/^phi\./.test(valueText)) throw v053UnstructuredError(line, loc);
+      const call = valueText.match(V053_CALL_FORM);
+      const statement = { kind: "local", loc, name: local[1], type, value: call ? v053CallValue(call) : normalizeV053Value(valueText, type, mod.name, loc) };
+      frame.statements.push(statement);
+      if (call) calls.push(statement);
       continue;
     }
     throw v053SyntaxError(`unsupported function statement '${line}'`, loc);
   }
   if (stack.length) {
     const open = stack[stack.length - 1];
-    const loc = open.kind === "enum" ? open.loc : open.kind === "match" ? open.statement.loc : open.fn.loc;
-    const label = open.kind === "enum" ? `enum '${open.typeName}'` : open.kind === "match" ? "match" : `function '${open.fn.name}'`;
+    const loc = open.kind === "enum" ? open.loc : open.kind === "function" ? open.fn.loc : open.kind === "match" ? open.statement.loc : open.openLoc;
+    const label = open.kind === "enum" ? `enum '${open.typeName}'` : open.kind === "function" ? `function '${open.fn.name}'` : open.kind === "match" ? "match" : "block";
     throw v053SyntaxError(`unclosed ${label}`, loc);
   }
   if (!mod.name) throw v053SyntaxError("missing module declaration", { file, line: 1 });
+  // Call arguments normalize against the callee's parameter types once every
+  // function is known; an unknown callee or a wrong count stays for the verifier.
+  const functions = new Map(mod.functions.map((item) => [item.name, item]));
+  for (const statement of calls) {
+    const callee = functions.get(statement.value.callee);
+    if (!callee || callee.params.length !== statement.value.args.length) continue;
+    statement.value.args = statement.value.args.map((argument, position) => normalizeV053Argument(argument, callee.params[position].type, mod.name, statement.loc));
+  }
   return mod;
 }
 

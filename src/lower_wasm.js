@@ -845,9 +845,39 @@ const V053_FROZEN_V051_OPERATIONS = new Set([
   "i64.to_i32_checked", "i32.to_i64", "f32.to_f64", "f64.to_f32_checked"
 ]);
 
+// Every statement of a function, the ones in blocks included (P0-04),
+// collected with an explicit stack.
+function v053FunctionStatements(fn) {
+  const out = [];
+  const stack = [fn.statements || []];
+  while (stack.length) {
+    for (const statement of stack.pop()) {
+      out.push(statement);
+      for (const block of Array.isArray(statement.blocks) ? statement.blocks : []) stack.push(block.statements || []);
+    }
+  }
+  return out;
+}
+
 function v053FunctionUsesCheckedNumeric(fn) {
-  return (fn.statements || []).some((statement) => (statement.kind === "local" || statement.kind === "return") &&
+  return v053FunctionStatements(fn).some((statement) => (statement.kind === "local" || statement.kind === "return") &&
     statement.value && typeof statement.value === "object" && V053_CHECKED_OPERATIONS.has(statement.value.op));
+}
+
+function v053FunctionUsesRefinement(fn) {
+  const typeNames = [fn.returnType, ...(fn.params || []).map((parameter) => parameter.type)];
+  for (const statement of v053FunctionStatements(fn)) {
+    if (statement.kind === "local") typeNames.push(statement.type);
+    if (statement.kind === "match" || statement.kind === "if") typeNames.push(statement.destinationType);
+  }
+  return typeNames.some((typeName) => {
+    const refinement = parseRefinementType(typeName);
+    return refinement && refinement.base === "i32";
+  });
+}
+
+function v053TypeInfo(typeName, declarations) {
+  return typeName === "void" ? { kind: "void", watTypes: [] } : v051TypedTypeInfo(typeName, declarations);
 }
 
 function v053ModuleFeatures(mod) {
@@ -855,12 +885,13 @@ function v053ModuleFeatures(mod) {
   const functions = mod.functions || [];
   return {
     declarations,
+    functions: new Map(functions.map((fn) => [fn.name, fn])),
     usesCanonicalSumIngress: functions.some((fn) => (fn.params || []).some((parameter) => {
       const type = v051TypedTypeInfo(parameter.type, declarations);
       return type.kind === "option" || type.kind === "result";
     })),
     usesCheckedNumeric: functions.some(v053FunctionUsesCheckedNumeric),
-    usesTypedRefinement: functions.some(v051TypedFunctionUsesRefinement)
+    usesTypedRefinement: functions.some(v053FunctionUsesRefinement)
   };
 }
 
@@ -910,7 +941,7 @@ function lowerV053TypedToWat(mod, options = {}) {
     const features = v053ModuleFeatures(mod);
     const header = v053ModuleHeaderLines(features);
     header.forEach((line, index) => writer.charge((index ? 1 : 0) + Buffer.byteLength(line, "utf8")));
-    const functions = (mod.functions || []).map((fn) => lowerV053TypedFunction(fn, features.declarations, writer, false));
+    const functions = (mod.functions || []).map((fn) => lowerV053TypedFunction(fn, features, writer, false));
     writer.charge(1 + 1);
     const wat = [...header, ...functions, ")"].join("\n");
     if (Buffer.byteLength(wat, "utf8") !== writer.total) {
@@ -923,12 +954,11 @@ function lowerV053TypedToWat(mod, options = {}) {
   }
 }
 
-function lowerV053TypedFunction(fn, declarations, writer, counting) {
-  if (fn.returnType === "void") {
-    typedLowerFail("air.v051.typed_lowering_unsupported", "void typed functions are not admitted in typed-v0.53 before P0-04");
-  }
+function lowerV053TypedFunction(fn, features, writer, counting) {
+  const { declarations } = features;
   const state = {
     declarations,
+    functions: features.functions,
     localDecls: new V053WatLines(writer, 4, counting),
     locals: new Map(),
     body: new V053WatLines(writer, 4, counting),
@@ -948,7 +978,8 @@ function lowerV053TypedFunction(fn, declarations, writer, counting) {
       for (let index = 0; index < record.names.length; index += 1) params.push(`(param ${record.names[index]} ${info.watTypes[index]})`);
     }
   }
-  const resultInfo = v051TypedTypeInfo(fn.returnType, declarations);
+  // OPEN-17 (a): a `void` function has no result lanes (P0-04).
+  const resultInfo = v053TypeInfo(fn.returnType, declarations);
   let headerLine = null;
   if (!counting) {
     const result = resultInfo.watTypes.length ? ` (result ${resultInfo.watTypes.join(" ")})` : "";
@@ -957,33 +988,18 @@ function lowerV053TypedFunction(fn, declarations, writer, counting) {
     writer.charge(1 + Buffer.byteLength(headerLine, "utf8"));
   }
   // Ingress checks in parameter order, before any other evaluation (T-5).
+  // An internal call reaches them too; they cannot fail there (P4-R6).
   for (const record of records) emitV053TypedRuntimeValidation(state, record);
   for (const statement of fn.statements || []) {
-    if (statement.kind === "local") {
-      const info = v051TypedTypeInfo(statement.type, declarations);
-      const record = v051TypedRecord(statement.name, statement.type, info, false);
-      state.locals.set(statement.name, record);
-      state.localDecls.push(...record.names.map((name, index) => `(local ${name} ${info.watTypes[index]})`));
-      emitV053TypedExpression(state, statement.value, statement.type);
-      emitV053NarrowingCheck(state, info, statement.value);
-      emitV051TypedSet(state, record);
-      continue;
-    }
-    if (statement.kind === "match") {
-      const info = v051TypedTypeInfo(statement.destinationType, declarations);
-      const record = v051TypedRecord(statement.destination, statement.destinationType, info, false);
-      state.locals.set(statement.destination, record);
-      state.localDecls.push(...record.names.map((name, index) => `(local ${name} ${info.watTypes[index]})`));
-      emitV053TypedMatch(state, statement, record);
-      continue;
-    }
     if (statement.kind === "return") {
-      emitV053TypedExpression(state, statement.value, fn.returnType);
-      emitV053NarrowingCheck(state, resultInfo, statement.value);
+      if (resultInfo.kind !== "void") {
+        emitV053TypedExpression(state, statement.value, fn.returnType);
+        emitV053NarrowingCheck(state, resultInfo, statement.value);
+      }
       state.body.push("return");
       continue;
     }
-    typedLowerFail("air.v051.typed_lowering_unsupported", `unsupported statement kind '${statement.kind}'`);
+    emitV053Statement(state, statement);
   }
   if (counting) {
     return { locals: parameterLanes + state.localDecls.count, name: fn.name, parameters: parameterLanes, results: resultInfo.watTypes.length };
@@ -995,6 +1011,93 @@ function lowerV053TypedFunction(fn, declarations, writer, counting) {
     ...state.body.lines.map((line) => `    ${line}`),
     "  )"
   ].join("\n");
+}
+
+function declareV053Record(state, name, typeName) {
+  const info = v051TypedTypeInfo(typeName, state.declarations);
+  const record = v051TypedRecord(name, typeName, info, false);
+  state.locals.set(name, record);
+  state.localDecls.push(...record.names.map((lane, index) => `(local ${lane} ${info.watTypes[index]})`));
+  return record;
+}
+
+// One statement of a body or a block (a block's yield is emitted by its
+// block). Block nesting is bounded by the analysis capacity checked before
+// lowering (SCALAR AMD-3), so this recursion is bounded.
+function emitV053Statement(state, statement) {
+  if (statement.kind === "local") {
+    const record = declareV053Record(state, statement.name, statement.type);
+    if (statement.value && typeof statement.value === "object" && statement.value.kind === "call") {
+      const callee = emitV053Call(state, statement.value);
+      emitV053ResultCheck(state, record.info, callee.returnType);
+    } else {
+      emitV053TypedExpression(state, statement.value, statement.type);
+      emitV053NarrowingCheck(state, record.info, statement.value);
+    }
+    emitV051TypedSet(state, record);
+    return;
+  }
+  if (statement.kind === "call") {
+    emitV053Call(state, statement.value);
+    return;
+  }
+  if (statement.kind === "match") {
+    emitV053TypedMatch(state, statement, declareV053Record(state, statement.destination, statement.destinationType));
+    return;
+  }
+  if (statement.kind === "if") {
+    // R-CFG-1: both blocks store into the destination; the join is the yield.
+    const destination = declareV053Record(state, statement.destination, statement.destinationType);
+    emitV051TypedExpression(state, statement.condition, "bool");
+    state.body.push("if");
+    emitV053Block(state, statement.blocks[0], destination);
+    state.body.push("else");
+    emitV053Block(state, statement.blocks[1], destination);
+    state.body.push("end");
+    return;
+  }
+  typedLowerFail("air.v051.typed_lowering_unsupported", `unsupported statement kind '${statement.kind}'`);
+}
+
+// A block's statements, then its yield into the destination: the value, its
+// narrowing check when it enters a refinement (17), the store.
+function emitV053Block(state, block, destination) {
+  const statements = (block && block.statements) || [];
+  const last = statements[statements.length - 1];
+  if (!last || last.kind !== "yield") typedLowerFail("air.v051.typed_lowering_unsupported", "a block must end with yield");
+  for (const statement of statements.slice(0, -1)) emitV053Statement(state, statement);
+  emitV053TypedExpression(state, last.value, destination.type);
+  emitV053NarrowingCheck(state, destination.info, last.value);
+  emitV051TypedSet(state, destination);
+}
+
+// R-CALL-1 (slice text §4.1): every argument by its lanes, in order, each
+// refined parameter checked at the call site before the callee runs (17);
+// then the call. Typed values cross by their lanes; nothing is observable.
+function emitV053Call(state, value) {
+  const callee = state.functions.get(value.callee);
+  if (!callee || (callee.params || []).length !== (value.args || []).length) {
+    typedLowerFail("air.v051.typed_lowering_unsupported", `unverified call '@${value.callee}'`);
+  }
+  value.args.forEach((argument, index) => {
+    const parameter = callee.params[index];
+    emitV053TypedExpression(state, argument, parameter.type);
+    emitV053NarrowingCheck(state, v051TypedTypeInfo(parameter.type, state.declarations), argument);
+  });
+  state.body.push(`call $${wasmName(callee.name)}`);
+  return callee;
+}
+
+// P4-R5: a call result has the callee's declared result type; binding it
+// into a refinement that does not contain that type is checked (17).
+function emitV053ResultCheck(state, info, resultType) {
+  if (!info || !info.refinement || info.refinement.kind !== "i32_range") return;
+  const source = parseRefinementType(resultType);
+  if (source && source.base === "i32" && info.refinement.min <= source.refinement.min && source.refinement.max <= info.refinement.max) return;
+  const temporary = declareV051TypedTemporary(state, "i32");
+  state.body.push(`local.set ${temporary}`);
+  emitV053RangeCheck(state, temporary, info.refinement, "__air_v053_refinement_assignment_out_of_range");
+  state.body.push(`local.get ${temporary}`);
 }
 
 function emitV053TypedExpression(state, value, expectedType) {
@@ -1120,9 +1223,13 @@ function emitV053TypedMatch(state, statement, destination) {
       previous = state.locals.get(binding.name);
       state.locals.set(binding.name, binding.record(subject));
     }
-    emitV053TypedExpression(state, arm.expression, destination.type);
-    emitV053NarrowingCheck(state, destination.info, arm.expression);
-    emitV051TypedSet(state, destination);
+    if (arm.block) {
+      emitV053Block(state, arm.block, destination);
+    } else {
+      emitV053TypedExpression(state, arm.expression, destination.type);
+      emitV053NarrowingCheck(state, destination.info, arm.expression);
+      emitV051TypedSet(state, destination);
+    }
     if (binding) {
       if (previous) state.locals.set(binding.name, previous);
       else state.locals.delete(binding.name);
@@ -1208,11 +1315,11 @@ function checkV053EngineLimits(mod) {
   if (!isTypedV053Ast(mod)) typedLowerFail("air.v051.typed_lowering_unsupported", "engine-limit planning requires a typed-v0.53 AST");
   const features = v053ModuleFeatures(mod);
   const helpers = v053ModuleHeaderLines(features).filter((line) => line.startsWith("  (func ")).length;
-  const plans = (mod.functions || []).map((fn) => lowerV053TypedFunction(fn, features.declarations, null, true));
+  const plans = (mod.functions || []).map((fn) => lowerV053TypedFunction(fn, features, null, true));
   const signatures = new Set(helpers ? ["->"] : []);
   for (const fn of mod.functions || []) {
     const lanes = (fn.params || []).flatMap((parameter) => v051TypedTypeInfo(parameter.type, features.declarations).watTypes);
-    signatures.add(`${lanes.join(",")}->${v051TypedTypeInfo(fn.returnType, features.declarations).watTypes.join(",")}`);
+    signatures.add(`${lanes.join(",")}->${v053TypeInfo(fn.returnType, features.declarations).watTypes.join(",")}`);
   }
   // `__air_failure_reason` is the one global and one extra export (T-1).
   const totals = {

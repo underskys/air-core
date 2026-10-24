@@ -749,21 +749,31 @@ function isConstructorAtom(value) {
 }
 
 function withRefinementCheck(base, destinationType, value, loc, scope = null) {
-  // typed-v0.51: the verifier admits a local reference into a refined type
-  // only when the types are identical, so only literals and operation results
-  // enter one. typed-v0.53 (P0-03 slice text §5.0, §5.2): a local reference is
-  // free only when its declared type is contained in the destination (P3-R2);
-  // literals and operation results always add the row (P3-R17).
-  if (!isRefinedType(destinationType, loc)) return base;
-  if (isLocalReference(value) && (!scope || referenceContained(scope, value, destinationType, loc))) return base;
-  return add(base, row("refinement.check", loc), loc);
+  return refinementCheckNeeded(destinationType, value, loc, scope) ? add(base, row("refinement.check", loc), loc) : base;
+}
+
+// typed-v0.51: the verifier admits a local reference into a refined type only
+// when the types are identical, so only literals and operation results enter
+// one. typed-v0.53 (P0-03 slice text §5.0, §5.2): a local reference is free
+// only when its declared type is contained in the destination (P3-R2);
+// literals and operation results always add the row (P3-R17). A call result
+// has the callee's declared result type (P0-04 P4-R5): `sourceType`.
+function refinementCheckNeeded(destinationType, value, loc, scope, sourceType) {
+  if (!isRefinedType(destinationType, loc)) return false;
+  if (sourceType !== undefined) return !typeContainedIn(sourceType, destinationType, loc);
+  if (isLocalReference(value) && (!scope || referenceContained(scope, value, destinationType, loc))) return false;
+  return true;
 }
 
 // `scope` maps the locals in scope to their declared types. A match-arm
 // binding is not in it: its payload type is never a refinement (P3-R4).
 function referenceContained(scope, value, destinationType, loc) {
   const declared = scope.get(value.trim().slice(1));
-  const source = declared === undefined ? null : refinementOf(declared, loc);
+  return declared !== undefined && typeContainedIn(declared, destinationType, loc);
+}
+
+function typeContainedIn(sourceType, destinationType, loc) {
+  const source = refinementOf(sourceType, loc);
   const destination = refinementOf(destinationType, loc);
   if (!source || source.base !== "i32" || !destination || destination.base !== "i32") return false;
   return destination.refinement.min <= source.refinement.min && source.refinement.max <= destination.refinement.max;
@@ -780,18 +790,65 @@ function typedOperandNode(value, loc, inMatchArm = false) {
   return costUndefined(`expression.${value && value.kind || "<invalid>"}`, loc);
 }
 
-function typedStatementNode(fn, statement, scope = null) {
+function isCallValue(value) {
+  return Boolean(value) && typeof value === "object" && value.kind === "call";
+}
+
+// P0-04 (slice text §4.6; CT-1 call row): c1 = per argument, in argument
+// order, its constructor row (P4-R16) and then its refinement check (P4-R14);
+// c2 = c1 ⊕ (steps 1, calls 1); c3 = c2 ⊕ B(f). Every node takes the position
+// of the call statement (P4-R2).
+function typedCallNode(value, loc, ctx, scope) {
+  const callee = ctx.functions.get(value.callee);
+  if (!callee) costUndefined(`call.@${value.callee}`, loc);
+  const c1 = [];
+  (value.args || []).forEach((argument, index) => {
+    if (isConstructorAtom(argument)) c1.push(row("statement.constructor", loc));
+    if (refinementCheckNeeded(callee.params[index].type, argument, loc, scope)) c1.push(row("refinement.check", loc));
+  });
+  if (!c1.length) return call(value.callee, loc);
+  return add(add(seq(c1, loc), row("call", loc), loc), summaryOf(value.callee, loc), loc);
+}
+
+// A block: its statement sequence ending in its yield, in its own scope.
+function typedBlockNode(block, fn, ctx, scope, yieldType, loc) {
+  return typedSequence(block && Array.isArray(block.statements) ? block.statements : [], fn, ctx, scope ? new Map(scope) : null, yieldType, loc);
+}
+
+function typedStatementNode(fn, statement, scope = null, ctx = null, yieldType = null) {
   const loc = statement && statement.loc;
   if (!statement || typeof statement !== "object") costUndefined("statement.<invalid>", fn.loc);
   if (statement.kind === "local") {
+    if (ctx && isCallValue(statement.value)) {
+      // The binding adds nothing but its check (P4-R5; R-WB-26b).
+      const node = typedCallNode(statement.value, loc, ctx, scope);
+      const callee = ctx.functions.get(statement.value.callee);
+      return refinementCheckNeeded(statement.type, null, loc, scope, callee.returnType) ? add(node, row("refinement.check", loc), loc) : node;
+    }
     const construct = isConstructorAtom(statement.value) ? "statement.constructor" : "statement.scalar";
     return withRefinementCheck(row(construct, loc), statement.type, statement.value, loc, scope);
   }
+  if (ctx && statement.kind === "call") return typedCallNode(statement.value, loc, ctx, scope);
+  if (ctx && statement.kind === "if") {
+    const blocks = Array.isArray(statement.blocks) ? statement.blocks : [];
+    if (blocks.length !== 2) costUndefined("branch.<blocks>", loc);
+    return branch(
+      typedBlockNode(blocks[0], fn, ctx, scope, statement.destinationType, loc),
+      typedBlockNode(blocks[1], fn, ctx, scope, statement.destinationType, loc),
+      loc
+    );
+  }
+  if (ctx && statement.kind === "yield") {
+    // A yield is statement.scalar, or statement.constructor in its place for a
+    // constructor atom (P4-R16), plus its refinement check (P0-03 §5.0).
+    const construct = isConstructorAtom(statement.value) ? "statement.constructor" : "statement.scalar";
+    return withRefinementCheck(row(construct, loc), yieldType, statement.value, loc, scope);
+  }
   if (statement.kind === "match") {
     if (!Array.isArray(statement.arms) || !statement.arms.length) costUndefined("match.<no arms>", loc);
-    const arms = statement.arms.map((arm) => withRefinementCheck(
-      typedOperandNode(arm.expression, arm.loc || loc, true), statement.destinationType, arm.expression, arm.loc || loc, scope
-    ));
+    const arms = statement.arms.map((arm) => (ctx && arm.block
+      ? typedBlockNode(arm.block, fn, ctx, scope, statement.destinationType, arm.loc || loc)
+      : withRefinementCheck(typedOperandNode(arm.expression, arm.loc || loc, true), statement.destinationType, arm.expression, arm.loc || loc, scope)));
     return match(arms, loc);
   }
   if (statement.kind === "return") {
@@ -802,16 +859,23 @@ function typedStatementNode(fn, statement, scope = null) {
   return costUndefined(`statement.${statement.kind}`, loc);
 }
 
-// One function body. A typed-v0.53 AST tracks the declared type of every
-// local in scope for the containment exception; a typed-v0.51 AST has none.
-function typedFunctionBody(fn, typedV053) {
-  const scope = typedV053 ? new Map((fn.params || []).map((parameter) => [parameter.name, parameter.type])) : null;
-  return (fn.statements || []).map((statement) => {
-    const node = typedStatementNode(fn, statement, scope);
+// A statement sequence (a body or a block): a left-nested ⊕ chain whose
+// nodes take the position of the statement they append (R-WB-2; P4-R2). A
+// typed-v0.53 AST tracks the declared type of every local in scope for the
+// containment exception; a typed-v0.51 AST has none.
+function typedSequence(statements, fn, ctx, scope, yieldType, loc) {
+  const nodes = statements.map((statement) => {
+    const node = typedStatementNode(fn, statement, scope, ctx, yieldType);
     if (scope && statement.kind === "local") scope.set(statement.name, statement.type);
-    if (scope && statement.kind === "match") scope.set(statement.destination, statement.destinationType);
+    if (scope && (statement.kind === "match" || statement.kind === "if")) scope.set(statement.destination, statement.destinationType);
     return node;
   });
+  return seq(nodes, loc);
+}
+
+function typedFunctionBody(fn, ctx) {
+  const scope = ctx ? new Map((fn.params || []).map((parameter) => [parameter.name, parameter.type])) : null;
+  return typedSequence(fn.statements || [], fn, ctx, scope, null, fn.loc);
 }
 
 function typedV051Model(mod) {
@@ -820,9 +884,11 @@ function typedV051Model(mod) {
   }
   const declarations = new Map((mod.enums || []).map((item) => [item.type_id, item]));
   const moduleId = typeof mod.name === "string" && MODULE_ID.test(mod.name) ? mod.name : "v53.model";
+  // typed-v0.53 (P0-04): calls need the callees' signatures.
+  const ctx = isTypedV053Ast(mod) ? { functions: new Map(mod.functions.map((fn) => [fn.name, fn])) } : null;
   return {
     functions: mod.functions.map((fn) => ({
-      body: seq(typedFunctionBody(fn, isTypedV053Ast(mod)), fn.loc),
+      body: typedFunctionBody(fn, ctx),
       exported: fn.exported === true,
       loc: fn.loc,
       name: fn.name,

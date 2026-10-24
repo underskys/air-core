@@ -115,6 +115,12 @@ const REPAIR_HINTS_BY_CODE = Object.freeze({
   "air.decision.payload_tag_invalid": "A direct Wasm caller passed an option/result tag other than 0 or 1; encode none/ok as 0 and some/err as 1.",
   "air.decision.bool_lane_invalid": "A direct Wasm caller passed a bool lane other than 0 or 1; encode false as 0 and true as 1.",
   "air.decision.payload_lane_noncanonical": "A direct Wasm caller passed non-zero bits in an inactive option/result lane; write all-zero bits (raw bits for f32/f64) in every lane the tag makes inactive.",
+  // typed-v0.53 P0-04 (slice text §4.1-§4.5; docs/v0.53/P0_04_CALLS_CFG.md).
+  "air.call.unknown_function": "Call a function declared in this module; imported and extern callees arrive with later slices.",
+  "air.call.result_unbound": "Bind the result of a non-void call (%r: T = call @f(...)); only a void callee is called as a statement.",
+  "air.call.argument_count_mismatch": "Pass exactly one atom per parameter of the callee.",
+  "air.control.unstructured_unsupported": "typed-v0.53 has no labels, br, br_if or phi; branch with a value if or a match whose blocks end with yield.",
+  "air.control.yield_missing": "End every block with exactly one yield, and give every value if an else block.",
   "air.memory.region_leak": "Call free_region on all paths before returning from the function.",
   "air.output_emit.host_abi_unsupported": `Use Host ABI 0.11 only for bounded ${OUT_EMIT_LABEL} packages, or remove ${OUT_EMIT_LABEL}.`,
   "air.output_emit.output_handle_required": "Use the generated OUTPUT_* handle constant for canonical bounded output authoring.",

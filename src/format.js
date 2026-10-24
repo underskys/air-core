@@ -302,11 +302,76 @@ function compareFlowDeclarations(a, b) {
 // exactly one trailing LF. Carriers and integer-spelled floats are already
 // normalized by the typed-v0.53 parser (`N.0`, `-0.0` kept). `match` over
 // `bool` uses the frozen arm order: equal rank, ASCII, so `false` first (R-7).
+//
+// P0-04 (slice text P4-R9): blocks indent two spaces per level; `} else {`
+// and a block's closing `}` sit at the opening line's indentation; an atom arm
+// ends with `,`, a block arm's closing line is `}`; a bare `return` in `void`.
 function formatV053TypedAir(mod) {
   if (!isTypedV053Ast(mod)) {
     throw new AirError("air.source_profile.ast_mismatch: typed-v0.53 formatting requires a typed-v0.53 AST");
   }
-  return `${formatV051TypedAir(mod)}\n`;
+  const out = [`module ${mod.name}`];
+  const capabilities = Array.from(mod.capabilities || []).sort();
+  if (capabilities.length) out.push(`capabilities { ${capabilities.join(", ")} }`);
+  for (const declaration of (mod.enums || []).slice().sort((left, right) => compareAscii(left.type_id, right.type_id))) {
+    const typeName = declaration.type_id.slice(declaration.type_id.lastIndexOf("::") + 2);
+    out.push("");
+    out.push(`${declaration.kind === "error_enum" ? "error " : ""}enum ${typeName} {`);
+    for (const entry of declaration.cases.slice().sort((left, right) => left.discriminant - right.discriminant || compareAscii(left.name, right.name))) {
+      out.push(`  ${entry.name} = ${entry.discriminant},`);
+    }
+    out.push("}");
+  }
+  for (const fn of (mod.functions || []).slice().sort((left, right) => compareAscii(left.name, right.name))) {
+    out.push("");
+    const params = fn.params.map((parameter) => `${parameter.name}: ${parameter.type}`).join(", ");
+    out.push(`${fn.exported ? "export " : ""}func ${fn.name}(${params}) -> ${fn.returnType} {`);
+    formatV053Statements(fn.statements || [], "  ", new Map(fn.params.map((parameter) => [parameter.name, parameter.type])), mod, out);
+    out.push("}");
+  }
+  return `${out.join("\n")}\n`;
+}
+
+// Block nesting is bounded by the analysis capacity, checked before formatting.
+function formatV053Statements(statements, indent, locals, mod, out) {
+  for (const statement of statements) {
+    if (statement.kind === "local") {
+      out.push(`${indent}%${statement.name}: ${statement.type} = ${formatV053Value(statement.value)}`);
+      locals.set(statement.name, statement.type);
+    } else if (statement.kind === "call") {
+      out.push(`${indent}${formatV053Value(statement.value)}`);
+    } else if (statement.kind === "match") {
+      out.push(`${indent}%${statement.destination}: ${statement.destinationType} = match %${statement.value} {`);
+      for (const arm of sortV051MatchArms(statement.arms || [], locals.get(statement.value), mod)) {
+        if (arm.block) {
+          out.push(`${indent}  ${arm.pattern} => {`);
+          formatV053Statements(arm.block.statements || [], `${indent}    `, new Map(locals), mod, out);
+          out.push(`${indent}  }`);
+        } else {
+          out.push(`${indent}  ${arm.pattern} => ${formatV053Value(arm.expression)},`);
+        }
+      }
+      out.push(`${indent}}`);
+      locals.set(statement.destination, statement.destinationType);
+    } else if (statement.kind === "if") {
+      out.push(`${indent}%${statement.destination}: ${statement.destinationType} = if ${statement.condition} {`);
+      formatV053Statements(statement.blocks[0].statements || [], `${indent}  `, new Map(locals), mod, out);
+      out.push(`${indent}} else {`);
+      formatV053Statements(statement.blocks[1].statements || [], `${indent}  `, new Map(locals), mod, out);
+      out.push(`${indent}}`);
+      locals.set(statement.destination, statement.destinationType);
+    } else if (statement.kind === "yield") {
+      out.push(`${indent}yield ${formatV053Value(statement.value)}`);
+    } else if (statement.kind === "return") {
+      const value = formatV053Value(statement.value);
+      out.push(value ? `${indent}return ${value}` : `${indent}return`);
+    }
+  }
+}
+
+function formatV053Value(value) {
+  if (value && value.kind === "call") return `call @${value.callee}(${(value.args || []).join(", ")})`;
+  return formatV051TypedValue(value);
 }
 
 module.exports = { formatModule, formatV051Air, formatInstruction, formatArg, formatV051Contract };

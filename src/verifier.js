@@ -5023,61 +5023,173 @@ function verifyV053TypedModule(mod) {
     }
     declarations.set(declaration.type_id, declaration);
   }
-  const functions = new Set();
+  const functions = new Map();
   for (const fn of mod.functions || []) {
     if (!fn || typeof fn.name !== "string" || functions.has(fn.name)) throw new VerificationError("air.v051.function_duplicate: typed function names must be unique", fn && fn.loc);
-    functions.add(fn.name);
-    // OPEN-17 (a) admits void functions with P0-04 (bare return and statement
-    // calls). Before that, typed-v0.53 does not admit them: a void function
-    // verifies but never lowers in typed-v0.51 (RFC §3.2), and R-COMP-3 forbids
-    // a typed-v0.53 program that verifies and then fails to build.
-    if (fn.returnType === "void") {
-      throw new VerificationError(`air.v051.typed_syntax_invalid: void function '${fn.name}' is not admitted in typed-v0.53 before P0-04 (OPEN-17)`, fn.loc);
-    }
-    const locals = new Map();
-    const staticValues = new Map();
-    const parameterNames = new Set();
+    functions.set(fn.name, fn);
+  }
+  for (const fn of mod.functions || []) {
+    const ctx = { declarations, fn, functions, moduleName: mod.name, names: new Set() };
+    const scope = { locals: new Map(), staticValues: new Map() };
     for (const parameter of fn.params || []) {
-      if (!parameter || typeof parameter.name !== "string" || parameterNames.has(parameter.name)) throw new VerificationError(`air.v051.parameter_duplicate: '${fn.name}'`, fn.loc);
-      parameterNames.add(parameter.name);
+      if (!parameter || typeof parameter.name !== "string" || ctx.names.has(parameter.name)) throw new VerificationError(`air.v051.parameter_duplicate: '${fn.name}'`, fn.loc);
+      ctx.names.add(parameter.name);
       verifyV053TypedType(parameter.type, declarations, fn.loc);
-      locals.set(parameter.name, parameter.type);
+      scope.locals.set(parameter.name, parameter.type);
     }
-    const returnType = verifyV053TypedType(fn.returnType, declarations, fn.loc);
+    // OPEN-17 (a): `-> void` is admitted (P0-04); its body ends with a bare return.
+    ctx.returnType = verifyV053TypedType(fn.returnType, declarations, fn.loc, true);
     let hasReturn = false;
     for (const statement of fn.statements || []) {
       if (hasReturn) throw new VerificationError("air.control.statement_after_return: return must be the last statement", statement && statement.loc);
-      if (statement && statement.kind === "local") {
-        if (locals.has(statement.name)) throw new VerificationError(`air.v051.local_duplicate: '${statement.name}'`, statement.loc);
-        const declared = verifyV053TypedType(statement.type, declarations, statement.loc);
-        const staticValue = verifyV053TypedExpression(statement.value, declared, locals, declarations, statement.loc, staticValues);
-        locals.set(statement.name, statement.type);
-        if (staticValue !== undefined) staticValues.set(statement.name, staticValue);
-      } else if (statement && statement.kind === "match") {
-        if (locals.has(statement.destination)) throw new VerificationError(`air.v051.local_duplicate: '${statement.destination}'`, statement.loc);
-        verifyV053TypedMatch(statement, locals, declarations, staticValues);
-        locals.set(statement.destination, statement.destinationType);
-      } else if (statement && statement.kind === "return") {
-        verifyV053TypedExpression(statement.value, returnType, locals, declarations, statement.loc, staticValues);
+      if (statement && statement.kind === "return") {
+        verifyV053Return(statement, ctx, scope);
         hasReturn = true;
       } else {
-        throw new VerificationError("air.v051.typed_statement_invalid: unsupported statement", statement && statement.loc);
+        verifyV053Statement(statement, ctx, scope, null);
       }
     }
     if (!hasReturn) throw new VerificationError(`air.v051.return_missing: '${fn.name}'`, fn.loc);
   }
+  // P4-R8 (P0-04 slice text §4.2): the call-graph phase and the WorkBound
+  // summaries are part of phase S wherever typed-v0.53 is verified, after the
+  // verifier's own checks. A recursion or a summary failure is STATIC_REJECT.
+  verifyV053WorkBound(mod);
   return mod;
+}
+
+function verifyV053WorkBound(mod) {
+  const workbound = require("./workbound");
+  const analysis = workbound.analyzeVerifiedTypedModule(mod);
+  if (analysis.status === "ok") return;
+  const failure = workbound.analysisError(analysis);
+  const error = new VerificationError(`${failure.code}: ${failure.detail}`, failure.loc);
+  error.disposition = "STATIC_REJECT";
+  if (failure.fields.cyclePath) error.cyclePath = failure.fields.cyclePath;
+  error.workBound = failure.fields;
+  throw error;
+}
+
+// One statement of a body or a block (R-CFG-1). `yieldType` is the type a
+// block's yield enters, or null at the top level of a function.
+function verifyV053Statement(statement, ctx, scope, yieldType) {
+  const loc = statement && statement.loc;
+  if (statement && statement.kind === "local") {
+    declareV053Local(statement.name, ctx, scope, loc);
+    const declared = verifyV053TypedType(statement.type, ctx.declarations, loc);
+    let staticValue;
+    if (statement.value && typeof statement.value === "object" && statement.value.kind === "call") {
+      verifyV053Call(statement.value, ctx, scope, loc, declared);
+    } else {
+      staticValue = verifyV053TypedExpression(statement.value, declared, scope.locals, ctx.declarations, loc, scope.staticValues);
+    }
+    scope.locals.set(statement.name, statement.type);
+    if (staticValue !== undefined) scope.staticValues.set(statement.name, staticValue);
+  } else if (statement && statement.kind === "call") {
+    verifyV053Call(statement.value, ctx, scope, loc, null);
+  } else if (statement && statement.kind === "match") {
+    declareV053Local(statement.destination, ctx, scope, loc);
+    verifyV053TypedMatch(statement, ctx, scope);
+    scope.locals.set(statement.destination, statement.destinationType);
+  } else if (statement && statement.kind === "if") {
+    declareV053Local(statement.destination, ctx, scope, loc);
+    const destination = verifyV053TypedType(statement.destinationType, ctx.declarations, loc);
+    // P4-R9: the condition is a `bool` atom.
+    verifyV053TypedAtom(statement.condition, verifyV053TypedType("bool", ctx.declarations, loc), scope.locals, ctx.declarations, loc);
+    if (!Array.isArray(statement.blocks) || statement.blocks.length !== 2) {
+      throw new VerificationError("air.control.yield_missing: a value if needs a then-block and an else-block", loc);
+    }
+    for (const block of statement.blocks) verifyV053Block(block, destination, ctx, scope, null, loc);
+    scope.locals.set(statement.destination, statement.destinationType);
+  } else if (statement && statement.kind === "yield") {
+    if (!yieldType) throw new VerificationError("air.v051.typed_syntax_invalid: yield outside a block", loc);
+    if (typeof statement.value !== "string") throw new VerificationError("air.v051.typed_syntax_invalid: yield operand must be an atom", loc);
+    verifyV053TypedExpression(statement.value, yieldType, scope.locals, ctx.declarations, loc, scope.staticValues);
+  } else if (statement && statement.kind === "return") {
+    throw new VerificationError("air.v051.typed_syntax_invalid: return inside a block; a function has a single exit (R-CFG-2)", loc);
+  } else {
+    throw new VerificationError("air.v051.typed_statement_invalid: unsupported statement", loc);
+  }
+}
+
+// A block: its own scope (locals defined inside are not visible after it),
+// every statement, and exactly one final yield (R-CFG-1, P4-R10, P4-R15).
+function verifyV053Block(block, destination, ctx, outer, binding, loc) {
+  const statements = block && Array.isArray(block.statements) ? block.statements : [];
+  const last = statements[statements.length - 1];
+  if (!last || last.kind !== "yield") throw new VerificationError("air.control.yield_missing: a block must end with yield", loc);
+  const scope = { locals: new Map(outer.locals), staticValues: new Map(outer.staticValues) };
+  if (binding) scope.locals.set(binding.name, binding.type);
+  statements.forEach((statement, index) => {
+    if (statement.kind === "yield" && index !== statements.length - 1) {
+      throw new VerificationError("air.v051.typed_syntax_invalid: statement after the block's yield", statements[index + 1].loc);
+    }
+    verifyV053Statement(statement, ctx, scope, destination);
+  });
+}
+
+// P4-R11: a local name is unique within its function across all blocks.
+function declareV053Local(name, ctx, scope, loc) {
+  if (scope.locals.has(name) || ctx.names.has(name)) throw new VerificationError(`air.v051.local_duplicate: '${name}'`, loc);
+  ctx.names.add(name);
+}
+
+function verifyV053Return(statement, ctx, scope) {
+  const loc = statement.loc;
+  // P4-R12: a return that does not match the declared result type.
+  if (ctx.returnType.canonical === "void") {
+    if (statement.value !== "" && statement.value !== undefined) throw new VerificationError("air.v051.return_type_mismatch: void return must not contain a value", loc);
+    return;
+  }
+  if (statement.value === "" || statement.value === undefined) throw new VerificationError(`air.v051.return_type_mismatch: function '${ctx.fn.name}' must return a value`, loc);
+  if (statement.value && typeof statement.value === "object" && statement.value.kind === "call") {
+    throw new VerificationError("air.numeric.operation_invalid: 'call'", loc);
+  }
+  verifyV053TypedExpression(statement.value, ctx.returnType, scope.locals, ctx.declarations, loc, scope.staticValues);
+}
+
+// R-CALL-1, R-CALL-2 (D-VAL-15; P0-04 slice text §4.1): `%r: T = call @f(…)`
+// for a callee with a result, `call @f(…)` for a `void` callee. Arguments are
+// atoms checked against the parameters (a refined parameter is a refinement
+// entry point: proven, or checked at the call site); a bound result has the
+// callee's declared result type (P4-R5).
+function verifyV053Call(value, ctx, scope, loc, destination) {
+  const callee = ctx.functions.get(value.callee);
+  if (!callee) throw new VerificationError(`air.call.unknown_function: '@${value.callee}' is not a function of module '${ctx.moduleName || "this module"}'`, loc);
+  const args = Array.isArray(value.args) ? value.args : [];
+  const params = callee.params || [];
+  if (args.length !== params.length) {
+    throw new VerificationError(`air.call.argument_count_mismatch: '@${callee.name}' takes ${params.length} argument(s), got ${args.length}`, loc);
+  }
+  args.forEach((argument, index) => {
+    if (typeof argument !== "string") throw new VerificationError("air.v051.typed_atom_invalid: expected a typed atom", loc);
+    const parameter = verifyV053TypedType(params[index].type, ctx.declarations, loc);
+    verifyV053TypedExpression(argument, parameter, scope.locals, ctx.declarations, loc, scope.staticValues);
+  });
+  if (!destination) {
+    if (callee.returnType !== "void") {
+      throw new VerificationError(`air.call.result_unbound: '@${callee.name}' returns ${callee.returnType}; bind its result (%r: T = call @${callee.name}(...))`, loc);
+    }
+    return;
+  }
+  // P4-R4: the result type `void` is not the destination's. P4-R5: an i32-family
+  // result enters an i32-family destination by containment or a checked narrowing.
+  const result = callee.returnType;
+  const widened = V053_I32_FAMILY.test(result) && v051TypeBase(destination) === "i32";
+  if (result !== destination.canonical && !widened) {
+    throw new VerificationError(`air.v051.typed_atom_type_mismatch: '@${callee.name}' returns ${result}, not ${destination.canonical}`, loc);
+  }
 }
 
 // P0-03 (slice text §4.1): a declared type is checked by the typed-v0.51 type
 // rule after the typed-v0.53 refinement-form rule (R-REF-6, P3-R4, R-TYPE-4).
-function verifyV053TypedType(typeName, declarations, loc) {
+function verifyV053TypedType(typeName, declarations, loc, allowVoid = false) {
   try {
     parserModule.typedV053.rejectRefinementForm(String(typeName || "").trim(), null);
   } catch (error) {
     throw new VerificationError(String(error.message), loc);
   }
-  return verifyV051TypedType(typeName, declarations, loc, false);
+  return verifyV051TypedType(typeName, declarations, loc, allowVoid);
 }
 
 const V053_I32_FAMILY = /^i32(?:<-?[0-9]+\.\.-?[0-9]+>)?$/;
@@ -5193,7 +5305,9 @@ function evaluateV053Checked(signature, values, loc) {
   return result;
 }
 
-function verifyV053TypedMatch(statement, locals, declarations, staticValues) {
+function verifyV053TypedMatch(statement, ctx, scope) {
+  const { declarations } = ctx;
+  const { locals, staticValues } = scope;
   const typeName = locals.get(statement.value);
   if (!typeName) throw new VerificationError(`air.decision.match_unknown_value: '${statement.value}'`, statement.loc);
   const type = verifyV053TypedType(typeName, declarations, statement.loc);
@@ -5229,15 +5343,18 @@ function verifyV053TypedMatch(statement, locals, declarations, staticValues) {
     }
     if (!pattern.key || !expected.has(pattern.key)) throw new VerificationError(`air.decision.match_arm_invalid: '${arm.pattern}'`, armLoc);
     if (seen.has(pattern.key)) throw new VerificationError(`air.decision.match_duplicate_arm: '${pattern.key}'`, armLoc);
-    const armLocals = new Map(locals);
-    if (pattern.binding) {
-      if (armLocals.has(pattern.binding)) throw new VerificationError(`air.decision.match_binding_shadow: '${pattern.binding}'`, armLoc);
-      armLocals.set(pattern.binding, pattern.bindingType);
+    if (pattern.binding && locals.has(pattern.binding)) throw new VerificationError(`air.decision.match_binding_shadow: '${pattern.binding}'`, armLoc);
+    if (arm.block) {
+      // P0-04 (R-CFG-1, P4-R9): a block-bodied arm ends with its yield.
+      verifyV053Block(arm.block, destination, ctx, scope, pattern.binding ? { name: pattern.binding, type: pattern.bindingType } : null, armLoc);
+    } else {
+      const armLocals = new Map(locals);
+      if (pattern.binding) armLocals.set(pattern.binding, pattern.bindingType);
+      // A match arm is P0-03's block-yield entry point (P3-R5): a statically
+      // known value outside a refined destination is rejected here (P3-R3).
+      // Arm bindings never shadow a local, so they have no static value.
+      verifyV053TypedExpression(arm.expression, destination, armLocals, declarations, armLoc, staticValues);
     }
-    // A match arm is P0-03's block-yield entry point (P3-R5): a statically
-    // known value outside a refined destination is rejected here (P3-R3).
-    // Arm bindings never shadow a local, so they have no static value.
-    verifyV053TypedExpression(arm.expression, destination, armLocals, declarations, armLoc, staticValues);
     seen.add(pattern.key);
   }
   if (seen.size !== expected.size || [...expected].some((item) => !seen.has(item))) {
