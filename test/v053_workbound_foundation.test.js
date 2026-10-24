@@ -740,11 +740,137 @@ function envWithout(names, extra = {}) {
       const handle = await runtime.build({ descriptor: NUMERIC_DESCRIPTOR, source: numericSource });
       await runtime.invoke(handle, "checked_add", [{ decimal: "1", type: "i64" }, { decimal: "1", type: "i64" }]);
       assert.deepEqual([...new Set(requests)], ["artifactDigest,compilerImplementationDigest,descriptorDigest,phase,sourceDigest,sourceProfile"]);
-      for (const consumer of ["src/v051_reference.js", "src/run_package.js", "src/verifier.js", "src/lower_wasm.js"]) {
+      for (const consumer of ["src/v051_reference.js", "src/run_package.js", "src/lower_wasm.js"]) {
         assert.equal(/require\(["']\.\/workbound["']\)/u.test(fs.readFileSync(path.join(ROOT, consumer), "utf8")), false, `${consumer} must not read WorkBound`);
       }
       assert.equal(Object.keys(wb).some((name) => /budget|grant|admi/iu.test(name)), false, "no WorkBound-to-Budget/grant API");
-      return { value: { budget_codec: "invalid_intent", dispositions, grant_codec: "invalid_intent" } };
+      // src/verifier.js runs the typed-v0.53 WorkBound phase (P0-04 slice text
+      // P4-R8), so the file proxy is replaced by a behavioural check (owner scope
+      // amendment 2 (a), sha256 1e3e4413…). The corpus is every source the frozen
+      // typed-v0.51 matrix and the typed-v0.53 SCALAR, P0-03 and P0-04 vector
+      // tests parse, captured by a preload. Each source is verified with the real
+      // WorkBound phase, with the phase disabled, and with a stub that keeps the
+      // real pass/fail but perturbs every summary value. Summary values never
+      // change a verdict or a diagnostic (stub: identical for every source); the
+      // phase changes a verdict only by its own R-WB-2f failure on a program that
+      // otherwise verifies (disabled: identical, or VERIFIED where the real verdict
+      // is a WorkBound-phase code). AIR_SEP_WB_01_SRC points the comparison at
+      // another src tree (the evidence mutation probe).
+      const sepDir = path.join(tmp, "sep01");
+      fs.mkdirSync(sepDir);
+      const capturePreload = path.join(sepDir, "capture.js");
+      const captureFile = path.join(sepDir, "captured.jsonl");
+      fs.writeFileSync(capturePreload, `"use strict";
+const crypto = require("crypto");
+const fs = require("fs");
+const path = require("path");
+const src = process.env.AIR_SEP_WB_CAPTURE_SRC;
+const seen = new Set();
+function record(entry) {
+  const key = crypto.createHash("sha256").update(JSON.stringify(entry)).digest("hex");
+  if (seen.has(key)) return;
+  seen.add(key);
+  fs.appendFileSync(process.env.AIR_SEP_WB_CAPTURE, JSON.stringify(entry) + "\\n");
+}
+const parser = require(path.join(src, "parser.js"));
+const parseV051Air = parser.parseV051Air;
+parser.parseV051Air = function (source) {
+  if (typeof source === "string") record({ options: { sourceProfile: "typed-v0.51" }, source });
+  return parseV051Air.apply(this, arguments);
+};
+const sp = require(path.join(src, "source_profile.js"));
+const parseSource = sp.parseSource;
+sp.parseSource = function (source, file, options) {
+  const profile = options && options.sourceProfile;
+  if (typeof source === "string" && (profile === "typed-v0.53" || profile === "typed-v0.51")) {
+    const keep = {};
+    for (const key of ["allowCandidateProfile", "analysisCapacity", "sourceProfile"]) if (options[key] !== undefined) keep[key] = options[key];
+    record({ options: keep, source });
+  }
+  return parseSource.apply(this, arguments);
+};
+`);
+      const captured = [
+        "test/v051_frozen_conformance_matrix.test.js", "test/v053_scalar.test.js", "test/v053_scalar_pipeline.test.js",
+        "test/v053_assurance_floor.test.js", "test/v053_analysis_capacity.test.js", "test/v053_refinement.test.js", "test/v053_calls_cfg.test.js"
+      ];
+      for (const testFile of captured) {
+        const run = childProcess.spawnSync(process.execPath, ["--require", capturePreload, path.join(ROOT, testFile)], {
+          cwd: ROOT, encoding: "utf8", env: { ...process.env, AIR_SEP_WB_CAPTURE: captureFile, AIR_SEP_WB_CAPTURE_SRC: path.join(ROOT, "src") }, maxBuffer: 64 * 1024 * 1024
+        });
+        assert.equal(run.status, 0, `${testFile} under capture: ${run.stderr.slice(-2000)}`);
+      }
+      const corpus = [...new Set(fs.readFileSync(captureFile, "utf8").split("\n").filter(Boolean))];
+      const corpusFile = path.join(sepDir, "corpus.jsonl");
+      fs.writeFileSync(corpusFile, `${corpus.join("\n")}\n`);
+      const compareScript = path.join(sepDir, "compare.js");
+      fs.writeFileSync(compareScript, `"use strict";
+const fs = require("fs");
+const path = require("path");
+const [srcDir, corpusFile] = process.argv.slice(2);
+const r = (m) => require(path.join(srcDir, m));
+const sp = r("source_profile.js");
+const parser = r("parser.js");
+const verifier = r("verifier.js");
+const wb = r("workbound.js");
+const PHASE = new Set(["air.call.recursion_rejected", "air.workbound.overflow", "air.workbound.unknown_bound", "air.workbound.invalid_bound", "air.workbound.missing_summary"]);
+const real = wb.analyzeVerifiedTypedModule;
+const perturb = (values) => new Map([...values].map(([name, value]) => [name, value && value.ok ? { ok: true, value: wb.summary({ calls: value.value.calls + 13n, steps: value.value.steps + 7919n }) } : value]));
+const modes = {
+  real,
+  disabled: () => ({ cycles: [], entries: new Map(), functions: new Map(), primary: null, roots: [], stats: {}, status: "ok" }),
+  stubbed: (mod) => { const analysis = real(mod); return { ...analysis, entries: perturb(analysis.entries), functions: perturb(analysis.functions) }; }
+};
+const json = (mod) => JSON.stringify(mod, (key, value) => (value instanceof Set ? [...value] : typeof value === "bigint" ? String(value) : value));
+let unchangedAsts = 0;
+function outcome(entry, mode) {
+  wb.analyzeVerifiedTypedModule = modes[mode];
+  try {
+    if (entry.options.sourceProfile === "typed-v0.53") {
+      const mod = sp.parseSource(entry.source, "probe.air", entry.options);
+      const before = json(mod);
+      sp.verifySource(mod, entry.options);
+      if (mode === "real") {
+        if (json(mod) !== before) throw new Error("verification attached data to the AST");
+        unchangedAsts += 1;
+      }
+    } else {
+      verifier.verifyV051Air(parser.parseV051Air(entry.source, "probe.air"));
+    }
+    return { verdict: "VERIFIED" };
+  } catch (error) {
+    return { code: error.code || null, cyclePath: error.cyclePath || null, disposition: error.disposition || null, line: error.loc && error.loc.line || null, message: String(error.message), verdict: "REJECTED" };
+  } finally {
+    wb.analyzeVerifiedTypedModule = real;
+  }
+}
+const differences = [];
+const counts = { phaseRejections: 0, sources: 0, typedV051: 0, typedV053: 0 };
+for (const line of fs.readFileSync(corpusFile, "utf8").split("\\n").filter(Boolean)) {
+  const entry = JSON.parse(line);
+  counts.sources += 1;
+  counts[entry.options.sourceProfile === "typed-v0.53" ? "typedV053" : "typedV051"] += 1;
+  const got = { disabled: outcome(entry, "disabled"), real: outcome(entry, "real"), stubbed: outcome(entry, "stubbed") };
+  const same = (left, right) => JSON.stringify(left) === JSON.stringify(right);
+  const phase = got.real.verdict === "REJECTED" && PHASE.has(got.real.code);
+  if (phase) counts.phaseRejections += 1;
+  if (!same(got.stubbed, got.real)) differences.push({ mode: "stubbed", got, source: entry.source.slice(0, 300) });
+  if (phase ? got.disabled.verdict !== "VERIFIED" : !same(got.disabled, got.real)) differences.push({ mode: "disabled", got, source: entry.source.slice(0, 300) });
+}
+const exportNames = [...Object.keys(verifier), ...Object.keys(verifier.typedV053 || {})];
+process.stdout.write(JSON.stringify({ budgetOrGrantExports: exportNames.filter((name) => /budget|grant|admi/iu.test(name)), counts, differences: differences.slice(0, 20), differenceCount: differences.length, unchangedAsts }));
+`);
+      const compareSrc = process.env.AIR_SEP_WB_01_SRC || path.join(ROOT, "src");
+      const compared = childProcess.spawnSync(process.execPath, [compareScript, compareSrc, corpusFile], {
+        cwd: sepDir, encoding: "utf8", env: { ...process.env, NODE_PATH: path.join(ROOT, "node_modules") }, maxBuffer: 256 * 1024 * 1024
+      });
+      assert.equal(compared.status, 0, compared.stderr);
+      const behaviour = JSON.parse(compared.stdout);
+      assert.deepEqual(behaviour.budgetOrGrantExports, [], "no verifier export accepts or returns a Budget or grant");
+      assert(behaviour.counts.typedV051 > 0 && behaviour.counts.typedV053 > 0, "both profiles are covered");
+      assert(behaviour.counts.phaseRejections >= 4, "the WorkBound-phase vectors (recursion, overflow) are in the corpus");
+      assert.equal(behaviour.differenceCount, 0, `WorkBound changed a verdict or a diagnostic: ${JSON.stringify(behaviour.differences, null, 2).slice(0, 4000)}`);
+      return { value: { budget_codec: "invalid_intent", dispositions, grant_codec: "invalid_intent", verifier_behaviour: { compared_src: compareSrc === path.join(ROOT, "src") ? "src" : compareSrc, corpus: behaviour.counts, differences: 0, verified_asts_unchanged: behaviour.unchangedAsts } } };
     });
     await vector("V53-SEP-WB-02", () => {
       const dir = path.join(tmp, "sep02");
