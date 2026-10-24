@@ -213,23 +213,44 @@ function runCli(args) {
       assert.equal(c.recordBytes, a.recordBytes, "C: a record byte-identical to R");
       return { value: { A: "VERIFIED", B: "ANALYSIS_REFUSED", C: "VERIFIED", digests, record_digest: a.recordDigest } };
     });
-    results.push(resultRecord("V53-ANA-09", "DEFERRED", { first_executable_slice: "P0-04", owning_slice: "SCALAR", reason: "value if (R-CFG-1) arrives with P0-04" }));
-    results.push(resultRecord("V53-ANA-10", "DEFERRED", { first_executable_slice: "P0-04", owning_slice: "SCALAR", reason: "value if (R-CFG-1) arrives with P0-04" }));
+    // P0-04 (owner scope amendment 1, 2026-10-24): V53-ANA-09 and V53-ANA-10 are
+    // first executable at P0-04 and run in test/v053_calls_cfg.test.js; this file
+    // records where, never PASS on another test's behalf.
+    const callsCfgTest = fs.readFileSync(path.join(ROOT, "test", "v053_calls_cfg.test.js"), "utf8");
+    for (const id of ["V53-ANA-09", "V53-ANA-10"]) {
+      assert(callsCfgTest.includes(`await vector("${id}"`), `${id} runs in test/v053_calls_cfg.test.js`);
+      results.push(resultRecord(id, "RUN_ELSEWHERE", { executed_in: "test/v053_calls_cfg.test.js", first_executable_slice: "P0-04", owning_slice: "SCALAR" }));
+    }
     await vector("V53-ANA-11", async () => {
-      const source = nest(4894);
-      assert.equal(Buffer.byteLength(source, "utf8"), 262114);
-      assert.equal(sha256(Buffer.from(source, "utf8")), "sha256:cd7f3faf2f5642867f5647248ff7ec3992c4ba757ee27c3926d940f72d581f18");
+      // P0-04 slice text R2 §3.2, OD-P4-1 (b): on P0-04 and later the bytes are
+      // admitted grammar, and the expected result is V53-ANA-09's, ANALYSIS_REFUSED
+      // {measure: "nesting_depth", required: 4895, capacity: 64}. Line 4,897 stays
+      // the SCALAR/P0-03 test and evidence reference only.
+      const parserModule = require("../src/parser");
+      const { verifiedTypedAstNodeCount } = require("../src/v052_verified_build");
+      // The frozen V53-ANA-09 precondition: intake must admit the fixture, or the
+      // vector is re-instantiated with the largest admitted k (required = k + 1).
+      const admitted = (k) => Buffer.byteLength(nest(k), "utf8") <= 262144 &&
+        verifiedTypedAstNodeCount(parserModule.typedV053.parse(nest(k), "ana11.air")) <= 65536;
+      let k = 4894;
+      while (!admitted(k)) k -= 1;
+      const source = nest(k);
+      if (k === 4894) {
+        assert.equal(Buffer.byteLength(source, "utf8"), 262114);
+        assert.equal(sha256(Buffer.from(source, "utf8")), "sha256:cd7f3faf2f5642867f5647248ff7ec3992c4ba757ee27c3926d940f72d581f18");
+      }
+      const astNodes = verifiedTypedAstNodeCount(parserModule.typedV053.parse(source, "ana11.air"));
+      const expected = { capacity: 64, measure: "nesting_depth", required: k + 1 };
       const outcomes = {};
       const check = (label, error) => {
         assert(error, `${label}: never VERIFIED`);
         assert(!(error instanceof TypeError) && !(error instanceof RangeError), `${label}: ${error && error.stack}`);
-        assert(typeof error.code === "string" && error.code.startsWith("air."), `${label}: registered typed code with .code set`);
-        assert.notEqual(error.code, "air.analysis.capacity_exceeded");
-        assert(!/^air\.v052\.work_limit_/u.test(error.code), `${label}: never INTAKE_REFUSED`);
-        assert(!error.disposition || error.disposition === "STATIC_REJECT", `${label}: STATIC_REJECT`);
-        const line = error.loc && error.loc.line;
-        assert(line === 3 || line === 4897, `${label}: line 3 or 4,897, got ${line}`);
-        outcomes[label] = { code: error.code, line };
+        assert(!/^air\.v052\.work_limit_/u.test(String(error.code)), `${label}: never INTAKE_REFUSED`);
+        assert.notEqual(error.name, "VerificationError", `${label}: never STATIC_REJECT`);
+        assert.equal(error.code, "air.analysis.capacity_exceeded", `${label}: ${error.message}`);
+        assert.equal(error.disposition, "ANALYSIS_REFUSED", `${label}: not a verdict`);
+        assert.deepEqual({ capacity: error.capacity, measure: error.measure, required: error.required }, expected, label);
+        outcomes[label] = { ...expected, code: error.code, disposition: error.disposition };
       };
       check("sdk_parse", capture(() => sp.parseSource(source, "ana11.air", GATED)));
       const file = path.join(tmp, "ana11.air");
@@ -237,15 +258,19 @@ function runCli(args) {
       const cli = runCli(["verify", file, "--source-profile", V053, "--allow-candidate-profile"]);
       assert.notEqual(cli.status, 0);
       assert.doesNotMatch(cli.stderr, /RangeError|Maximum call stack|\n\s+at /u);
+      assert.match(cli.stderr, /air\.analysis\.capacity_exceeded/u);
       outcomes.cli_verify = cli.stderr.trim().split("\n")[0].replace(file, "ana11.air");
       const descriptor = { ...ANA01_DESCRIPTOR, exports: [{ function: "f", name: "f", parameters: [{ name: "c", type: "bool" }], return_type: "i32" }] };
       check("builder", await buildVerifiedTypedModule({ ...GATED, descriptor, source }).then(() => null, (caught) => caught));
-      check("runtime", await host().build({ ...GATED, descriptor, source }).then(() => null, (caught) => caught));
-      // N-2: the evidence records which line and code occurred; the HOLD on
-      // pinning line 3 is not resolved here.
-      const lines = new Set(Object.values(outcomes).filter((item) => typeof item === "object").map((item) => item.line));
-      assert.equal(lines.size, 1, "every entrypoint reports the same line");
-      return { value: { occurred: outcomes.sdk_parse, outcomes }, sourceDigest: sha256(source) };
+      // Never cached, never compiled, no WorkBound evidence (R-WB-15c).
+      const runtime = host();
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        check("runtime", await runtime.build({ ...GATED, descriptor, source }).then(() => null, (caught) => caught));
+      }
+      const status = runtime.inspect();
+      assert.equal(status.cache.entries, 0);
+      assert.equal(status.counters.compilations, 0);
+      return { value: { ast_nodes: astNodes, cache_entries: 0, compilations: 0, expectation: "V53-ANA-09 (OD-P4-1 (b))", k, outcomes }, sourceDigest: sha256(source) };
     });
     await vector("V53-ANA-12", async () => {
       const type = `${"option<".repeat(12000)}i32${">".repeat(12000)}`;
@@ -317,8 +342,8 @@ function runCli(args) {
     process.exitCode = 1;
     return;
   }
-  const deferred = results.filter((item) => item.status === "DEFERRED").map((item) => item.vector);
-  console.log(`typed-v0.53 analysis capacity: ${passed} PASS, ${deferred.length} DEFERRED (${deferred.join(", ")} -> P0-04)`);
+  const elsewhere = results.filter((item) => item.status === "RUN_ELSEWHERE").map((item) => item.vector);
+  console.log(`typed-v0.53 analysis capacity: ${passed} PASS; ${elsewhere.join(", ")} run in test/v053_calls_cfg.test.js`);
 })().catch((error) => {
   console.error(error && error.stack || error);
   process.exitCode = 1;
