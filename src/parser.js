@@ -1505,7 +1505,12 @@ function parseV053TypedAir(source, file = "<input>") {
       const blockArm = line.match(/^(.+?)\s*=>\s*\{$/);
       if (blockArm) {
         const block = { statements: [] };
-        frame.statement.arms.push({ block, loc, pattern: normalizeV053Pattern(blockArm[1], mod.name) });
+        // The block is enumerable once, in `blocks` (P4-R17). The arm refers to the
+        // same block through a non-enumerable property, so a walk over enumerable
+        // properties (the intake AST-node count) reaches each block subtree once.
+        const blockArmNode = { loc, pattern: normalizeV053Pattern(blockArm[1], mod.name) };
+        Object.defineProperty(blockArmNode, "block", { configurable: false, enumerable: false, value: block, writable: false });
+        frame.statement.arms.push(blockArmNode);
         if (!frame.statement.blocks) frame.statement.blocks = [];
         frame.statement.blocks.push(block);
         stack.push({ fn: frame.fn, kind: "block", openLoc: loc, owner: "arm", statement: frame.statement, statements: block.statements, yielded: false });

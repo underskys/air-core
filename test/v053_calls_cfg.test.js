@@ -352,6 +352,273 @@ async function analysisRefusedEverywhere(source, measure, required, capacity, an
   return { cache_entries: 0, compilations: 0, outcomes, workbound_evidence: "none" };
 }
 
+// ---------------------------------------------------------------------------
+// P04-QA-F-1 regression helpers. Generators: one block-bodied match nesting per
+// level (armNest), alternating with value `if` (mixedNest), and two
+// block-bodied sibling arms with a call (siblingNest); unindented, LF.
+function closeArmLevels(k, kinds, lines) {
+  for (let i = k - 1; i >= 0; i -= 1) {
+    if (kinds[i] === "match") lines.push("}", "}");
+    else lines.push("} else {", "yield 0", "}");
+    if (i > 0) lines.push(`yield %r${i}`);
+  }
+}
+function armNest(k) {
+  const lines = ["module v53.ana", "export func f(c: bool) -> i32 {"];
+  for (let i = 0; i < k; i += 1) lines.push(`%r${i}: i32 = match %c {`, "false => 0,", "true => {");
+  lines.push("yield 1");
+  closeArmLevels(k, Array(k).fill("match"), lines);
+  lines.push("return %r0", "}");
+  return `${lines.join("\n")}\n`;
+}
+function mixedNest(k) {
+  const kinds = Array.from({ length: k }, (_, i) => (i % 2 === 0 ? "match" : "if"));
+  const lines = ["module v53.ana", "export func f(c: bool) -> i32 {"];
+  for (let i = 0; i < k; i += 1) {
+    if (kinds[i] === "match") lines.push(`%r${i}: i32 = match %c {`, "false => 0,", "true => {");
+    else lines.push(`%r${i}: i32 = if %c {`);
+  }
+  lines.push("yield 1");
+  closeArmLevels(k, kinds, lines);
+  lines.push("return %r0", "}");
+  return `${lines.join("\n")}\n`;
+}
+function siblingNest(k) {
+  const lines = ["module v53.ana", "func g(x: i32) -> i32 {", "return %x", "}", "export func f(c: bool) -> i32 {"];
+  for (let i = 0; i < k; i += 1) lines.push(`%r${i}: i32 = match %c {`, "false => {", `%z${i}: i32 = call @g(0)`, `yield %z${i}`, "}", "true => {");
+  lines.push("yield 1");
+  closeArmLevels(k, Array(k).fill("match"), lines);
+  lines.push("return %r0", "}");
+  return `${lines.join("\n")}\n`;
+}
+
+// A subprocess bound: a timeout is a failure, never a pass.
+function runCliBounded(args, timeoutMs = 60000) {
+  const out = childProcess.spawnSync(process.execPath, [path.join(ROOT, "bin", "airc.js"), ...args], {
+    cwd: ROOT, encoding: "utf8", killSignal: "SIGKILL", maxBuffer: 64 * 1024 * 1024, timeout: timeoutMs
+  });
+  assert(!out.error && out.signal === null, `airc ${args[0]} did not finish within ${timeoutMs} ms (${out.error && out.error.code || out.signal})`);
+  return out;
+}
+
+// Every object of the AST reached through enumerable properties, with the
+// number of paths that reach it: a tree reaches each object exactly once.
+function enumerablePathCounts(root) {
+  const counts = new Map();
+  const stack = [root];
+  while (stack.length) {
+    const value = stack.pop();
+    if (!value || typeof value !== "object") continue;
+    counts.set(value, (counts.get(value) || 0) + 1);
+    for (const item of Array.isArray(value) ? value : Object.values(value)) stack.push(item);
+  }
+  return counts;
+}
+
+// VERIFIED at every entrypoint: SDK verify, lowerToWat, CLI verify, CLI check
+// (LSP JSON), the LSP session, the verified builder and the generic runtime;
+// the invocations give the values derived from the source.
+async function regVerifiedEverywhere(source, cases, label) {
+  const file = path.join(tmp, `${label}.air`);
+  fs.writeFileSync(file, source);
+  const mod = typedV053(source, `${label}.air`);
+  assert.match(lowerToWat(mod, { maxWatBytes: MAX_WAT }), /\(func \$f \(export "f"\)/u, `${label}: lowerToWat`);
+  const verify = runCliBounded(["verify", file, "--source-profile", V053, "--allow-candidate-profile"]);
+  assert.equal(verify.status, 0, `${label}: CLI verify ${verify.stderr}`);
+  const check = runCliBounded(["check", file, "--source-profile", V053, "--allow-candidate-profile", "--lsp-json"]);
+  assert.equal(check.status, 0, `${label}: CLI check ${check.stdout.slice(0, 400)}`);
+  assert.deepEqual(JSON.parse(check.stdout).diagnostics, [], `${label}: CLI check diagnostics`);
+  const session = new AirLspSession({ allowCandidateProfile: true, sourceProfile: V053 });
+  const [published] = session.handleMessage({ jsonrpc: "2.0", method: "textDocument/didOpen", params: { textDocument: { text: source, uri: `file://${file}`, version: 1 } } });
+  assert.deepEqual(published.params.diagnostics, [], `${label}: LSP diagnostics`);
+  const desc = descriptor("v53.ana", [["f", [["c", "bool"]], "i32"]]);
+  const built = await buildVerifiedTypedModule({ ...GATED, descriptor: desc, source });
+  const runtime = createVerifiedTypedRuntime({ admit: async () => true });
+  const handle = await runtime.build({ ...GATED, descriptor: desc, source });
+  const values = {};
+  for (const [argument, expected] of cases) {
+    assert.equal((await invokeVerifiedTypedExport(built, "f", [argument])).value, expected, `${label}: builder f(${argument})`);
+    assert.equal((await runtime.invoke(handle, "f", [argument])).value, expected, `${label}: runtime f(${argument})`);
+    values[`f(${argument})`] = expected;
+  }
+  return { built, entrypoints: ["sdk_verify", "lowerToWat", "cli_verify", "cli_check", "lsp", "builder", "runtime"], mod, values };
+}
+
+// ANALYSIS_REFUSED {nesting_depth, 65, 64} at every entrypoint, never INTAKE_REFUSED,
+// STATIC_REJECT, a raw exception or a hang; nothing cached or compiled.
+async function regRefusedEverywhere(source, label) {
+  const expected = ["nesting_depth", 65, 64];
+  const refused = (error, where) => assertAnalysisRefused(error, ...expected, `${label}: ${where}`);
+  const outcomes = {};
+  outcomes.sdk_verify = refused(capture(() => sp.parseSource(source, `${label}.air`, GATED)), "SDK");
+  outcomes.lowerToWat = refused(capture(() => lowerToWat(parser.typedV053.parse(source, `${label}.air`), { maxWatBytes: MAX_WAT })), "lowerToWat");
+  const file = path.join(tmp, `${label}.air`);
+  fs.writeFileSync(file, source);
+  const verify = runCliBounded(["verify", file, "--source-profile", V053, "--allow-candidate-profile"]);
+  assert.notEqual(verify.status, 0);
+  assertNoRawError(verify.stderr, `${label}: CLI verify`);
+  assert.match(verify.stderr, /air\.analysis\.capacity_exceeded/u);
+  assert.doesNotMatch(verify.stderr, /work_limit_ast_nodes/u);
+  outcomes.cli_verify = verify.stderr.trim().split("\n")[0].replace(file, `${label}.air`);
+  const check = runCliBounded(["check", file, "--source-profile", V053, "--allow-candidate-profile", "--lsp-json"]);
+  const report = JSON.parse(check.stdout);
+  assert.equal(report.diagnostics[0].code, "air.analysis.capacity_exceeded", `${label}: CLI check`);
+  assert.equal(report.disposition, "ANALYSIS_REFUSED", `${label}: CLI check disposition`);
+  outcomes.cli_check = { code: report.diagnostics[0].code, disposition: report.disposition, status: report.status };
+  const session = new AirLspSession({ allowCandidateProfile: true, sourceProfile: V053 });
+  const [published] = session.handleMessage({ jsonrpc: "2.0", method: "textDocument/didOpen", params: { textDocument: { text: source, uri: `file://${file}`, version: 1 } } });
+  assert.equal(published.params.diagnostics[0].code, "air.analysis.capacity_exceeded", `${label}: LSP`);
+  outcomes.lsp = { code: published.params.diagnostics[0].code };
+  const desc = descriptor("v53.ana", [["f", [["c", "bool"]], "i32"]]);
+  outcomes.builder = refused(await buildVerifiedTypedModule({ ...GATED, descriptor: desc, source }).then(() => null, (error) => error), "builder");
+  const runtime = createVerifiedTypedRuntime({ admit: async () => true });
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    outcomes.runtime = refused(await runtime.build({ ...GATED, descriptor: desc, source }).then(() => null, (error) => error), "runtime");
+  }
+  const status = runtime.inspect();
+  assert.equal(status.cache.entries, 0, `${label}: nothing cached`);
+  assert.equal(status.counters.compilations, 0, `${label}: nothing compiled`);
+  return outcomes;
+}
+
+function regMeasures(source) {
+  const ast = parser.typedV053.parse(source, "measure.air");
+  const measures = require("../src/analysis_capacity").measureTypedModule(ast);
+  return { analysis_units: measures.analysis_units, call_sites: measures.call_sites, intake_ast_nodes: verifiedTypedAstNodeCount(ast), nesting_depth: measures.nesting_depth };
+}
+
+// The P0-04 base (dev 74e4780c / public 0fd4b4be), run from git objects in a
+// bounded child process: the defect this correction removes.
+const P04_QA_F1_BASE_COMMITS = ["74e4780c6f22ae2998f373409147c0d47cc237dd", "0fd4b4be12f0fddc5647aa7b9e2e838c5242f162"];
+function regBaseline(ks) {
+  const dir = path.join(tmp, "p04_qa_f1_base");
+  let commit = null;
+  for (const candidate of P04_QA_F1_BASE_COMMITS) {
+    if (childProcess.spawnSync("git", ["cat-file", "-e", `${candidate}^{commit}`], { cwd: ROOT }).status === 0) { commit = candidate; break; }
+  }
+  assert(commit, "the P0-04 base commit is not in this repository");
+  fs.mkdirSync(dir, { recursive: true });
+  const archive = childProcess.spawnSync("sh", ["-c", `git archive ${commit} src | tar -x -C "${dir}"`], { cwd: ROOT, encoding: "utf8" });
+  assert.equal(archive.status, 0, archive.stderr);
+  const script = path.join(dir, "probe.js");
+  fs.writeFileSync(script, `"use strict";
+const path = require("path");
+const src = process.argv[2];
+const source = require("fs").readFileSync(process.argv[3], "utf8");
+const sp = require(path.join(src, "source_profile.js"));
+const parser = require(path.join(src, "parser.js"));
+const { verifiedTypedAstNodeCount } = require(path.join(src, "v052_verified_build.js"));
+const out = { intake_ast_nodes: verifiedTypedAstNodeCount(parser.typedV053.parse(source, "base.air")) };
+try { const options = { allowCandidateProfile: true, sourceProfile: "typed-v0.53" }; sp.verifySource(sp.parseSource(source, "base.air", options), options); out.disposition = "VERIFIED"; }
+catch (error) { out.disposition = error.disposition || error.name; out.code = error.code || null; }
+process.stdout.write(JSON.stringify(out));
+`);
+  const outcomes = {};
+  for (const k of ks) {
+    const sourceFile = path.join(dir, `arm_${k}.air`);
+    fs.writeFileSync(sourceFile, armNest(k));
+    const run = childProcess.spawnSync(process.execPath, [script, path.join(dir, "src"), sourceFile], {
+      encoding: "utf8", env: { ...process.env, NODE_PATH: path.join(ROOT, "node_modules") }, killSignal: "SIGKILL", maxBuffer: 16 * 1024 * 1024, timeout: 60000
+    });
+    assert(!run.error && run.signal === null, `base probe k=${k} did not finish within 60 s`);
+    assert.equal(run.status, 0, run.stderr);
+    outcomes[k] = JSON.parse(run.stdout);
+  }
+  return { commit, outcomes };
+}
+
+async function regP04QaF1() {
+  await vector("REG-P04-QA-F1-BASELINE", () => {
+    // Before the correction the arm block was reached twice: 2^(k+4) − 5 nodes.
+    const base = regBaseline([12, 13]);
+    assert.deepEqual(base.outcomes[12], { disposition: "VERIFIED", intake_ast_nodes: 65531 });
+    assert.deepEqual(base.outcomes[13], { code: "air.v052.work_limit_ast_nodes", disposition: "INTAKE_REFUSED", intake_ast_nodes: 131067 });
+    return { value: { base_commit: base.commit, k12: base.outcomes[12], k13: base.outcomes[13], k13_sha256: sha256(Buffer.from(armNest(13), "utf8")) } };
+  });
+  await vector("REG-P04-QA-F1-K13", async () => {
+    const source = armNest(13);
+    assert.deepEqual(regMeasures(source), { analysis_units: 29, call_sites: 0, intake_ast_nodes: 167, nesting_depth: 14 });
+    const run = await regVerifiedEverywhere(source, [[true, 1], [false, 0]], "reg_k13");
+    return { value: { "E(f)": expectSummary(run.built, "f", 54), entrypoints: run.entrypoints, measures: regMeasures(source), values: run.values }, sourceDigest: sha256(Buffer.from(source, "utf8")) };
+  });
+  await vector("REG-P04-QA-F1-K63", async () => {
+    const source = armNest(63);
+    assert.deepEqual(regMeasures(source), { analysis_units: 129, call_sites: 0, intake_ast_nodes: 767, nesting_depth: 64 });
+    const run = await regVerifiedEverywhere(source, [[true, 1], [false, 0]], "reg_k63");
+    return { value: { "E(f)": expectSummary(run.built, "f", 254), entrypoints: run.entrypoints, measures: regMeasures(source), values: run.values }, sourceDigest: sha256(Buffer.from(source, "utf8")) };
+  });
+  await vector("REG-P04-QA-F1-K64", async () => {
+    const source = armNest(64);
+    assert.deepEqual(regMeasures(source), { analysis_units: 131, call_sites: 0, intake_ast_nodes: 779, nesting_depth: 65 });
+    return { value: { measures: regMeasures(source), outcomes: await regRefusedEverywhere(source, "reg_k64") }, sourceDigest: sha256(Buffer.from(source, "utf8")) };
+  });
+  await vector("REG-P04-QA-F1-MIXED", async () => {
+    const source = mixedNest(63);
+    // m = 32 match levels, v = 31 if levels: units 2k + v + 3, nodes 11 + 12m + 11v.
+    assert.deepEqual(regMeasures(source), { analysis_units: 160, call_sites: 0, intake_ast_nodes: 736, nesting_depth: 64 });
+    const run = await regVerifiedEverywhere(source, [[true, 1], [false, 0]], "reg_mixed63");
+    const refused = await regRefusedEverywhere(mixedNest(64), "reg_mixed64");
+    return { value: { "E(f)": expectSummary(run.built, "f", 192), k64: refused, measures: regMeasures(source), values: run.values }, sourceDigest: sha256(Buffer.from(source, "utf8")) };
+  });
+  await vector("REG-P04-QA-F1-SIBLING", async () => {
+    const source = siblingNest(63);
+    // Two block arms and one call per level: units 5k + 5 (63 call sites), nodes 18 + 20k.
+    assert.deepEqual(regMeasures(source), { analysis_units: 320, call_sites: 63, intake_ast_nodes: 1278, nesting_depth: 64 });
+    const run = await regVerifiedEverywhere(source, [[true, 1], [false, 0]], "reg_sibling63");
+    const refused = await regRefusedEverywhere(siblingNest(64), "reg_sibling64");
+    return { value: { "E(f)": expectSummary(run.built, "f", 256, 1), k64: refused, measures: regMeasures(source), values: run.values }, sourceDigest: sha256(Buffer.from(source, "utf8")) };
+  });
+  await vector("REG-P04-QA-F1-LINEAR", () => {
+    // The intake count at depths 1, 13, 31 and 63 is 11 + 12k: a constant increment.
+    const counts = Object.fromEntries([1, 13, 31, 63].map((k) => [k, regMeasures(armNest(k)).intake_ast_nodes]));
+    assert.deepEqual(counts, { 1: 23, 13: 167, 31: 383, 63: 767 });
+    // Structurally: the enumerable object graph is a tree (every object reached once),
+    // every arm still refers to its block, and each block is the `blocks` entry.
+    const structure = {};
+    for (const [name, source] of [["armNest63", armNest(63)], ["mixedNest63", mixedNest(63)], ["siblingNest63", siblingNest(63)]]) {
+      const ast = parser.typedV053.parse(source, `${name}.air`);
+      const paths = enumerablePathCounts(ast);
+      assert([...paths.values()].every((count) => count === 1), `${name}: every object is reached through exactly one enumerable path`);
+      assert.equal(paths.size, verifiedTypedAstNodeCount(ast));
+      let blockArms = 0;
+      const stack = [...ast.functions];
+      while (stack.length) {
+        const item = stack.pop();
+        for (const statement of item.statements || []) {
+          for (const arm of statement.kind === "match" ? statement.arms : []) {
+            if (!Object.prototype.hasOwnProperty.call(arm, "block")) continue;
+            blockArms += 1;
+            assert.equal(Object.getOwnPropertyDescriptor(arm, "block").enumerable, false);
+            assert(statement.blocks.includes(arm.block), `${name}: the arm's block is a 'blocks' entry`);
+          }
+          for (const block of statement.blocks || []) stack.push(block);
+        }
+      }
+      structure[name] = { block_arms: blockArms, objects: paths.size };
+    }
+    assert.equal(structure.armNest63.block_arms, 63);
+    assert.equal(structure.siblingNest63.block_arms, 126);
+    return { value: { counts, increment: 12, structure } };
+  });
+  await vector("REG-P04-QA-F1-FMT", () => {
+    // Formatter idempotence, and the formatted source keeps the measures, the
+    // summary and the verdict (blocks are formatted from the arms).
+    const checked = {};
+    for (const [name, source] of [["armNest13", armNest(13)], ["armNest63", armNest(63)], ["mixedNest63", mixedNest(63)], ["siblingNest63", siblingNest(63)]]) {
+      const once = sp.formatSource(typedV053(source, `${name}.air`), GATED);
+      assert.equal(sp.formatSource(typedV053(once, `${name}-fmt.air`), GATED), once, `${name}: idempotent`);
+      const before = regMeasures(source);
+      const after = regMeasures(once);
+      assert.deepEqual({ ...after, intake_ast_nodes: before.intake_ast_nodes }, before, `${name}: formatting keeps the measures`);
+      assert.equal(after.intake_ast_nodes, before.intake_ast_nodes, `${name}: formatting keeps the AST`);
+      const summaries = [source, once].map((text) => wb.canonicalSummary(wb.analyzeVerifiedTypedModule(typedV053(text, `${name}-wb.air`)).entries.get("f").value));
+      assert.deepEqual(summaries[1], summaries[0], `${name}: formatting keeps E(f)`);
+      checked[name] = { formatted_bytes: Buffer.byteLength(once, "utf8"), "E(f)": summaries[0] };
+    }
+    return { value: checked };
+  });
+}
+
 async function main() {
   tmp = fs.mkdtempSync(path.join(os.tmpdir(), "air-v053-p004-"));
   try {
@@ -755,6 +1022,14 @@ async function main() {
       assert.equal(assembled, verifiedCount, "every verified fuzz source builds");
       return { value: { assembled, cases, verified: verifiedCount } };
     });
+
+    // ------------------------------------------------------------------
+    // REG-P04-QA-F1-*: additive regression tests for the independent QA finding
+    // P04-QA-F-1 (nested block-bodied match arms were reached twice by the intake
+    // AST-node walk). Test-local IDs, not catalogue vectors. Expected values are
+    // derived from R-WB-15/15c, R-CFG-1 and the CT-1 composition of slice text R2
+    // §4.6 before the correction (evidence expectations/EXPECTATIONS.md).
+    await regP04QaF1();
   } finally {
     fs.rmSync(tmp, { force: true, recursive: true });
   }
