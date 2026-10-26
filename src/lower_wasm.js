@@ -891,6 +891,8 @@ function v053ModuleFeatures(mod) {
       return type.kind === "option" || type.kind === "result";
     })),
     usesCheckedNumeric: functions.some(v053FunctionUsesCheckedNumeric),
+    usesDynamicFold: functions.some((fn) => v053FunctionStatements(fn).some((statement) => statement.kind === "local" &&
+      statement.value && typeof statement.value === "object" && statement.value.kind === "fold" && statement.value.count.kind === "dynamic")),
     usesTypedRefinement: functions.some(v053FunctionUsesRefinement)
   };
 }
@@ -926,7 +928,10 @@ function v053ModuleHeaderLines(features) {
       v053FailureHelper("__air_v051_numeric_overflow", 1),
       v053FailureHelper("__air_v051_numeric_division_by_zero", 2),
       v053FailureHelper("__air_v051_numeric_invalid_conversion", 3)
-    ] : [])
+    ] : []),
+    // P0-05 (slice text P5-R5, P5-R15): the dynamic-count guard's helper,
+    // emitted only when a dynamic fold exists.
+    ...(features.usesDynamicFold ? [v053FailureHelper("__air_v053_loop_count_out_of_range", 32)] : [])
   ];
 }
 
@@ -1027,6 +1032,10 @@ function declareV053Record(state, name, typeName) {
 function emitV053Statement(state, statement) {
   if (statement.kind === "local") {
     const record = declareV053Record(state, statement.name, statement.type);
+    if (statement.value && typeof statement.value === "object" && statement.value.kind === "fold") {
+      emitV053Fold(state, statement.value, record);
+      return;
+    }
     if (statement.value && typeof statement.value === "object" && statement.value.kind === "call") {
       const callee = emitV053Call(state, statement.value);
       emitV053ResultCheck(state, record.info, callee.returnType);
@@ -1086,6 +1095,39 @@ function emitV053Call(state, value) {
   });
   state.body.push(`call $${wasmName(callee.name)}`);
   return callee;
+}
+
+// P0-05 (slice text P5-R5, P5-R15): the seed into the destination's lanes
+// (T is contained in the destination, so the lanes are the same); for a
+// dynamic count the signed guard 0 <= c <= m (32) before the first iteration;
+// then one Wasm `loop` with an i32 counter that counts to the semantic count,
+// each iteration `acc = f(acc)` or `acc = f(acc, i)`. Its size does not depend
+// on n, it is not fuel, and every line goes through the incremental writer.
+// No refinement check is emitted at a fold (OD-P5-1 (b)).
+function emitV053Fold(state, value, record) {
+  const callback = state.functions.get(value.callback);
+  if (!callback || ![1, 2].includes((callback.params || []).length)) {
+    typedLowerFail("air.v051.typed_lowering_unsupported", `unverified loop.fold callback '@${value.callback}'`);
+  }
+  emitV053TypedExpression(state, value.seed, callback.params[0].type);
+  emitV051TypedSet(state, record);
+  let count;
+  if (value.count.kind === "dynamic") {
+    const local = state.locals.get(value.count.local);
+    if (!local || !/^(0|[1-9][0-9]*)$/.test(String(value.count.max))) typedLowerFail("air.v051.typed_lowering_unsupported", "unverified loop.fold count");
+    count = `local.get ${local.names[0]}`;
+    state.body.push(count, "i32.const 0", "i32.lt_s", count, `i32.const ${value.count.max}`, "i32.gt_s", "i32.or", "if", "call $__air_v053_loop_count_out_of_range", "end");
+  } else {
+    if (!/^(0|[1-9][0-9]*)$/.test(String(value.count.value))) typedLowerFail("air.v051.typed_lowering_unsupported", "unverified loop.fold count");
+    count = `i32.const ${value.count.value}`;
+  }
+  const index = declareV051TypedTemporary(state, "i32");
+  state.body.push("i32.const 0", `local.set ${index}`, "block", "loop", `local.get ${index}`, count, "i32.ge_s", "br_if 1");
+  emitV051TypedGet(state, record);
+  if (callback.params.length === 2) state.body.push(`local.get ${index}`);
+  state.body.push(`call $${wasmName(callback.name)}`);
+  emitV051TypedSet(state, record);
+  state.body.push(`local.get ${index}`, "i32.const 1", "i32.add", `local.set ${index}`, "br 0", "end", "end");
 }
 
 // P4-R5: a call result has the callee's declared result type; binding it

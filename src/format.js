@@ -313,6 +313,11 @@ function formatV053TypedAir(mod) {
   const out = [`module ${mod.name}`];
   const capabilities = Array.from(mod.capabilities || []).sort();
   if (capabilities.length) out.push(`capabilities { ${capabilities.join(", ")} }`);
+  // P0-05 (slice text P5-R11): the `work` line follows the module header with
+  // no blank line, its keys in the dimension order, spaced as `capabilities`.
+  if (mod.work && Array.isArray(mod.work.limits) && mod.work.limits.length) {
+    out.push(`work { ${mod.work.limits.map((limit) => `${limit.key} <= ${limit.bound}`).join(", ")} }`);
+  }
   for (const declaration of (mod.enums || []).slice().sort((left, right) => compareAscii(left.type_id, right.type_id))) {
     const typeName = declaration.type_id.slice(declaration.type_id.lastIndexOf("::") + 2);
     out.push("");
@@ -371,6 +376,13 @@ function formatV053Statements(statements, indent, locals, mod, out) {
 
 function formatV053Value(value) {
   if (value && value.kind === "call") return `call @${value.callee}(${(value.args || []).join(", ")})`;
+  if (value && value.kind === "fold") {
+    // P5-R1: one space after each comma and on each side of `max`.
+    const count = value.count && value.count.kind === "dynamic"
+      ? `%${value.count.local}${value.count.max === undefined ? "" : ` max ${value.count.max}`}`
+      : value.count && value.count.value;
+    return `loop.fold @${value.callback}, ${value.seed}, ${count}`;
+  }
   return formatV051TypedValue(value);
 }
 

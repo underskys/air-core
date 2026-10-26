@@ -121,6 +121,10 @@ const REPAIR_HINTS_BY_CODE = Object.freeze({
   "air.call.argument_count_mismatch": "Pass exactly one atom per parameter of the callee.",
   "air.control.unstructured_unsupported": "typed-v0.53 has no labels, br, br_if or phi; branch with a value if or a match whose blocks end with yield.",
   "air.control.yield_missing": "End every block with exactly one yield, and give every value if an else block.",
+  // typed-v0.53 P0-05 (slice text §4.2, §4.6, §4.7; docs/v0.53/P0_05_LOOPS.md).
+  "air.loop.form_unsupported": "typed-v0.53 has one loop form, %acc: T = loop.fold @f, <seed>, <count>, with a literal count or %c max n; loop.range/map/while/array/buffer, polling forms, for and while are not admitted.",
+  "air.loop.count_out_of_range": "The dynamic count of loop.fold @f, <seed>, %c max n was outside 0..n; no iteration ran. Pass a count within the declared maximum.",
+  "air.workbound.assertion_exceeded": "An export's WorkBound exceeds the module's work { ... } assertion: reduce the work or raise the declared bound. The assertion is a static verifier check, never host authority.",
   "air.memory.region_leak": "Call free_region on all paths before returning from the function.",
   "air.output_emit.host_abi_unsupported": `Use Host ABI 0.11 only for bounded ${OUT_EMIT_LABEL} packages, or remove ${OUT_EMIT_LABEL}.`,
   "air.output_emit.output_handle_required": "Use the generated OUTPUT_* handle constant for canonical bounded output authoring.",

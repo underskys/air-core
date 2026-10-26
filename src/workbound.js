@@ -810,6 +810,21 @@ function typedCallNode(value, loc, ctx, scope) {
   return add(add(seq(c1, loc), row("call", loc), loc), summaryOf(value.callee, loc), loc);
 }
 
+// P0-05 (slice text P5-R7, P5-R16): `t0 ⊕ t3`, with `t0` the seed's own rows
+// (one statement.constructor for a constructor atom, nothing for a reference
+// or a literal) and `t3` the CT-1 loop node over Bd = call(callback): c1 is
+// empty (the accumulator enters T, the index i32). The count leaf is the
+// literal or the maximum of `%c max m`; a bare `%c` has no maximum. No
+// refinement.check at either boundary (OD-P5-1 (b), P5-R2a), the binding adds
+// nothing (R-WB-26b), and every node takes the fold statement's position.
+function typedFoldNode(value, loc) {
+  const count = value.count && value.count.kind === "dynamic"
+    ? (value.count.max === undefined ? { unknown: true } : value.count.max)
+    : String(value.count && value.count.value);
+  const t3 = loop(count, call(value.callback, loc), loc);
+  return isConstructorAtom(value.seed) ? add(row("statement.constructor", loc), t3, loc) : t3;
+}
+
 // A block: its statement sequence ending in its yield, in its own scope.
 function typedBlockNode(block, fn, ctx, scope, yieldType, loc) {
   return typedSequence(block && Array.isArray(block.statements) ? block.statements : [], fn, ctx, scope ? new Map(scope) : null, yieldType, loc);
@@ -819,6 +834,7 @@ function typedStatementNode(fn, statement, scope = null, ctx = null, yieldType =
   const loc = statement && statement.loc;
   if (!statement || typeof statement !== "object") costUndefined("statement.<invalid>", fn.loc);
   if (statement.kind === "local") {
+    if (ctx && statement.value && typeof statement.value === "object" && statement.value.kind === "fold") return typedFoldNode(statement.value, loc);
     if (ctx && isCallValue(statement.value)) {
       // The binding adds nothing but its check (P4-R5; R-WB-26b).
       const node = typedCallNode(statement.value, loc, ctx, scope);

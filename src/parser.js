@@ -1405,6 +1405,76 @@ function normalizeV053Argument(text, type, moduleId, loc) {
   return typeof value === "string" ? value : text;
 }
 
+// P0-05 (slice text P5-R1, P5-R3): `%acc: T = loop.fold @f, <seed>, <count>`.
+// The fold is a local's value object with `op: "loop.fold"`, never `op:
+// "call"`, so the R-WB-15c measure counts it as a callback reference and not
+// as a call site (P5-R14). The count is classified by its text: `%c max m`,
+// a bare `%c`, or a literal.
+const V053_FOLD_PREFIX = "loop.fold ";
+const V053_FOLD_CALLBACK = /^@([A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*)$/;
+const V053_FOLD_DYNAMIC_COUNT = /^%([A-Za-z_][A-Za-z0-9_]*)(?:\s+max\s+(\S.*))?$/;
+
+function v053FoldValue(text, loc) {
+  const operands = splitComma(text.slice(V053_FOLD_PREFIX.length)).map((operand) => operand.trim());
+  if (operands.length !== 3 || operands.some((operand) => !operand)) {
+    throw v053SyntaxError(`loop.fold takes a callback, a seed and a count (loop.fold @f, <seed>, <count>), not '${text}'`, loc);
+  }
+  const callback = operands[0].match(V053_FOLD_CALLBACK);
+  if (!callback) throw v053SyntaxError(`a loop.fold callback is written @name, not '${operands[0]}'`, loc);
+  const dynamic = operands[2].match(V053_FOLD_DYNAMIC_COUNT);
+  const count = !dynamic ? { kind: "literal", value: operands[2] }
+    : dynamic[2] === undefined ? { kind: "dynamic", local: dynamic[1] }
+      : { kind: "dynamic", local: dynamic[1], max: dynamic[2].trim() };
+  return { callback: callback[1], count, kind: "fold", op: "loop.fold", seed: operands[1] };
+}
+
+// P5-R9: in typed-v0.53 every other loop form is refused at parse time, at its
+// line: a statement or value that begins with `loop.` but is not the canonical
+// `loop.fold` followed by a space, one that begins with `io.poll_bounded`, and a
+// statement that begins with `for ` or `while `.
+function v053OtherLoopForm(text) {
+  return (text.startsWith("loop.") && !text.startsWith(V053_FOLD_PREFIX)) || text.startsWith("io.poll_bounded");
+}
+
+function v053LoopFormError(line, loc) {
+  return new AirError(`air.loop.form_unsupported: '${line}' is not admitted in typed-v0.53; the only loop form is %acc: T = loop.fold @f, <seed>, <count> (R-LOOP-1)`, loc);
+}
+
+function v053RejectOtherLoopForm(line, loc) {
+  const local = line.match(/^%[A-Za-z_][A-Za-z0-9_]*\s*:\s*.+?\s*=\s*(.+)$/);
+  const operand = line.match(/^(?:yield|return)\s+(.+)$/);
+  const value = local ? local[1].trim() : operand ? operand[1].trim() : null;
+  if (v053OtherLoopForm(line) || line.startsWith("for ") || line.startsWith("while ") || (value !== null && v053OtherLoopForm(value))) {
+    throw v053LoopFormError(line, loc);
+  }
+}
+
+// P0-05 (slice text P5-R11): `work { steps <= N1, calls <= N2, iterations <= N3 }`,
+// one module-level line. Keys are the additive non-effect dimensions, each at
+// most once and at least one; a bound is a canonical decimal in 0..WB_MAX.
+// Spaces and tabs are optional around `{`, `}`, each comma and each `<=`. The
+// limits are kept in the dimension order, which the check and the formatter use.
+const V053_WORK_LINE = /^work\s*\{([^{}]*)\}$/;
+const V053_WORK_LIMIT = /^(steps|calls|iterations)[ \t]*<=[ \t]*(0|[1-9][0-9]*)$/;
+const V053_WORK_KEYS = Object.freeze(["steps", "calls", "iterations"]);
+const V053_WB_MAX = 9223372036854775807n;
+
+function v053WorkDeclaration(line, loc) {
+  const block = line.match(V053_WORK_LINE);
+  if (!block) throw v053SyntaxError(`a work declaration is work { steps <= N, calls <= N, iterations <= N }, not '${line}'`, loc);
+  const items = block[1].trim() ? block[1].split(",").map((item) => item.trim()) : [];
+  if (!items.length) throw v053SyntaxError("a work declaration needs at least one bound", loc);
+  const bounds = new Map();
+  for (const item of items) {
+    const limit = item.match(V053_WORK_LIMIT);
+    if (!limit) throw v053SyntaxError(`work bound '${item}' must be steps, calls or iterations <= a canonical decimal`, loc);
+    if (bounds.has(limit[1])) throw v053SyntaxError(`work bound '${limit[1]}' is declared twice`, loc);
+    if (BigInt(limit[2]) > V053_WB_MAX) throw v053SyntaxError(`work bound ${limit[2]} exceeds WB_MAX ${V053_WB_MAX}`, loc);
+    bounds.set(limit[1], limit[2]);
+  }
+  return { limits: V053_WORK_KEYS.filter((key) => bounds.has(key)).map((key) => ({ bound: bounds.get(key), key })), loc };
+}
+
 // One pass over the lines with an explicit stack of open frames (AMD-1). No
 // parse step recurses on the host stack with the input. A frame is a module
 // item (enum, function), a `match`, or a block (P0-04: the then- and
@@ -1423,6 +1493,7 @@ function parseV053TypedAir(source, file = "<input>") {
   Object.defineProperty(mod, "sourceProfile", { configurable: false, enumerable: true, value: SOURCE_PROFILE_TYPED_V053, writable: false });
   const stack = [];
   const calls = [];
+  const folds = [];
   for (let index = 0; index < lines.length; index += 1) {
     const loc = { file, line: index + 1 };
     const line = stripComment(lines[index]).trim();
@@ -1445,6 +1516,12 @@ function parseV053TypedAir(source, file = "<input>") {
         continue;
       }
       if (!mod.name) throw v053SyntaxError("missing module declaration", loc);
+      if (/^work(?:\s|\{|$)/.test(line)) {
+        // P5-R11: at most one declaration; a second one is refused at its line.
+        if (mod.work) throw v053SyntaxError("a module has at most one work declaration", loc);
+        mod.work = v053WorkDeclaration(line, loc);
+        continue;
+      }
       const enumMatch = line.match(/^(error\s+)?enum\s+([A-Z][A-Za-z0-9_]{0,127})\s*\{$/);
       if (enumMatch) {
         stack.push({ cases: [], isError: Boolean(enumMatch[1]), kind: "enum", loc, typeName: enumMatch[2] });
@@ -1518,6 +1595,7 @@ function parseV053TypedAir(source, file = "<input>") {
       }
       const arm = line.match(/^(.+?)\s*=>\s*(.+?)\s*[,;]?$/);
       if (!arm) throw new AirError("air.decision.match_arm_invalid: match arms must use pattern => expression", loc);
+      if (v053OtherLoopForm(arm[2].trim())) throw v053LoopFormError(line, loc);
       frame.statement.arms.push({
         expression: normalizeV053Value(arm[2], frame.statement.destinationType, mod.name, loc),
         loc,
@@ -1550,6 +1628,7 @@ function parseV053TypedAir(source, file = "<input>") {
       }
       continue;
     }
+    v053RejectOtherLoopForm(line, loc);
     if (inBlock && frame.yielded) throw v053SyntaxError(`statement after the block's yield '${line}'`, loc);
     // P4-R13: labels, br and br_if have no typed-v0.53 form.
     if (V053_LABEL_LINE.test(line) || V053_BRANCH_LINE.test(line)) throw v053UnstructuredError(line, loc);
@@ -1619,6 +1698,12 @@ function parseV053TypedAir(source, file = "<input>") {
       const type = parseV053TypedType(local[2], mod.name, false, loc);
       const valueText = local[3].trim();
       if (/^phi\./.test(valueText)) throw v053UnstructuredError(line, loc);
+      if (valueText.startsWith(V053_FOLD_PREFIX)) {
+        const statement = { kind: "local", loc, name: local[1], type, value: v053FoldValue(valueText, loc) };
+        frame.statements.push(statement);
+        folds.push(statement);
+        continue;
+      }
       const call = valueText.match(V053_CALL_FORM);
       const statement = { kind: "local", loc, name: local[1], type, value: call ? v053CallValue(call) : normalizeV053Value(valueText, type, mod.name, loc) };
       frame.statements.push(statement);
@@ -1641,6 +1726,12 @@ function parseV053TypedAir(source, file = "<input>") {
     const callee = functions.get(statement.value.callee);
     if (!callee || callee.params.length !== statement.value.args.length) continue;
     statement.value.args = statement.value.args.map((argument, position) => normalizeV053Argument(argument, callee.params[position].type, mod.name, statement.loc));
+  }
+  // A fold's seed normalizes against the callback's accumulator type T (P5-R2).
+  for (const statement of folds) {
+    const callback = functions.get(statement.value.callback);
+    if (!callback || !callback.params.length) continue;
+    statement.value.seed = normalizeV053Argument(statement.value.seed, callback.params[0].type, mod.name, statement.loc);
   }
   return mod;
 }

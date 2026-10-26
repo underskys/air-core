@@ -5061,13 +5061,95 @@ function verifyV053TypedModule(mod) {
 function verifyV053WorkBound(mod) {
   const workbound = require("./workbound");
   const analysis = workbound.analyzeVerifiedTypedModule(mod);
-  if (analysis.status === "ok") return;
+  if (analysis.status === "ok") {
+    verifyV053WorkAssertion(mod, analysis);
+    return;
+  }
   const failure = workbound.analysisError(analysis);
   const error = new VerificationError(`${failure.code}: ${failure.detail}`, failure.loc);
   error.disposition = "STATIC_REJECT";
   if (failure.fields.cyclePath) error.cyclePath = failure.fields.cyclePath;
   error.workBound = failure.fields;
   throw error;
+}
+
+// P0-05 (slice text P5-R12, P5-R13): an author's `work` assertion, checked in
+// phase S right after the WorkBound phase succeeds. For every export in source
+// order and every declared key in the dimension order, E(e).key <= bound. It
+// reads only the entry summaries of the analysis the WorkBound phase returned;
+// it changes no summary and no artifact, and it is never host authority.
+function verifyV053WorkAssertion(mod, analysis) {
+  const limits = mod.work && Array.isArray(mod.work.limits) ? mod.work.limits : [];
+  if (!limits.length || !(analysis.entries instanceof Map)) return;
+  for (const fn of mod.functions || []) {
+    if (!fn.exported) continue;
+    const entry = analysis.entries.get(fn.name);
+    if (!entry || !entry.ok) continue;
+    for (const limit of limits) {
+      const value = entry.value[limit.key];
+      if (typeof value === "bigint" && value > BigInt(limit.bound)) {
+        const error = new VerificationError(`air.workbound.assertion_exceeded: export '${fn.name}' ${limit.key} ${value} exceeds the declared work bound ${limit.bound}`, mod.work.loc);
+        error.disposition = "STATIC_REJECT";
+        error.workAssertion = Object.freeze({ bound: limit.bound, export: fn.name, key: limit.key, value: value.toString() });
+        throw error;
+      }
+    }
+  }
+}
+
+// P0-05 (slice text P5-R2, P5-R2a; OD-P5-1 (b)): containment only at a fold
+// boundary. Identity, or for the i32 family the P3-R2 relation: any i32-family
+// type is contained in `i32`, and `i32<a..b>` in `i32<c..d>` when c <= a and
+// b <= d. Anything else would be a narrowing, which a fold refuses.
+function v053TypeContained(source, destination) {
+  if (source === destination) return true;
+  if (!V053_I32_FAMILY.test(source) || !V053_I32_FAMILY.test(destination)) return false;
+  if (destination === "i32") return true;
+  const from = parseRefinementType(source);
+  const to = parseRefinementType(destination);
+  return Boolean(from && to) && BigInt(to.refinement.min) <= BigInt(from.refinement.min) && BigInt(from.refinement.max) <= BigInt(to.refinement.max);
+}
+
+// R-LOOP-1 with P5-R2 and P5-R3: `%acc: D = loop.fold @f, <seed>, <count>`. The
+// callback is a function of this module with one parameter `T` or two (`T`,
+// `i32`) and the result `T`; the seed is contained in `T` and `T` in `D`; a
+// dynamic count is an `i32`-family local in scope. A count's bound is not
+// checked here: it is a WorkBound result (invalid_bound, unknown_bound) of phase
+// S (P5-R3), and a statically known count is never a static rejection (P5-R4).
+function verifyV053Fold(value, ctx, scope, loc, destination) {
+  const callback = ctx.functions.get(value.callback);
+  if (!callback) throw new VerificationError(`air.call.unknown_function: '@${value.callback}' is not a function of module '${ctx.moduleName || "this module"}'`, loc);
+  const params = callback.params || [];
+  if (params.length !== 1 && params.length !== 2) {
+    throw new VerificationError(`air.call.argument_count_mismatch: loop.fold passes the accumulator (and the index); '@${callback.name}' takes ${params.length} argument(s)`, loc);
+  }
+  const accumulator = verifyV053TypedType(params[0].type, ctx.declarations, loc);
+  const result = verifyV053TypedType(callback.returnType, ctx.declarations, loc, true);
+  if (result.canonical !== accumulator.canonical) {
+    throw new VerificationError(`air.v051.typed_atom_type_mismatch: a loop.fold callback takes and returns one type T; '@${callback.name}' takes ${accumulator.canonical} and returns ${result.canonical}`, loc);
+  }
+  if (params.length === 2 && verifyV053TypedType(params[1].type, ctx.declarations, loc).canonical !== "i32") {
+    throw new VerificationError(`air.v051.typed_atom_type_mismatch: the index parameter of '@${callback.name}' must be i32, not ${params[1].type}`, loc);
+  }
+  const T = accumulator.canonical;
+  const seed = typeof value.seed === "string" ? value.seed.trim() : "";
+  const seedLocal = /^%[A-Za-z_][A-Za-z0-9_]*$/.test(seed) ? scope.locals.get(seed.slice(1)) : undefined;
+  if (seedLocal !== undefined && V053_I32_FAMILY.test(seedLocal)) {
+    if (!v053TypeContained(seedLocal, T)) throw new VerificationError(`air.v051.typed_atom_type_mismatch: the seed '${seed}' of type ${seedLocal} is not contained in ${T}; narrow it one statement earlier`, loc);
+  } else if (accumulator.refinement) {
+    // A literal or a constructor has an unrefined type, contained only in an unrefined T.
+    throw new VerificationError(`air.v051.typed_atom_type_mismatch: the seed '${seed}' is not contained in ${T}; bind it to a ${T} local first`, loc);
+  } else {
+    verifyV053TypedAtom(seed, accumulator, scope.locals, ctx.declarations, loc);
+  }
+  if (value.count && value.count.kind === "dynamic") {
+    const count = scope.locals.get(value.count.local);
+    if (count === undefined) throw new VerificationError(`air.v051.local_unknown: '%${value.count.local}'`, loc);
+    if (!V053_I32_FAMILY.test(count)) throw new VerificationError(`air.v051.typed_atom_type_mismatch: a loop.fold count is an i32, not ${count}`, loc);
+  }
+  if (!v053TypeContained(T, destination.canonical)) {
+    throw new VerificationError(`air.v051.typed_atom_type_mismatch: loop.fold over '@${callback.name}' yields ${T}, which is not contained in ${destination.canonical}`, loc);
+  }
 }
 
 // One statement of a body or a block (R-CFG-1). `yieldType` is the type a
@@ -5078,7 +5160,9 @@ function verifyV053Statement(statement, ctx, scope, yieldType) {
     declareV053Local(statement.name, ctx, scope, loc);
     const declared = verifyV053TypedType(statement.type, ctx.declarations, loc);
     let staticValue;
-    if (statement.value && typeof statement.value === "object" && statement.value.kind === "call") {
+    if (statement.value && typeof statement.value === "object" && statement.value.kind === "fold") {
+      verifyV053Fold(statement.value, ctx, scope, loc, declared);
+    } else if (statement.value && typeof statement.value === "object" && statement.value.kind === "call") {
       verifyV053Call(statement.value, ctx, scope, loc, declared);
     } else {
       staticValue = verifyV053TypedExpression(statement.value, declared, scope.locals, ctx.declarations, loc, scope.staticValues);

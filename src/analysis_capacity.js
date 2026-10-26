@@ -71,13 +71,20 @@ function normalizeAnalysisCapacity(input) {
 // A statement that contains blocks lists them in `blocks`; each block is an
 // object with a `statements` list. SCALAR has no block statement, so every
 // SCALAR body measures depth 1.
+// P0-05 (slice text §4.8, P5-R14; owner OD-P5-2 (a)): a fold statement is one
+// statement and one callback reference, never a call site (its value has
+// `op: "loop.fold"`); a `work` declaration is one top-level declaration,
+// never a capability declaration. Each block is still reached once, through
+// `statement.blocks`.
 function measureTypedModule(mod) {
   const functions = Array.isArray(mod && mod.functions) ? mod.functions : [];
   const decls = functions.length +
     (Array.isArray(mod && mod.enums) ? mod.enums.length : 0) +
-    (Number.isSafeInteger(mod && mod.capabilityDeclarations) ? mod.capabilityDeclarations : 0);
+    (Number.isSafeInteger(mod && mod.capabilityDeclarations) ? mod.capabilityDeclarations : 0) +
+    (mod && mod.work ? 1 : 0);
   let stmts = 0;
   let callSites = 0;
+  let callbackRefs = 0;
   let nestingDepth = 0;
   for (const fn of functions) {
     const stack = [{ depth: 1, statements: Array.isArray(fn && fn.statements) ? fn.statements : [] }];
@@ -87,6 +94,7 @@ function measureTypedModule(mod) {
       for (const statement of frame.statements) {
         stmts += 1;
         if (statement && statement.value && typeof statement.value === "object" && statement.value.op === "call") callSites += 1;
+        if (statement && statement.value && typeof statement.value === "object" && statement.value.kind === "fold") callbackRefs += 1;
         for (const block of (statement && Array.isArray(statement.blocks)) ? statement.blocks : []) {
           stack.push({ depth: frame.depth + 1, statements: Array.isArray(block && block.statements) ? block.statements : [] });
         }
@@ -94,7 +102,6 @@ function measureTypedModule(mod) {
     }
   }
   const modules = 1;
-  const callbackRefs = 0;
   const importEdges = 0;
   return Object.freeze({
     analysis_units: modules + decls + stmts + callSites + callbackRefs + importEdges,
