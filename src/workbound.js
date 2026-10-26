@@ -821,7 +821,15 @@ function typedFoldNode(value, loc) {
   const count = value.count && value.count.kind === "dynamic"
     ? (value.count.max === undefined ? { unknown: true } : value.count.max)
     : String(value.count && value.count.value);
-  const t3 = loop(count, call(value.callback, loc), loc);
+  const body = call(value.callback, loc);
+  // P5-R3 with P5-R11's decimal form ("no sign and no leading zero"; QA
+  // P05-QA-F-1): a count or maximum written with a sign is not a decimal
+  // integer literal, so its leaf is invalid_bound, in loop()'s position. The
+  // P0-02 count leaf reads `-0` as 0, so a fold never hands it a signed text.
+  const t3 = typeof count === "string" && /^[+-]/.test(count)
+    ? add(row("loop.exit", loc), node("mul", loc, {}, [add(row("loop.iteration", loc), body, loc),
+      failLeaf("invalid_bound", loc, `loop count '${count}' is signed; a count is a decimal integer literal without a sign`)]), loc)
+    : loop(count, body, loc);
   return isConstructorAtom(value.seed) ? add(row("statement.constructor", loc), t3, loc) : t3;
 }
 

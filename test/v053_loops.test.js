@@ -645,6 +645,91 @@ const MUTANTS = Object.freeze({
 });
 
 // ---------------------------------------------------------------------------
+// REG-P05-QA-F1-*: regression tests for the independent QA finding P05-QA-F-1
+// (a `-0` fold count was VERIFIED but could not be lowered). Test-local IDs,
+// not catalogue vectors, and not in the 71-text P0-05-SEP-WB corpus. Expected
+// values are R2.2's P5-R3 with P5-R11's decimal form ("no sign and no leading
+// zero"): a signed count or maximum is air.workbound.invalid_bound at the fold
+// line (9) at every entrypoint (P4-R8).
+const signedCount = (count) => mod(STEP, run(/max/u.test(count) ? "s: i32, n: i32" : "s: i32", "i32", [FOLD("step", "%s", count), "return %r"]));
+const REG_F1 = Object.freeze({
+  NEG0: ["-0"], MAXNEG0: ["%n max -0"], PLUS0: ["+0", "%n max +0"], NEG00: ["-00", "%n max -00"], NEG1: ["-1"]
+});
+// The P0-05 candidate before the correction (dev b5a4bedf / public 1706d161),
+// run from git objects in a bounded child process.
+const P05_QA_F1_BASE_COMMITS = ["b5a4bedf67848bfec3c3a2c3da7022c616731be6", "1706d16172adb39fded156f18f16bb67b56c3c3d"];
+function regF1Baseline(counts) {
+  const dir = path.join(tmp, "p05_qa_f1_base");
+  let commit = null;
+  for (const candidate of P05_QA_F1_BASE_COMMITS) {
+    if (childProcess.spawnSync("git", ["cat-file", "-e", `${candidate}^{commit}`], { cwd: ROOT }).status === 0) { commit = candidate; break; }
+  }
+  assert(commit, "the P0-05 candidate base commit is not in this repository");
+  fs.mkdirSync(dir, { recursive: true });
+  const archive = childProcess.spawnSync("sh", ["-c", `git archive ${commit} src | tar -x -C "${dir}"`], { cwd: ROOT, encoding: "utf8" });
+  assert.equal(archive.status, 0, archive.stderr);
+  const script = path.join(dir, "probe.js");
+  fs.writeFileSync(script, `"use strict";
+const path = require("path");
+const src = process.argv[2];
+const source = require("fs").readFileSync(process.argv[3], "utf8");
+const sp = require(path.join(src, "source_profile.js"));
+const parser = require(path.join(src, "parser.js"));
+const { lowerToWat } = require(path.join(src, "lower_wasm.js"));
+const options = { allowCandidateProfile: true, sourceProfile: "typed-v0.53" };
+const out = {};
+try { sp.verifySource(sp.parseSource(source, "base.air", options), options); out.sdk_verify = "VERIFIED"; } catch (error) { out.sdk_verify = error.code || error.name; }
+try { lowerToWat(parser.typedV053.parse(source, "base.air"), { maxWatBytes: 4194304 }); out.lowerToWat = "VERIFIED"; } catch (error) { out.lowerToWat = error.code || error.name; }
+process.stdout.write(JSON.stringify(out));
+`);
+  const outcomes = {};
+  for (const count of counts) {
+    const sourceFile = path.join(dir, `count_${Object.keys(outcomes).length}.air`);
+    fs.writeFileSync(sourceFile, signedCount(count));
+    const out = childProcess.spawnSync(process.execPath, [script, path.join(dir, "src"), sourceFile], {
+      encoding: "utf8", env: { ...process.env, NODE_PATH: path.join(ROOT, "node_modules") }, killSignal: "SIGKILL", maxBuffer: 16 * 1024 * 1024, timeout: 60000
+    });
+    assert(!out.error && out.signal === null, `base probe '${count}' did not finish within 60 s`);
+    assert.equal(out.status, 0, out.stderr);
+    outcomes[count] = JSON.parse(out.stdout);
+  }
+  return { commit, outcomes };
+}
+
+// invalid_bound at line 9 at all seven entrypoints: the six of staticReject
+// and lowerToWat on the parsed AST (it verifies first); nothing is built,
+// cached or compiled.
+async function regF1Rejected(count) {
+  const source = signedCount(count);
+  const rejected = await staticReject(source, "air.workbound.invalid_bound", 9);
+  const lowered = capture(() => lowerToWat(parser.typedV053.parse(source, "reg.air"), { maxWatBytes: MAX_WAT }));
+  assert(lowered && lowered.code === "air.workbound.invalid_bound" && lowered.loc && lowered.loc.line === 9, `lowerToWat: ${lowered && lowered.message}`);
+  const runtime = createVerifiedTypedRuntime({ admit: async () => true });
+  await runtime.build({ ...GATED, descriptor: descriptorOf(source), source }).then(() => assert.fail("runtime: no artifact"), () => null);
+  assert.equal(runtime.inspect().cache.entries, 0, "nothing cached");
+  assert.equal(runtime.inspect().counters.compilations, 0, "nothing compiled");
+  return { ...rejected.outcome, entrypoints: [...rejected.outcome.entrypoints, "lowerToWat"], source_sha256: hexOf(source) };
+}
+
+async function regP05QaF1() {
+  await vector("REG-P05-QA-F1-BASELINE", () => {
+    // Before the correction the count leaf read `-0` as 0: SDK verify said
+    // VERIFIED, and the lowering refused the module.
+    const base = regF1Baseline(["-0", "%n max -0", "-1"]);
+    for (const count of ["-0", "%n max -0"]) assert.deepEqual(base.outcomes[count], { lowerToWat: "air.v051.typed_lowering_unsupported", sdk_verify: "VERIFIED" }, count);
+    assert.deepEqual(base.outcomes["-1"], { lowerToWat: "air.workbound.invalid_bound", sdk_verify: "air.workbound.invalid_bound" });
+    return { value: { base_commit: base.commit, outcomes: base.outcomes } };
+  });
+  for (const [name, counts] of Object.entries(REG_F1)) {
+    await vector(`REG-P05-QA-F1-${name}`, async () => {
+      const value = {};
+      for (const count of counts) value[count] = await regF1Rejected(count);
+      return { value };
+    });
+  }
+}
+
+// ---------------------------------------------------------------------------
 async function main() {
   tmp = fs.mkdtempSync(path.join(os.tmpdir(), "air-v053-p005-"));
   try {
@@ -1142,6 +1227,11 @@ async function main() {
       for (const count of Object.values(counts)) assert(count < 65536, "admitted by intake");
       return { value: { intake_ast_nodes: counts } };
     });
+
+    // ------------------------------------------------------------------
+    // REG-P05-QA-F1-*: the independent QA finding P05-QA-F-1 (expectations in
+    // the correction evidence expectations/EXPECTATIONS.md, before the change).
+    await regP05QaF1();
   } finally {
     fs.rmSync(tmp, { force: true, recursive: true });
   }
