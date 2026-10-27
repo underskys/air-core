@@ -78,6 +78,8 @@ function normalizeAnalysisCapacity(input) {
 // `statement.blocks`.
 // P0-06 (slice text P6-R18; owner OD-P6-4 (a)): each struct and each table is
 // one top-level declaration; nothing else in the measure changes.
+// P0-07 (slice text P7-R17; owner OD-P7-2 (a)): each constant and each state
+// is one top-level declaration, whatever its type or length.
 function measureTypedModule(mod) {
   const functions = Array.isArray(mod && mod.functions) ? mod.functions : [];
   const decls = functions.length +
@@ -85,7 +87,9 @@ function measureTypedModule(mod) {
     (Number.isSafeInteger(mod && mod.capabilityDeclarations) ? mod.capabilityDeclarations : 0) +
     (mod && mod.work ? 1 : 0) +
     (Array.isArray(mod && mod.structs) ? mod.structs.length : 0) +
-    (Array.isArray(mod && mod.tables) ? mod.tables.length : 0);
+    (Array.isArray(mod && mod.tables) ? mod.tables.length : 0) +
+    (Array.isArray(mod && mod.constants) ? mod.constants.length : 0) +
+    (Array.isArray(mod && mod.states) ? mod.states.length : 0);
   let stmts = 0;
   let callSites = 0;
   let callbackRefs = 0;

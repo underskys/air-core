@@ -882,7 +882,9 @@ function typedAggregateNode(statement, loc, ctx, scope) {
   if (value.op === "struct.set" || value.op === "array.set") {
     return seq([row("aggregate.access", loc), transfer(ctx.lanes(statement.type), loc), ...constructors(args.slice(-1))], loc);
   }
-  if (value.op === "struct.get" || value.op === "array.get" || value.op === "table.get") {
+  // P0-07 (P7-R13; OD-P7-1 (a′)): state.get is one aggregate.access, an
+  // element access with a static index, plus a refined D's check.
+  if (value.op === "struct.get" || value.op === "array.get" || value.op === "table.get" || value.op === "state.get") {
     if (ctx.aggregate(statement.type)) return add(row("aggregate.access", loc), transfer(ctx.lanes(statement.type), loc), loc);
     return withRefinementCheck(row("aggregate.access", loc), statement.type, value, loc, scope);
   }
@@ -914,6 +916,8 @@ function typedStatementNode(fn, statement, scope = null, ctx = null, yieldType =
     return withRefinementCheck(row(construct, loc), statement.type, statement.value, loc, scope);
   }
   if (ctx && statement.kind === "call") return typedCallNode(statement.value, loc, ctx, scope);
+  // P0-07 (P7-R13; OD-P7-1 (a′)): state.set is one aggregate.access.
+  if (ctx && statement.kind === "state_set") return row("aggregate.access", loc);
   if (ctx && statement.kind === "if") {
     const blocks = Array.isArray(statement.blocks) ? statement.blocks : [];
     if (blocks.length !== 2) costUndefined("branch.<blocks>", loc);

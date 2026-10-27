@@ -130,6 +130,8 @@ const REPAIR_HINTS_BY_CODE = Object.freeze({
   "air.table.index_out_of_range": "Keep the table index inside 0 <= i < N: a statically known index outside it is rejected, and any other index is checked before the read (failure 33).",
   "air.array.index_out_of_range": "Keep the array index inside 0 <= i < N: a statically known index outside it is rejected, and any other index is checked before the access (failure 35).",
   "air.abi.export_type_unsupported": "Structs and arrays are internal: give an export scalar, enum, option or result parameters and results, and build or read the aggregate inside the module.",
+  // typed-v0.53 P0-07 (slice text P7-R2; docs/v0.53/P0_07_STATE.md).
+  "air.const.initializer_invalid": "A constant takes exactly one literal of its type: const NAME: T = <literal>. Compute any other value in a function.",
   "air.memory.region_leak": "Call free_region on all paths before returning from the function.",
   "air.output_emit.host_abi_unsupported": `Use Host ABI 0.11 only for bounded ${OUT_EMIT_LABEL} packages, or remove ${OUT_EMIT_LABEL}.`,
   "air.output_emit.output_handle_required": "Use the generated OUTPUT_* handle constant for canonical bounded output authoring.",

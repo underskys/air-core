@@ -5024,16 +5024,22 @@ function verifyV053TypedModule(mod) {
     declarations.set(declaration.type_id, declaration);
   }
   // P0-06: structs join the enums' type namespace; tables have their own.
+  // P0-07: constants have their own namespace; states share the tables'.
   verifyV053Structs(mod, declarations);
-  const tables = verifyV053Tables(mod, declarations);
+  const { states, tables } = verifyV053ModuleItems(mod, declarations);
   const functions = new Map();
   for (const fn of mod.functions || []) {
     if (!fn || typeof fn.name !== "string" || functions.has(fn.name)) throw new VerificationError("air.v051.function_duplicate: typed function names must be unique", fn && fn.loc);
     functions.set(fn.name, fn);
   }
   for (const fn of mod.functions || []) {
-    const ctx = { declarations, fn, functions, moduleName: mod.name, names: new Set(), tables };
+    const ctx = { declarations, fn, functions, moduleName: mod.name, names: new Set(), states, tables };
     const scope = { locals: new Map(), staticValues: new Map() };
+    // P7-R10: a state name in an exported signature is a state handle.
+    const handle = fn && fn.exported ? [...(fn.params || []).map((parameter) => parameter && parameter.type), fn.returnType].find((type) => typeof type === "string" && states.has(type.trim())) : undefined;
+    if (handle !== undefined) {
+      throw new VerificationError(`air.abi.export_type_unsupported: export '${fn.name}' names state '${handle.trim()}' as a type; a state is internal and has no handle at the AIR ABI`, fn.loc);
+    }
     const signature = [];
     for (const parameter of fn.params || []) {
       if (!parameter || typeof parameter.name !== "string" || ctx.names.has(parameter.name)) throw new VerificationError(`air.v051.parameter_duplicate: '${fn.name}'`, fn.loc);
@@ -5181,6 +5187,11 @@ function verifyV053Statement(statement, ctx, scope, yieldType) {
     }
     scope.locals.set(statement.name, statement.type);
     if (staticValue !== undefined) scope.staticValues.set(statement.name, staticValue);
+  } else if (statement && statement.kind === "state_set") {
+    if (!statement.value || typeof statement.value !== "object" || !String(statement.value.op || "").startsWith("state.")) {
+      throw new VerificationError("air.state.op_invalid: a statement without a result binding is state.set <s>, <index>, <value>", loc);
+    }
+    verifyV053AggregateOperation(statement.value, null, ctx, scope, loc);
   } else if (statement && statement.kind === "call") {
     verifyV053Call(statement.value, ctx, scope, loc, null);
   } else if (statement && statement.kind === "match") {
@@ -5410,32 +5421,88 @@ function v053CyclicStructs(ids, edges) {
   return cyclic;
 }
 
-// P0-06 (slice text P6-R2 items 5 and 6): in source order, each table's
-// literals, checked exactly as the base checks `%v: T = <literal>`, then a
-// repeated name at the second table's line. Items 1-4 are parse checks,
-// repeated here for an AST input.
-function verifyV053Tables(mod, declarations) {
+// P0-07 (slice text P7-R3): the module's constants, by name, for the
+// declarations map of one verification. A constant is a typed atom whose
+// value is its literal.
+const V053_MODULE_CONSTANTS = new WeakMap();
+
+function v053ConstantOf(declarations, text) {
+  const constants = declarations ? V053_MODULE_CONSTANTS.get(declarations) : undefined;
+  return constants && typeof text === "string" ? constants.get(text.trim()) : undefined;
+}
+
+// The module's constants, tables and states, in source order. P0-06 (slice
+// text P6-R2 items 5 and 6): each table's literals, checked exactly as the
+// base checks `%v: T = <literal>`, then a repeated name at the second table's
+// line. P0-07 (P7-R2 items 4 and 5): each constant's literal, then a repeated
+// constant. P0-07 (P7-R6 items 5 and 6): each state's `fill` literal
+// (`air.state.init_invalid`), then a name already taken by a state or a
+// table (`air.state.segment_invalid`); a table after a state of the same name
+// keeps the table's duplicate code. The parse checks of each line are
+// repeated here for an AST input. Literal-text positions take literals only,
+// never a constant (P7-R3 reading R-9).
+function verifyV053ModuleItems(mod, declarations) {
+  const typed = parserModule.typedV053;
+  const lineOf = (item) => (item && item.loc && Number.isSafeInteger(item.loc.line) ? item.loc.line : Number.MAX_SAFE_INTEGER);
+  const items = [
+    ...(Array.isArray(mod.constants) ? mod.constants : []).map((item) => ({ item, kind: "const" })),
+    ...(Array.isArray(mod.tables) ? mod.tables : []).map((item) => ({ item, kind: "table" })),
+    ...(Array.isArray(mod.states) ? mod.states : []).map((item) => ({ item, kind: "state" }))
+  ].sort((left, right) => lineOf(left.item) - lineOf(right.item));
+  const constants = new Map();
   const tables = new Map();
+  const states = new Map();
   const none = new Map();
-  for (const table of Array.isArray(mod.tables) ? mod.tables : []) {
-    const loc = table && table.loc;
-    if (!table || typeof table.name !== "string" || !/^[A-Za-z_][A-Za-z0-9_]*$/.test(table.name) || !Array.isArray(table.values) ||
-        !parserModule.typedV053.TABLE_ELEMENTS.has(table.elementType)) {
-      throw new VerificationError("air.v051.typed_syntax_invalid: a table is table <name>: <T>[<N>] = [v0, ..., vN-1] with T one of i32, i64, f32, f64, bool", loc);
+  const literal = (value, type, loc) => {
+    if (typeof value !== "string") throw new VerificationError("air.v051.typed_atom_invalid: expected a literal", loc);
+    verifyV051TypedAtom(value, type, none, declarations, loc);
+  };
+  for (const { item, kind } of items) {
+    const loc = item && item.loc;
+    if (kind === "const") {
+      if (!item || typeof item.name !== "string" || !typed.CONST_NAME.test(item.name) || !typed.TABLE_ELEMENTS.has(item.type)) {
+        throw new VerificationError("air.v051.typed_syntax_invalid: a constant is const <NAME>: <T> = <literal> with T one of i32, i64, f32, f64, bool", loc);
+      }
+      if (typeof item.value !== "string" || !typed.LITERAL_TOKEN.test(item.value)) {
+        throw new VerificationError(`air.const.initializer_invalid: constant '${item.name}' takes one literal`, loc);
+      }
+      literal(item.value, verifyV051TypedType(item.type, declarations, loc, false), loc);
+      if (constants.has(item.name)) throw new VerificationError(`air.v051.typed_syntax_invalid: duplicate constant '${item.name}'`, loc);
+      constants.set(item.name, { loc, name: item.name, type: item.type, value: item.value });
+    } else if (kind === "table") {
+      if (!item || typeof item.name !== "string" || !/^[A-Za-z_][A-Za-z0-9_]*$/.test(item.name) || !Array.isArray(item.values) ||
+          !typed.TABLE_ELEMENTS.has(item.elementType)) {
+        throw new VerificationError("air.v051.typed_syntax_invalid: a table is table <name>: <T>[<N>] = [v0, ..., vN-1] with T one of i32, i64, f32, f64, bool", loc);
+      }
+      if (!Number.isSafeInteger(item.length) || item.length < 1 || item.length > typed.AGGREGATE_MAX) {
+        throw new VerificationError(`air.v051.type_reference_invalid: table length ${item.length} is outside 1..${typed.AGGREGATE_MAX}`, loc);
+      }
+      if (item.values.length !== item.length) throw new VerificationError(`air.v051.typed_syntax_invalid: table '${item.name}' declares ${item.length} values and lists ${item.values.length}`, loc);
+      const element = verifyV051TypedType(item.elementType, declarations, loc, false);
+      for (const value of item.values) literal(value, element, loc);
+      if (tables.has(item.name) || states.has(item.name)) throw new VerificationError(`air.v051.typed_syntax_invalid: duplicate table '${item.name}'`, loc);
+      tables.set(item.name, { element, length: item.length, name: item.name });
+    } else {
+      if (!item || typeof item.name !== "string" || !/^[A-Za-z_][A-Za-z0-9_]*$/.test(item.name)) {
+        throw new VerificationError("air.state.segment_invalid: a state is state <name>: <T>[<N>] = fill <literal>", loc);
+      }
+      if (!typed.TABLE_ELEMENTS.has(item.elementType)) throw new VerificationError(`air.state.cell_type_invalid: state cell type '${item.elementType}' is not admitted`, loc);
+      if (!Number.isSafeInteger(item.length) || item.length < 1 || item.length > typed.AGGREGATE_MAX) {
+        throw new VerificationError(`air.state.length_invalid: state length ${item.length} is outside 1..${typed.AGGREGATE_MAX}`, loc);
+      }
+      const element = verifyV051TypedType(item.elementType, declarations, loc, false);
+      try {
+        if (typeof item.fill !== "string" || !typed.LITERAL_TOKEN.test(item.fill)) throw new Error("not one literal token");
+        literal(item.fill, element, loc);
+      } catch (_) {
+        throw new VerificationError(`air.state.init_invalid: state '${item.name}' is initialized by '${typeof item.init === "string" ? item.init : item.fill}'; a state is fill <literal of ${item.elementType}>`, loc);
+      }
+      if (states.has(item.name) || tables.has(item.name)) throw new VerificationError(`air.state.segment_invalid: the name '${item.name}' is already a state or a table`, loc);
+      states.set(item.name, { element, length: item.length, name: item.name });
     }
-    if (!Number.isSafeInteger(table.length) || table.length < 1 || table.length > parserModule.typedV053.AGGREGATE_MAX) {
-      throw new VerificationError(`air.v051.type_reference_invalid: table length ${table.length} is outside 1..${parserModule.typedV053.AGGREGATE_MAX}`, loc);
-    }
-    if (table.values.length !== table.length) throw new VerificationError(`air.v051.typed_syntax_invalid: table '${table.name}' declares ${table.length} values and lists ${table.values.length}`, loc);
-    const element = verifyV051TypedType(table.elementType, declarations, loc, false);
-    for (const value of table.values) {
-      if (typeof value !== "string") throw new VerificationError("air.v051.typed_atom_invalid: a table value is a literal", loc);
-      verifyV053TypedExpression(value, element, none, declarations, loc, none);
-    }
-    if (tables.has(table.name)) throw new VerificationError(`air.v051.typed_syntax_invalid: duplicate table '${table.name}'`, loc);
-    tables.set(table.name, { element, length: table.length, name: table.name });
   }
-  return tables;
+  V053_MODULE_CONSTANTS.set(declarations, constants);
+  return { states, tables };
 }
 
 // P0-06 (slice text P6-R4, P6-R8, P6-R9): the table and aggregate operations.
@@ -5470,7 +5537,7 @@ function verifyV053AggregateOperation(value, destination, ctx, scope, loc) {
   };
   const index = (text) => {
     verifyV053TypedAtom(text, verifyV053TypedType("i32", ctx.declarations, loc), scope.locals, ctx.declarations, loc);
-    return v053StaticInteger(text, scope.staticValues);
+    return v053StaticInteger(text, scope.staticValues, ctx.declarations);
   };
   const enter = (result) => {
     const admitted = isV053AggregateKind(result) ? destination.canonical === result.canonical : v051TypeBase(destination) === result.canonical;
@@ -5482,6 +5549,30 @@ function verifyV053AggregateOperation(value, destination, ctx, scope, loc) {
     }
   };
   if (op === "table.set") throw new VerificationError("air.table.readonly: typed-v0.53 tables are read-only (table.get only)", loc);
+  // P0-07 (slice text P7-R7, P7-R8): `state.get` is a value and `state.set` a
+  // statement (`destination` null); every other `state.*` form, an unknown
+  // state and a wrong operand count are `air.state.op_invalid`. An index is
+  // static: a statically known value (SCALAR R-16, constants included) inside
+  // 0 <= i < N; outside it `air.state.index_out_of_bounds`, and an index that
+  // is not statically known `air.state.dynamic_bounds_required`.
+  if (op.startsWith("state.")) {
+    const opInvalid = (detail) => new VerificationError(`air.state.op_invalid: '${op}' ${detail}`, loc);
+    const expected = destination === null ? "state.set" : "state.get";
+    if (op !== expected) throw opInvalid(destination === null ? "is not a statement; state.set <s>, <index>, <value> is" : "is not a value; %v: T = state.get <s>, <index> is, and state.set has no result binding");
+    if (args.length !== (destination === null ? 3 : 2)) throw opInvalid(`takes ${destination === null ? 3 : 2} operands, not ${args.length}`);
+    const state = ctx.states.get(args[0]);
+    if (!state) throw opInvalid(`names no state of this module: '${args[0]}'`);
+    const at = index(args[1]);
+    if (destination === null) atom(args[2], state.element);
+    else enter(state.element);
+    if (at === undefined) {
+      throw new VerificationError(`air.state.dynamic_bounds_required: the index '${args[1]}' of state '${state.name}' is not statically known; typed-v0.53 state indexes are static`, loc);
+    }
+    if (at < 0n || at >= BigInt(state.length)) {
+      throw new VerificationError(`air.state.index_out_of_bounds: index ${at} is outside state '${state.name}' (0 <= i < ${state.length})`, loc);
+    }
+    return;
+  }
   if (op === "table.get") {
     if (args.length !== 2) throw invalid();
     const table = ctx.tables.get(args[0]);
@@ -5538,6 +5629,26 @@ const V053_CONSTRUCTOR_PAYLOAD = /^(?:option\.some|result\.(?:ok|err))<.+>\s+%([
 function verifyV053TypedAtom(value, expected, locals, declarations, loc) {
   if (typeof value !== "string" || !value.trim()) throw new VerificationError("air.v051.typed_atom_invalid: expected a typed atom", loc);
   const text = value.trim();
+  // P0-07 (slice text P7-R3): a constant reference is an atom of its declared
+  // type, never re-typed by its context (reading R-7); a refined slot of that
+  // base takes it as it takes an operation result.
+  const constant = v053ConstantOf(declarations, text);
+  if (constant) {
+    if (v051TypeBase(expected) !== constant.type) throw new VerificationError(`air.v051.typed_atom_type_mismatch: constant '${text}' is ${constant.type}, not ${expected.canonical}`, loc);
+    return expected;
+  }
+  // A constructor payload that is a constant: the payload slot's type must be
+  // the constant's type; the constructor is then checked over its literal.
+  const constructor = text.match(/^(option\.some<(.+)>|result\.(ok|err)<(.+)>)\s+([A-Z][A-Za-z0-9_]*)$/);
+  const payloadConstant = constructor ? v053ConstantOf(declarations, constructor[5]) : undefined;
+  if (payloadConstant) {
+    const parts = constructor[2] === undefined ? splitV051TypeArguments(constructor[4]) : null;
+    const slot = constructor[2] !== undefined ? constructor[2] : parts && parts.length === 2 ? parts[constructor[3] === "ok" ? 0 : 1] : null;
+    if (slot === null || slot.trim() !== payloadConstant.type) {
+      throw new VerificationError(`air.v051.typed_atom_type_mismatch: constant '${constructor[5]}' is ${payloadConstant.type}, not the payload type of '${constructor[1]}'`, loc);
+    }
+    return verifyV051TypedAtom(`${constructor[1]} ${payloadConstant.value}`, expected, locals, declarations, loc);
+  }
   if (/^%[A-Za-z_][A-Za-z0-9_]*$/.test(text)) {
     const local = locals.get(text.slice(1));
     if (local && V053_I32_FAMILY.test(local) && v051TypeBase(expected) === "i32") return expected;
@@ -5558,12 +5669,16 @@ function verifyV053TypedAtom(value, expected, locals, declarations, loc) {
 // it is an integer literal, or a reference to a local whose initializer was
 // statically known (an integer literal, a statically known reference, or an
 // evaluated checked operation). Float literals and every other result are not.
-function v053StaticInteger(value, staticValues) {
+// P0-07 (P7-R3 reading R-6): an integer constant names a literal, so it is
+// statically known too.
+function v053StaticInteger(value, staticValues, declarations) {
   const text = String(value || "").trim();
   if (/^%[A-Za-z_][A-Za-z0-9_]*$/.test(text)) {
     const known = staticValues.get(text.slice(1));
     return typeof known === "bigint" ? known : undefined;
   }
+  const constant = v053ConstantOf(declarations, text);
+  if (constant) return /^-?(0|[1-9][0-9]*)$/.test(constant.value) ? BigInt(constant.value) : undefined;
   return /^-?(0|[1-9][0-9]*)$/.test(text) ? BigInt(text) : undefined;
 }
 
@@ -5574,7 +5689,7 @@ function verifyV053TypedExpression(value, expected, locals, declarations, loc, s
   } else {
     verifyV053TypedAtom(value, expected, locals, declarations, loc);
     const base = v051TypeBase(expected);
-    if (base === "i32" || base === "i64") staticValue = v053StaticInteger(value, staticValues);
+    if (base === "i32" || base === "i64") staticValue = v053StaticInteger(value, staticValues, declarations);
   }
   if (expected.refinement && expected.refinement.kind === "i32_range" && typeof staticValue === "bigint" &&
       (staticValue < BigInt(expected.refinement.min) || staticValue > BigInt(expected.refinement.max))) {
@@ -5597,7 +5712,7 @@ function verifyV053TypedOperation(operation, expected, locals, declarations, loc
     verifyV053TypedAtom(operation.args[index], parseTypeReference(signature.args[index]), locals, declarations, loc);
   }
   if (!signature.fold) return undefined;
-  const values = operation.args.map((argument) => v053StaticInteger(argument, staticValues));
+  const values = operation.args.map((argument) => v053StaticInteger(argument, staticValues, declarations));
   if (values.some((value) => value === undefined)) return undefined;
   if (signature.fold === "comparison") return evaluateV051I64Comparison(signature.operation, values);
   if (signature.fold === "to_i32") {

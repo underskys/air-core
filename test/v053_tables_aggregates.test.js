@@ -1247,12 +1247,17 @@ async function main() {
       return { value: { code: refused.code, disposition: refused.disposition || "BUILD_REFUSED", message: String(refused.message), source_bytes: Buffer.byteLength(source, "utf8"), verified: true } };
     });
     await vector("P0-06-CHECK-CONST", async () => {
-      // OD-P6-2 (b): V53-AGG-P03 and N04 belong to P0-07; P0-06 runs neither
-      // vector. At P0-06 a `const` line keeps failing as typed_syntax_invalid at line 3.
+      // OD-P6-2 (b): V53-AGG-P03 and N04 belong to P0-07; P0-06 runs neither vector. OD-P7-3 (a): "constants are
+      // rejected" (a `const` line failed as typed_syntax_invalid at line 3) was P0-06 behaviour. From P0-07 on, P03
+      // verifies and N04 fails as air.const.initializer_invalid at line 3, checked here through the SDK. P0-07's own test
+      // runs every entrypoint; this check records no failure code, so V53-DIAG-01@P0-06's registries stay P0-06's.
+      const n04 = capture(() => typedV053(pinned("N04")));
+      assert(n04 && n04.code === "air.const.initializer_invalid" && n04.loc && n04.loc.line === 3, String(n04 && n04.message));
       return {
         value: {
-          P03: (await staticReject(pinned("P03"), "air.v051.typed_syntax_invalid", 3)).outcome,
-          N04: (await staticReject(pinned("N04"), "air.v051.typed_syntax_invalid", 3)).outcome,
+          P03: typedV053(pinned("P03")) && "VERIFIED",
+          N04: { code: n04.code, line: n04.loc.line },
+          p0_06_behaviour: "constants are rejected: P03 and N04 failed as air.v051.typed_syntax_invalid at line 3",
           vectors_run: "none (re-indexed to P0-07)"
         }
       };
@@ -1412,7 +1417,9 @@ async function main() {
       const ops = ["table.get t, %i", "table.get t, 2", "table.set t, 0, 1", "struct.new 1, 2", "struct.get.x %p", "struct.set.y %p, 3", "array.new 1, 2, 3, 4",
         "array.get %a, %i", "array.set %a, %i, 9", "array.get %a, -0", "array<i32,4>", "array<P,3>", "array<i32,0>", "array<i32,65537>", "struct P { x: i32 }",
         "struct R { r: R }", "table t: i32[2] = [0, 1]", "table t: u8[2] = [0, 1]", "table t: i64[1] = [9223372036854775807]", "-0", "+0", "-00", "%p", "P", ",", "[]", "{ }"];
-      const registry = new Set([...EARLIER_CODE_REGISTRY, ...P0_06_CODE_REGISTRY]);
+      // OD-P7-4 (a): from P0-07 on, a mutated V53-AGG-N04 whose module header survives (rounds 123 and 405) reaches its
+      // `const` line, which fails as air.const.initializer_invalid, V53-AGG-N04's P0-07 code. That one P0-07 code is admitted.
+      const registry = new Set([...EARLIER_CODE_REGISTRY, ...P0_06_CODE_REGISTRY, "air.const.initializer_invalid"]);
       const corpus = Object.keys(PINS).map(fixture).filter((text) => Buffer.byteLength(text, "utf8") <= 4096);
       let cases = 0;
       let verifiedCount = 0;

@@ -335,9 +335,19 @@ function formatV053TypedAir(mod) {
     const fields = declaration.fields.map((field) => `${field.name}: ${field.type}`).join(", ");
     out.push(`struct ${declaration.type_id.slice(declaration.type_id.lastIndexOf("::") + 2)} { ${fields} }`);
   }
+  // P0-07 (slice text P7-R16): constants by name between structs and tables,
+  // states by name after the tables; each prints its normalized literal.
+  for (const constant of (mod.constants || []).slice().sort((left, right) => compareAscii(left.name, right.name))) {
+    out.push("");
+    out.push(`const ${constant.name}: ${constant.type} = ${constant.value}`);
+  }
   for (const table of (mod.tables || []).slice().sort((left, right) => compareAscii(left.name, right.name))) {
     out.push("");
     out.push(`table ${table.name}: ${table.elementType}[${table.length}] = [${table.values.join(", ")}]`);
+  }
+  for (const item of (mod.states || []).slice().sort((left, right) => compareAscii(left.name, right.name))) {
+    out.push("");
+    out.push(`state ${item.name}: ${item.elementType}[${item.length}] = fill ${item.fill}`);
   }
   for (const fn of (mod.functions || []).slice().sort((left, right) => compareAscii(left.name, right.name))) {
     out.push("");
@@ -355,7 +365,7 @@ function formatV053Statements(statements, indent, locals, mod, out) {
     if (statement.kind === "local") {
       out.push(`${indent}%${statement.name}: ${statement.type} = ${formatV053Value(statement.value)}`);
       locals.set(statement.name, statement.type);
-    } else if (statement.kind === "call") {
+    } else if (statement.kind === "call" || statement.kind === "state_set") {
       out.push(`${indent}${formatV053Value(statement.value)}`);
     } else if (statement.kind === "match") {
       out.push(`${indent}%${statement.destination}: ${statement.destinationType} = match %${statement.value} {`);

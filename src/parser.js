@@ -1649,6 +1649,79 @@ function v053RejectTableSet(line, loc) {
   }
 }
 
+// P0-07 (slice text P7-R1, P7-R2): `const <NAME>: <T> = <literal>`, one module
+// line. The parser checks items 1-3 at the line (coarse shape and an uppercase
+// name; one of the five types; a literal token as the initializer); items 4
+// (the literal, as the base checks `%v: T = <literal>`) and 5 (a duplicate
+// name) are phase S, in source order. The value is kept normalized as a
+// local's literal is. A line that starts with `const.` is a literal carrier,
+// not a `const` line.
+const V053_CONST_SHAPE = /^const[ \t]+([A-Za-z_][A-Za-z0-9_]*)[ \t]*:([^=]*)=(.*)$/;
+const V053_CONST_NAME = /^[A-Z][A-Za-z0-9_]*$/;
+// A literal token: one token (no space, tab or comma) that starts with a
+// digit, or with `-` or `+` followed by a digit, or is `true` or `false`.
+const V053_LITERAL_TOKEN = /^(?:(?:[0-9]|[-+][0-9])[^\s,]*|true|false)$/;
+
+function v053ConstDeclaration(line, loc) {
+  const shape = line.match(V053_CONST_SHAPE);
+  const type = shape ? shape[2].trim() : "";
+  const rest = shape ? shape[3].trim() : "";
+  if (!shape || !type || !rest || !V053_CONST_NAME.test(shape[1])) {
+    throw v053SyntaxError(`a constant is const <NAME>: <T> = <literal> on one line, with an uppercase name, not '${line}'`, loc);
+  }
+  if (!V053_TABLE_ELEMENTS.has(type)) throw v053SyntaxError(`constant type '${type}' is not admitted; a constant is i32, i64, f32, f64 or bool`, loc);
+  if (!V053_LITERAL_TOKEN.test(rest)) {
+    throw new AirError(`air.const.initializer_invalid: constant '${shape[1]}' is initialized by '${rest}'; a constant takes one literal`, loc);
+  }
+  return { loc, name: shape[1], type, value: normalizeV053Literal(rest, type) };
+}
+
+// P0-07 (slice text P7-R5, P7-R6): `state <name>: <T>[<N>] = fill <literal>`,
+// one module line, checked with the legacy `air.state.*` codes (OPEN-2 (a)).
+// The parser checks items 1-4 at the line (coarse shape; cell type; a
+// decimal length; 1 <= N <= 65536 without a leading zero); item 5 (`fill`
+// and one valid literal of T) and item 6 (the name shared with states and
+// tables) are phase S, in source order. `fill` keeps the normalized literal,
+// or null when the rest is not `fill` and one literal token. No per-cell
+// object is created (P7-R18).
+const V053_STATE_SHAPE = /^state[ \t]+([A-Za-z_][A-Za-z0-9_]*)[ \t]*:([^[]*)\[([^\]]*)\][ \t]*=(.*)$/;
+
+function v053StateDeclaration(line, loc) {
+  const shape = line.match(V053_STATE_SHAPE);
+  const type = shape ? shape[2].trim() : "";
+  const rest = shape ? shape[4].trim() : "";
+  if (!shape || !type || !rest) throw new AirError(`air.state.segment_invalid: a state is state <name>: <T>[<N>] = fill <literal> on one line, not '${line}'`, loc);
+  if (!V053_TABLE_ELEMENTS.has(type)) throw new AirError(`air.state.cell_type_invalid: state cell type '${type}' is not admitted; a cell is i32, i64, f32, f64 or bool`, loc);
+  const length = shape[3].trim();
+  if (!/^[0-9]+$/.test(length)) throw new AirError(`air.state.dynamic_length: state length '${length}' is not a decimal literal`, loc);
+  if (!/^[1-9][0-9]*$/.test(length) || BigInt(length) > BigInt(V053_AGGREGATE_MAX)) {
+    throw new AirError(`air.state.length_invalid: state length ${length} is not a decimal in 1..${V053_AGGREGATE_MAX} without a leading zero`, loc);
+  }
+  const fill = rest.match(/^fill[ \t]+(\S+)$/);
+  return {
+    elementType: type,
+    fill: fill && V053_LITERAL_TOKEN.test(fill[1]) ? normalizeV053Literal(fill[1], type) : null,
+    init: rest,
+    length: Number(length),
+    loc,
+    name: shape[1]
+  };
+}
+
+// P0-07 (slice text P7-R7): `%v: D = state.get <s>, <index>` and the
+// statement `state.set <s>, <index>, <value>`. Any `state.*` operation reads
+// into the same value object; the verifier admits state.get as a value and
+// state.set as a statement only.
+const V053_STATE_FORM = /^(state\.[A-Za-z0-9_]+)(?:\s+(\S.*))?$/;
+
+function v053StateValue(text) {
+  const form = text.match(V053_STATE_FORM);
+  if (!form) return null;
+  const args = form[2] === undefined ? [] : splitComma(form[2]).map((argument) => argument.trim());
+  if (args.length > 1) args[1] = normalizeV053Literal(args[1], "i32");
+  return { args, kind: "aggregate_operation", op: form[1] };
+}
+
 // P6-R8: the operands that a struct field or an array element types are
 // normalized as call arguments are; an aggregate-typed operand stays as written.
 // `structs` maps a struct type id to its fields ({ name, type }).
@@ -1692,6 +1765,14 @@ function parseV053TypedAir(source, file = "<input>") {
   const calls = [];
   const folds = [];
   const aggregates = [];
+  const stateSets = [];
+  // P7-R10: the names of `state` lines, collected without any check, so that
+  // a state name in an exported signature is known before its line.
+  const stateNames = new Set();
+  for (const text of lines) {
+    const named = stripComment(text).trim().match(/^state[ \t]+([A-Za-z_][A-Za-z0-9_]*)/);
+    if (named) stateNames.add(named[1]);
+  }
   for (let index = 0; index < lines.length; index += 1) {
     const loc = { file, line: index + 1 };
     const line = stripComment(lines[index]).trim();
@@ -1737,6 +1818,18 @@ function parseV053TypedAir(source, file = "<input>") {
         mod.structs.push(declaration);
         continue;
       }
+      // P0-07: the `constants` and `states` lists exist only once one is
+      // declared. The `module` header is checked before any of them (BA-2).
+      if (/^const[ \t]/.test(line)) {
+        if (!mod.constants) mod.constants = [];
+        mod.constants.push(v053ConstDeclaration(line, loc));
+        continue;
+      }
+      if (/^state[ \t]/.test(line)) {
+        if (!mod.states) mod.states = [];
+        mod.states.push(v053StateDeclaration(line, loc));
+        continue;
+      }
       const enumMatch = line.match(/^(error\s+)?enum\s+([A-Z][A-Za-z0-9_]{0,127})\s*\{$/);
       if (enumMatch) {
         stack.push({ cases: [], isError: Boolean(enumMatch[1]), kind: "enum", loc, typeName: enumMatch[2] });
@@ -1747,12 +1840,24 @@ function parseV053TypedAir(source, file = "<input>") {
         if (mod.functions.some((item) => item.name === functionMatch[2])) {
           throw new AirError(`air.v051.function_duplicate: duplicate function '${functionMatch[2]}'`, loc);
         }
+        // P7-R10: a state name in an exported signature is a state handle at
+        // the export boundary; anywhere else the base type error stands.
+        const signatureType = (text, allowVoid) => {
+          try {
+            return parseV053TypedType(text, mod.name, allowVoid, loc);
+          } catch (error) {
+            if (functionMatch[1] && stateNames.has(String(text).trim())) {
+              throw new AirError(`air.abi.export_type_unsupported: export '${functionMatch[2]}' names state '${String(text).trim()}' as a type; a state is internal and has no handle at the AIR ABI`, loc);
+            }
+            throw error;
+          }
+        };
         const params = functionMatch[3].trim() ? splitComma(functionMatch[3]).map((part) => {
           const parameter = part.match(/^([A-Za-z_][A-Za-z0-9_]*)\s*:\s*(.+)$/);
           if (!parameter) throw v053SyntaxError(`invalid parameter '${part}'`, loc);
-          return { name: parameter[1], type: parseV053TypedType(parameter[2], mod.name, false, loc) };
+          return { name: parameter[1], type: signatureType(parameter[2], false) };
         }) : [];
-        const returnType = parseV053TypedType(functionMatch[4], mod.name, true, loc);
+        const returnType = signatureType(functionMatch[4], true);
         const fn = { name: functionMatch[2], exported: Boolean(functionMatch[1]), params, returnType, statements: [], loc };
         mod.functions.push(fn);
         stack.push({ fn, kind: "function", statements: fn.statements });
@@ -1849,6 +1954,13 @@ function parseV053TypedAir(source, file = "<input>") {
     v053RejectOtherLoopForm(line, loc);
     v053RejectTableSet(line, loc);
     if (inBlock && frame.yielded) throw v053SyntaxError(`statement after the block's yield '${line}'`, loc);
+    // P0-07 (P7-R7): `state.set` is the one statement without a result binding.
+    if (/^state\.set(?:\s|$)/.test(line)) {
+      const statement = { kind: "state_set", loc, value: v053StateValue(line) };
+      frame.statements.push(statement);
+      stateSets.push(statement);
+      continue;
+    }
     // P4-R13: labels, br and br_if have no typed-v0.53 form.
     if (V053_LABEL_LINE.test(line) || V053_BRANCH_LINE.test(line)) throw v053UnstructuredError(line, loc);
     const yielded = line.match(/^yield\s+(.+)$/);
@@ -1923,7 +2035,7 @@ function parseV053TypedAir(source, file = "<input>") {
         folds.push(statement);
         continue;
       }
-      const aggregate = v053AggregateValue(valueText);
+      const aggregate = v053AggregateValue(valueText) || v053StateValue(valueText);
       if (aggregate) {
         const statement = { kind: "local", loc, name: local[1], type, value: aggregate };
         frame.statements.push(statement);
@@ -1962,6 +2074,12 @@ function parseV053TypedAir(source, file = "<input>") {
   // P0-06: struct and array operands normalize against their field or element type.
   const structs = new Map((mod.structs || []).map((item) => [item.type_id, item.fields]));
   for (const statement of aggregates) normalizeV053AggregateOperands(statement, structs, mod.name);
+  // P0-07: a `state.set` value normalizes against the cell type.
+  const cells = new Map((mod.states || []).map((item) => [item.name, item.elementType]));
+  for (const statement of stateSets) {
+    const args = statement.value.args;
+    if (args.length === 3 && cells.has(args[0])) args[2] = normalizeV053Argument(args[2], cells.get(args[0]), mod.name, statement.loc);
+  }
   return mod;
 }
 
@@ -1970,6 +2088,8 @@ Object.defineProperty(module.exports, "typedV053", {
   enumerable: false,
   value: Object.freeze({
     AGGREGATE_MAX: V053_AGGREGATE_MAX,
+    CONST_NAME: V053_CONST_NAME,
+    LITERAL_TOKEN: V053_LITERAL_TOKEN,
     OPERATIONS: V053_OPERATIONS,
     TABLE_ELEMENTS: V053_TABLE_ELEMENTS,
     arrayParts: v053ArrayParts,

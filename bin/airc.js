@@ -529,6 +529,13 @@ async function main(argv) {
   }
 
   if (command === "generate" && file === "state-handles") {
+    // P0-07 (slice text P7-R14; admission BA-1): a typed-v0.53 request, in
+    // either flag form, is refused as `check` refuses one, before any profile
+    // parsing, candidate gate or package read. Other arguments are unchanged.
+    if (rest.some((arg, index) => (arg === "--source-profile" && rest[index + 1] === SOURCE_PROFILE_TYPED_V053) ||
+      arg === `--source-profile=${SOURCE_PROFILE_TYPED_V053}`)) {
+      throw new AirError(`air.source_profile.command_unsupported: 'generate state-handles' does not support '${SOURCE_PROFILE_TYPED_V053}' source`);
+    }
     const packageDir = rest.shift();
     if (!packageDir) throw new Error("missing package directory: airc generate state-handles <package-dir>");
     const written = writeGeneratedStateHandles(packageDir);

@@ -487,7 +487,11 @@ function emitV051TypedExpression(state, value, expectedType) {
     emitV051TypedNumericOperation(state, value, expectedType);
     return;
   }
-  const text = String(value || "").trim();
+  let text = String(value || "").trim();
+  // P0-07 (slice text P7-R4): a typed-v0.53 module constant is lowered to its
+  // literal. A typed-v0.51 lowering state has no `constants`.
+  const constant = state.constants ? state.constants.get(text) : undefined;
+  if (constant) text = constant.value;
   const info = v051TypedTypeInfo(expectedType, state.declarations);
   if (/^%[A-Za-z_][A-Za-z0-9_]*$/.test(text)) {
     const local = state.locals.get(text.slice(1));
@@ -891,6 +895,7 @@ function v053ModuleFeatures(mod) {
     .filter((statement) => statement.kind === "local" && statement.value && statement.value.kind === "aggregate_operation")
     .map((statement) => statement.value.op);
   return {
+    constants: new Map((mod.constants || []).map((constant) => [constant.name, constant])),
     declarations,
     functions: new Map(functions.map((fn) => [fn.name, fn])),
     memory,
@@ -942,6 +947,13 @@ function v053MemoryPlan(mod, declarations) {
     const width = V053_LANE_BYTES[v051TypedWatType(table.elementType)];
     tables.set(table.name, { base: reserve(width * table.length), elementType: table.elementType, length: table.length, table, width });
   }
+  // P0-07 (slice text P7-R11; docs/v0.53/P0_07_STATE.md): each state is N
+  // cells of its element width in the internal memory, after the tables.
+  const states = new Map();
+  for (const item of mod.states || []) {
+    const width = V053_LANE_BYTES[v051TypedWatType(item.elementType)];
+    states.set(item.name, { base: reserve(width * item.length), elementType: item.elementType, fill: item.fill, length: item.length, width });
+  }
   const frames = new Map();
   for (const fn of mod.functions || []) {
     const slots = new Map();
@@ -955,13 +967,14 @@ function v053MemoryPlan(mod, declarations) {
     }
     frames.set(fn.name, { result, slots });
   }
-  const used = tables.size > 0 || [...frames.values()].some((frame) => frame.result !== null || frame.slots.size > 0);
+  const used = tables.size > 0 || states.size > 0 || [...frames.values()].some((frame) => frame.result !== null || frame.slots.size > 0);
   return {
     fields: new Map((mod.structs || []).map((item) => [item.type_id, item.fields])),
     frames,
     isAggregate,
     pages: used ? Math.max(1, Math.ceil(next / V053_MEMORY_PAGE)) : 0,
     sizeOf,
+    states,
     tables
   };
 }
@@ -979,6 +992,15 @@ function v053TableBytes(entry) {
     else if (entry.elementType === "f32") bytes.writeUInt32LE(Number(v053FloatBits(text, 32)), offset);
     else bytes.writeBigUInt64LE(v053FloatBits(text, 64), offset);
   });
+  return bytes;
+}
+
+// P0-07 (P7-R11): a state's initial bytes, its `fill` value in every cell,
+// encoded as one table value is (P6-R3).
+function v053StateBytes(entry) {
+  const cell = v053TableBytes({ elementType: entry.elementType, length: 1, table: { values: [entry.fill] }, width: entry.width });
+  const bytes = Buffer.alloc(entry.width * entry.length);
+  for (let offset = 0; offset < bytes.length; offset += entry.width) cell.copy(bytes, offset);
   return bytes;
 }
 
@@ -1065,6 +1087,9 @@ function v053ModuleHeaderLines(features) {
     // segment per table, and the index-domain helpers (33, 35).
     ...(features.memory.pages ? [`  (memory ${features.memory.pages})`] : []),
     ...[...features.memory.tables.values()].map((entry) => `  (data (i32.const ${entry.base}) ${v053DataString(v053TableBytes(entry))})`),
+    // P0-07 (slice text P7-R11): one active data segment per state sets its
+    // cells to the `fill` value at instantiation; no function body does.
+    ...[...features.memory.states.values()].map((entry) => `  (data (i32.const ${entry.base}) ${v053DataString(v053StateBytes(entry))})`),
     ...(features.usesTableGet ? [v053FailureHelper("__air_v053_table_index_out_of_range", 33)] : []),
     ...(features.usesArrayIndex ? [v053FailureHelper("__air_v053_array_index_out_of_range", 35)] : [])
   ];
@@ -1098,6 +1123,7 @@ function lowerV053TypedFunction(fn, features, writer, counting) {
   const { declarations, memory } = features;
   const frame = memory.frames.get(fn.name);
   const state = {
+    constants: features.constants,
     declarations,
     frame,
     functions: features.functions,
@@ -1214,6 +1240,10 @@ function emitV053Statement(state, statement) {
   }
   if (statement.kind === "call") {
     emitV053Call(state, statement.value);
+    return;
+  }
+  if (statement.kind === "state_set") {
+    emitV053StateSet(state, statement.value);
     return;
   }
   if (statement.kind === "match") {
@@ -1410,7 +1440,9 @@ function v053FieldOf(state, structType, fieldName) {
 // An index operand: an i32-family local's lane, or an exact signed literal
 // (P6-R4: `-0` is 0; the verifier refused `+0` and `-00`).
 function v053IndexOperand(state, index) {
-  const text = String(index).trim();
+  let text = String(index).trim();
+  const constant = state.constants ? state.constants.get(text) : undefined;
+  if (constant) text = constant.value;
   if (/^%[A-Za-z_][A-Za-z0-9_]*$/.test(text)) {
     const record = state.locals.get(text.slice(1));
     if (!record || record.aggregate || !V053_I32_FAMILY.test(record.type)) typedLowerFail("air.v051.typed_lowering_unsupported", `unverified index '${text}'`);
@@ -1454,6 +1486,14 @@ function emitV053AggregateOperation(state, value, record) {
     emitV053IndexCheck(state, operand, entry.length, "__air_v053_table_index_out_of_range");
     emitV053IndexedAddress(state, operand, entry.width, entry.base);
     state.body.push(`${v051TypedWatType(entry.elementType)}.load`);
+    emitV053NarrowingCheck(state, record.info, value);
+    emitV051TypedSet(state, record);
+    return;
+  }
+  if (value.op === "state.get") {
+    const entry = memory.states.get(args[0]);
+    if (!entry || record.aggregate) typedLowerFail("air.v051.typed_lowering_unsupported", `unverified state.get '${args[0]}'`);
+    state.body.push(...v053StateAddress(state, entry, args[1]), `${v051TypedWatType(entry.elementType)}.load`);
     emitV053NarrowingCheck(state, record.info, value);
     emitV051TypedSet(state, record);
     return;
@@ -1525,6 +1565,25 @@ function emitV053AggregateOperation(state, value, record) {
     return;
   }
   typedLowerFail("air.v051.typed_lowering_unsupported", `unsupported aggregate operation '${value.op}'`);
+}
+
+// P0-07 (slice text P7-R8, P7-R11): a state index is statically known, and
+// the verifier proved 0 <= i < N, so an access has no domain check: the
+// address is one constant for a literal or a constant index, `i·w + base` for
+// a local one. Its length depends neither on i nor on N.
+function v053StateAddress(state, entry, index) {
+  const operand = v053IndexOperand(state, index);
+  if (operand.startsWith("i32.const ")) return [`i32.const ${entry.base + Number(operand.slice(10)) * entry.width}`];
+  return [operand, `i32.const ${entry.width}`, "i32.mul", `i32.const ${entry.base}`, "i32.add"];
+}
+
+// `state.set s, i, v`: the address, the value, the one cell store.
+function emitV053StateSet(state, value) {
+  const entry = value && value.op === "state.set" ? state.memory.states.get(value.args[0]) : undefined;
+  if (!entry) typedLowerFail("air.v051.typed_lowering_unsupported", `unverified state.set '${value && value.args && value.args[0]}'`);
+  state.body.push(...v053StateAddress(state, entry, value.args[1]));
+  emitV053TypedExpression(state, value.args[2], entry.elementType);
+  state.body.push(`${v051TypedWatType(entry.elementType)}.store`);
 }
 
 // P4-R5: a call result has the callee's declared result type; binding it
@@ -1762,9 +1821,10 @@ function checkV053EngineLimits(mod) {
     signatures.add(`${lanes.join(",")}->${v053TypeInfo(fn.returnType, features.declarations, features.memory).watTypes.join(",")}`);
   }
   // `__air_failure_reason` is the one global and one extra export (T-1).
-  // P0-06: one data segment per table; the internal memory's pages.
+  // P0-06: one data segment per table; the internal memory's pages. P0-07:
+  // one data segment per state (P7-R11).
   const totals = {
-    dataSegments: features.memory.tables.size,
+    dataSegments: features.memory.tables.size + features.memory.states.size,
     exports: (mod.functions || []).filter((fn) => fn.exported).length + 1,
     functions: (mod.functions || []).length + helpers,
     globals: 1,
