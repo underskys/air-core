@@ -327,6 +327,18 @@ function formatV053TypedAir(mod) {
     }
     out.push("}");
   }
+  // P0-06 (slice text P6-R21): structs by type id, then tables by name. A
+  // struct prints its short name and canonical (qualified) field types; a
+  // table its normalized literals, as each prints as a local's initializer.
+  for (const declaration of (mod.structs || []).slice().sort((left, right) => compareAscii(left.type_id, right.type_id))) {
+    out.push("");
+    const fields = declaration.fields.map((field) => `${field.name}: ${field.type}`).join(", ");
+    out.push(`struct ${declaration.type_id.slice(declaration.type_id.lastIndexOf("::") + 2)} { ${fields} }`);
+  }
+  for (const table of (mod.tables || []).slice().sort((left, right) => compareAscii(left.name, right.name))) {
+    out.push("");
+    out.push(`table ${table.name}: ${table.elementType}[${table.length}] = [${table.values.join(", ")}]`);
+  }
   for (const fn of (mod.functions || []).slice().sort((left, right) => compareAscii(left.name, right.name))) {
     out.push("");
     const params = fn.params.map((parameter) => `${parameter.name}: ${parameter.type}`).join(", ");
@@ -382,6 +394,11 @@ function formatV053Value(value) {
       ? `%${value.count.local}${value.count.max === undefined ? "" : ` max ${value.count.max}`}`
       : value.count && value.count.value;
     return `loop.fold @${value.callback}, ${value.seed}, ${count}`;
+  }
+  if (value && value.kind === "aggregate_operation") {
+    // P6-R21: `op a1, a2, …`; an index literal is already normalized (`-0` is `0`).
+    const op = value.field === undefined ? value.op : `${value.op}.${value.field}`;
+    return value.args.length ? `${op} ${value.args.join(", ")}` : op;
   }
   return formatV051TypedValue(value);
 }

@@ -1255,8 +1255,96 @@ function rejectV053RefinementForm(text, loc) {
 function parseV053TypedType(value, moduleId, allowVoid, loc) {
   const text = String(value || "").trim();
   guardV053TypeNesting(text, loc);
+  // P0-06 (P6-R7, P6-R10): `array<T,N>` is read here, before the base
+  // grammar, which has no array; an array inside `option` or `result` is an
+  // aggregate payload. A struct name canonicalizes as an enum name does.
+  if (text.startsWith("array<")) return canonicalizeV053ArrayType(text, moduleId, loc);
+  if (/^(?:option|result)\s*<.*\barray</.test(text)) {
+    throw new AirError(`air.decision.payload_type_unsupported: '${text}' has an aggregate payload; an option or result payload is a primitive or an enum`, loc);
+  }
   rejectV053RefinementForm(text, loc);
   return withV053Location(() => parseV051TypedType(text, moduleId, allowVoid, loc), loc);
+}
+
+// P0-06 (slice text P6-R7): the canonical text `array<T,N>` with no
+// whitespace; T is everything before the last top-level comma.
+const V053_AGGREGATE_MAX = 65536;
+
+function v053ArrayParts(text) {
+  const match = /^array<(.*)>$/.exec(String(text));
+  if (!match) return null;
+  let depth = 0;
+  let split = -1;
+  for (let index = 0; index < match[1].length; index += 1) {
+    const ch = match[1][index];
+    if (ch === "<") depth += 1;
+    else if (ch === ">" && --depth < 0) return null;
+    else if (ch === "," && depth === 0) split = index;
+  }
+  if (depth !== 0 || split < 0) return null;
+  return { count: match[1].slice(split + 1), element: match[1].slice(0, split) };
+}
+
+function canonicalizeV053ArrayType(text, moduleId, loc) {
+  const parts = v053ArrayParts(text);
+  if (!parts || /\s/.test(text) || !/^[1-9][0-9]*$/.test(parts.count) || BigInt(parts.count) > BigInt(V053_AGGREGATE_MAX)) {
+    throw new AirError(`air.v051.type_reference_invalid: '${text}' is not admitted; an array type is array<T,N> with no whitespace and 1 <= N <= ${V053_AGGREGATE_MAX}`, loc);
+  }
+  return `array<${parseV053ElementType(parts.element, moduleId, loc)},${parts.count}>`;
+}
+
+// OD-P6-3 (a): a refined type is not admitted as a field or element type.
+function parseV053ElementType(value, moduleId, loc) {
+  const text = String(value || "").trim();
+  if (V053_TOP_REFINEMENT.test(text)) {
+    throw new AirError(`air.v051.type_reference_invalid: '${text}' is refined; a struct field or array element type is not refined (OD-P6-3 (a))`, loc);
+  }
+  return parseV053TypedType(text, moduleId, false, loc);
+}
+
+// P0-06 (P6-R11): an additive measure of a canonical typed-v0.53 type. A
+// struct is the sum over its fields, `array<T,N>` is N times T, and every
+// other type is `leaf(type)`. `structs` maps a struct type id to its field
+// types. Evaluated with an explicit stack and memoized in `memo`; exact BigInt.
+function measureV053Type(typeName, structs, leaf, memo) {
+  const stack = [{ phase: 0, type: typeName }];
+  const open = new Set();
+  while (stack.length) {
+    const frame = stack[stack.length - 1];
+    if (memo.has(frame.type)) { stack.pop(); continue; }
+    const array = v053ArrayParts(frame.type);
+    const children = array ? [array.element] : structs.has(frame.type) ? structs.get(frame.type) : null;
+    if (!children) {
+      memo.set(frame.type, BigInt(leaf(frame.type)));
+      stack.pop();
+      continue;
+    }
+    if (frame.phase === 0) {
+      if (open.has(frame.type)) throw new TypeError(`aggregate type '${frame.type}' contains itself`);
+      open.add(frame.type);
+      frame.phase = 1;
+      for (const child of children) if (!memo.has(child)) stack.push({ phase: 0, type: child });
+      continue;
+    }
+    open.delete(frame.type);
+    memo.set(frame.type, array ? BigInt(array.count) * memo.get(array.element) : children.reduce((sum, child) => sum + memo.get(child), 0n));
+    stack.pop();
+  }
+  return memo.get(typeName);
+}
+
+// The base lane count of a non-aggregate type (G-11): 1, or 1 + its lanes for
+// `option`, 1 + both for `result` (whose payloads are primitives or enums).
+function v053BaseLanes(typeName) {
+  return /^option</.test(typeName) ? 2 : /^result</.test(typeName) ? 3 : 1;
+}
+
+function v053StructFieldTypes(mod) {
+  return new Map((mod && Array.isArray(mod.structs) ? mod.structs : []).map((item) => [item.type_id, (item.fields || []).map((field) => field.type)]));
+}
+
+function v053IsAggregateType(typeName, structs) {
+  return String(typeName).startsWith("array<") || structs.has(typeName);
 }
 
 function canonicalizeV053SourceType(value, moduleId, loc) {
@@ -1318,6 +1406,8 @@ function normalizeV053Value(value, expectedType, moduleId, loc) {
       op: operation[1]
     };
   }
+  // P0-06: an array value is never a literal; the verifier refuses the text.
+  if (String(expectedType).startsWith("array<")) return text;
 
   const refinement = parseRefinementType(expectedType, loc);
   const expected = refinement
@@ -1475,6 +1565,113 @@ function v053WorkDeclaration(line, loc) {
   return { limits: V053_WORK_KEYS.filter((key) => bounds.has(key)).map((key) => ({ bound: bounds.get(key), key })), loc };
 }
 
+// P0-06 (slice text P6-R1, P6-R2, P6-R24): `table <name>: <T>[<N>] = [v0, …]`,
+// one module line. The parser checks P6-R2 items 1-4 at the table's line;
+// item 5 (each literal, as the base checks `%v: T = <literal>`) and item 6
+// (a duplicate name) are phase S, in source order. The values are one array
+// of literal strings, normalized as a local's literal is (`-0` is `0` for an
+// integer, `1` is `1.0` for a float), so a table adds a fixed number of intake
+// nodes whatever its length.
+const V053_TABLE_LINE = /^table[ \t]+([A-Za-z_][A-Za-z0-9_]*)[ \t]*:[ \t]*([^[\]=]+?)[ \t]*\[[ \t]*(0|[1-9][0-9]*)[ \t]*\][ \t]*=[ \t]*\[(.*)\]$/;
+const V053_TABLE_ELEMENTS = new Set(["i32", "i64", "f32", "f64", "bool"]);
+
+function v053TableDeclaration(line, loc) {
+  const table = line.match(V053_TABLE_LINE);
+  const values = table ? (table[4].trim() ? table[4].split(",").map((value) => value.trim()) : []) : null;
+  if (!table || values.some((value) => !value)) {
+    throw v053SyntaxError(`a table is table <name>: <T>[<N>] = [v0, ..., vN-1] on one line, not '${line}'`, loc);
+  }
+  const elementType = table[2];
+  if (!V053_TABLE_ELEMENTS.has(elementType)) {
+    throw v053SyntaxError(`table element type '${elementType}' is not admitted; a table holds i32, i64, f32, f64 or bool`, loc);
+  }
+  if (BigInt(table[3]) < 1n || BigInt(table[3]) > BigInt(V053_AGGREGATE_MAX)) {
+    throw new AirError(`air.v051.type_reference_invalid: table length ${table[3]} is outside 1..${V053_AGGREGATE_MAX}`, loc);
+  }
+  if (values.length !== Number(table[3])) {
+    throw v053SyntaxError(`table '${table[1]}' declares ${table[3]} values and lists ${values.length}`, loc);
+  }
+  return { elementType, length: Number(table[3]), loc, name: table[1], values: values.map((value) => normalizeV053Literal(value, elementType)) };
+}
+
+// P0-06 (slice text P6-R6): `struct <Name> { f1: T1, …, fk: Tk }`, one module
+// line, k >= 1, distinct field names, field order kept. A field type is
+// canonicalized here (a struct or enum name qualified); whether a named type
+// exists, recursion and the lane cap are phase S, once every type is known.
+const V053_STRUCT_LINE = /^struct[ \t]+([A-Z][A-Za-z0-9_]{0,127})[ \t]*\{(.*)\}$/;
+const V053_STRUCT_FIELD = /^([a-z][A-Za-z0-9_]*)[ \t]*:[ \t]*(\S(?:.*\S)?)$/;
+
+function v053StructDeclaration(line, moduleId, loc) {
+  const struct = line.match(V053_STRUCT_LINE);
+  if (!struct) throw v053SyntaxError(`a struct is struct <Name> { f1: T1, ..., fk: Tk } on one line, not '${line}'`, loc);
+  const parts = struct[2].trim() ? splitComma(struct[2]).map((part) => part.trim()) : [];
+  if (!parts.length) throw v053SyntaxError(`struct '${struct[1]}' declares no field; a struct has at least one`, loc);
+  const names = new Set();
+  const fields = parts.map((part) => {
+    const field = part.match(V053_STRUCT_FIELD);
+    if (!field) throw v053SyntaxError(`invalid struct field '${part}'; a field is <name>: <Type> with a lowercase name`, loc);
+    if (names.has(field[1])) throw v053SyntaxError(`struct '${struct[1]}' declares field '${field[1]}' twice`, loc);
+    names.add(field[1]);
+    return { name: field[1], type: parseV053ElementType(field[2], moduleId, loc) };
+  });
+  return { fields, loc, type_id: `${moduleId}::${struct[1]}` };
+}
+
+// P0-06 (slice text P6-R4, P6-R8): the aggregate and table operations. Each
+// is a local's value object with `kind: "aggregate_operation"`; `args` keeps
+// the operands as written (an index literal normalized as an i32 operand is,
+// so `-0` is `0` and `+0` stays to be refused), and the verifier checks
+// counts, kinds and types. An operand typed by a struct field or an array
+// element is normalized once every struct is known.
+const V053_AGGREGATE_FORM = /^(struct\.new|struct\.get\.([a-z][A-Za-z0-9_]*)|struct\.set\.([a-z][A-Za-z0-9_]*)|array\.new|array\.get|array\.set|table\.get)(?:\s+(\S.*))?$/;
+const V053_INDEX_POSITION = Object.freeze({ "array.get": 1, "array.set": 1, "table.get": 1 });
+
+function v053AggregateValue(text) {
+  const form = text.match(V053_AGGREGATE_FORM);
+  if (!form) return null;
+  const op = form[2] !== undefined ? "struct.get" : form[3] !== undefined ? "struct.set" : form[1];
+  const args = form[4] === undefined ? [] : splitComma(form[4]).map((argument) => argument.trim());
+  const index = V053_INDEX_POSITION[op];
+  if (index !== undefined && args.length > index) args[index] = normalizeV053Literal(args[index], "i32");
+  const value = { args, kind: "aggregate_operation", op };
+  if (form[2] !== undefined || form[3] !== undefined) value.field = form[2] !== undefined ? form[2] : form[3];
+  return value;
+}
+
+// P6-R4: tables are read-only. A statement whose operation is `table.set`,
+// bound or not, with any operands, is refused at its line.
+function v053RejectTableSet(line, loc) {
+  const local = line.match(/^%[A-Za-z_][A-Za-z0-9_]*\s*:\s*.+?\s*=\s*(.+)$/);
+  const operand = line.match(/^(?:yield|return)\s+(.+)$/);
+  const value = local ? local[1].trim() : operand ? operand[1].trim() : line;
+  if (/^table\.set(?:\s|$)/.test(value)) {
+    throw new AirError(`air.table.readonly: '${line}' writes a table; typed-v0.53 tables are read-only (table.get only)`, loc);
+  }
+}
+
+// P6-R8: the operands that a struct field or an array element types are
+// normalized as call arguments are; an aggregate-typed operand stays as written.
+// `structs` maps a struct type id to its fields ({ name, type }).
+function normalizeV053AggregateOperands(statement, structs, moduleId) {
+  const value = statement.value;
+  const parts = v053ArrayParts(statement.type);
+  const element = parts ? parts.element : null;
+  const fields = structs.get(statement.type) || null;
+  const normalize = (argument, typeName) => (typeName === null || v053IsAggregateType(typeName, structs)
+    ? argument
+    : normalizeV053Argument(argument, typeName, moduleId, statement.loc));
+  if (value.op === "struct.new" && fields && fields.length === value.args.length) {
+    value.args = value.args.map((argument, index) => normalize(argument, fields[index].type));
+  } else if (value.op === "array.new" && element !== null) {
+    value.args = value.args.map((argument) => normalize(argument, element));
+  } else if (value.op === "struct.set" && fields && value.args.length === 2) {
+    const field = fields.find((item) => item.name === value.field);
+    if (field) value.args[1] = normalize(value.args[1], field.type);
+  } else if (value.op === "array.set" && value.args.length === 3) {
+    value.args[2] = normalize(value.args[2], element);
+  }
+}
+
 // One pass over the lines with an explicit stack of open frames (AMD-1). No
 // parse step recurses on the host stack with the input. A frame is a module
 // item (enum, function), a `match`, or a block (P0-04: the then- and
@@ -1494,6 +1691,7 @@ function parseV053TypedAir(source, file = "<input>") {
   const stack = [];
   const calls = [];
   const folds = [];
+  const aggregates = [];
   for (let index = 0; index < lines.length; index += 1) {
     const loc = { file, line: index + 1 };
     const line = stripComment(lines[index]).trim();
@@ -1520,6 +1718,23 @@ function parseV053TypedAir(source, file = "<input>") {
         // P5-R11: at most one declaration; a second one is refused at its line.
         if (mod.work) throw v053SyntaxError("a module has at most one work declaration", loc);
         mod.work = v053WorkDeclaration(line, loc);
+        continue;
+      }
+      // P0-06: the `structs` and `tables` lists exist only once one is
+      // declared, so a module without them keeps its AST unchanged.
+      if (/^table(?:\s|$)/.test(line)) {
+        if (!mod.tables) mod.tables = [];
+        mod.tables.push(v053TableDeclaration(line, loc));
+        continue;
+      }
+      if (/^struct(?:\s|\{|$)/.test(line)) {
+        const declaration = v053StructDeclaration(line, mod.name, loc);
+        // P6-R6: structs and enums share one type namespace.
+        if (mod.enums.some((item) => item.type_id === declaration.type_id) || (mod.structs || []).some((item) => item.type_id === declaration.type_id)) {
+          throw new AirError(`air.decision.enum_duplicate_type: duplicate type '${declaration.type_id.slice(mod.name.length + 2)}'`, loc);
+        }
+        if (!mod.structs) mod.structs = [];
+        mod.structs.push(declaration);
         continue;
       }
       const enumMatch = line.match(/^(error\s+)?enum\s+([A-Z][A-Za-z0-9_]{0,127})\s*\{$/);
@@ -1557,6 +1772,9 @@ function parseV053TypedAir(source, file = "<input>") {
         };
         if (mod.enums.some((item) => item.type_id === declaration.type_id)) {
           throw new AirError(`air.decision.enum_duplicate_type: duplicate enum '${frame.typeName}'`, frame.loc);
+        }
+        if ((mod.structs || []).some((item) => item.type_id === declaration.type_id)) {
+          throw new AirError(`air.decision.enum_duplicate_type: duplicate type '${frame.typeName}'`, frame.loc);
         }
         mod.enums.push(declaration);
         continue;
@@ -1629,6 +1847,7 @@ function parseV053TypedAir(source, file = "<input>") {
       continue;
     }
     v053RejectOtherLoopForm(line, loc);
+    v053RejectTableSet(line, loc);
     if (inBlock && frame.yielded) throw v053SyntaxError(`statement after the block's yield '${line}'`, loc);
     // P4-R13: labels, br and br_if have no typed-v0.53 form.
     if (V053_LABEL_LINE.test(line) || V053_BRANCH_LINE.test(line)) throw v053UnstructuredError(line, loc);
@@ -1704,6 +1923,13 @@ function parseV053TypedAir(source, file = "<input>") {
         folds.push(statement);
         continue;
       }
+      const aggregate = v053AggregateValue(valueText);
+      if (aggregate) {
+        const statement = { kind: "local", loc, name: local[1], type, value: aggregate };
+        frame.statements.push(statement);
+        aggregates.push(statement);
+        continue;
+      }
       const call = valueText.match(V053_CALL_FORM);
       const statement = { kind: "local", loc, name: local[1], type, value: call ? v053CallValue(call) : normalizeV053Value(valueText, type, mod.name, loc) };
       frame.statements.push(statement);
@@ -1733,11 +1959,25 @@ function parseV053TypedAir(source, file = "<input>") {
     if (!callback || !callback.params.length) continue;
     statement.value.seed = normalizeV053Argument(statement.value.seed, callback.params[0].type, mod.name, statement.loc);
   }
+  // P0-06: struct and array operands normalize against their field or element type.
+  const structs = new Map((mod.structs || []).map((item) => [item.type_id, item.fields]));
+  for (const statement of aggregates) normalizeV053AggregateOperands(statement, structs, mod.name);
   return mod;
 }
 
 module.exports = { parseAir, parseV051Air, parseV051TypedAir, canonicalizeV051SourceType, splitComma, parseV051Contract };
 Object.defineProperty(module.exports, "typedV053", {
   enumerable: false,
-  value: Object.freeze({ OPERATIONS: V053_OPERATIONS, parse: parseV053TypedAir, rejectRefinementForm: rejectV053RefinementForm })
+  value: Object.freeze({
+    AGGREGATE_MAX: V053_AGGREGATE_MAX,
+    OPERATIONS: V053_OPERATIONS,
+    TABLE_ELEMENTS: V053_TABLE_ELEMENTS,
+    arrayParts: v053ArrayParts,
+    baseLanes: v053BaseLanes,
+    isAggregateType: v053IsAggregateType,
+    measureType: measureV053Type,
+    parse: parseV053TypedAir,
+    rejectRefinementForm: rejectV053RefinementForm,
+    structFieldTypes: v053StructFieldTypes
+  })
 });

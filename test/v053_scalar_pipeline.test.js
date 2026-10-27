@@ -445,7 +445,7 @@ Promise.resolve().then(run).then(() => process.stdout.write(JSON.stringify({ ok:
         sourceProfile: V053
       });
       assert.equal(binding.key.profile, V053);
-      assert.equal(binding.key.cost_table_digest, "sha256:1ae0cddb2b01ca1f16f5b8da059ebd0a594d8c222aea4e5bf8f5e2c6d17e80c9");
+      assert.equal(binding.key.cost_table_digest, "sha256:d8b341ea2358a787d699507a5dca9ce6cab0d58e3358d324df4c5ff8e469760e");
       const attempt = assertBoundedOrOk(await outcome(() => buildVerifiedTypedModule({ ...GATED, descriptor: descriptorFromAst(mod), source: INGRESS_SOURCE })), "build attempt");
       parts["typed-v0.53 INGRESS"] = "PASS";
       return { value: { B_wide: B, E_wide: E, analysis_units: 4, build_attempt: attempt, disposition: "VERIFIED + INTERNAL", ingress_wide: "1000000", key: { cost_table_digest: binding.key.cost_table_digest, profile: binding.key.profile }, nesting_depth: 1 }, sourceDigest: INGRESS_SHA256 };

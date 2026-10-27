@@ -76,12 +76,16 @@ function normalizeAnalysisCapacity(input) {
 // `op: "loop.fold"`); a `work` declaration is one top-level declaration,
 // never a capability declaration. Each block is still reached once, through
 // `statement.blocks`.
+// P0-06 (slice text P6-R18; owner OD-P6-4 (a)): each struct and each table is
+// one top-level declaration; nothing else in the measure changes.
 function measureTypedModule(mod) {
   const functions = Array.isArray(mod && mod.functions) ? mod.functions : [];
   const decls = functions.length +
     (Array.isArray(mod && mod.enums) ? mod.enums.length : 0) +
     (Number.isSafeInteger(mod && mod.capabilityDeclarations) ? mod.capabilityDeclarations : 0) +
-    (mod && mod.work ? 1 : 0);
+    (mod && mod.work ? 1 : 0) +
+    (Array.isArray(mod && mod.structs) ? mod.structs.length : 0) +
+    (Array.isArray(mod && mod.tables) ? mod.tables.length : 0);
   let stmts = 0;
   let callSites = 0;
   let callbackRefs = 0;

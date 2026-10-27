@@ -575,7 +575,7 @@ catch (error) { process.stdout.write(String(error.code)); }
       const bound = wb.inspectBoundWorkBound(verified);
       assert.deepEqual(bound.record.entries.f, wb.canonicalSummary(wb.summary({ steps: 2n })));
       assert.equal(bound.key.profile, V053);
-      assert.equal(bound.key.cost_table_digest, "sha256:1ae0cddb2b01ca1f16f5b8da059ebd0a594d8c222aea4e5bf8f5e2c6d17e80c9");
+      assert.equal(bound.key.cost_table_digest, "sha256:d8b341ea2358a787d699507a5dca9ce6cab0d58e3358d324df4c5ff8e469760e");
       return { value: { E_f: bound.record.entries.f, key_profile: bound.key.profile }, sourceDigest: sha256(addSrc) };
     });
     // Reviewed additions (VECTORS_ADDITIONS.md §2; slice text R-16).

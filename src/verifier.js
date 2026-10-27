@@ -5023,22 +5023,32 @@ function verifyV053TypedModule(mod) {
     }
     declarations.set(declaration.type_id, declaration);
   }
+  // P0-06: structs join the enums' type namespace; tables have their own.
+  verifyV053Structs(mod, declarations);
+  const tables = verifyV053Tables(mod, declarations);
   const functions = new Map();
   for (const fn of mod.functions || []) {
     if (!fn || typeof fn.name !== "string" || functions.has(fn.name)) throw new VerificationError("air.v051.function_duplicate: typed function names must be unique", fn && fn.loc);
     functions.set(fn.name, fn);
   }
   for (const fn of mod.functions || []) {
-    const ctx = { declarations, fn, functions, moduleName: mod.name, names: new Set() };
+    const ctx = { declarations, fn, functions, moduleName: mod.name, names: new Set(), tables };
     const scope = { locals: new Map(), staticValues: new Map() };
+    const signature = [];
     for (const parameter of fn.params || []) {
       if (!parameter || typeof parameter.name !== "string" || ctx.names.has(parameter.name)) throw new VerificationError(`air.v051.parameter_duplicate: '${fn.name}'`, fn.loc);
       ctx.names.add(parameter.name);
-      verifyV053TypedType(parameter.type, declarations, fn.loc);
+      signature.push(verifyV053TypedType(parameter.type, declarations, fn.loc));
       scope.locals.set(parameter.name, parameter.type);
     }
     // OPEN-17 (a): `-> void` is admitted (P0-04); its body ends with a bare return.
     ctx.returnType = verifyV053TypedType(fn.returnType, declarations, fn.loc, true);
+    // P6-R10: an aggregate is internal. Checked once every type of the
+    // signature is valid, at the `export func` line.
+    const exportedAggregate = fn.exported ? [...signature, ctx.returnType].find(isV053AggregateKind) : undefined;
+    if (exportedAggregate) {
+      throw new VerificationError(`air.abi.export_type_unsupported: export '${fn.name}' takes or returns ${exportedAggregate.canonical}; structs and arrays are internal and never cross the AIR ABI`, fn.loc);
+    }
     let hasReturn = false;
     for (const statement of fn.statements || []) {
       if (hasReturn) throw new VerificationError("air.control.statement_after_return: return must be the last statement", statement && statement.loc);
@@ -5164,6 +5174,8 @@ function verifyV053Statement(statement, ctx, scope, yieldType) {
       verifyV053Fold(statement.value, ctx, scope, loc, declared);
     } else if (statement.value && typeof statement.value === "object" && statement.value.kind === "call") {
       verifyV053Call(statement.value, ctx, scope, loc, declared);
+    } else if (statement.value && typeof statement.value === "object" && statement.value.kind === "aggregate_operation") {
+      verifyV053AggregateOperation(statement.value, declared, ctx, scope, loc);
     } else {
       staticValue = verifyV053TypedExpression(statement.value, declared, scope.locals, ctx.declarations, loc, scope.staticValues);
     }
@@ -5267,13 +5279,250 @@ function verifyV053Call(value, ctx, scope, loc, destination) {
 
 // P0-03 (slice text §4.1): a declared type is checked by the typed-v0.51 type
 // rule after the typed-v0.53 refinement-form rule (R-REF-6, P3-R4, R-TYPE-4).
+// P0-06 (slice text P6-R6, P6-R7, P6-R10, P6-R11): a struct or `array<T,N>`
+// resolves first; its type carries `lanes` once the struct lanes are known.
 function verifyV053TypedType(typeName, declarations, loc, allowVoid = false) {
+  return resolveV053Type(typeName, declarations, loc, allowVoid, false);
+}
+
+function isV053AggregateKind(type) {
+  return Boolean(type) && (type.kind === "struct" || type.kind === "array");
+}
+
+function v053LaneCapError(canonical, lanes, loc) {
+  return new VerificationError(`air.v051.type_reference_invalid: '${canonical}' has ${lanes} lanes, more than the ${parserModule.typedV053.AGGREGATE_MAX}-lane cap of an aggregate type (OD-P6-6 (a))`, loc);
+}
+
+function resolveV053Type(typeName, declarations, loc, allowVoid, element) {
+  const text = String(typeName || "").trim();
+  const v053 = parserModule.typedV053;
+  if (text.startsWith("array<")) {
+    const parts = v053.arrayParts(text);
+    if (!parts || /\s/.test(text) || !/^[1-9][0-9]*$/.test(parts.count) || BigInt(parts.count) > BigInt(v053.AGGREGATE_MAX)) {
+      throw new VerificationError(`air.v051.type_reference_invalid: '${text}' is not admitted; an array type is array<T,N> with no whitespace and 1 <= N <= ${v053.AGGREGATE_MAX}`, loc);
+    }
+    const item = resolveV053Type(parts.element, declarations, loc, false, true);
+    const itemLanes = isV053AggregateKind(item) ? item.lanes : BigInt(v053.baseLanes(item.canonical));
+    const lanes = itemLanes === undefined ? undefined : BigInt(parts.count) * itemLanes;
+    if (lanes !== undefined && lanes > BigInt(v053.AGGREGATE_MAX)) throw v053LaneCapError(text, lanes, loc);
+    return { canonical: text, count: Number(parts.count), element: item, kind: "array", lanes };
+  }
+  // OD-P6-3 (a): a field or element type is never refined.
+  if (element && /^(?:i32|i64|f32|f64)\s*</.test(text)) {
+    throw new VerificationError(`air.v051.type_reference_invalid: '${text}' is refined; a struct field or array element type is not refined (OD-P6-3 (a))`, loc);
+  }
+  const declaration = declarations.get(text);
+  if (declaration && declaration.kind === "struct") return { canonical: text, declaration, kind: "struct", lanes: declaration.lanes };
+  const sum = /^(?:option|result)\s*<(.+)>$/.exec(text);
+  if (sum && (splitV051TypeArguments(sum[1]) || []).some((part) => {
+    const item = part.trim();
+    return item.startsWith("array<") || (declarations.get(item) || {}).kind === "struct";
+  })) {
+    throw new VerificationError(`air.decision.payload_type_unsupported: '${text}' has an aggregate payload; an option or result payload is a primitive or an enum`, loc);
+  }
   try {
-    parserModule.typedV053.rejectRefinementForm(String(typeName || "").trim(), null);
+    parserModule.typedV053.rejectRefinementForm(text, null);
   } catch (error) {
     throw new VerificationError(String(error.message), loc);
   }
   return verifyV051TypedType(typeName, declarations, loc, allowVoid);
+}
+
+// P0-06 (slice text P6-R6, P6-R11): every struct joins the type namespace
+// first, so a name may be used before its declaration; then, in source order,
+// its fields; then recursion, at the first struct of a cycle in source order;
+// then the lane cap, at the declaring line.
+function verifyV053Structs(mod, declarations) {
+  const structs = Array.isArray(mod.structs) ? mod.structs : [];
+  for (const declaration of structs) {
+    if (!declaration || typeof declaration.type_id !== "string" || !Array.isArray(declaration.fields) || !declaration.fields.length) {
+      throw new VerificationError("air.v051.typed_syntax_invalid: a struct declares at least one field", declaration && declaration.loc);
+    }
+    if (declarations.has(declaration.type_id)) throw new VerificationError(`air.decision.enum_duplicate_type: '${declaration.type_id}'`, declaration.loc);
+    declarations.set(declaration.type_id, { fields: declaration.fields, kind: "struct", loc: declaration.loc, type_id: declaration.type_id });
+  }
+  const edges = new Map();
+  for (const declaration of structs) {
+    const names = new Set();
+    const references = [];
+    for (const field of declaration.fields) {
+      if (!field || typeof field.name !== "string" || !/^[a-z][A-Za-z0-9_]*$/.test(field.name) || names.has(field.name)) {
+        throw new VerificationError(`air.v051.typed_syntax_invalid: struct '${declaration.type_id}' has an invalid or repeated field`, declaration.loc);
+      }
+      names.add(field.name);
+      let type = resolveV053Type(field.type, declarations, declaration.loc, false, true);
+      while (type.kind === "array") type = type.element;
+      if (type.kind === "struct") references.push(type.canonical);
+    }
+    edges.set(declaration.type_id, references);
+  }
+  const cyclic = v053CyclicStructs(structs.map((declaration) => declaration.type_id), edges);
+  const first = structs.find((declaration) => cyclic.has(declaration.type_id));
+  if (first) throw new VerificationError(`air.v051.type_reference_invalid: struct '${first.type_id}' contains itself, directly or through structs and arrays`, first.loc);
+  const fieldTypes = parserModule.typedV053.structFieldTypes(mod);
+  const memo = new Map();
+  for (const declaration of structs) {
+    const lanes = parserModule.typedV053.measureType(declaration.type_id, fieldTypes, parserModule.typedV053.baseLanes, memo);
+    if (lanes > BigInt(parserModule.typedV053.AGGREGATE_MAX)) throw v053LaneCapError(declaration.type_id, lanes, declaration.loc);
+    declarations.get(declaration.type_id).lanes = lanes;
+  }
+}
+
+// Iterative Tarjan: the struct ids on a cycle (a component of more than one
+// struct, or a struct that names itself).
+function v053CyclicStructs(ids, edges) {
+  const index = new Map();
+  const low = new Map();
+  const onStack = new Set();
+  const stack = [];
+  const cyclic = new Set();
+  let counter = 0;
+  const open = (id, work) => {
+    index.set(id, counter); low.set(id, counter); counter += 1;
+    stack.push(id); onStack.add(id);
+    work.push({ id, next: 0 });
+  };
+  for (const start of ids) {
+    if (index.has(start)) continue;
+    const work = [];
+    open(start, work);
+    while (work.length) {
+      const frame = work[work.length - 1];
+      const targets = edges.get(frame.id) || [];
+      if (frame.next < targets.length) {
+        const to = targets[frame.next++];
+        if (!index.has(to)) open(to, work);
+        else if (onStack.has(to)) low.set(frame.id, Math.min(low.get(frame.id), index.get(to)));
+        continue;
+      }
+      work.pop();
+      if (work.length) {
+        const parent = work[work.length - 1].id;
+        low.set(parent, Math.min(low.get(parent), low.get(frame.id)));
+      }
+      if (low.get(frame.id) !== index.get(frame.id)) continue;
+      const component = [];
+      let item;
+      do { item = stack.pop(); onStack.delete(item); component.push(item); } while (item !== frame.id);
+      if (component.length > 1 || targets.includes(frame.id)) for (const id of component) cyclic.add(id);
+    }
+  }
+  return cyclic;
+}
+
+// P0-06 (slice text P6-R2 items 5 and 6): in source order, each table's
+// literals, checked exactly as the base checks `%v: T = <literal>`, then a
+// repeated name at the second table's line. Items 1-4 are parse checks,
+// repeated here for an AST input.
+function verifyV053Tables(mod, declarations) {
+  const tables = new Map();
+  const none = new Map();
+  for (const table of Array.isArray(mod.tables) ? mod.tables : []) {
+    const loc = table && table.loc;
+    if (!table || typeof table.name !== "string" || !/^[A-Za-z_][A-Za-z0-9_]*$/.test(table.name) || !Array.isArray(table.values) ||
+        !parserModule.typedV053.TABLE_ELEMENTS.has(table.elementType)) {
+      throw new VerificationError("air.v051.typed_syntax_invalid: a table is table <name>: <T>[<N>] = [v0, ..., vN-1] with T one of i32, i64, f32, f64, bool", loc);
+    }
+    if (!Number.isSafeInteger(table.length) || table.length < 1 || table.length > parserModule.typedV053.AGGREGATE_MAX) {
+      throw new VerificationError(`air.v051.type_reference_invalid: table length ${table.length} is outside 1..${parserModule.typedV053.AGGREGATE_MAX}`, loc);
+    }
+    if (table.values.length !== table.length) throw new VerificationError(`air.v051.typed_syntax_invalid: table '${table.name}' declares ${table.length} values and lists ${table.values.length}`, loc);
+    const element = verifyV051TypedType(table.elementType, declarations, loc, false);
+    for (const value of table.values) {
+      if (typeof value !== "string") throw new VerificationError("air.v051.typed_atom_invalid: a table value is a literal", loc);
+      verifyV053TypedExpression(value, element, none, declarations, loc, none);
+    }
+    if (tables.has(table.name)) throw new VerificationError(`air.v051.typed_syntax_invalid: duplicate table '${table.name}'`, loc);
+    tables.set(table.name, { element, length: table.length, name: table.name });
+  }
+  return tables;
+}
+
+// P0-06 (slice text P6-R4, P6-R8, P6-R9): the table and aggregate operations.
+// Shape errors are `operation_invalid`, type errors `typed_atom_type_mismatch`
+// (R-10). A scalar result enters D as an operation result does (P0-03 §5.0:
+// D = T, or a refined D of base T); an aggregate result needs D = T. A
+// statically known index (SCALAR R-16) outside 0 <= i < N is a static
+// rejection; every other index is checked at run time (P6-R4 reading R-2).
+function verifyV053AggregateOperation(value, destination, ctx, scope, loc) {
+  const op = String(value.op || "");
+  const args = Array.isArray(value.args) ? value.args : [];
+  const label = value.field === undefined ? op : `${op}.${value.field}`;
+  const invalid = () => new VerificationError(`air.numeric.operation_invalid: '${label}'`, loc);
+  const mismatch = (detail) => new VerificationError(`air.v051.typed_atom_type_mismatch: '${label}' ${detail}`, loc);
+  const subjectOf = (text, kind) => {
+    const name = typeof text === "string" ? text.trim() : "";
+    if (!/^%[A-Za-z_][A-Za-z0-9_]*$/.test(name)) throw invalid();
+    const typeName = scope.locals.get(name.slice(1));
+    if (typeName === undefined) throw new VerificationError(`air.v051.local_unknown: '${name}'`, loc);
+    const type = verifyV053TypedType(typeName, ctx.declarations, loc);
+    if (type.kind !== kind) throw mismatch(`needs a ${kind} local, not ${type.canonical}`);
+    return type;
+  };
+  const fieldOf = (subject) => {
+    const field = subject.declaration.fields.find((item) => item.name === value.field);
+    if (!field) throw invalid();
+    return verifyV053TypedType(field.type, ctx.declarations, loc);
+  };
+  const atom = (text, type) => {
+    if (typeof text !== "string") throw new VerificationError("air.v051.typed_atom_invalid: expected a typed atom", loc);
+    verifyV053TypedExpression(text, type, scope.locals, ctx.declarations, loc, scope.staticValues);
+  };
+  const index = (text) => {
+    verifyV053TypedAtom(text, verifyV053TypedType("i32", ctx.declarations, loc), scope.locals, ctx.declarations, loc);
+    return v053StaticInteger(text, scope.staticValues);
+  };
+  const enter = (result) => {
+    const admitted = isV053AggregateKind(result) ? destination.canonical === result.canonical : v051TypeBase(destination) === result.canonical;
+    if (!admitted) throw mismatch(`yields ${result.canonical}, not ${destination.canonical}`);
+  };
+  const domain = (at, length, code, what) => {
+    if (at !== undefined && (at < 0n || at >= BigInt(length))) {
+      throw new VerificationError(`${code}: index ${at} is outside ${what} (0 <= i < ${length})`, loc);
+    }
+  };
+  if (op === "table.set") throw new VerificationError("air.table.readonly: typed-v0.53 tables are read-only (table.get only)", loc);
+  if (op === "table.get") {
+    if (args.length !== 2) throw invalid();
+    const table = ctx.tables.get(args[0]);
+    if (!table) throw invalid();
+    const at = index(args[1]);
+    enter(table.element);
+    domain(at, table.length, "air.table.index_out_of_range", `table '${table.name}'`);
+  } else if (op === "struct.new") {
+    if (destination.kind !== "struct") throw mismatch(`builds a struct, not ${destination.canonical}`);
+    const fields = destination.declaration.fields;
+    if (args.length !== fields.length) throw invalid();
+    args.forEach((argument, position) => atom(argument, verifyV053TypedType(fields[position].type, ctx.declarations, loc)));
+  } else if (op === "struct.get") {
+    if (args.length !== 1) throw invalid();
+    enter(fieldOf(subjectOf(args[0], "struct")));
+  } else if (op === "struct.set") {
+    if (args.length !== 2) throw invalid();
+    const subject = subjectOf(args[0], "struct");
+    const field = fieldOf(subject);
+    if (destination.canonical !== subject.canonical) throw mismatch(`yields ${subject.canonical}, not ${destination.canonical}`);
+    atom(args[1], field);
+  } else if (op === "array.new") {
+    if (destination.kind !== "array") throw mismatch(`builds an array, not ${destination.canonical}`);
+    if (args.length !== destination.count) throw invalid();
+    for (const argument of args) atom(argument, destination.element);
+  } else if (op === "array.get") {
+    if (args.length !== 2) throw invalid();
+    const subject = subjectOf(args[0], "array");
+    const at = index(args[1]);
+    enter(subject.element);
+    domain(at, subject.count, "air.array.index_out_of_range", `'${args[0]}'`);
+  } else if (op === "array.set") {
+    if (args.length !== 3) throw invalid();
+    const subject = subjectOf(args[0], "array");
+    if (destination.canonical !== subject.canonical) throw mismatch(`yields ${subject.canonical}, not ${destination.canonical}`);
+    const at = index(args[1]);
+    atom(args[2], subject.element);
+    domain(at, subject.count, "air.array.index_out_of_range", `'${args[0]}'`);
+  } else {
+    throw invalid();
+  }
 }
 
 const V053_I32_FAMILY = /^i32(?:<-?[0-9]+\.\.-?[0-9]+>)?$/;

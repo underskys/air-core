@@ -876,25 +876,154 @@ function v053FunctionUsesRefinement(fn) {
   });
 }
 
-function v053TypeInfo(typeName, declarations) {
-  return typeName === "void" ? { kind: "void", watTypes: [] } : v051TypedTypeInfo(typeName, declarations);
+// A function's Wasm lanes for a type: an aggregate has none (it lives in the
+// function's memory frame, P0-06), `void` has none.
+function v053TypeInfo(typeName, declarations, memory = null) {
+  if (typeName === "void" || (memory && memory.isAggregate(typeName))) return { kind: typeName === "void" ? "void" : "aggregate", watTypes: [] };
+  return v051TypedTypeInfo(typeName, declarations);
 }
 
 function v053ModuleFeatures(mod) {
   const declarations = new Map((mod.enums || []).map((item) => [item.type_id, item]));
   const functions = mod.functions || [];
+  const memory = v053MemoryPlan(mod, declarations);
+  const operations = functions.flatMap((fn) => v053FunctionStatements(fn))
+    .filter((statement) => statement.kind === "local" && statement.value && statement.value.kind === "aggregate_operation")
+    .map((statement) => statement.value.op);
   return {
     declarations,
     functions: new Map(functions.map((fn) => [fn.name, fn])),
+    memory,
+    usesArrayIndex: operations.includes("array.get") || operations.includes("array.set"),
     usesCanonicalSumIngress: functions.some((fn) => (fn.params || []).some((parameter) => {
-      const type = v051TypedTypeInfo(parameter.type, declarations);
+      const type = v053TypeInfo(parameter.type, declarations, memory);
       return type.kind === "option" || type.kind === "result";
     })),
     usesCheckedNumeric: functions.some(v053FunctionUsesCheckedNumeric),
     usesDynamicFold: functions.some((fn) => v053FunctionStatements(fn).some((statement) => statement.kind === "local" &&
       statement.value && typeof statement.value === "object" && statement.value.kind === "fold" && statement.value.count.kind === "dynamic")),
+    usesTableGet: operations.includes("table.get"),
     usesTypedRefinement: functions.some(v053FunctionUsesRefinement)
   };
+}
+
+// ---------------------------------------------------------------------------
+// P0-06 (slice text P6-R5, P6-R19, P6-R24; docs/v0.53/P0_06_AGGREGATES.md).
+// One internal memory, never exported and never imported (EXPORTED_MEMORY=
+// false), declared only when the module has a table or an aggregate value.
+// Each table's values are one data segment, at an 8-aligned base, each value
+// at its element width. Every aggregate value lives in memory: a function's
+// aggregate parameters, aggregate result and aggregate locals each own a fixed
+// slot of the function's static frame. Static frames are sound because the
+// call graph has no cycle (R-WB-2f.1), so no function is active twice; each
+// invocation instantiates afresh (R-STATE-1). An aggregate is laid out by its
+// lanes in field or element order, each lane at its width (i32, f32: 4; i64,
+// f64: 8); `array<T,N>` is N elements of T's size. Aggregates cross a call by
+// copying into the callee's parameter slots and out of its result slot.
+const V053_LANE_BYTES = Object.freeze({ f32: 4, f64: 8, i32: 4, i64: 8 });
+const V053_MEMORY_PAGE = 65536;
+
+function v053MemoryPlan(mod, declarations) {
+  const typed = parserModule.typedV053;
+  const structs = typed.structFieldTypes(mod);
+  const sizes = new Map();
+  const isAggregate = (typeName) => typeName !== "void" && typed.isAggregateType(typeName, structs);
+  const laneBytes = (typeName) => v051TypedTypeInfo(typeName, declarations).watTypes.reduce((sum, type) => sum + V053_LANE_BYTES[type], 0);
+  const sizeOf = (typeName) => Number(typed.measureType(typeName, structs, laneBytes, sizes));
+  let next = 0;
+  const reserve = (bytes) => {
+    next = Math.ceil(next / 8) * 8;
+    const base = next;
+    next += bytes;
+    return base;
+  };
+  const tables = new Map();
+  for (const table of mod.tables || []) {
+    const width = V053_LANE_BYTES[v051TypedWatType(table.elementType)];
+    tables.set(table.name, { base: reserve(width * table.length), elementType: table.elementType, length: table.length, table, width });
+  }
+  const frames = new Map();
+  for (const fn of mod.functions || []) {
+    const slots = new Map();
+    for (const parameter of fn.params || []) if (isAggregate(parameter.type)) slots.set(parameter.name, reserve(sizeOf(parameter.type)));
+    const result = isAggregate(fn.returnType) ? reserve(sizeOf(fn.returnType)) : null;
+    for (const statement of v053FunctionStatements(fn)) {
+      if (statement.kind === "local" && isAggregate(statement.type)) slots.set(statement.name, reserve(sizeOf(statement.type)));
+      if ((statement.kind === "if" || statement.kind === "match") && isAggregate(statement.destinationType)) {
+        slots.set(statement.destination, reserve(sizeOf(statement.destinationType)));
+      }
+    }
+    frames.set(fn.name, { result, slots });
+  }
+  const used = tables.size > 0 || [...frames.values()].some((frame) => frame.result !== null || frame.slots.size > 0);
+  return {
+    fields: new Map((mod.structs || []).map((item) => [item.type_id, item.fields])),
+    frames,
+    isAggregate,
+    pages: used ? Math.max(1, Math.ceil(next / V053_MEMORY_PAGE)) : 0,
+    sizeOf,
+    tables
+  };
+}
+
+// P6-R3: the exact bytes of one table value. An integer is exact (two's
+// complement, little-endian); a bool is 0 or 1; a float literal is rounded
+// once, to nearest with ties to even, and `-0.0` keeps its sign.
+function v053TableBytes(entry) {
+  const bytes = Buffer.alloc(entry.width * entry.length);
+  entry.table.values.forEach((text, index) => {
+    const offset = index * entry.width;
+    if (entry.elementType === "bool") bytes.writeInt32LE(text === "true" ? 1 : 0, offset);
+    else if (entry.elementType === "i32") bytes.writeInt32LE(Number(BigInt(text)), offset);
+    else if (entry.elementType === "i64") bytes.writeBigInt64LE(BigInt(text), offset);
+    else if (entry.elementType === "f32") bytes.writeUInt32LE(Number(v053FloatBits(text, 32)), offset);
+    else bytes.writeBigUInt64LE(v053FloatBits(text, 64), offset);
+  });
+  return bytes;
+}
+
+// A decimal literal as IEEE 754 binary32 or binary64 bits, rounded once
+// (exact rational arithmetic). A value below 10^-400 rounds to a signed zero
+// and one above 10^400 is infinite, so no exponent is ever expanded further.
+function v053FloatBits(text, width) {
+  const p = width === 32 ? 24 : 53;
+  const emax = width === 32 ? 127 : 1023;
+  const exponentBits = BigInt(width === 32 ? 8 : 11);
+  const match = /^(-?)(0|[1-9][0-9]*)(?:\.([0-9]+))?(?:[eE]([+-]?[0-9]+))?$/.exec(String(text));
+  if (!match) typedLowerFail("air.v051.typed_lowering_unsupported", `invalid float literal '${text}'`);
+  const signBit = match[1] ? 1n << BigInt(width - 1) : 0n;
+  const fraction = match[3] || "";
+  const digits = `${match[2]}${fraction}`.replace(/^0+(?=[0-9])/, "");
+  const exp10 = BigInt(match[4] || "0") - BigInt(fraction.length);
+  const infinity = signBit | (((1n << exponentBits) - 1n) << BigInt(p - 1));
+  if (BigInt(digits) === 0n) return signBit;
+  const magnitude = BigInt(digits.length) + exp10;
+  if (magnitude < -400n) return signBit;
+  if (magnitude > 400n) return infinity;
+  const num = BigInt(digits) * (exp10 >= 0n ? 10n ** exp10 : 1n);
+  const den = exp10 >= 0n ? 1n : 10n ** -exp10;
+  const top = 1n << BigInt(p);
+  const half = 1n << BigInt(p - 1);
+  const minExponent = BigInt(2 - emax - p);
+  let e = BigInt(num.toString(2).length - den.toString(2).length - p);
+  const quotient = () => (e >= 0n ? [num, den << e] : [num << -e, den]);
+  let [a, b] = quotient();
+  while (a / b >= top) { e += 1n; [a, b] = quotient(); }
+  while (a / b < half) { e -= 1n; [a, b] = quotient(); }
+  if (e < minExponent) { e = minExponent; [a, b] = quotient(); }
+  let q = a / b;
+  const remainder2 = 2n * (a - q * b);
+  if (remainder2 > b || (remainder2 === b && (q & 1n) === 1n)) q += 1n;
+  if (q === top) { q = half; e += 1n; }
+  if (e + BigInt(p - 1) > BigInt(emax)) return infinity;
+  if (q < half) return signBit | q;
+  return signBit | ((e + BigInt(p - 1) + BigInt(emax)) << BigInt(p - 1)) | (q - half);
+}
+
+function v053DataString(bytes) {
+  let out = "\"";
+  for (const byte of bytes) out += `\\${byte.toString(16).padStart(2, "0")}`;
+  return `${out}"`;
 }
 
 // P0-03 failure transport (slice text §4.4; OPEN-38 (b), D-VAL-22): every
@@ -931,7 +1060,13 @@ function v053ModuleHeaderLines(features) {
     ] : []),
     // P0-05 (slice text P5-R5, P5-R15): the dynamic-count guard's helper,
     // emitted only when a dynamic fold exists.
-    ...(features.usesDynamicFold ? [v053FailureHelper("__air_v053_loop_count_out_of_range", 32)] : [])
+    ...(features.usesDynamicFold ? [v053FailureHelper("__air_v053_loop_count_out_of_range", 32)] : []),
+    // P0-06 (slice text P6-R4, P6-R5, P6-R8): the internal memory, one data
+    // segment per table, and the index-domain helpers (33, 35).
+    ...(features.memory.pages ? [`  (memory ${features.memory.pages})`] : []),
+    ...[...features.memory.tables.values()].map((entry) => `  (data (i32.const ${entry.base}) ${v053DataString(v053TableBytes(entry))})`),
+    ...(features.usesTableGet ? [v053FailureHelper("__air_v053_table_index_out_of_range", 33)] : []),
+    ...(features.usesArrayIndex ? [v053FailureHelper("__air_v053_array_index_out_of_range", 35)] : [])
   ];
 }
 
@@ -960,12 +1095,15 @@ function lowerV053TypedToWat(mod, options = {}) {
 }
 
 function lowerV053TypedFunction(fn, features, writer, counting) {
-  const { declarations } = features;
+  const { declarations, memory } = features;
+  const frame = memory.frames.get(fn.name);
   const state = {
     declarations,
+    frame,
     functions: features.functions,
     localDecls: new V053WatLines(writer, 4, counting),
     locals: new Map(),
+    memory,
     body: new V053WatLines(writer, 4, counting),
     tempId: 0,
     typedV053: true
@@ -974,6 +1112,11 @@ function lowerV053TypedFunction(fn, features, writer, counting) {
   const records = [];
   let parameterLanes = 0;
   for (const parameter of fn.params || []) {
+    // P0-06: an aggregate parameter is the caller's copy in this function's frame.
+    if (memory.isAggregate(parameter.type)) {
+      state.locals.set(parameter.name, v053MemoryRecord(parameter.name, parameter.type, frame.slots.get(parameter.name)));
+      continue;
+    }
     const info = v051TypedTypeInfo(parameter.type, declarations);
     const record = v051TypedRecord(parameter.name, parameter.type, info, true);
     state.locals.set(parameter.name, record);
@@ -983,8 +1126,9 @@ function lowerV053TypedFunction(fn, features, writer, counting) {
       for (let index = 0; index < record.names.length; index += 1) params.push(`(param ${record.names[index]} ${info.watTypes[index]})`);
     }
   }
-  // OPEN-17 (a): a `void` function has no result lanes (P0-04).
-  const resultInfo = v053TypeInfo(fn.returnType, declarations);
+  // OPEN-17 (a): a `void` function has no result lanes (P0-04). P0-06: nor
+  // has a function with an aggregate result, which it leaves in its frame.
+  const resultInfo = v053TypeInfo(fn.returnType, declarations, memory);
   let headerLine = null;
   if (!counting) {
     const result = resultInfo.watTypes.length ? ` (result ${resultInfo.watTypes.join(" ")})` : "";
@@ -997,7 +1141,9 @@ function lowerV053TypedFunction(fn, features, writer, counting) {
   for (const record of records) emitV053TypedRuntimeValidation(state, record);
   for (const statement of fn.statements || []) {
     if (statement.kind === "return") {
-      if (resultInfo.kind !== "void") {
+      if (resultInfo.kind === "aggregate") {
+        emitV053CopyValue(state, statement.value, fn.returnType, { base: frame.result });
+      } else if (resultInfo.kind !== "void") {
         emitV053TypedExpression(state, statement.value, fn.returnType);
         emitV053NarrowingCheck(state, resultInfo, statement.value);
       }
@@ -1019,6 +1165,11 @@ function lowerV053TypedFunction(fn, features, writer, counting) {
 }
 
 function declareV053Record(state, name, typeName) {
+  if (state.memory.isAggregate(typeName)) {
+    const record = v053MemoryRecord(name, typeName, state.frame.slots.get(name));
+    state.locals.set(name, record);
+    return record;
+  }
   const info = v051TypedTypeInfo(typeName, state.declarations);
   const record = v051TypedRecord(name, typeName, info, false);
   state.locals.set(name, record);
@@ -1034,6 +1185,21 @@ function emitV053Statement(state, statement) {
     const record = declareV053Record(state, statement.name, statement.type);
     if (statement.value && typeof statement.value === "object" && statement.value.kind === "fold") {
       emitV053Fold(state, statement.value, record);
+      return;
+    }
+    if (statement.value && typeof statement.value === "object" && statement.value.kind === "aggregate_operation") {
+      emitV053AggregateOperation(state, statement.value, record);
+      return;
+    }
+    if (record.aggregate) {
+      // P0-06: an aggregate call result is copied out of the callee's frame;
+      // `%b: A = %a` copies the whole value (P6-R9).
+      if (statement.value && typeof statement.value === "object" && statement.value.kind === "call") {
+        const callee = emitV053Call(state, statement.value);
+        emitV053Copy(state, { base: record.address }, { base: state.memory.frames.get(callee.name).result }, state.memory.sizeOf(record.type));
+      } else {
+        emitV053CopyValue(state, statement.value, record.type, { base: record.address });
+      }
       return;
     }
     if (statement.value && typeof statement.value === "object" && statement.value.kind === "call") {
@@ -1075,8 +1241,17 @@ function emitV053Block(state, block, destination) {
   const last = statements[statements.length - 1];
   if (!last || last.kind !== "yield") typedLowerFail("air.v051.typed_lowering_unsupported", "a block must end with yield");
   for (const statement of statements.slice(0, -1)) emitV053Statement(state, statement);
-  emitV053TypedExpression(state, last.value, destination.type);
-  emitV053NarrowingCheck(state, destination.info, last.value);
+  emitV053YieldInto(state, last.value, destination);
+}
+
+// A yield or an atom arm into its destination; an aggregate is copied whole (P6-R9).
+function emitV053YieldInto(state, value, destination) {
+  if (destination.aggregate) {
+    emitV053CopyValue(state, value, destination.type, { base: destination.address });
+    return;
+  }
+  emitV053TypedExpression(state, value, destination.type);
+  emitV053NarrowingCheck(state, destination.info, value);
   emitV051TypedSet(state, destination);
 }
 
@@ -1090,6 +1265,11 @@ function emitV053Call(state, value) {
   }
   value.args.forEach((argument, index) => {
     const parameter = callee.params[index];
+    // P0-06: an aggregate argument is copied into the callee's parameter slot.
+    if (state.memory.isAggregate(parameter.type)) {
+      emitV053CopyValue(state, argument, parameter.type, { base: state.memory.frames.get(callee.name).slots.get(parameter.name) });
+      return;
+    }
     emitV053TypedExpression(state, argument, parameter.type);
     emitV053NarrowingCheck(state, v051TypedTypeInfo(parameter.type, state.declarations), argument);
   });
@@ -1109,8 +1289,15 @@ function emitV053Fold(state, value, record) {
   if (!callback || ![1, 2].includes((callback.params || []).length)) {
     typedLowerFail("air.v051.typed_lowering_unsupported", `unverified loop.fold callback '@${value.callback}'`);
   }
-  emitV053TypedExpression(state, value.seed, callback.params[0].type);
-  emitV051TypedSet(state, record);
+  // P0-06 (P6-R10): an aggregate accumulator is the destination's memory
+  // slot; each iteration copies it into the callback's parameter slot and the
+  // callback's result back.
+  const accumulator = record.aggregate ? state.memory.frames.get(callback.name) : null;
+  if (accumulator) emitV053CopyValue(state, value.seed, record.type, { base: record.address });
+  else {
+    emitV053TypedExpression(state, value.seed, callback.params[0].type);
+    emitV051TypedSet(state, record);
+  }
   let count;
   if (value.count.kind === "dynamic") {
     const local = state.locals.get(value.count.local);
@@ -1123,11 +1310,221 @@ function emitV053Fold(state, value, record) {
   }
   const index = declareV051TypedTemporary(state, "i32");
   state.body.push("i32.const 0", `local.set ${index}`, "block", "loop", `local.get ${index}`, count, "i32.ge_s", "br_if 1");
-  emitV051TypedGet(state, record);
+  const size = accumulator ? state.memory.sizeOf(record.type) : 0;
+  if (accumulator) emitV053Copy(state, { base: accumulator.slots.get(callback.params[0].name) }, { base: record.address }, size);
+  else emitV051TypedGet(state, record);
   if (callback.params.length === 2) state.body.push(`local.get ${index}`);
   state.body.push(`call $${wasmName(callback.name)}`);
-  emitV051TypedSet(state, record);
+  if (accumulator) emitV053Copy(state, { base: record.address }, { base: accumulator.result }, size);
+  else emitV051TypedSet(state, record);
   state.body.push(`local.get ${index}`, "i32.const 1", "i32.add", `local.set ${index}`, "br 0", "end", "end");
+}
+
+// ---------------------------------------------------------------------------
+// P0-06 memory access (slice text P6-R5, P6-R8, P6-R19). A location is a
+// static address `{ base }`, or a dynamic one `{ local, offset }` whose base
+// is in an i32 temporary.
+
+function v053MemoryRecord(name, typeName, address) {
+  if (!Number.isSafeInteger(address)) typedLowerFail("air.v051.typed_lowering_unsupported", `aggregate '${name}' has no frame slot`);
+  return { address, aggregate: true, name, type: typeName };
+}
+
+function v053At(where, offset) {
+  return where.local === undefined ? { base: where.base + offset } : { local: where.local, offset: where.offset + offset };
+}
+
+function v053AddressLines(where) {
+  if (where.local === undefined) return [`i32.const ${where.base}`];
+  return where.offset ? [`local.get ${where.local}`, `i32.const ${where.offset}`, "i32.add"] : [`local.get ${where.local}`];
+}
+
+function v053MemArg(where) {
+  if (where.local === undefined) return { lines: [`i32.const ${where.base}`], suffix: "" };
+  return { lines: [`local.get ${where.local}`], suffix: where.offset ? ` offset=${where.offset}` : "" };
+}
+
+// A whole-value copy (an aggregate.transfer at run time; outside every
+// per-access sequence, binding addition of the P0-06 admission).
+function emitV053Copy(state, to, from, size) {
+  state.body.push(...v053AddressLines(to), ...v053AddressLines(from), `i32.const ${size}`, "memory.copy");
+}
+
+function v053AggregateLocal(state, value, typeName) {
+  const text = typeof value === "string" ? value.trim() : "";
+  const record = /^%[A-Za-z_][A-Za-z0-9_]*$/.test(text) ? state.locals.get(text.slice(1)) : null;
+  if (!record || !record.aggregate || record.type !== typeName) typedLowerFail("air.v051.typed_lowering_unsupported", `unverified aggregate operand '${text}'`);
+  return record;
+}
+
+function emitV053CopyValue(state, value, typeName, to) {
+  emitV053Copy(state, to, { base: v053AggregateLocal(state, value, typeName).address }, state.memory.sizeOf(typeName));
+}
+
+// A non-aggregate value at a location onto the stack, lane by lane.
+function emitV053Load(state, info, where) {
+  let offset = 0;
+  for (const type of info.watTypes) {
+    const at = v053MemArg(v053At(where, offset));
+    state.body.push(...at.lines, `${type}.load${at.suffix}`);
+    offset += V053_LANE_BYTES[type];
+  }
+}
+
+// An operand of type T stored at a location: an aggregate local is copied; a
+// one-lane atom is stored directly; a several-lane atom (option, result) goes
+// through temporaries, lane by lane.
+function emitV053StoreOperand(state, value, typeName, where) {
+  if (state.memory.isAggregate(typeName)) {
+    emitV053CopyValue(state, value, typeName, where);
+    return;
+  }
+  const info = v051TypedTypeInfo(typeName, state.declarations);
+  if (info.watTypes.length === 1) {
+    const at = v053MemArg(where);
+    state.body.push(...at.lines);
+    emitV053TypedExpression(state, value, typeName);
+    state.body.push(`${info.watTypes[0]}.store${at.suffix}`);
+    return;
+  }
+  const temporaries = info.watTypes.map((type) => declareV051TypedTemporary(state, type));
+  emitV053TypedExpression(state, value, typeName);
+  for (let index = temporaries.length - 1; index >= 0; index -= 1) state.body.push(`local.set ${temporaries[index]}`);
+  let offset = 0;
+  info.watTypes.forEach((type, index) => {
+    const at = v053MemArg(v053At(where, offset));
+    state.body.push(...at.lines, `local.get ${temporaries[index]}`, `${type}.store${at.suffix}`);
+    offset += V053_LANE_BYTES[type];
+  });
+}
+
+function v053FieldOf(state, structType, fieldName) {
+  let offset = 0;
+  for (const field of state.memory.fields.get(structType) || []) {
+    if (field.name === fieldName) return { offset, type: field.type };
+    offset += state.memory.sizeOf(field.type);
+  }
+  return typedLowerFail("air.v051.typed_lowering_unsupported", `unverified field '${fieldName}' of '${structType}'`);
+}
+
+// An index operand: an i32-family local's lane, or an exact signed literal
+// (P6-R4: `-0` is 0; the verifier refused `+0` and `-00`).
+function v053IndexOperand(state, index) {
+  const text = String(index).trim();
+  if (/^%[A-Za-z_][A-Za-z0-9_]*$/.test(text)) {
+    const record = state.locals.get(text.slice(1));
+    if (!record || record.aggregate || !V053_I32_FAMILY.test(record.type)) typedLowerFail("air.v051.typed_lowering_unsupported", `unverified index '${text}'`);
+    return `local.get ${record.names[0]}`;
+  }
+  if (!/^-?(0|[1-9][0-9]*)$/.test(text)) typedLowerFail("air.v051.typed_lowering_unsupported", `unverified index '${text}'`);
+  return `i32.const ${BigInt(text)}`;
+}
+
+// P6-R5 / P6-R19: the domain check of one access, `0 <= i` first, then
+// `i < N`, signed; each failing path calls the helper (33 or 35) and ends in
+// `unreachable`, so no taken branch rejoins the access. Straight-line: its
+// executed length depends neither on i nor on N.
+function emitV053IndexCheck(state, operand, length, helper) {
+  state.body.push(operand, "i32.const 0", "i32.lt_s", "if", `call $${helper}`, "unreachable", "end");
+  state.body.push(operand, `i32.const ${length}`, "i32.ge_s", "if", `call $${helper}`, "unreachable", "end");
+}
+
+// The address `base + i·w` of the checked index, on the stack.
+function emitV053IndexedAddress(state, operand, width, base) {
+  state.body.push(operand, `i32.const ${width}`, "i32.mul", `i32.const ${base}`, "i32.add");
+}
+
+// The address of an element or table value into a fresh i32 temporary, for
+// an access of several lanes or a copy.
+function v053IndexedLocation(state, operand, width, base) {
+  const address = declareV051TypedTemporary(state, "i32");
+  emitV053IndexedAddress(state, operand, width, base);
+  state.body.push(`local.set ${address}`);
+  return { local: address, offset: 0 };
+}
+
+// One table or aggregate statement into its destination record.
+function emitV053AggregateOperation(state, value, record) {
+  const args = value.args;
+  const memory = state.memory;
+  if (value.op === "table.get") {
+    const entry = memory.tables.get(args[0]);
+    if (!entry || record.aggregate) typedLowerFail("air.v051.typed_lowering_unsupported", `unverified table.get '${args[0]}'`);
+    const operand = v053IndexOperand(state, args[1]);
+    emitV053IndexCheck(state, operand, entry.length, "__air_v053_table_index_out_of_range");
+    emitV053IndexedAddress(state, operand, entry.width, entry.base);
+    state.body.push(`${v051TypedWatType(entry.elementType)}.load`);
+    emitV053NarrowingCheck(state, record.info, value);
+    emitV051TypedSet(state, record);
+    return;
+  }
+  if (value.op === "struct.new") {
+    let offset = 0;
+    (memory.fields.get(record.type) || []).forEach((field, index) => {
+      emitV053StoreOperand(state, args[index], field.type, { base: record.address + offset });
+      offset += memory.sizeOf(field.type);
+    });
+    return;
+  }
+  if (value.op === "array.new") {
+    const element = parserModule.typedV053.arrayParts(record.type).element;
+    const size = memory.sizeOf(element);
+    args.forEach((argument, index) => emitV053StoreOperand(state, argument, element, { base: record.address + index * size }));
+    return;
+  }
+  if (value.op === "struct.get" || value.op === "struct.set") {
+    const subject = state.locals.get(String(args[0]).trim().slice(1));
+    if (!subject || !subject.aggregate) typedLowerFail("air.v051.typed_lowering_unsupported", `unverified struct operand '${args[0]}'`);
+    const field = v053FieldOf(state, subject.type, value.field);
+    if (value.op === "struct.set") {
+      emitV053Copy(state, { base: record.address }, { base: subject.address }, memory.sizeOf(subject.type));
+      emitV053StoreOperand(state, args[1], field.type, { base: record.address + field.offset });
+    } else if (record.aggregate) {
+      emitV053Copy(state, { base: record.address }, { base: subject.address + field.offset }, memory.sizeOf(field.type));
+    } else {
+      emitV053Load(state, record.info, { base: subject.address + field.offset });
+      emitV053NarrowingCheck(state, record.info, value);
+      emitV051TypedSet(state, record);
+    }
+    return;
+  }
+  if (value.op === "array.get" || value.op === "array.set") {
+    const subject = state.locals.get(String(args[0]).trim().slice(1));
+    if (!subject || !subject.aggregate) typedLowerFail("air.v051.typed_lowering_unsupported", `unverified array operand '${args[0]}'`);
+    const parts = parserModule.typedV053.arrayParts(subject.type);
+    const width = memory.sizeOf(parts.element);
+    const operand = v053IndexOperand(state, args[1]);
+    // `array.set`: the whole-value copy (the statement's aggregate.transfer)
+    // comes first; the per-access sequence then checks, addresses and stores
+    // into the copy, so a failing index leaves no partial store.
+    if (value.op === "array.set") emitV053Copy(state, { base: record.address }, { base: subject.address }, memory.sizeOf(subject.type));
+    emitV053IndexCheck(state, operand, Number(parts.count), "__air_v053_array_index_out_of_range");
+    if (value.op === "array.set") {
+      const info = memory.isAggregate(parts.element) ? null : v051TypedTypeInfo(parts.element, state.declarations);
+      if (info && info.watTypes.length === 1) {
+        emitV053IndexedAddress(state, operand, width, record.address);
+        emitV053TypedExpression(state, args[2], parts.element);
+        state.body.push(`${info.watTypes[0]}.store`);
+      } else {
+        emitV053StoreOperand(state, args[2], parts.element, v053IndexedLocation(state, operand, width, record.address));
+      }
+    } else if (record.aggregate) {
+      state.body.push(`i32.const ${record.address}`);
+      emitV053IndexedAddress(state, operand, width, subject.address);
+      state.body.push(`i32.const ${width}`, "memory.copy");
+    } else if (record.info.watTypes.length === 1) {
+      emitV053IndexedAddress(state, operand, width, subject.address);
+      state.body.push(`${record.info.watTypes[0]}.load`);
+      emitV053NarrowingCheck(state, record.info, value);
+      emitV051TypedSet(state, record);
+    } else {
+      emitV053Load(state, record.info, v053IndexedLocation(state, operand, width, subject.address));
+      emitV053NarrowingCheck(state, record.info, value);
+      emitV051TypedSet(state, record);
+    }
+    return;
+  }
+  typedLowerFail("air.v051.typed_lowering_unsupported", `unsupported aggregate operation '${value.op}'`);
 }
 
 // P4-R5: a call result has the callee's declared result type; binding it
@@ -1268,9 +1665,7 @@ function emitV053TypedMatch(state, statement, destination) {
     if (arm.block) {
       emitV053Block(state, arm.block, destination);
     } else {
-      emitV053TypedExpression(state, arm.expression, destination.type);
-      emitV053NarrowingCheck(state, destination.info, arm.expression);
-      emitV051TypedSet(state, destination);
+      emitV053YieldInto(state, arm.expression, destination);
     }
     if (binding) {
       if (previous) state.locals.set(binding.name, previous);
@@ -1286,6 +1681,7 @@ function emitV053TypedMatch(state, statement, destination) {
 // 48, 49, 50 and 51 in a typed-v0.53 module.
 function emitV053TypedRuntimeValidation(state, record) {
   const { info } = record;
+  if (record.aggregate) return;
   if (info.kind === "scalar" && info.refinement && info.refinement.kind === "i32_range") {
     emitV053RangeCheck(state, record.names[0], info.refinement, "__air_v053_refinement_ingress_out_of_range");
     return;
@@ -1333,6 +1729,8 @@ const V053_ENGINE_LIMITS = Object.freeze([
   Object.freeze({ key: "imports", label: "imports", maximum: 1000000 }),
   Object.freeze({ key: "exports", label: "exports", maximum: 1000000 }),
   Object.freeze({ key: "globals", label: "globals", maximum: 1000000 }),
+  Object.freeze({ key: "dataSegments", label: "data segments", maximum: 100000 }),
+  Object.freeze({ key: "memoryPages", label: "memory pages", maximum: 65536 }),
   Object.freeze({ key: "parameters", label: "parameters per function or block", maximum: 1000, perFunction: true }),
   Object.freeze({ key: "results", label: "results per function or block", maximum: 1000, perFunction: true }),
   Object.freeze({ key: "locals", label: "locals per function (incl. parameters)", maximum: 50000, perFunction: true })
@@ -1360,15 +1758,18 @@ function checkV053EngineLimits(mod) {
   const plans = (mod.functions || []).map((fn) => lowerV053TypedFunction(fn, features, null, true));
   const signatures = new Set(helpers ? ["->"] : []);
   for (const fn of mod.functions || []) {
-    const lanes = (fn.params || []).flatMap((parameter) => v051TypedTypeInfo(parameter.type, features.declarations).watTypes);
-    signatures.add(`${lanes.join(",")}->${v053TypeInfo(fn.returnType, features.declarations).watTypes.join(",")}`);
+    const lanes = (fn.params || []).flatMap((parameter) => v053TypeInfo(parameter.type, features.declarations, features.memory).watTypes);
+    signatures.add(`${lanes.join(",")}->${v053TypeInfo(fn.returnType, features.declarations, features.memory).watTypes.join(",")}`);
   }
   // `__air_failure_reason` is the one global and one extra export (T-1).
+  // P0-06: one data segment per table; the internal memory's pages.
   const totals = {
+    dataSegments: features.memory.tables.size,
     exports: (mod.functions || []).filter((fn) => fn.exported).length + 1,
     functions: (mod.functions || []).length + helpers,
     globals: 1,
     imports: 0,
+    memoryPages: features.memory.pages,
     types: signatures.size
   };
   for (const limit of V053_ENGINE_LIMITS) {

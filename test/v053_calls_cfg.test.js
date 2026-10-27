@@ -915,9 +915,9 @@ async function main() {
     await vector("P0-04-CHECK-CT1", () => {
       const file = path.join(ROOT, "src", "workbound_cost_table_v1.json");
       const blob = childProcess.spawnSync("git", ["hash-object", file], { cwd: ROOT, encoding: "utf8" }).stdout.trim();
-      assert.equal(blob, "118511fe8df9aa039ee5d3ccbf6d28faec7ad881");
-      assert.equal(sha256(fs.readFileSync(file)), "sha256:1afbe97ffb8b18c34f4591e6a3e99b0cd0d6666e298654ad55d8b93d6739d312");
-      assert.equal(wb.COST_TABLE_DIGEST, "sha256:1ae0cddb2b01ca1f16f5b8da059ebd0a594d8c222aea4e5bf8f5e2c6d17e80c9");
+      assert.equal(blob, "c3a2022be20bfa9511642dad2e82cc238fdffc65");
+      assert.equal(sha256(fs.readFileSync(file)), "sha256:770315ade1bd192dfa65f50aca5458296ff702fae50cdc33b72e5b1b6bbfb5a4");
+      assert.equal(wb.COST_TABLE_DIGEST, "sha256:d8b341ea2358a787d699507a5dca9ce6cab0d58e3358d324df4c5ff8e469760e");
       return { value: { blob, cost_table_digest: wb.COST_TABLE_DIGEST, revision: JSON.parse(fs.readFileSync(file, "utf8")).revision } };
     });
     await vector("P0-04-CHECK-FLAGS", () => {

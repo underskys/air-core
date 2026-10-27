@@ -101,7 +101,9 @@ function loadCostTable(text) {
     if (!row || typeof row !== "object" || typeof row.construct !== "string" || !row.construct || typeof row.ct1 !== "string") {
       throw new TypeError("CT-1 row is invalid");
     }
-    const allowed = new Set(["construct", "ct1", "steps", "calls", "iterations", "steps_per_arm", "steps_per_case", "effect_per_key"]);
+    // P0-06 (slice text §5.2): `steps_per_lane` is the per-lane weight of
+    // `aggregate.transfer` (CT-1 revision P0-06-AGG-1).
+    const allowed = new Set(["construct", "ct1", "steps", "calls", "iterations", "steps_per_arm", "steps_per_case", "steps_per_lane", "effect_per_key"]);
     for (const key of Object.keys(row)) if (!allowed.has(key)) throw new TypeError(`CT-1 row '${row.construct}' has unknown field '${key}'`);
     if (rows.has(row.construct)) throw new TypeError(`CT-1 row '${row.construct}' is duplicated`);
     rows.set(row.construct, Object.freeze({
@@ -111,6 +113,7 @@ function loadCostTable(text) {
       iterations: exactDecimal(row.iterations, `${row.construct}.iterations`),
       stepsPerArm: row.steps_per_arm === undefined ? null : exactDecimal(row.steps_per_arm, `${row.construct}.steps_per_arm`),
       stepsPerCase: row.steps_per_case === undefined ? null : exactDecimal(row.steps_per_case, `${row.construct}.steps_per_case`),
+      stepsPerLane: row.steps_per_lane === undefined ? null : exactDecimal(row.steps_per_lane, `${row.construct}.steps_per_lane`),
       effectPerKey: row.effect_per_key === undefined ? null : exactDecimal(row.effect_per_key, `${row.construct}.effect_per_key`)
     }));
   }
@@ -243,7 +246,16 @@ function failLeaf(reason, loc, detail) {
 }
 
 function row(construct, loc, params = {}) {
-  return node("row", loc, { arms: params.arms, cases: params.cases, construct, key: params.key });
+  // P0-06: `lanes` exists only on an `aggregate.transfer` row, so every other
+  // row node keeps its shape.
+  const fields = { arms: params.arms, cases: params.cases, construct, key: params.key };
+  if (params.lanes !== undefined) fields.lanes = params.lanes;
+  return node("row", loc, fields);
+}
+
+// P0-06 (slice text P6-R12, P6-R13): one whole-value transfer of `lanes` lanes.
+function transfer(lanes, loc) {
+  return row("aggregate.transfer", loc, { lanes });
 }
 
 function add(left, right, loc) {
@@ -272,8 +284,9 @@ function summaryOf(callee, loc) {
   return node("summary_of", loc, { callee });
 }
 
-// CT-1 local call: c1 = aggregate argument copies (empty: no aggregate is
-// admitted), c2 = c1 ⊕ (steps 1, calls 1), c3 = c2 ⊕ B(f).
+// CT-1 local call: c1 = aggregate argument copies (empty here; P0-06's
+// typedCallNode adds one aggregate.transfer per aggregate argument),
+// c2 = c1 ⊕ (steps 1, calls 1), c3 = c2 ⊕ B(f).
 function call(callee, loc) {
   return add(row("call", loc), summaryOf(callee, loc), loc);
 }
@@ -404,6 +417,10 @@ function rowValue(item) {
   if (item.arms !== undefined) {
     if (weights.stepsPerArm === null) costUndefined(`${item.construct}.arms`, item.loc);
     steps += weights.stepsPerArm * exactCount(BigInt(item.arms), "match arms");
+  }
+  if (item.lanes !== undefined) {
+    if (weights.stepsPerLane === null) costUndefined(`${item.construct}.lanes`, item.loc);
+    steps += weights.stepsPerLane * exactCount(item.lanes, "aggregate lanes");
   }
   const effects = new Map();
   if (item.key !== undefined) {
@@ -803,6 +820,11 @@ function typedCallNode(value, loc, ctx, scope) {
   if (!callee) costUndefined(`call.@${value.callee}`, loc);
   const c1 = [];
   (value.args || []).forEach((argument, index) => {
+    // P0-06 (P6-R13 item 5): an aggregate argument is one aggregate.transfer.
+    if (ctx.aggregate(callee.params[index].type)) {
+      c1.push(transfer(ctx.lanes(callee.params[index].type), loc));
+      return;
+    }
     if (isConstructorAtom(argument)) c1.push(row("statement.constructor", loc));
     if (refinementCheckNeeded(callee.params[index].type, argument, loc, scope)) c1.push(row("refinement.check", loc));
   });
@@ -817,20 +839,54 @@ function typedCallNode(value, loc, ctx, scope) {
 // literal or the maximum of `%c max m`; a bare `%c` has no maximum. No
 // refinement.check at either boundary (OD-P5-1 (b), P5-R2a), the binding adds
 // nothing (R-WB-26b), and every node takes the fold statement's position.
-function typedFoldNode(value, loc) {
+// P0-06 (P6-R13 item 9, P6-R17): for an aggregate accumulator T, c1 is one
+// aggregate.transfer of L_T, and t3's L_T is one aggregate.transfer row after
+// loop.exit.
+function typedFoldNode(value, loc, ctx) {
   const count = value.count && value.count.kind === "dynamic"
     ? (value.count.max === undefined ? { unknown: true } : value.count.max)
     : String(value.count && value.count.value);
-  const body = call(value.callback, loc);
+  const callback = ctx.functions.get(value.callback);
+  const accumulator = callback && callback.params && callback.params[0] ? callback.params[0].type : null;
+  const lanes = accumulator !== null && ctx.aggregate(accumulator) ? ctx.lanes(accumulator) : null;
+  const body = lanes === null ? call(value.callback, loc)
+    : add(add(transfer(lanes, loc), row("call", loc), loc), summaryOf(value.callback, loc), loc);
   // P5-R3 with P5-R11's decimal form ("no sign and no leading zero"; QA
   // P05-QA-F-1): a count or maximum written with a sign is not a decimal
   // integer literal, so its leaf is invalid_bound, in loop()'s position. The
   // P0-02 count leaf reads `-0` as 0, so a fold never hands it a signed text.
-  const t3 = typeof count === "string" && /^[+-]/.test(count)
-    ? add(row("loop.exit", loc), node("mul", loc, {}, [add(row("loop.iteration", loc), body, loc),
-      failLeaf("invalid_bound", loc, `loop count '${count}' is signed; a count is a decimal integer literal without a sign`)]), loc)
-    : loop(count, body, loc);
+  const signed = typeof count === "string" && /^[+-]/.test(count);
+  let t3;
+  if (lanes === null && !signed) {
+    t3 = loop(count, body, loc);
+  } else {
+    const exit = lanes === null ? row("loop.exit", loc) : add(row("loop.exit", loc), transfer(lanes, loc), loc);
+    const leaf = signed
+      ? failLeaf("invalid_bound", loc, `loop count '${count}' is signed; a count is a decimal integer literal without a sign`)
+      : loopCount(count, loc);
+    t3 = add(exit, node("mul", loc, {}, [add(row("loop.iteration", loc), body, loc), leaf]), loc);
+  }
   return isConstructorAtom(value.seed) ? add(row("statement.constructor", loc), t3, loc) : t3;
+}
+
+// P0-06 (slice text P6-R14, P6-R15): the rows of one table or aggregate
+// statement. The lanes of an extraction or a rebuilt value are D's, which
+// the verifier made equal to the extracted or rebuilt type.
+function typedAggregateNode(statement, loc, ctx, scope) {
+  const value = statement.value;
+  const args = Array.isArray(value.args) ? value.args : [];
+  const constructors = (operands) => operands.filter(isConstructorAtom).map(() => row("statement.constructor", loc));
+  if (value.op === "struct.new" || value.op === "array.new") {
+    return seq([transfer(ctx.lanes(statement.type), loc), ...constructors(args)], loc);
+  }
+  if (value.op === "struct.set" || value.op === "array.set") {
+    return seq([row("aggregate.access", loc), transfer(ctx.lanes(statement.type), loc), ...constructors(args.slice(-1))], loc);
+  }
+  if (value.op === "struct.get" || value.op === "array.get" || value.op === "table.get") {
+    if (ctx.aggregate(statement.type)) return add(row("aggregate.access", loc), transfer(ctx.lanes(statement.type), loc), loc);
+    return withRefinementCheck(row("aggregate.access", loc), statement.type, value, loc, scope);
+  }
+  return costUndefined(`expression.${value.op}`, loc);
 }
 
 // A block: its statement sequence ending in its yield, in its own scope.
@@ -842,13 +898,18 @@ function typedStatementNode(fn, statement, scope = null, ctx = null, yieldType =
   const loc = statement && statement.loc;
   if (!statement || typeof statement !== "object") costUndefined("statement.<invalid>", fn.loc);
   if (statement.kind === "local") {
-    if (ctx && statement.value && typeof statement.value === "object" && statement.value.kind === "fold") return typedFoldNode(statement.value, loc);
+    if (ctx && statement.value && typeof statement.value === "object" && statement.value.kind === "fold") return typedFoldNode(statement.value, loc, ctx);
     if (ctx && isCallValue(statement.value)) {
       // The binding adds nothing but its check (P4-R5; R-WB-26b).
       const node = typedCallNode(statement.value, loc, ctx, scope);
       const callee = ctx.functions.get(statement.value.callee);
       return refinementCheckNeeded(statement.type, null, loc, scope, callee.returnType) ? add(node, row("refinement.check", loc), loc) : node;
     }
+    if (ctx && statement.value && typeof statement.value === "object" && statement.value.kind === "aggregate_operation") {
+      return typedAggregateNode(statement, loc, ctx, scope);
+    }
+    // P0-06 (P6-R13 item 2): `%b: A = %a` for an aggregate A is one transfer.
+    if (ctx && ctx.aggregate(statement.type)) return transfer(ctx.lanes(statement.type), loc);
     const construct = isConstructorAtom(statement.value) ? "statement.constructor" : "statement.scalar";
     return withRefinementCheck(row(construct, loc), statement.type, statement.value, loc, scope);
   }
@@ -863,6 +924,9 @@ function typedStatementNode(fn, statement, scope = null, ctx = null, yieldType =
     );
   }
   if (ctx && statement.kind === "yield") {
+    // P0-06 (P6-R13 item 3): an aggregate yield is one transfer in place of
+    // statement.scalar.
+    if (ctx.aggregate(yieldType)) return transfer(ctx.lanes(yieldType), loc);
     // A yield is statement.scalar, or statement.constructor in its place for a
     // constructor atom (P4-R16), plus its refinement check (P0-03 §5.0).
     const construct = isConstructorAtom(statement.value) ? "statement.constructor" : "statement.scalar";
@@ -870,12 +934,17 @@ function typedStatementNode(fn, statement, scope = null, ctx = null, yieldType =
   }
   if (statement.kind === "match") {
     if (!Array.isArray(statement.arms) || !statement.arms.length) costUndefined("match.<no arms>", loc);
+    // P0-06 (P6-R13 item 4): an aggregate atom arm is one transfer in place of match.atom_arm.
+    const aggregateArm = Boolean(ctx) && ctx.aggregate(statement.destinationType);
     const arms = statement.arms.map((arm) => (ctx && arm.block
       ? typedBlockNode(arm.block, fn, ctx, scope, statement.destinationType, arm.loc || loc)
-      : withRefinementCheck(typedOperandNode(arm.expression, arm.loc || loc, true), statement.destinationType, arm.expression, arm.loc || loc, scope)));
+      : aggregateArm ? transfer(ctx.lanes(statement.destinationType), arm.loc || loc)
+        : withRefinementCheck(typedOperandNode(arm.expression, arm.loc || loc, true), statement.destinationType, arm.expression, arm.loc || loc, scope)));
     return match(arms, loc);
   }
   if (statement.kind === "return") {
+    // P0-06 (P6-R13 item 6): an aggregate return is `return` plus one transfer.
+    if (ctx && ctx.aggregate(fn.returnType)) return add(row("return", loc), transfer(ctx.lanes(fn.returnType), loc), loc);
     const operand = typedOperandNode(statement.value, loc);
     const returned = operand ? add(operand, row("return", loc), loc) : row("return", loc);
     return withRefinementCheck(returned, fn.returnType, statement.value, loc, scope);
@@ -908,17 +977,33 @@ function typedV051Model(mod) {
   }
   const declarations = new Map((mod.enums || []).map((item) => [item.type_id, item]));
   const moduleId = typeof mod.name === "string" && MODULE_ID.test(mod.name) ? mod.name : "v53.model";
-  // typed-v0.53 (P0-04): calls need the callees' signatures.
-  const ctx = isTypedV053Ast(mod) ? { functions: new Map(mod.functions.map((fn) => [fn.name, fn])) } : null;
+  // typed-v0.53 (P0-04): calls need the callees' signatures. P0-06: the
+  // lanes of an aggregate type (P6-R11), exact BigInt.
+  const ctx = isTypedV053Ast(mod) ? typedV053Context(mod) : null;
   return {
     functions: mod.functions.map((fn) => ({
       body: typedFunctionBody(fn, ctx),
       exported: fn.exported === true,
       loc: fn.loc,
       name: fn.name,
-      params: (fn.params || []).map((parameter) => typedTypeInfo(parameter.type, declarations, fn.loc))
+      // An aggregate parameter is never an ingress type: exports take no
+      // aggregate (P6-R10), and ingress is summed for exports only.
+      params: (fn.params || []).map((parameter) => (ctx && ctx.aggregate(parameter.type)
+        ? { kind: "aggregate" }
+        : typedTypeInfo(parameter.type, declarations, fn.loc)))
     })),
     module: moduleId
+  };
+}
+
+function typedV053Context(mod) {
+  const { typedV053 } = require("./parser");
+  const structs = typedV053.structFieldTypes(mod);
+  const memo = new Map();
+  return {
+    aggregate: (typeName) => typeName !== null && typeName !== undefined && typedV053.isAggregateType(typeName, structs),
+    functions: new Map(mod.functions.map((fn) => [fn.name, fn])),
+    lanes: (typeName) => typedV053.measureType(typeName, structs, typedV053.baseLanes, memo)
   };
 }
 

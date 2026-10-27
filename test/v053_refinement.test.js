@@ -42,12 +42,14 @@ const BASE_COMMITS = ["c284dab46d2e05629f85d8f774d9183c9933d5ef", "965798d150555
 // and the sha256 of its numeric mapping file, identical in both.
 const OLD_ADAPTER_COMMITS = ["f258ed0df6da99785bacd706f9d5b04f42ba64c0", "7285a25af9985c5da71f3a71a63c907fa20c50f0"];
 const OLD_MAPPING_SHA256 = "sha256:8ebbd210ac2b25ebd8143586d79dbf40972c778051a46503f9e07383625ce502";
-// CT-1 unchanged (OD-P3-4 (a); slice text §5.3).
+// CT-1 was unchanged at P0-03 (OD-P3-4 (a); slice text §5.3): the P0-03 base commit still holds this blob.
+const CT1_P0_03_BASE_BLOB = "118511fe8df9aa039ee5d3ccbf6d28faec7ad881";
+// CT-1 now: revision P0-06-AGG-1 (P0-06 slice text R2 §5.2; OD-P6-1 (a)).
 const CT1 = Object.freeze({
-  blob: "118511fe8df9aa039ee5d3ccbf6d28faec7ad881",
-  digest: "sha256:1ae0cddb2b01ca1f16f5b8da059ebd0a594d8c222aea4e5bf8f5e2c6d17e80c9",
-  raw: "sha256:1afbe97ffb8b18c34f4591e6a3e99b0cd0d6666e298654ad55d8b93d6739d312",
-  revision: "P0-02-F1-RD3"
+  blob: "c3a2022be20bfa9511642dad2e82cc238fdffc65",
+  digest: "sha256:d8b341ea2358a787d699507a5dca9ce6cab0d58e3358d324df4c5ff8e469760e",
+  raw: "sha256:770315ade1bd192dfa65f50aca5458296ff702fae50cdc33b72e5b1b6bbfb5a4",
+  revision: "P0-06-AGG-1"
 });
 // Slice text §4.4 A-1 (R-REF-9 as amended by AMD-P3-1).
 const ADAPTER_TABLE = Object.freeze({
@@ -846,7 +848,7 @@ async function main() {
       const base = baseCommit();
       const baseBlob = childProcess.spawnSync("git", ["rev-parse", `${base}:src/workbound_cost_table_v1.json`], { cwd: ROOT, encoding: "utf8" }).stdout.trim();
       assert.equal(blob, CT1.blob);
-      assert.equal(baseBlob, CT1.blob);
+      assert.equal(baseBlob, CT1_P0_03_BASE_BLOB);
       assert.equal(sha256(bytes), CT1.raw);
       assert.equal(wb.COST_TABLE_DIGEST, CT1.digest);
       assert.equal(JSON.parse(bytes.toString("utf8")).revision, CT1.revision);

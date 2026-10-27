@@ -1,6 +1,6 @@
 {
   "id": "air.workbound.cost/1",
-  "revision": "P0-02-F1-RD3",
+  "revision": "P0-06-AGG-1",
   "rows": [
     {
       "construct": "statement.scalar",
@@ -12,6 +12,21 @@
     {
       "construct": "statement.constructor",
       "ct1": "constructor of option/result outside a match arm, including a return operand; charged once, with the return row separate (owner clarification RD-3=2, 2026-10-14)",
+      "steps": "1",
+      "calls": "0",
+      "iterations": "0"
+    },
+    {
+      "construct": "aggregate.transfer",
+      "ct1": "whole aggregate value of L lanes (R-WB-26b): construction (struct.new, array.new), assignment, call argument (in c1), yield, match-arm yield, return (with the return row), the result of struct.set and array.set, an aggregate-typed element or field extraction, the fold accumulator; steps L, once per transfer",
+      "steps": "0",
+      "steps_per_lane": "1",
+      "calls": "0",
+      "iterations": "0"
+    },
+    {
+      "construct": "aggregate.access",
+      "ct1": "element or field access with a static index or an O(1) dynamic index: struct.get, struct.set, array.get, array.set, table.get; the index domain check included",
       "steps": "1",
       "calls": "0",
       "iterations": "0"
@@ -33,21 +48,21 @@
     },
     {
       "construct": "match.atom_arm",
-      "ct1": "an atom arm, including a constructor atom, costs 0",
+      "ct1": "an atom arm, including a constructor atom, costs 0; an atom arm that yields an aggregate local is one aggregate.transfer row instead",
       "steps": "0",
       "calls": "0",
       "iterations": "0"
     },
     {
       "construct": "return",
-      "ct1": "return: steps 1 (plus a refinement check row if applicable)",
+      "ct1": "return: steps 1 (plus a refinement check row if applicable; plus one aggregate.transfer row for an aggregate result)",
       "steps": "1",
       "calls": "0",
       "iterations": "0"
     },
     {
       "construct": "call",
-      "ct1": "local call, sub-node c2 = c1 + (steps 1, calls 1); c3 = c2 + B(f); c1 is empty because no aggregate is admitted",
+      "ct1": "local call, sub-node c2 = c1 + (steps 1, calls 1); c3 = c2 + B(f); c1 = one aggregate.transfer row per aggregate argument, in argument order (empty if none)",
       "steps": "1",
       "calls": "1",
       "iterations": "0"
@@ -76,7 +91,7 @@
     },
     {
       "construct": "loop.exit",
-      "ct1": "bounded loop, sub-node t3 = (steps 1 + L_T) + t2; L_T = 0 because no aggregate accumulator is admitted",
+      "ct1": "bounded loop, sub-node t3 = (steps 1 + L_T) + t2; L_T is one aggregate.transfer row for an aggregate accumulator, nothing otherwise",
       "steps": "1",
       "calls": "0",
       "iterations": "0"
