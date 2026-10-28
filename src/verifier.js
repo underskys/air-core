@@ -5034,7 +5034,7 @@ function verifyV053TypedModule(mod) {
   }
   for (const fn of mod.functions || []) {
     const ctx = { declarations, fn, functions, moduleName: mod.name, names: new Set(), states, tables };
-    const scope = { locals: new Map(), staticValues: new Map() };
+    const scope = { locals: new Map(), memory: new Map(), regions: new Map(), staticValues: new Map() };
     // P7-R10: a state name in an exported signature is a state handle.
     const handle = fn && fn.exported ? [...(fn.params || []).map((parameter) => parameter && parameter.type), fn.returnType].find((type) => typeof type === "string" && states.has(type.trim())) : undefined;
     if (handle !== undefined) {
@@ -5044,11 +5044,15 @@ function verifyV053TypedModule(mod) {
     for (const parameter of fn.params || []) {
       if (!parameter || typeof parameter.name !== "string" || ctx.names.has(parameter.name)) throw new VerificationError(`air.v051.parameter_duplicate: '${fn.name}'`, fn.loc);
       ctx.names.add(parameter.name);
-      signature.push(verifyV053TypedType(parameter.type, declarations, fn.loc));
+      const type = verifyV053TypedType(parameter.type, declarations, fn.loc);
+      signature.push(type);
       scope.locals.set(parameter.name, parameter.type);
+      if (type.kind === "memory") scope.memory.set(parameter.name, v053ParameterMemory(type));
     }
     // OPEN-17 (a): `-> void` is admitted (P0-04); its body ends with a bare return.
     ctx.returnType = verifyV053TypedType(fn.returnType, declarations, fn.loc, true);
+    // P0-08 (P8-R12): memory types at the export boundary and as results.
+    verifyV053MemorySignature(fn, signature, ctx.returnType);
     // P6-R10: an aggregate is internal. Checked once every type of the
     // signature is valid, at the `export func` line.
     const exportedAggregate = fn.exported ? [...signature, ctx.returnType].find(isV053AggregateKind) : undefined;
@@ -5176,7 +5180,17 @@ function verifyV053Statement(statement, ctx, scope, yieldType) {
     declareV053Local(statement.name, ctx, scope, loc);
     const declared = verifyV053TypedType(statement.type, ctx.declarations, loc);
     let staticValue;
-    if (statement.value && typeof statement.value === "object" && statement.value.kind === "fold") {
+    const memoryValue = Boolean(statement.value) && typeof statement.value === "object" && statement.value.kind === "memory_operation";
+    // P0-08 (P8-R1, P8-R12; AD-6): a memory local is bound only by the
+    // statement that produces it; a memory-typed copy, call result or fold
+    // accumulator is not admitted at P0-08.
+    if (declared.kind === "memory" && !memoryValue) {
+      throw v053ViewEscape(`'%${statement.name}: ${declared.canonical}' is not bound by a memory statement; a memory-typed copy, call result or fold accumulator is not admitted at P0-08`, loc);
+    }
+    if (memoryValue) {
+      const info = verifyV053MemoryOperation(statement, declared, ctx, scope, loc);
+      if (info) scope.memory.set(statement.name, info);
+    } else if (statement.value && typeof statement.value === "object" && statement.value.kind === "fold") {
       verifyV053Fold(statement.value, ctx, scope, loc, declared);
     } else if (statement.value && typeof statement.value === "object" && statement.value.kind === "call") {
       verifyV053Call(statement.value, ctx, scope, loc, declared);
@@ -5187,6 +5201,8 @@ function verifyV053Statement(statement, ctx, scope, yieldType) {
     }
     scope.locals.set(statement.name, statement.type);
     if (staticValue !== undefined) scope.staticValues.set(statement.name, staticValue);
+  } else if (statement && statement.kind === "memory") {
+    verifyV053MemoryOperation(statement, null, ctx, scope, loc);
   } else if (statement && statement.kind === "state_set") {
     if (!statement.value || typeof statement.value !== "object" || !String(statement.value.op || "").startsWith("state.")) {
       throw new VerificationError("air.state.op_invalid: a statement without a result binding is state.set <s>, <index>, <value>", loc);
@@ -5196,17 +5212,26 @@ function verifyV053Statement(statement, ctx, scope, yieldType) {
     verifyV053Call(statement.value, ctx, scope, loc, null);
   } else if (statement && statement.kind === "match") {
     declareV053Local(statement.destination, ctx, scope, loc);
-    verifyV053TypedMatch(statement, ctx, scope);
+    if (verifyV053TypedType(statement.destinationType, ctx.declarations, loc).kind === "memory") {
+      throw v053ViewEscape(`the match destination '%${statement.destination}' has a memory type; a memory-typed block result is not admitted at P0-08`, loc);
+    }
+    const branches = [];
+    verifyV053TypedMatch(statement, ctx, scope, branches);
+    joinV053Regions(scope.regions, branches);
     scope.locals.set(statement.destination, statement.destinationType);
   } else if (statement && statement.kind === "if") {
     declareV053Local(statement.destination, ctx, scope, loc);
     const destination = verifyV053TypedType(statement.destinationType, ctx.declarations, loc);
+    if (destination.kind === "memory") {
+      throw v053ViewEscape(`the if destination '%${statement.destination}' has a memory type; a memory-typed block result is not admitted at P0-08`, loc);
+    }
     // P4-R9: the condition is a `bool` atom.
     verifyV053TypedAtom(statement.condition, verifyV053TypedType("bool", ctx.declarations, loc), scope.locals, ctx.declarations, loc);
     if (!Array.isArray(statement.blocks) || statement.blocks.length !== 2) {
       throw new VerificationError("air.control.yield_missing: a value if needs a then-block and an else-block", loc);
     }
-    for (const block of statement.blocks) verifyV053Block(block, destination, ctx, scope, null, loc);
+    const branches = statement.blocks.map((block) => verifyV053Block(block, destination, ctx, scope, null, loc).regions);
+    joinV053Regions(scope.regions, branches);
     scope.locals.set(statement.destination, statement.destinationType);
   } else if (statement && statement.kind === "yield") {
     if (!yieldType) throw new VerificationError("air.v051.typed_syntax_invalid: yield outside a block", loc);
@@ -5225,7 +5250,12 @@ function verifyV053Block(block, destination, ctx, outer, binding, loc) {
   const statements = block && Array.isArray(block.statements) ? block.statements : [];
   const last = statements[statements.length - 1];
   if (!last || last.kind !== "yield") throw new VerificationError("air.control.yield_missing: a block must end with yield", loc);
-  const scope = { locals: new Map(outer.locals), staticValues: new Map(outer.staticValues) };
+  const scope = {
+    locals: new Map(outer.locals),
+    memory: new Map(outer.memory || []),
+    regions: new Map(outer.regions || []),
+    staticValues: new Map(outer.staticValues)
+  };
   if (binding) scope.locals.set(binding.name, binding.type);
   statements.forEach((statement, index) => {
     if (statement.kind === "yield" && index !== statements.length - 1) {
@@ -5233,6 +5263,7 @@ function verifyV053Block(block, destination, ctx, outer, binding, loc) {
     }
     verifyV053Statement(statement, ctx, scope, destination);
   });
+  return scope;
 }
 
 // P4-R11: a local name is unique within its function across all blocks.
@@ -5243,6 +5274,8 @@ function declareV053Local(name, ctx, scope, loc) {
 
 function verifyV053Return(statement, ctx, scope) {
   const loc = statement.loc;
+  // P0-08 (P8-R9): no region is live or possibly live at the return.
+  verifyV053NoLeak(scope, loc);
   // P4-R12: a return that does not match the declared result type.
   if (ctx.returnType.canonical === "void") {
     if (statement.value !== "" && statement.value !== undefined) throw new VerificationError("air.v051.return_type_mismatch: void return must not contain a value", loc);
@@ -5271,6 +5304,12 @@ function verifyV053Call(value, ctx, scope, loc, destination) {
   args.forEach((argument, index) => {
     if (typeof argument !== "string") throw new VerificationError("air.v051.typed_atom_invalid: expected a typed atom", loc);
     const parameter = verifyV053TypedType(params[index].type, ctx.declarations, loc);
+    // P0-08 (P8-R12): a memory value passed to a local call.
+    if (parameter.kind === "memory" || (scope.memory && scope.memory.has(argument.trim().slice(1)))) {
+      if (parameter.kind !== "memory") throw new VerificationError(`air.v051.typed_atom_type_mismatch: argument ${index} of @${callee.name} is a memory value, not ${parameter.canonical}`, loc);
+      verifyV053MemoryArgument(argument, parameter, ctx, scope, loc, callee.name, index);
+      return;
+    }
     verifyV053TypedExpression(argument, parameter, scope.locals, ctx.declarations, loc, scope.staticValues);
   });
   if (!destination) {
@@ -5307,6 +5346,16 @@ function v053LaneCapError(canonical, lanes, loc) {
 function resolveV053Type(typeName, declarations, loc, allowVoid, element) {
   const text = String(typeName || "").trim();
   const v053 = parserModule.typedV053;
+  // P0-08 (P8-R1, P8-R12): a memory type is internal; as a struct field, an
+  // array element or an option/result payload it is an escape.
+  const memory = v053MemoryKind(text);
+  if (memory) {
+    if (element) throw v053ViewEscape(`'${text}' is a memory type; a struct field or an array element never holds one`, loc);
+    return { canonical: text, kind: "memory", memory };
+  }
+  if (/^(?:option|result)\s*</.test(text) && V053_NESTED_MEMORY.test(text)) {
+    throw v053ViewEscape(`'${text}' carries a memory type as a payload; an option or result never holds one`, loc);
+  }
   if (text.startsWith("array<")) {
     const parts = v053.arrayParts(text);
     if (!parts || /\s/.test(text) || !/^[1-9][0-9]*$/.test(parts.count) || BigInt(parts.count) > BigInt(v053.AGGREGATE_MAX)) {
@@ -5626,6 +5675,348 @@ const V053_CONSTRUCTOR_PAYLOAD = /^(?:option\.some|result\.(?:ok|err))<.+>\s+%([
 // entry point, statically proven or runtime-checked (R-REF-3). A constructor
 // payload slot is plain, so a refined payload reference widens into it.
 // Everything else keeps the typed-v0.51 atom rule and its codes.
+// ---------------------------------------------------------------------------
+// P0-08 (slice text P8-R1..P8-R16; docs/v0.53/TYPED_MEMORY.md): regions,
+// views, buffers and borrowed views. A memory local's facts live in
+// `scope.memory` (name -> { kind, region, ... }); a region is its
+// `alloc_region` statement's record, whose state in `scope.regions` is
+// "live", "dead" or "maybe" (possibly live after a branch). Each
+// `alloc_region` statement's maximum (P8-R7) is kept for the WorkBound phase
+// and the lowering in a side table keyed by the statement, so verification
+// attaches nothing to the AST.
+const V053_REGION_MAX = 16777216n;
+const V053_MEMORY_SITES = new WeakMap();
+const V053_NESTED_MEMORY = /(?:^|[<,])(?:ptr|slice|buffer<|borrowed_slice<)/;
+const V053_MEMORY_ARITY = Object.freeze({
+  alloc_region: 1, "buffer.from_ptr": 1, "buffer.load": 2, "buffer.store": 3, free_region: 1, "load.f32": 2, "load.i32": 2,
+  "slice.from_region": 2, "slice.len": 1, "slice.literal": 0, "slice.load.f32": 2, "slice.load.i32": 2, "slice.store.f32": 3,
+  "slice.store.i32": 3, "slice.sub": 3, "store.f32": 3, "store.i32": 3
+});
+const V053_MEMORY_UNBOUND = new Set(["buffer.store", "free_region", "slice.store.f32", "slice.store.i32", "store.f32", "store.i32"]);
+
+function v053MemoryKind(text) {
+  const type = String(text || "").trim();
+  if (type === "ptr") return { kind: "ptr" };
+  if (type === "slice") return { kind: "slice" };
+  const buffer = /^buffer<(i32|f32),([1-9][0-9]*)>$/.exec(type);
+  if (buffer) return { count: BigInt(buffer[2]), element: buffer[1], kind: "buffer" };
+  if (/^borrowed_slice</.test(type)) return { borrow: parseBorrowedSliceType(type).borrow, kind: "borrowed" };
+  return null;
+}
+
+function v053ViewEscape(detail, loc) {
+  return new VerificationError(`air.memory.view_escape: ${detail}`, loc);
+}
+
+function v053MemorySite(statement) {
+  return V053_MEMORY_SITES.get(statement);
+}
+
+// P8-R12: where a memory type may not stand in a signature.
+function verifyV053MemorySignature(fn, signature, returnType) {
+  // P8-R15: the typed-memory-v1 marker's export name is reserved, as the
+  // legacy lane reserves the v1 marker's (assertWasmTargetSupport).
+  if (fn.exported && fn.name === "__air_abi_feature_typed_memory_v1") {
+    throw new VerificationError(`air.abi.borrowed_slice_interface_mismatch: export '${fn.name}' is reserved for the AIR ABI typed-memory-v1 feature marker`, fn.loc);
+  }
+  if (fn.exported) {
+    const parameter = signature.find((type) => type.kind === "memory" && type.memory.kind !== "borrowed");
+    if (parameter) {
+      throw new VerificationError(`air.abi.export_type_unsupported: export '${fn.name}' takes ${parameter.canonical}; region pointers, views and buffers are internal and never cross the AIR ABI`, fn.loc);
+    }
+  }
+  if (returnType.kind !== "memory") return;
+  if (returnType.memory.kind === "borrowed") {
+    throw new VerificationError(`air.borrow.escape_return: '${fn.name}' returns a borrowed slice; a borrowed view never outlives its invocation`, fn.loc);
+  }
+  if (fn.exported && returnType.memory.kind === "slice") {
+    throw new VerificationError(`air.abi.slice_return_unsupported: export '${fn.name}' returns a slice; a view never crosses the AIR ABI`, fn.loc);
+  }
+  if (fn.exported) {
+    throw new VerificationError(`air.abi.export_type_unsupported: export '${fn.name}' returns ${returnType.canonical}; region pointers and buffers are internal and never cross the AIR ABI`, fn.loc);
+  }
+  throw v053ViewEscape(`'${fn.name}' returns ${returnType.canonical}; a function never returns a memory value`, fn.loc);
+}
+
+function v053ParameterMemory(type) {
+  const memory = type.memory;
+  if (memory.kind === "ptr") return { ext: undefined, kind: "ptr", region: null };
+  if (memory.kind === "slice") return { kind: "slice", len: undefined, readonly: false, region: null };
+  if (memory.kind === "buffer") return { count: memory.count, element: memory.element, kind: "buffer", region: null };
+  return { borrow: memory.borrow, kind: "borrowed", region: null };
+}
+
+// P8-R9: after an `if` or a `match`, a region is live if it is live at the end
+// of every branch, dead if it is dead (or not allocated) on every branch, and
+// possibly live otherwise.
+function joinV053Regions(outer, branches) {
+  const records = new Set();
+  for (const branch of branches) for (const record of branch.keys()) records.add(record);
+  for (const record of records) {
+    const states = branches.map((branch) => branch.get(record) || "dead");
+    outer.set(record, states.every((state) => state === "live") ? "live" : states.every((state) => state === "dead") ? "dead" : "maybe");
+  }
+}
+
+// P8-R9: a return reached while a region is live or possibly live.
+function verifyV053NoLeak(scope, loc) {
+  for (const [record, state] of scope.regions || []) {
+    if (state !== "dead") {
+      throw new VerificationError(`air.memory.region_leak: the region of '%${record.name}' is ${state === "live" ? "live" : "possibly live"} at this return; free it on every path`, loc);
+    }
+  }
+}
+
+// P8-R12 (call rules): a memory value passed to a local call. The callee's
+// parameter takes it for the call only. A read-only view never binds a
+// `slice` parameter (P8-R3: a view derived from a read-only view stays
+// read-only, and the callee could store through it).
+function verifyV053MemoryArgument(argument, parameter, ctx, scope, loc, callee, index) {
+  const text = String(argument || "").trim();
+  const name = /^%[A-Za-z_][A-Za-z0-9_]*$/.test(text) ? text.slice(1) : null;
+  const info = name ? scope.memory.get(name) : undefined;
+  if (name && !scope.locals.has(name)) throw new VerificationError(`air.v051.local_unknown: '${text}'`, loc);
+  const expected = parameter.memory;
+  if (expected.kind === "borrowed" || (info && info.kind === "borrowed")) {
+    if (!info || info.kind !== "borrowed" || expected.kind !== "borrowed" || !borrowedArgumentCompatible(expected.borrow, info.borrow)) {
+      throw new VerificationError(`air.borrow.call_mismatch: argument ${index} for @${callee} is not compatible with ${parameter.canonical}`, loc);
+    }
+    return;
+  }
+  if (!info || info.kind !== expected.kind || (expected.kind === "buffer" && scope.locals.get(name) !== parameter.canonical)) {
+    throw new VerificationError(`air.v051.typed_atom_type_mismatch: argument ${index} of @${callee} must be ${parameter.canonical}`, loc);
+  }
+  verifyV053RegionLive(info, scope, loc);
+  if (info.kind === "slice" && info.readonly) {
+    throw new VerificationError(`air.memory.readonly_data: argument ${index} of @${callee} is a read-only view; a slice parameter may be stored through`, loc);
+  }
+}
+
+function verifyV053RegionLive(info, scope, loc) {
+  if (info.region && scope.regions.get(info.region) !== "live") {
+    throw new VerificationError(`air.memory.region_not_live: the region of '%${info.region.name}' is ${scope.regions.get(info.region) === "maybe" ? "possibly freed" : "freed"} here`, loc);
+  }
+}
+
+// P8-R2..P8-R11, P8-R16: one memory statement. `declared` is the bound
+// local's resolved type, or null for an unbound statement. Returns the bound
+// memory local's facts, or null.
+function verifyV053MemoryOperation(statement, declared, ctx, scope, loc) {
+  const value = statement.value;
+  const op = value.op;
+  const args = Array.isArray(value.args) ? value.args : [];
+  const invalid = (detail) => new VerificationError(`air.numeric.operation_invalid: '${op}' ${detail}`, loc);
+  if (!Object.prototype.hasOwnProperty.call(V053_MEMORY_ARITY, op)) {
+    throw invalid("is not a typed-v0.53 memory operation; memory accesses are i32 and f32 (P8-R1)");
+  }
+  if (declared && V053_MEMORY_UNBOUND.has(op)) throw invalid("has no result; it is written without a binding");
+  if (!declared && !V053_MEMORY_UNBOUND.has(op)) throw new VerificationError(`air.v051.typed_syntax_invalid: '${op}' needs a result binding`, loc);
+  if (args.length !== V053_MEMORY_ARITY[op] || (value.max !== undefined && op !== "alloc_region")) {
+    throw invalid(`takes ${V053_MEMORY_ARITY[op]} operand(s), not ${args.length}`);
+  }
+  const i32 = verifyV053TypedType("i32", ctx.declarations, loc);
+  const operand = (text, kinds) => {
+    const atom = String(text || "").trim();
+    if (!/^%[A-Za-z_][A-Za-z0-9_]*$/.test(atom)) throw new VerificationError(`air.v051.typed_atom_invalid: '${atom}' is not a ${kinds.join(" or ")} local`, loc);
+    const name = atom.slice(1);
+    if (!scope.locals.has(name)) throw new VerificationError(`air.v051.local_unknown: '${atom}'`, loc);
+    const info = scope.memory.get(name);
+    if (!info || !kinds.includes(info.kind)) {
+      throw new VerificationError(`air.v051.typed_atom_type_mismatch: '${atom}' is ${scope.locals.get(name)}, not a ${kinds.join(" or ")}`, loc);
+    }
+    return info;
+  };
+  const integer = (text) => {
+    verifyV053TypedAtom(text, i32, scope.locals, ctx.declarations, loc);
+    return v053StaticInteger(text, scope.staticValues, ctx.declarations);
+  };
+  const staticFail = (detail, message) => {
+    const error = new VerificationError(`air.memory.region_bounds_static: ${message}`, loc);
+    error.detail = detail;
+    return error;
+  };
+  const destination = (kind, text) => {
+    if (!declared || declared.kind !== "memory" || declared.memory.kind !== kind) {
+      throw new VerificationError(`air.v051.typed_atom_type_mismatch: '${op}' yields ${text}, not ${declared ? declared.canonical : "nothing"}`, loc);
+    }
+  };
+  const scalarResult = (type) => {
+    const admitted = type === "i32" ? V053_I32_FAMILY.test(declared.canonical) : declared.canonical === type;
+    if (declared.kind === "memory" || !admitted) {
+      throw new VerificationError(`air.v051.typed_atom_type_mismatch: '${op}' yields ${type}, not ${declared.canonical}`, loc);
+    }
+  };
+  const storedValue = (text, type) => verifyV053TypedAtom(text, verifyV053TypedType(type, ctx.declarations, loc), scope.locals, ctx.declarations, loc);
+  // P8-R5: lower bounds in operand order, then extents; `w` the access width.
+  const accessChecks = (offset, extent, what) => {
+    if (offset !== undefined && offset < 0n) throw staticFail("lower_bound", `offset ${offset} is negative`);
+    if (extent !== undefined && extent < 4n) throw staticFail("extent", `${what} of ${extent} byte(s) holds no 4-byte value`);
+    if (offset !== undefined && extent !== undefined && offset > extent - 4n) throw staticFail("extent", `offset ${offset} plus 4 bytes passes the ${extent}-byte ${what}`);
+  };
+
+  if (op === "slice.literal") {
+    destination("slice", "a read-only slice");
+    return { kind: "slice", len: BigInt(Buffer.byteLength(value.text, "utf8")), readonly: true, region: null };
+  }
+  if (op === "alloc_region") {
+    destination("ptr", "a region pointer");
+    const size = integer(args[0]);
+    let max = null;
+    let failure = null;
+    if (size !== undefined) {
+      if (size < 0n) throw staticFail("lower_bound", `region size ${size} is negative`);
+      if (size > V053_REGION_MAX) throw new VerificationError(`air.memory.region_size_unsupported: region size ${size} exceeds REGION_MAX ${V053_REGION_MAX}`, loc);
+      max = size;
+    } else if (value.max !== undefined) {
+      if (/^(0|[1-9][0-9]*)$/.test(String(value.max))) {
+        max = BigInt(value.max);
+        if (max > V053_REGION_MAX) throw new VerificationError(`air.memory.region_size_unsupported: region maximum ${max} exceeds REGION_MAX ${V053_REGION_MAX}`, loc);
+      } else {
+        failure = "invalid_bound";
+      }
+    } else {
+      const refined = parseRefinementType(String(scope.locals.get(String(args[0]).trim().slice(1)) || ""), loc);
+      if (refined && refined.base === "i32") {
+        const upper = BigInt(refined.refinement.max);
+        if (upper < 0n) throw staticFail("lower_bound", `every value of ${refined.canonical || "the size"} is negative`);
+        if (upper > V053_REGION_MAX) throw new VerificationError(`air.memory.region_size_unsupported: region size up to ${upper} exceeds REGION_MAX ${V053_REGION_MAX}`, loc);
+        max = upper;
+      } else {
+        failure = "unknown_bound";
+      }
+    }
+    V053_MEMORY_SITES.set(statement, Object.freeze({ failure, max, maxText: value.max === undefined ? null : String(value.max) }));
+    const record = Object.freeze({ name: statement.name, site: statement });
+    scope.regions.set(record, "live");
+    return { ext: size, kind: "ptr", region: record };
+  }
+  if (op === "free_region") {
+    const info = operand(args[0], ["ptr", "borrowed", "slice", "buffer"]);
+    if (info.kind === "borrowed") throw new VerificationError("air.borrow.free_forbidden: a borrowed slice is host memory; AIR never frees it", loc);
+    if (info.kind !== "ptr") throw new VerificationError(`air.v051.typed_atom_type_mismatch: free_region takes a region pointer, not ${scope.locals.get(String(args[0]).trim().slice(1))}`, loc);
+    if (!info.region) throw new VerificationError(`air.memory.free_not_owner: '${String(args[0]).trim()}' is a parameter; only the allocating function frees a region`, loc);
+    verifyV053RegionLive(info, scope, loc);
+    scope.regions.set(info.region, "dead");
+    return null;
+  }
+  const access = /^(slice\.)?(load|store)\.(i32|f32)$/.exec(op);
+  if (access && !access[1]) {
+    const info = operand(args[0], ["ptr"]);
+    verifyV053RegionLive(info, scope, loc);
+    const offset = integer(args[1]);
+    if (access[2] === "store") storedValue(args[2], access[3]);
+    accessChecks(offset, info.ext, "region");
+    if (access[2] === "load") scalarResult(access[3]);
+    return null;
+  }
+  if (access) {
+    const info = operand(args[0], ["slice", "borrowed"]);
+    verifyV053RegionLive(info, scope, loc);
+    if (access[2] === "store" && info.kind === "slice" && info.readonly) {
+      throw new VerificationError(`air.memory.readonly_data: '${String(args[0]).trim()}' is a read-only view of literal data`, loc);
+    }
+    const offset = integer(args[1]);
+    if (access[2] === "store") storedValue(args[2], access[3]);
+    if (info.kind === "borrowed") {
+      verifyV053BorrowedAccess(info.borrow, access[2] === "load" ? "read" : "write", 4, offset, op, loc);
+    } else {
+      accessChecks(offset, info.len, "view");
+    }
+    if (access[2] === "load") scalarResult(access[3]);
+    return null;
+  }
+  if (op === "slice.from_region") {
+    destination("slice", "a slice");
+    const info = operand(args[0], ["ptr"]);
+    verifyV053RegionLive(info, scope, loc);
+    const length = integer(args[1]);
+    if (length !== undefined && length < 0n) throw staticFail("lower_bound", `view length ${length} is negative`);
+    if (length !== undefined && info.ext !== undefined && length > info.ext) throw staticFail("extent", `view length ${length} passes the ${info.ext}-byte region`);
+    return { kind: "slice", len: length, readonly: false, region: info.region };
+  }
+  if (op === "slice.sub") {
+    const info = operand(args[0], ["slice", "borrowed"]);
+    verifyV053RegionLive(info, scope, loc);
+    const offset = integer(args[1]);
+    const length = integer(args[2]);
+    if (info.kind === "borrowed") {
+      if (!declared || declared.kind !== "memory" || declared.memory.kind !== "borrowed") {
+        throw new VerificationError("air.borrow.reinterpret_forbidden: slice.sub of a borrowed slice must preserve an explicit borrowed_slice type", loc);
+      }
+      verifyV053BorrowedSubslice(info.borrow, declared.memory.borrow, offset, length, scope, args[2], loc);
+      return { borrow: declared.memory.borrow, kind: "borrowed", region: null };
+    }
+    destination("slice", "a slice");
+    if (offset !== undefined && offset < 0n) throw staticFail("lower_bound", `sub-view offset ${offset} is negative`);
+    if (length !== undefined && length < 0n) throw staticFail("lower_bound", `sub-view length ${length} is negative`);
+    if (length !== undefined && info.len !== undefined && length > info.len) throw staticFail("extent", `sub-view length ${length} passes the ${info.len}-byte view`);
+    if (offset !== undefined && length !== undefined && info.len !== undefined && offset > info.len - length) {
+      throw staticFail("extent", `sub-view [${offset}, ${offset + length}) passes the ${info.len}-byte view`);
+    }
+    return { kind: "slice", len: length, readonly: info.readonly, region: info.region };
+  }
+  if (op === "slice.len") {
+    const info = operand(args[0], ["slice", "borrowed"]);
+    verifyV053RegionLive(info, scope, loc);
+    scalarResult("i32");
+    return null;
+  }
+  if (op === "buffer.from_ptr") {
+    destination("buffer", "a buffer");
+    const info = operand(args[0], ["ptr"]);
+    verifyV053RegionLive(info, scope, loc);
+    const bytes = declared.memory.count * 4n;
+    if (info.ext !== undefined && bytes > info.ext) throw staticFail("extent", `${declared.canonical} needs ${bytes} bytes; the region has ${info.ext}`);
+    return { count: declared.memory.count, element: declared.memory.element, kind: "buffer", region: info.region };
+  }
+  // buffer.load, buffer.store
+  const info = operand(args[0], ["buffer"]);
+  verifyV053RegionLive(info, scope, loc);
+  const index = integer(args[1]);
+  if (op === "buffer.store") storedValue(args[2], info.element);
+  if (index !== undefined && index < 0n) throw staticFail("lower_bound", `element index ${index} is negative`);
+  if (index !== undefined && index >= info.count) throw staticFail("extent", `element index ${index} passes the ${info.count}-element buffer`);
+  if (op === "buffer.load") scalarResult(info.element);
+  return null;
+}
+
+// P8-R13: the frozen borrowed access rules (v0.50 validateBorrowedAccess).
+function verifyV053BorrowedAccess(borrow, operation, width, offset, op, loc) {
+  if (!borrowedAccessAllows(borrow.access, operation)) {
+    throw new VerificationError(`air.borrow.mode_violation: ${borrow.access} borrowed slice does not permit ${operation} access`, loc);
+  }
+  if (width > borrow.alignment) {
+    throw new VerificationError(`air.borrow.alignment_invalid: ${op} requires ${width}-byte alignment, but the borrowed slice declares ${borrow.alignment}`, loc);
+  }
+  if (offset !== undefined && (offset < 0n || offset > 2147483647n - BigInt(width) || offset + BigInt(width) > BigInt(borrow.length.max))) {
+    throw new VerificationError(`air.borrow.length_invalid: ${op} offset ${offset} and width ${width} cannot fit maximum ${borrow.length.max}`, loc);
+  }
+  if (offset !== undefined && offset % BigInt(width) !== 0n) {
+    throw new VerificationError(`air.borrow.alignment_invalid: ${op} offset ${offset} is not aligned to ${width} bytes`, loc);
+  }
+}
+
+// P8-R13: the frozen borrowed sub-view rules (v0.50 validateBorrowedSubslice).
+function verifyV053BorrowedSubslice(parent, child, offset, length, scope, lengthText, loc) {
+  if (parent.access !== child.access) throw new VerificationError(`air.borrow.mode_violation: slice.sub must preserve ${parent.access} access mode`, loc);
+  if (child.length.max > parent.length.max) {
+    throw new VerificationError(`air.borrow.length_invalid: subslice maximum ${child.length.max} exceeds parent maximum ${parent.length.max}`, loc);
+  }
+  const refined = parseRefinementType(String(scope.locals.get(String(lengthText).trim().slice(1)) || ""), loc);
+  const requested = length !== undefined ? { max: length, min: length }
+    : refined && refined.base === "i32" ? { max: BigInt(refined.refinement.max), min: BigInt(refined.refinement.min) } : null;
+  if (requested && (requested.min < BigInt(child.length.min) || requested.max > BigInt(child.length.max))) {
+    throw new VerificationError(`air.borrow.length_invalid: slice.sub requested length does not fit declared range ${child.length.min}..${child.length.max}`, loc);
+  }
+  if (child.alignment !== parent.alignment) throw new VerificationError(`air.borrow.alignment_invalid: slice.sub must preserve declared alignment ${parent.alignment}`, loc);
+  if (offset !== undefined && length !== undefined && (offset < 0n || length < 0n || offset > 2147483647n - length || offset + length > BigInt(parent.length.max))) {
+    throw new VerificationError(`air.borrow.length_invalid: slice.sub offset ${offset} and length ${length} cannot fit parent maximum ${parent.length.max}`, loc);
+  }
+  if (offset !== undefined && offset % BigInt(parent.alignment) !== 0n) {
+    throw new VerificationError(`air.borrow.alignment_invalid: slice.sub offset ${offset} does not preserve ${parent.alignment}-byte alignment`, loc);
+  }
+}
+
 function verifyV053TypedAtom(value, expected, locals, declarations, loc) {
   if (typeof value !== "string" || !value.trim()) throw new VerificationError("air.v051.typed_atom_invalid: expected a typed atom", loc);
   const text = value.trim();
@@ -5753,7 +6144,7 @@ function evaluateV053Checked(signature, values, loc) {
   return result;
 }
 
-function verifyV053TypedMatch(statement, ctx, scope) {
+function verifyV053TypedMatch(statement, ctx, scope, branches = []) {
   const { declarations } = ctx;
   const { locals, staticValues } = scope;
   const typeName = locals.get(statement.value);
@@ -5794,8 +6185,10 @@ function verifyV053TypedMatch(statement, ctx, scope) {
     if (pattern.binding && locals.has(pattern.binding)) throw new VerificationError(`air.decision.match_binding_shadow: '${pattern.binding}'`, armLoc);
     if (arm.block) {
       // P0-04 (R-CFG-1, P4-R9): a block-bodied arm ends with its yield.
-      verifyV053Block(arm.block, destination, ctx, scope, pattern.binding ? { name: pattern.binding, type: pattern.bindingType } : null, armLoc);
+      const armScope = verifyV053Block(arm.block, destination, ctx, scope, pattern.binding ? { name: pattern.binding, type: pattern.bindingType } : null, armLoc);
+      branches.push(armScope.regions);
     } else {
+      branches.push(new Map(scope.regions || []));
       const armLocals = new Map(locals);
       if (pattern.binding) armLocals.set(pattern.binding, pattern.bindingType);
       // A match arm is P0-03's block-yield entry point (P3-R5): a statically
@@ -5835,5 +6228,7 @@ module.exports = {
 // part of the enumerable exports that the public index spreads.
 Object.defineProperty(module.exports, "typedV053", {
   enumerable: false,
-  value: Object.freeze({ verify: verifyV053TypedModule })
+  // P0-08: `memorySite(statement)` reads the maximum (P8-R7) the last
+  // verification recorded for an `alloc_region` statement.
+  value: Object.freeze({ memorySite: v053MemorySite, verify: verifyV053TypedModule })
 });

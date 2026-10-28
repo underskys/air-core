@@ -44,12 +44,12 @@ const OLD_ADAPTER_COMMITS = ["f258ed0df6da99785bacd706f9d5b04f42ba64c0", "7285a2
 const OLD_MAPPING_SHA256 = "sha256:8ebbd210ac2b25ebd8143586d79dbf40972c778051a46503f9e07383625ce502";
 // CT-1 was unchanged at P0-03 (OD-P3-4 (a); slice text §5.3): the P0-03 base commit still holds this blob.
 const CT1_P0_03_BASE_BLOB = "118511fe8df9aa039ee5d3ccbf6d28faec7ad881";
-// CT-1 now: revision P0-06-AGG-1 (P0-06 slice text R2 §5.2; OD-P6-1 (a)).
+// CT-1 now: revision P0-08-MEM-1 (P0-08 slice text §5; OD-P8-1 (a)).
 const CT1 = Object.freeze({
-  blob: "c3a2022be20bfa9511642dad2e82cc238fdffc65",
-  digest: "sha256:d8b341ea2358a787d699507a5dca9ce6cab0d58e3358d324df4c5ff8e469760e",
-  raw: "sha256:770315ade1bd192dfa65f50aca5458296ff702fae50cdc33b72e5b1b6bbfb5a4",
-  revision: "P0-06-AGG-1"
+  blob: "4a5c2055b761e223173cbe8fc225191854d0eec2",
+  digest: "sha256:e12c77da26fdf47dedde297ea79f3a0790580a1be0ee7031f936472f1cb56a53",
+  raw: "sha256:4f9b6ea3f84cd077e13c279a65f8862991b0d03cb5c8a3018de6f08880133c87",
+  revision: "P0-08-MEM-1"
 });
 // Slice text §4.4 A-1 (R-REF-9 as amended by AMD-P3-1).
 const ADAPTER_TABLE = Object.freeze({
@@ -66,7 +66,8 @@ const ADAPTER_TABLE = Object.freeze({
   48: { code: "air.decision.enum_discriminant_invalid" },
   49: { code: "air.decision.payload_tag_invalid" },
   50: { code: "air.decision.bool_lane_invalid" },
-  51: { code: "air.decision.payload_lane_noncanonical" }
+  51: { code: "air.decision.payload_lane_noncanonical" },
+  64: { code: "air.borrow.air_owned_memory_overlap" }
 });
 // R-DIAG-2: the SCALAR registry (docs/v0.53/SCALAR.md §6, accepted with SCALAR)
 // and the P0-03 additions (docs/v0.53/P0_03_REFINEMENTS.md §5, a dev-side note).

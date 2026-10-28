@@ -365,7 +365,7 @@ function formatV053Statements(statements, indent, locals, mod, out) {
     if (statement.kind === "local") {
       out.push(`${indent}%${statement.name}: ${statement.type} = ${formatV053Value(statement.value)}`);
       locals.set(statement.name, statement.type);
-    } else if (statement.kind === "call" || statement.kind === "state_set") {
+    } else if (statement.kind === "call" || statement.kind === "state_set" || statement.kind === "memory") {
       out.push(`${indent}${formatV053Value(statement.value)}`);
     } else if (statement.kind === "match") {
       out.push(`${indent}%${statement.destination}: ${statement.destinationType} = match %${statement.value} {`);
@@ -409,6 +409,13 @@ function formatV053Value(value) {
     // P6-R21: `op a1, a2, …`; an index literal is already normalized (`-0` is `0`).
     const op = value.field === undefined ? value.op : `${value.op}.${value.field}`;
     return value.args.length ? `${op} ${value.args.join(", ")}` : op;
+  }
+  if (value && value.kind === "memory_operation") {
+    // P8-R25: the P8-R2 spelling, operands separated by `, ` (an index or
+    // offset `-0` is already `0`); a literal view prints its JSON string.
+    if (value.op === "slice.literal") return JSON.stringify(value.text);
+    if (value.max !== undefined) return `${value.op} ${value.args[0]} max ${value.max}`;
+    return value.args.length ? `${value.op} ${value.args.join(", ")}` : value.op;
   }
   return formatV051TypedValue(value);
 }

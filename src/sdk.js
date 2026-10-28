@@ -35,7 +35,8 @@ const {
 const {
   invokeBorrowedMemory,
   prepareBorrowedMemoryInvocation,
-  registerBorrowedMemoryInstanceIdentity
+  registerBorrowedMemoryInstanceIdentity,
+  typedV053: typedBorrowedAdmission
 } = require("./borrowed_memory_binding");
 const { borrowedSliceInterfaceDescriptor } = require("./borrowed_slices");
 
@@ -109,6 +110,16 @@ function loadPackage(packageDir) {
     manifestPath,
     manifest
   };
+}
+
+// P0-08 (slice text P8-R15; ABI-7; R-ABI53-3, -3a): the public admission of a
+// typed-v0.53 borrowed-lane artifact for direct-export hosts. It takes the
+// artifact bytes and a trust root (`record`: the verified build object, T1;
+// or `pinnedDigest`, T2), and resolves to a handle whose `instantiate()` runs
+// the admission steps for one invocation. instantiateAirModule never admits a
+// typed-v0.53 artifact (it does not supply the contract import).
+function admitTypedV053Artifact(options) {
+  return typedBorrowedAdmission.admitTypedV053Artifact(options);
 }
 
 async function instantiateAirModule(options) {
@@ -2951,6 +2962,7 @@ module.exports = {
   run,
   verifyPackageDir,
   instantiateAirModule,
+  admitTypedV053Artifact,
   borrowedSliceInterfaceDescriptor,
   invokeBorrowedMemory,
   prepareBorrowedMemoryInvocation,

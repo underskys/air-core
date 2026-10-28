@@ -46,6 +46,23 @@ const FAILURE_CODES = Object.freeze({
   unexpected_runtime_error: 6
 });
 
+// R-ABI53-9 (P0-08 slice text P8-R15): a typed-v0.53 package, whose Wasm
+// imports the AIR contract (read through WebAssembly.Module.imports), is
+// refused before the package is checked, parsed or instantiated. Bytes that do
+// not compile are left to the package checks.
+function refuseTypedContractPackage(base, metadata) {
+  if (typeof metadata.wasm !== "string") return;
+  let imports;
+  try {
+    imports = WebAssembly.Module.imports(new WebAssembly.Module(fs.readFileSync(path.join(base, metadata.wasm))));
+  } catch (_) {
+    return;
+  }
+  if (imports.some((item) => item.module === "air:contract")) {
+    sessionFail("air.assurance.profile_unsupported", "createVerifiedExecutionSession does not support a typed-v0.53 package (its Wasm imports the AIR contract)");
+  }
+}
+
 class VerifiedExecutionSessionError extends Error {
   constructor(code, message, compactCode = FAILURE_CODES.configuration_changed) {
     super(`${code}: ${message}`);
@@ -71,6 +88,7 @@ async function createVerifiedExecutionSession(options) {
   const base = path.resolve(requireString(options.packageDir, "options.packageDir"));
   const packageManifest = validatePackageManifest(base, { built: true });
   const metadata = normalizePackageMetadata(packageManifest);
+  refuseTypedContractPackage(base, metadata);
   if (!metadata.executionProfile || metadata.executionProfile.mode !== "realtime_safe") {
     sessionFail("air.realtime.profile_missing", "package must declare executionProfile.mode realtime_safe");
   }

@@ -4,6 +4,7 @@ const { applyUseBundles } = require("./bundles");
 const { resolveSourceImports } = require("./imports");
 const { parseV051Contract } = require("./v051_reference");
 const { parseTypeReference } = require("./typed_interface");
+const { parseBorrowedSliceType } = require("./borrowed_slices");
 
 function parseAir(source, file = "<input>", options = {}) {
   const lines = source.split(/\r?\n/);
@@ -1255,6 +1256,13 @@ function rejectV053RefinementForm(text, loc) {
 function parseV053TypedType(value, moduleId, allowVoid, loc) {
   const text = String(value || "").trim();
   guardV053TypeNesting(text, loc);
+  // P0-08 (slice text P8-R1): the four memory types are internal and read
+  // here, never through the AIR ABI 0.12 candidate grammar (R-TYPE-4). A
+  // memory type inside an `option`, `result` or `array` keeps its text; the
+  // verifier refuses that position as an escape (P8-R12) at its line.
+  const memory = v053MemoryType(text, loc);
+  if (memory !== null) return memory;
+  if (V053_NESTED_MEMORY.test(text) && /^(?:option|result|array)\s*</.test(text)) return text.replace(/\s+/g, "");
   // P0-06 (P6-R7, P6-R10): `array<T,N>` is read here, before the base
   // grammar, which has no array; an array inside `option` or `result` is an
   // aggregate payload. A struct name canonicalizes as an enum name does.
@@ -1264,6 +1272,28 @@ function parseV053TypedType(value, moduleId, allowVoid, loc) {
   }
   rejectV053RefinementForm(text, loc);
   return withV053Location(() => parseV051TypedType(text, moduleId, allowVoid, loc), loc);
+}
+
+// P0-08 (slice text P8-R1): `ptr`, `slice`, `buffer<T,N>` with T i32 or f32
+// and 1 <= N <= 65536 written without whitespace, and the frozen v0.50
+// `borrowed_slice<ACCESS,len…,align=K>` spelling (§11.2), checked by the
+// borrowed-slice parser and kept as written without whitespace.
+const V053_NESTED_MEMORY = /(?:^|[<,\s])(?:ptr|slice|buffer\s*<|borrowed_slice\s*<)/;
+
+function v053MemoryType(text, loc) {
+  if (text === "ptr" || text === "slice") return text;
+  if (/^buffer\s*</.test(text)) {
+    const parts = /^buffer<([a-z0-9]+),([0-9]+)>$/.exec(text);
+    if (!parts || (parts[1] !== "i32" && parts[1] !== "f32") || !/^[1-9][0-9]*$/.test(parts[2]) || BigInt(parts[2]) > BigInt(V053_AGGREGATE_MAX)) {
+      throw new AirError(`air.v051.type_reference_invalid: '${text}' is not admitted; a buffer type is buffer<T,N> with T i32 or f32, 1 <= N <= ${V053_AGGREGATE_MAX}, and no whitespace`, loc);
+    }
+    return text;
+  }
+  if (/^borrowed_slice\b/.test(text)) {
+    parseBorrowedSliceType(text, loc);
+    return text.replace(/\s+/g, "");
+  }
+  return null;
 }
 
 // P0-06 (slice text P6-R7): the canonical text `array<T,N>` with no
@@ -1638,6 +1668,71 @@ function v053AggregateValue(text) {
   return value;
 }
 
+// P0-08 (slice text P8-R2, P8-R3): the memory statements. A bound operation
+// is a local's value object `{ kind: "memory_operation", op, args }`
+// (`alloc_region … max B` adds `max`, kept as literal text; a literal view is
+// `op: "slice.literal"` with its decoded `text`). `free_region`, `store.T`,
+// `slice.store.T` and `buffer.store` are the unbound statements
+// `{ kind: "memory", loc, value }`, admitted only with their operand count; any
+// other unbound form falls to the statement catch-all. Offsets, lengths, sizes
+// and indexes are normalized as an i32 index is (`-0` is `0`); the verifier
+// checks operations, counts, kinds and domains.
+const V053_MEMORY_FORM = /^(alloc_region|free_region|(?:slice\.load|slice\.store|load|store)\.[A-Za-z0-9_]+|slice\.(?:from_region|sub|len)|buffer\.(?:from_ptr|load|store))(?:\s+(\S.*))?$/;
+const V053_MEMORY_UNBOUND = Object.freeze({ "buffer.store": 3, free_region: 1, "slice.store.f32": 3, "slice.store.i32": 3, "store.f32": 3, "store.i32": 3 });
+
+function v053MemoryIndexPositions(op) {
+  if (op === "alloc_region") return [0];
+  if (op === "slice.sub") return [1, 2];
+  if (op === "slice.from_region" || op === "buffer.load" || op === "buffer.store" || /^(?:slice\.)?(?:load|store)\./.test(op)) return [1];
+  return [];
+}
+
+function v053MemoryValue(text, loc) {
+  if (text.startsWith("\"")) {
+    let decoded;
+    try { decoded = JSON.parse(text); } catch (_) { decoded = null; }
+    if (typeof decoded !== "string") throw v053SyntaxError(`a literal view is one JSON string, not '${text}'`, loc);
+    return { args: [], kind: "memory_operation", op: "slice.literal", text: decoded };
+  }
+  const form = text.match(V053_MEMORY_FORM);
+  if (!form) return null;
+  const rest = form[2] === undefined ? "" : form[2].trim();
+  const value = { args: [], kind: "memory_operation", op: form[1] };
+  const sized = form[1] === "alloc_region" ? /^(\S+)\s+max\s+(\S+)$/.exec(rest) : null;
+  if (sized) {
+    value.args = [sized[1]];
+    value.max = sized[2];
+  } else if (rest) {
+    value.args = splitComma(rest).map((argument) => argument.trim());
+  }
+  for (const index of v053MemoryIndexPositions(form[1])) {
+    if (value.args.length > index) value.args[index] = normalizeV053Literal(value.args[index], "i32");
+  }
+  return value;
+}
+
+// The declared type of every parameter and local of a function, blocks
+// included (names are unique per function, P4-R10). A block-bodied match
+// arm's block is in the statement's `blocks` too (P4-R17).
+function v053FunctionLocalTypes(fn) {
+  const types = new Map((fn.params || []).map((parameter) => [parameter.name, parameter.type]));
+  const stack = [fn.statements || []];
+  while (stack.length) {
+    for (const statement of stack.pop()) {
+      if (statement.kind === "local") types.set(statement.name, statement.type);
+      if (statement.kind === "if" || statement.kind === "match") types.set(statement.destination, statement.destinationType);
+      for (const block of statement.blocks || []) stack.push(block.statements || []);
+    }
+  }
+  return types;
+}
+
+function v053MemoryStatement(line, loc) {
+  const value = v053MemoryValue(line, loc);
+  if (!value || V053_MEMORY_UNBOUND[value.op] !== value.args.length || value.max !== undefined) return null;
+  return { kind: "memory", loc, value };
+}
+
 // P6-R4: tables are read-only. A statement whose operation is `table.set`,
 // bound or not, with any operands, is refused at its line.
 function v053RejectTableSet(line, loc) {
@@ -1766,6 +1861,7 @@ function parseV053TypedAir(source, file = "<input>") {
   const folds = [];
   const aggregates = [];
   const stateSets = [];
+  const memoryStores = [];
   // P7-R10: the names of `state` lines, collected without any check, so that
   // a state name in an exported signature is known before its line.
   const stateNames = new Set();
@@ -1961,6 +2057,13 @@ function parseV053TypedAir(source, file = "<input>") {
       stateSets.push(statement);
       continue;
     }
+    // P0-08 (P8-R2): the unbound memory statements.
+    const memoryStatement = /^"/.test(line) ? null : v053MemoryStatement(line, loc);
+    if (memoryStatement) {
+      frame.statements.push(memoryStatement);
+      memoryStores.push({ fn, statement: memoryStatement });
+      continue;
+    }
     // P4-R13: labels, br and br_if have no typed-v0.53 form.
     if (V053_LABEL_LINE.test(line) || V053_BRANCH_LINE.test(line)) throw v053UnstructuredError(line, loc);
     const yielded = line.match(/^yield\s+(.+)$/);
@@ -2035,6 +2138,13 @@ function parseV053TypedAir(source, file = "<input>") {
         folds.push(statement);
         continue;
       }
+      const memory = v053MemoryValue(valueText, loc);
+      if (memory) {
+        const statement = { kind: "local", loc, name: local[1], type, value: memory };
+        frame.statements.push(statement);
+        memoryStores.push({ fn, statement });
+        continue;
+      }
       const aggregate = v053AggregateValue(valueText) || v053StateValue(valueText);
       if (aggregate) {
         const statement = { kind: "local", loc, name: local[1], type, value: aggregate };
@@ -2043,7 +2153,10 @@ function parseV053TypedAir(source, file = "<input>") {
         continue;
       }
       const call = valueText.match(V053_CALL_FORM);
-      const statement = { kind: "local", loc, name: local[1], type, value: call ? v053CallValue(call) : normalizeV053Value(valueText, type, mod.name, loc) };
+      // P0-08 (P8-R12): a type that nests a memory type is an escape the
+      // verifier reports at this line; its value is kept as written.
+      const nested = typeof type === "string" && v053MemoryType(type, loc) === null && V053_NESTED_MEMORY.test(type);
+      const statement = { kind: "local", loc, name: local[1], type, value: call ? v053CallValue(call) : nested ? valueText : normalizeV053Value(valueText, type, mod.name, loc) };
       frame.statements.push(statement);
       if (call) calls.push(statement);
       continue;
@@ -2079,6 +2192,23 @@ function parseV053TypedAir(source, file = "<input>") {
   for (const statement of stateSets) {
     const args = statement.value.args;
     if (args.length === 3 && cells.has(args[0])) args[2] = normalizeV053Argument(args[2], cells.get(args[0]), mod.name, statement.loc);
+  }
+  // P0-08: a store's value normalizes against its access type, a buffer's
+  // against the buffer's element type (the local's declared type).
+  const localTypes = new Map();
+  for (const { fn, statement } of memoryStores) {
+    const value = statement.value;
+    if (statement.kind !== "memory" || value.args.length !== 3) continue;
+    if (!localTypes.has(fn)) localTypes.set(fn, v053FunctionLocalTypes(fn));
+    let type = null;
+    const access = /^(?:slice\.)?store\.(i32|f32)$/.exec(value.op);
+    if (access) type = access[1];
+    else if (value.op === "buffer.store") {
+      const declared = localTypes.get(fn).get(String(value.args[0]).replace(/^%/, ""));
+      const parts = declared ? /^buffer<(i32|f32),[0-9]+>$/.exec(declared) : null;
+      if (parts) type = parts[1];
+    }
+    if (type) value.args[2] = normalizeV053Argument(value.args[2], type, mod.name, statement.loc);
   }
   return mod;
 }

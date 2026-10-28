@@ -36,7 +36,8 @@ const TYPED_V053_FAILURE_REASONS = Object.freeze({
   48: Object.freeze({ code: "air.decision.enum_discriminant_invalid" }),
   49: Object.freeze({ code: "air.decision.payload_tag_invalid" }),
   50: Object.freeze({ code: "air.decision.bool_lane_invalid" }),
-  51: Object.freeze({ code: "air.decision.payload_lane_noncanonical" })
+  51: Object.freeze({ code: "air.decision.payload_lane_noncanonical" }),
+  64: Object.freeze({ code: "air.borrow.air_owned_memory_overlap" })
 });
 
 // A-1, A-2: a WebAssembly.RuntimeError of a typed-v0.53 export is mapped by

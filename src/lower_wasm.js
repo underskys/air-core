@@ -22,7 +22,8 @@ const {
   AIR_OWNED_MEMORY_END_EXPORT,
   BORROWED_SLICE_TYPE,
   borrowedSliceInterfaceDescriptor,
-  borrowedSliceInterfaceDigest
+  borrowedSliceInterfaceDigest,
+  parseBorrowedSliceType
 } = require("./borrowed_slices");
 
 const BORROW_FAILURE_FUNCTION = "__air_borrow_failure";
@@ -881,10 +882,11 @@ function v053FunctionUsesRefinement(fn) {
 }
 
 // A function's Wasm lanes for a type: an aggregate has none (it lives in the
-// function's memory frame, P0-06), `void` has none.
+// function's memory frame, P0-06), `void` has none; a memory type has its
+// P0-08 lanes.
 function v053TypeInfo(typeName, declarations, memory = null) {
   if (typeName === "void" || (memory && memory.isAggregate(typeName))) return { kind: typeName === "void" ? "void" : "aggregate", watTypes: [] };
-  return v051TypedTypeInfo(typeName, declarations);
+  return v053MemoryTypeInfo(typeName) || v051TypedTypeInfo(typeName, declarations);
 }
 
 function v053ModuleFeatures(mod) {
@@ -907,6 +909,7 @@ function v053ModuleFeatures(mod) {
     usesCheckedNumeric: functions.some(v053FunctionUsesCheckedNumeric),
     usesDynamicFold: functions.some((fn) => v053FunctionStatements(fn).some((statement) => statement.kind === "local" &&
       statement.value && typeof statement.value === "object" && statement.value.kind === "fold" && statement.value.count.kind === "dynamic")),
+    usesRegionBounds: functions.some(v053FunctionUsesRegionBounds),
     usesTableGet: operations.includes("table.get"),
     usesTypedRefinement: functions.some(v053FunctionUsesRefinement)
   };
@@ -935,12 +938,15 @@ function v053MemoryPlan(mod, declarations) {
   const isAggregate = (typeName) => typeName !== "void" && typed.isAggregateType(typeName, structs);
   const laneBytes = (typeName) => v051TypedTypeInfo(typeName, declarations).watTypes.reduce((sum, type) => sum + V053_LANE_BYTES[type], 0);
   const sizeOf = (typeName) => Number(typed.measureType(typeName, structs, laneBytes, sizes));
+  // P0-08 (P8-R22): an artifact with a borrowed export shifts its whole
+  // backing by BASE = 16; every other artifact starts at 0.
+  const shift = v053BorrowedLane(mod) ? V053_OWNED_BASE : 0;
   let next = 0;
   const reserve = (bytes) => {
     next = Math.ceil(next / 8) * 8;
     const base = next;
     next += bytes;
-    return base;
+    return shift + base;
   };
   const tables = new Map();
   for (const table of mod.tables || []) {
@@ -967,13 +973,25 @@ function v053MemoryPlan(mod, declarations) {
     }
     frames.set(fn.name, { result, slots });
   }
-  const used = tables.size > 0 || states.size > 0 || [...frames.values()].some((frame) => frame.result !== null || frame.slots.size > 0);
+  // P0-08 (P8-R22): the literal views and region slots follow the earlier
+  // slices' storage, which ends at `next` (P). A module with a memory
+  // statement or a borrowed export has a memory even when it owns no byte.
+  const layout = v053MemoryLayout(mod, next, shift);
+  const usesMemoryStatements = (mod.functions || []).some((fn) => v053SourceStatements(fn).some((statement) => v053MemoryOperationOf(statement)));
+  const used = tables.size > 0 || states.size > 0 || [...frames.values()].some((frame) => frame.result !== null || frame.slots.size > 0) ||
+    usesMemoryStatements || shift > 0;
   return {
+    backingBytes: layout.backingBytes,
+    base: shift,
+    borrowed: shift > 0,
     fields: new Map((mod.structs || []).map((item) => [item.type_id, item.fields])),
     frames,
     isAggregate,
-    pages: used ? Math.max(1, Math.ceil(next / V053_MEMORY_PAGE)) : 0,
+    literals: layout.literals,
+    pages: used ? Math.max(1, Math.ceil((shift + layout.backingBytes) / V053_MEMORY_PAGE)) : 0,
+    regionSlotBytes: layout.regionSlotBytes,
     sizeOf,
+    slots: layout.slots,
     states,
     tables
   };
@@ -1063,8 +1081,11 @@ function v053FailureHelper(name, value) {
 }
 
 function v053ModuleHeaderLines(features) {
+  const borrowed = features.memory.borrowed ? v053BorrowedLaneLines(features) : null;
   return [
     "(module",
+    // P0-08 (P8-R15): the contract import precedes every definition.
+    ...(borrowed ? borrowed.imports : []),
     `  (global $${V053_FAILURE_REASON_GLOBAL} (export "${V053_FAILURE_REASON_GLOBAL}") (mut i32) (i32.const 0))`,
     v053FailureHelper("__air_v051_invalid_tag", 49),
     v053FailureHelper("__air_v051_invalid_enum_discriminant", 48),
@@ -1085,13 +1106,21 @@ function v053ModuleHeaderLines(features) {
     ...(features.usesDynamicFold ? [v053FailureHelper("__air_v053_loop_count_out_of_range", 32)] : []),
     // P0-06 (slice text P6-R4, P6-R5, P6-R8): the internal memory, one data
     // segment per table, and the index-domain helpers (33, 35).
-    ...(features.memory.pages ? [`  (memory ${features.memory.pages})`] : []),
+    // P0-08 (P8-R15, P8-R23): a borrowed-lane artifact exports its memory as
+    // `memory`; every other artifact keeps it internal.
+    ...(features.memory.pages ? [features.memory.borrowed ? `  (memory (export "memory") ${features.memory.pages})` : `  (memory ${features.memory.pages})`] : []),
     ...[...features.memory.tables.values()].map((entry) => `  (data (i32.const ${entry.base}) ${v053DataString(v053TableBytes(entry))})`),
     // P0-07 (slice text P7-R11): one active data segment per state sets its
     // cells to the `fill` value at instantiation; no function body does.
     ...[...features.memory.states.values()].map((entry) => `  (data (i32.const ${entry.base}) ${v053DataString(v053StateBytes(entry))})`),
     ...(features.usesTableGet ? [v053FailureHelper("__air_v053_table_index_out_of_range", 33)] : []),
-    ...(features.usesArrayIndex ? [v053FailureHelper("__air_v053_array_index_out_of_range", 35)] : [])
+    ...(features.usesArrayIndex ? [v053FailureHelper("__air_v053_array_index_out_of_range", 35)] : []),
+    // P0-08 (P8-R3, P8-R22): one active data segment per non-empty literal
+    // view, at its own 16-aligned copy; the region-domain helper (34).
+    ...[...features.memory.literals.values()].filter((entry) => entry.bytes.length > 0)
+      .map((entry) => `  (data (i32.const ${entry.address}) ${v053DataString(entry.bytes)})`),
+    ...(features.usesRegionBounds ? [v053FailureHelper(V053_REGION_BOUNDS_HELPER, 34)] : []),
+    ...(borrowed ? borrowed.globals : [])
   ];
 }
 
@@ -1125,6 +1154,7 @@ function lowerV053TypedFunction(fn, features, writer, counting) {
   const state = {
     constants: features.constants,
     declarations,
+    exported: fn.exported === true,
     frame,
     functions: features.functions,
     localDecls: new V053WatLines(writer, 4, counting),
@@ -1143,8 +1173,11 @@ function lowerV053TypedFunction(fn, features, writer, counting) {
       state.locals.set(parameter.name, v053MemoryRecord(parameter.name, parameter.type, frame.slots.get(parameter.name)));
       continue;
     }
-    const info = v051TypedTypeInfo(parameter.type, declarations);
-    const record = v051TypedRecord(parameter.name, parameter.type, info, true);
+    // P0-08: a memory parameter crosses by its lanes (an exported borrowed
+    // view: pointer and length).
+    const memoryInfo = v053MemoryTypeInfo(parameter.type);
+    const info = memoryInfo || v051TypedTypeInfo(parameter.type, declarations);
+    const record = memoryInfo ? v053MemoryLaneRecord(parameter.name, parameter.type, info, true) : v051TypedRecord(parameter.name, parameter.type, info, true);
     state.locals.set(parameter.name, record);
     records.push(record);
     parameterLanes += record.names.length;
@@ -1163,8 +1196,11 @@ function lowerV053TypedFunction(fn, features, writer, counting) {
     writer.charge(1 + Buffer.byteLength(headerLine, "utf8"));
   }
   // Ingress checks in parameter order, before any other evaluation (T-5).
-  // An internal call reaches them too; they cannot fail there (P4-R6).
+  // An internal call reaches them too; they cannot fail there (P4-R6). P0-08
+  // (P8-R13..P8-R15): an exported borrowed view's preflight and guard run in
+  // its place, then the pairwise overlap checks.
   for (const record of records) emitV053TypedRuntimeValidation(state, record);
+  if (fn.exported) emitV053BorrowedAliasPreflight(state, records);
   for (const statement of fn.statements || []) {
     if (statement.kind === "return") {
       if (resultInfo.kind === "aggregate") {
@@ -1196,6 +1232,13 @@ function declareV053Record(state, name, typeName) {
     state.locals.set(name, record);
     return record;
   }
+  const memoryInfo = v053MemoryTypeInfo(typeName);
+  if (memoryInfo) {
+    const record = v053MemoryLaneRecord(name, typeName, memoryInfo, false);
+    state.locals.set(name, record);
+    state.localDecls.push(...record.names.map((lane, index) => `(local ${lane} ${memoryInfo.watTypes[index]})`));
+    return record;
+  }
   const info = v051TypedTypeInfo(typeName, state.declarations);
   const record = v051TypedRecord(name, typeName, info, false);
   state.locals.set(name, record);
@@ -1215,6 +1258,10 @@ function emitV053Statement(state, statement) {
     }
     if (statement.value && typeof statement.value === "object" && statement.value.kind === "aggregate_operation") {
       emitV053AggregateOperation(state, statement.value, record);
+      return;
+    }
+    if (statement.value && typeof statement.value === "object" && statement.value.kind === "memory_operation") {
+      emitV053MemoryOperation(state, statement, record);
       return;
     }
     if (record.aggregate) {
@@ -1244,6 +1291,10 @@ function emitV053Statement(state, statement) {
   }
   if (statement.kind === "state_set") {
     emitV053StateSet(state, statement.value);
+    return;
+  }
+  if (statement.kind === "memory") {
+    emitV053MemoryOperation(state, statement, null);
     return;
   }
   if (statement.kind === "match") {
@@ -1298,6 +1349,12 @@ function emitV053Call(state, value) {
     // P0-06: an aggregate argument is copied into the callee's parameter slot.
     if (state.memory.isAggregate(parameter.type)) {
       emitV053CopyValue(state, argument, parameter.type, { base: state.memory.frames.get(callee.name).slots.get(parameter.name) });
+      return;
+    }
+    // P0-08 (P8-R12): a region, view or buffer passed to a local call
+    // crosses by its lanes.
+    if (v053MemoryTypeInfo(parameter.type)) {
+      for (const lane of v053MemoryLocal(state, argument).names) state.body.push(`local.get ${lane}`);
       return;
     }
     emitV053TypedExpression(state, argument, parameter.type);
@@ -1741,6 +1798,12 @@ function emitV053TypedMatch(state, statement, destination) {
 function emitV053TypedRuntimeValidation(state, record) {
   const { info } = record;
   if (record.aggregate) return;
+  // P0-08 (P8-R13..P8-R15): an exported borrowed view's preflight and guard;
+  // another memory parameter has no ingress check.
+  if (record.memory) {
+    if (state.exported && info.memory === "borrowed") emitV053BorrowedParameterPreflight(state, record);
+    return;
+  }
   if (info.kind === "scalar" && info.refinement && info.refinement.kind === "i32_range") {
     emitV053RangeCheck(state, record.names[0], info.refinement, "__air_v053_refinement_ingress_out_of_range");
     return;
@@ -1772,6 +1835,343 @@ function v053ContainedReference(state, value, destination) {
   const local = state.locals.get(text.slice(1));
   const refinement = local && local.info && local.info.refinement;
   return Boolean(refinement) && refinement.kind === "i32_range" && destination.min <= refinement.min && refinement.max <= destination.max;
+}
+
+// ---------------------------------------------------------------------------
+// P0-08 (slice text P8-R8, P8-R11, P8-R13..P8-R17, P8-R22, P8-R23;
+// docs/v0.53/TYPED_MEMORY.md). A region pointer lowers to two i32 lanes (the
+// slot address and the region's runtime extent), a view to (address, length),
+// a buffer to its address, a borrowed view to (pointer, length). Every region
+// domain failure calls the value-34 helper; a borrowed access keeps the
+// frozen `$__air_borrow_failure` transport. A typed-v0.53 artifact with a
+// borrowed export carries the AIR contract import, the start handshake, its
+// memory exported as `memory`, the typed-memory marker and the owned range
+// [16, 16 + backing_bytes) as metadata, and the owned-range guard (ABI-1 (A);
+// AD-3 values).
+const V053_REGION_BOUNDS_HELPER = "__air_v053_region_bounds_runtime";
+const V053_CONTRACT_IMPORT = Object.freeze({ field: "typed-v0.53.v1", module: "air:contract" });
+const V053_CONTRACT_WORD = 1095324209;
+const V053_TYPED_MEMORY_MARKER = 0x000d0001;
+const V053_OWNED_BASE = 16;
+const V053_CANONICAL_F32_NAN_BITS = 2143289344;
+const V053_OWNED_OVERLAP_REASON = 64;
+
+function v053BorrowedLane(mod) {
+  return (mod.functions || []).some((fn) => fn.exported && (fn.params || []).some((parameter) => /^borrowed_slice</.test(String(parameter.type || ""))));
+}
+
+// Every statement of a function in source order. A block-bodied match arm's
+// block is in the statement's `blocks` too (P4-R17), so `blocks` reaches each
+// block once; nesting is bounded by the analysis capacity (SCALAR AMD-3).
+function v053SourceStatements(fn) {
+  const out = [];
+  const walk = (statements) => {
+    for (const statement of statements || []) {
+      out.push(statement);
+      for (const block of Array.isArray(statement.blocks) ? statement.blocks : []) walk(block.statements);
+    }
+  };
+  walk(fn.statements);
+  return out;
+}
+
+function v053MemoryOperationOf(statement) {
+  if (statement && statement.kind === "memory") return statement.value;
+  return statement && statement.kind === "local" && statement.value && statement.value.kind === "memory_operation" ? statement.value : null;
+}
+
+// Whether a function emits a value-34 check: every memory statement except a
+// literal view, `slice.len`, `free_region` and an access through a borrowed
+// view (P8-R16) has one.
+function v053FunctionUsesRegionBounds(fn) {
+  const types = new Map((fn.params || []).map((parameter) => [parameter.name, String(parameter.type)]));
+  for (const statement of v053SourceStatements(fn)) if (statement.kind === "local") types.set(statement.name, String(statement.type));
+  return v053SourceStatements(fn).some((statement) => {
+    const value = v053MemoryOperationOf(statement);
+    if (!value || ["free_region", "slice.literal", "slice.len"].includes(value.op)) return false;
+    if (!/^slice\.(sub|load\.|store\.)/.test(value.op)) return true;
+    const view = String(value.args[0] || "").trim().slice(1);
+    return !/^borrowed_slice</.test(types.get(view) || "");
+  });
+}
+
+function v053MemoryTypeInfo(typeName) {
+  const text = String(typeName || "").trim();
+  if (text === "ptr") return { kind: "memory", memory: "ptr", watTypes: ["i32", "i32"] };
+  if (text === "slice") return { kind: "memory", memory: "slice", watTypes: ["i32", "i32"] };
+  const buffer = /^buffer<(i32|f32),([1-9][0-9]*)>$/.exec(text);
+  if (buffer) return { count: Number(buffer[2]), element: buffer[1], kind: "memory", memory: "buffer", watTypes: ["i32"] };
+  if (/^borrowed_slice</.test(text)) return { borrow: parseBorrowedSliceType(text).borrow, kind: "memory", memory: "borrowed", watTypes: ["i32", "i32"] };
+  return null;
+}
+
+function v053MemoryLaneRecord(name, type, info, parameter) {
+  const base = `$${String(name).replace(/[^A-Za-z0-9_]/g, "_")}`;
+  return { info, memory: true, name, names: info.watTypes.map((_, index) => `${base}$${index}`), parameter, type };
+}
+
+function ceil16(value) {
+  return Math.ceil(value / 16) * 16;
+}
+
+// P8-R22: after the earlier slices' static storage (ending at P), each
+// literal view statement's bytes at the next multiple of 16 in source order,
+// then each `alloc_region` site's slot of ceil16(max(site)) bytes at the next
+// multiple of 16 in function order and source order; backing_bytes is where
+// that layout ends. Every address is shifted by BASE (16 for a borrowed-lane
+// artifact, else 0).
+function v053MemoryLayout(mod, staticEnd, shift) {
+  const literals = new Map();
+  const slots = new Map();
+  let cursor = ceil16(staticEnd);
+  let regionSlotBytes = 0;
+  for (const fn of mod.functions || []) {
+    for (const statement of v053SourceStatements(fn)) {
+      const value = v053MemoryOperationOf(statement);
+      if (!value) continue;
+      if (value.op === "slice.literal") {
+        const bytes = Buffer.from(value.text, "utf8");
+        literals.set(statement, { address: shift + cursor, bytes });
+        cursor += ceil16(bytes.length);
+      } else if (value.op === "alloc_region") {
+        const site = verifierModule.typedV053.memorySite(statement);
+        if (!site || site.max === null) typedLowerFail("air.v051.typed_lowering_unsupported", `alloc_region at line ${statement.loc && statement.loc.line} has no proven maximum`);
+        const size = ceil16(Number(site.max));
+        slots.set(statement, { address: shift + cursor, max: Number(site.max), size });
+        cursor += size;
+        regionSlotBytes += size;
+      }
+    }
+  }
+  return { backingBytes: cursor, literals, regionSlotBytes, slots };
+}
+
+// R-ABI53-1, -2, -4a, -5 and A1: the lines a borrowed-lane artifact adds to
+// the module header; the contract import precedes every definition.
+function v053BorrowedLaneLines(features) {
+  const memory = features.memory;
+  return {
+    globals: [
+      `  (global (export "__air_abi_feature_typed_memory_v1") i32 (i32.const ${V053_TYPED_MEMORY_MARKER}))`,
+      `  (global (export "${AIR_OWNED_MEMORY_BASE_EXPORT}") i32 (i32.const ${memory.base}))`,
+      `  (global (export "${AIR_OWNED_MEMORY_END_EXPORT}") i32 (i32.const ${memory.base + memory.backingBytes}))`,
+      `  (func $${BORROW_FAILURE_FUNCTION} (param $code i32) unreachable)`,
+      `  (func $__air_v053_contract_start call $__air_v053_contract i32.const ${V053_CONTRACT_WORD} i32.ne if unreachable end)`,
+      "  (start $__air_v053_contract_start)"
+    ],
+    imports: [`  (import "${V053_CONTRACT_IMPORT.module}" "${V053_CONTRACT_IMPORT.field}" (func $__air_v053_contract (result i32)))`]
+  };
+}
+
+function emitV053RegionFailIf(state) {
+  state.body.push("if", `call $${V053_REGION_BOUNDS_HELPER}`, "unreachable", "end");
+}
+
+function emitV053BorrowFailIf(state, code) {
+  state.body.push("if", `i32.const ${code}`, `call $${BORROW_FAILURE_FUNCTION}`, "end");
+}
+
+// A failing check in a region view's domain (value 34) or a borrowed view's
+// (the frozen transport, P8-R16).
+function emitV053ViewFailIf(state, borrowed) {
+  if (borrowed) emitV053BorrowFailIf(state, BORROW_FAILURE.pointer);
+  else emitV053RegionFailIf(state);
+}
+
+function v053MemoryLocal(state, text) {
+  const record = state.locals.get(String(text || "").trim().slice(1));
+  if (!record || !record.memory) typedLowerFail("air.v051.typed_lowering_unsupported", `unverified memory operand '${text}'`);
+  return record;
+}
+
+function v053AtomTemporary(state, text) {
+  const local = declareV051TypedTemporary(state, "i32");
+  emitV053TypedExpression(state, text, "i32");
+  state.body.push(`local.set ${local}`);
+  return local;
+}
+
+// P8-R5 / P8-R6: `0 <= o`, `extent >= 4`, `o <= extent - 4`, compared before
+// any subtraction or addition can wrap.
+function emitV053AccessChecks(state, offset, extent, borrowed) {
+  state.body.push(`local.get ${offset}`, "i32.const 0", "i32.lt_s");
+  emitV053ViewFailIf(state, borrowed);
+  state.body.push(`local.get ${extent}`, "i32.const 4", "i32.lt_s");
+  emitV053ViewFailIf(state, borrowed);
+  state.body.push(`local.get ${offset}`, `local.get ${extent}`, "i32.const 4", "i32.sub", "i32.gt_s");
+  emitV053ViewFailIf(state, borrowed);
+}
+
+// P8-R17: the value of an f32 store, with a NaN replaced by 0x7fc00000.
+function emitV053StoredValue(state, text, type) {
+  if (type !== "f32") {
+    emitV053TypedExpression(state, text, type);
+    return;
+  }
+  const value = declareV051TypedTemporary(state, "f32");
+  emitV053TypedExpression(state, text, "f32");
+  state.body.push(`local.set ${value}`, `local.get ${value}`, `i32.const ${V053_CANONICAL_F32_NAN_BITS}`, "f32.reinterpret_i32",
+    `local.get ${value}`, `local.get ${value}`, "f32.eq", "select");
+}
+
+function emitV053LoadInto(state, record, value, type) {
+  state.body.push(`${type}.load`);
+  emitV053NarrowingCheck(state, record.info, value);
+  emitV051TypedSet(state, record);
+}
+
+// One memory statement (P8-R2): `record` is the bound local, or null.
+function emitV053MemoryOperation(state, statement, record) {
+  const value = statement.value;
+  const args = value.args || [];
+  const memory = state.memory;
+  if (value.op === "free_region") return;
+  if (value.op === "slice.literal") {
+    const literal = memory.literals.get(statement);
+    state.body.push(`i32.const ${literal.address}`, `local.set ${record.names[0]}`, `i32.const ${literal.bytes.length}`, `local.set ${record.names[1]}`);
+    return;
+  }
+  if (value.op === "alloc_region") {
+    const slot = memory.slots.get(statement);
+    const size = v053AtomTemporary(state, args[0]);
+    state.body.push(`local.get ${size}`, "i32.const 0", "i32.lt_s");
+    emitV053RegionFailIf(state);
+    state.body.push(`local.get ${size}`, `i32.const ${slot.max}`, "i32.gt_s");
+    emitV053RegionFailIf(state);
+    // P8-R8: every allocation starts from zeros, a reused slot included.
+    state.body.push(`i32.const ${slot.address}`, "i32.const 0", `local.get ${size}`, "memory.fill");
+    state.body.push(`i32.const ${slot.address}`, `local.set ${record.names[0]}`, `local.get ${size}`, `local.set ${record.names[1]}`);
+    return;
+  }
+  const access = /^(slice\.)?(load|store)\.(i32|f32)$/.exec(value.op);
+  if (access) {
+    const view = v053MemoryLocal(state, args[0]);
+    const borrowed = view.info.memory === "borrowed";
+    const offset = v053AtomTemporary(state, args[1]);
+    emitV053AccessChecks(state, offset, view.names[1], borrowed);
+    state.body.push(`local.get ${view.names[0]}`, `local.get ${offset}`, "i32.add");
+    if (access[2] === "load") {
+      emitV053LoadInto(state, record, value, access[3]);
+      return;
+    }
+    emitV053StoredValue(state, args[2], access[3]);
+    state.body.push(`${access[3]}.store`);
+    return;
+  }
+  if (value.op === "slice.from_region") {
+    const region = v053MemoryLocal(state, args[0]);
+    const length = v053AtomTemporary(state, args[1]);
+    state.body.push(`local.get ${length}`, "i32.const 0", "i32.lt_s");
+    emitV053RegionFailIf(state);
+    state.body.push(`local.get ${length}`, `local.get ${region.names[1]}`, "i32.gt_s");
+    emitV053RegionFailIf(state);
+    state.body.push(`local.get ${region.names[0]}`, `local.set ${record.names[0]}`, `local.get ${length}`, `local.set ${record.names[1]}`);
+    return;
+  }
+  if (value.op === "slice.sub") {
+    const view = v053MemoryLocal(state, args[0]);
+    const borrowed = view.info.memory === "borrowed";
+    const offset = v053AtomTemporary(state, args[1]);
+    const length = v053AtomTemporary(state, args[2]);
+    state.body.push(`local.get ${offset}`, "i32.const 0", "i32.lt_s");
+    emitV053ViewFailIf(state, borrowed);
+    state.body.push(`local.get ${length}`, "i32.const 0", "i32.lt_s");
+    emitV053ViewFailIf(state, borrowed);
+    state.body.push(`local.get ${length}`, `local.get ${view.names[1]}`, "i32.gt_s");
+    emitV053ViewFailIf(state, borrowed);
+    state.body.push(`local.get ${offset}`, `local.get ${view.names[1]}`, `local.get ${length}`, "i32.sub", "i32.gt_s");
+    emitV053ViewFailIf(state, borrowed);
+    state.body.push(`local.get ${view.names[0]}`, `local.get ${offset}`, "i32.add", `local.set ${record.names[0]}`, `local.get ${length}`, `local.set ${record.names[1]}`);
+    return;
+  }
+  if (value.op === "slice.len") {
+    const view = v053MemoryLocal(state, args[0]);
+    state.body.push(`local.get ${view.names[1]}`);
+    emitV053NarrowingCheck(state, record.info, value);
+    emitV051TypedSet(state, record);
+    return;
+  }
+  if (value.op === "buffer.from_ptr") {
+    const region = v053MemoryLocal(state, args[0]);
+    state.body.push(`local.get ${region.names[1]}`, `i32.const ${record.info.count * 4}`, "i32.lt_s");
+    emitV053RegionFailIf(state);
+    state.body.push(`local.get ${region.names[0]}`, `local.set ${record.names[0]}`);
+    return;
+  }
+  if (value.op === "buffer.load" || value.op === "buffer.store") {
+    const buffer = v053MemoryLocal(state, args[0]);
+    const index = v053AtomTemporary(state, args[1]);
+    state.body.push(`local.get ${index}`, "i32.const 0", "i32.lt_s");
+    emitV053RegionFailIf(state);
+    state.body.push(`local.get ${index}`, `i32.const ${buffer.info.count}`, "i32.ge_s");
+    emitV053RegionFailIf(state);
+    state.body.push(`local.get ${buffer.names[0]}`, `local.get ${index}`, "i32.const 4", "i32.mul", "i32.add");
+    if (value.op === "buffer.load") {
+      emitV053LoadInto(state, record, value, buffer.info.element);
+      return;
+    }
+    emitV053StoredValue(state, args[2], buffer.info.element);
+    state.body.push(`${buffer.info.element}.store`);
+    return;
+  }
+  typedLowerFail("air.v051.typed_lowering_unsupported", `unsupported memory operation '${value.op}'`);
+}
+
+// P8-R13..P8-R15: one exported borrowed parameter's entry preflight, in the
+// frozen v0.50 order (its length, alignment and memory checks), then the
+// owned-range guard for that parameter (R-ABI53-4). No `requires` contract
+// exists in typed-v0.53.
+function emitV053BorrowedParameterPreflight(state, record) {
+  const memory = state.memory;
+  const end = memory.base + memory.backingBytes;
+  const [pointer, length] = record.names;
+  const borrow = record.info.borrow;
+  const bytes = declareV051TypedTemporary(state, "i32");
+  state.body.push("memory.size", "i32.const 16", "i32.shl", `local.set ${bytes}`);
+  state.body.push(`local.get ${length}`, "i32.const 0", "i32.lt_s");
+  emitV053BorrowFailIf(state, BORROW_FAILURE.length);
+  if (borrow.length.min > 0) {
+    state.body.push(`local.get ${length}`, `i32.const ${borrow.length.min}`, "i32.lt_s");
+    emitV053BorrowFailIf(state, BORROW_FAILURE.length);
+  }
+  state.body.push(`local.get ${length}`, `i32.const ${borrow.length.max}`, "i32.gt_s");
+  emitV053BorrowFailIf(state, BORROW_FAILURE.length);
+  if (borrow.alignment > 1) {
+    state.body.push(`local.get ${pointer}`, `i32.const ${borrow.alignment - 1}`, "i32.and");
+    emitV053BorrowFailIf(state, BORROW_FAILURE.alignment);
+  }
+  state.body.push(`local.get ${pointer}`, `local.get ${bytes}`, "i32.gt_u");
+  emitV053BorrowFailIf(state, BORROW_FAILURE.pointer);
+  state.body.push(`local.get ${length}`, `local.get ${bytes}`, `local.get ${pointer}`, "i32.sub", "i32.gt_u");
+  emitV053BorrowFailIf(state, BORROW_FAILURE.pointer);
+  // R-ABI53-4 (ABI-6 (b)): emitted only when the artifact owns a byte. After
+  // the checks above p <= p + len <= memory bytes, so `p + len` cannot wrap.
+  if (memory.base < end) {
+    state.body.push(`local.get ${length}`, "i32.const 0", "i32.ne", `local.get ${pointer}`, `i32.const ${end}`, "i32.lt_u", "i32.and",
+      `local.get ${pointer}`, `local.get ${length}`, "i32.add", `i32.const ${memory.base}`, "i32.gt_u", "i32.and");
+    state.body.push("if", `i32.const ${V053_OWNED_OVERLAP_REASON}`, `global.set $${V053_FAILURE_REASON_GLOBAL}`,
+      `i32.const ${BORROW_FAILURE.overlap}`, `call $${BORROW_FAILURE_FUNCTION}`, "end");
+  }
+}
+
+// The frozen pairwise overlap check of every two exported borrowed
+// parameters not both readonly, after every parameter's preflight.
+function emitV053BorrowedAliasPreflight(state, records) {
+  const borrowed = records.filter((record) => record.memory && record.info.memory === "borrowed");
+  for (let left = 0; left < borrowed.length; left += 1) {
+    for (let right = left + 1; right < borrowed.length; right += 1) {
+      const a = borrowed[left];
+      const b = borrowed[right];
+      if (a.info.borrow.access === "readonly" && b.info.borrow.access === "readonly") continue;
+      const aEnd = declareV051TypedTemporary(state, "i32");
+      const bEnd = declareV051TypedTemporary(state, "i32");
+      state.body.push(`local.get ${a.names[0]}`, `local.get ${a.names[1]}`, "i32.add", `local.set ${aEnd}`);
+      state.body.push(`local.get ${b.names[0]}`, `local.get ${b.names[1]}`, "i32.add", `local.set ${bEnd}`);
+      state.body.push(`local.get ${a.names[1]}`, "i32.eqz", "i32.eqz", `local.get ${b.names[1]}`, "i32.eqz", "i32.eqz", "i32.and",
+        `local.get ${a.names[0]}`, `local.get ${bEnd}`, "i32.lt_u", "i32.and", `local.get ${b.names[0]}`, `local.get ${aEnd}`, "i32.lt_u", "i32.and");
+      emitV053BorrowFailIf(state, BORROW_FAILURE.overlap);
+    }
+  }
 }
 
 // Phase-B engine-structural limits (slice text §6.2; owner decision OD-2 (a)):
@@ -1816,19 +2216,25 @@ function checkV053EngineLimits(mod) {
   const helpers = v053ModuleHeaderLines(features).filter((line) => line.startsWith("  (func ")).length;
   const plans = (mod.functions || []).map((fn) => lowerV053TypedFunction(fn, features, null, true));
   const signatures = new Set(helpers ? ["->"] : []);
+  // P0-08 (P8-R15): `$__air_borrow_failure` (i32 -> ) and the contract import ( -> i32).
+  if (features.memory.borrowed) signatures.add("i32->").add("->i32");
   for (const fn of mod.functions || []) {
     const lanes = (fn.params || []).flatMap((parameter) => v053TypeInfo(parameter.type, features.declarations, features.memory).watTypes);
     signatures.add(`${lanes.join(",")}->${v053TypeInfo(fn.returnType, features.declarations, features.memory).watTypes.join(",")}`);
   }
   // `__air_failure_reason` is the one global and one extra export (T-1).
   // P0-06: one data segment per table; the internal memory's pages. P0-07:
-  // one data segment per state (P7-R11).
+  // one data segment per state (P7-R11). P0-08: one per non-empty literal
+  // view; a borrowed-lane artifact adds the contract import, the exported
+  // memory and three exported globals (P8-R15).
+  const borrowed = features.memory.borrowed ? 1 : 0;
+  const literalSegments = [...features.memory.literals.values()].filter((entry) => entry.bytes.length > 0).length;
   const totals = {
-    dataSegments: features.memory.tables.size + features.memory.states.size,
-    exports: (mod.functions || []).filter((fn) => fn.exported).length + 1,
+    dataSegments: features.memory.tables.size + features.memory.states.size + literalSegments,
+    exports: (mod.functions || []).filter((fn) => fn.exported).length + 1 + 4 * borrowed,
     functions: (mod.functions || []).length + helpers,
-    globals: 1,
-    imports: 0,
+    globals: 1 + 3 * borrowed,
+    imports: borrowed,
     memoryPages: features.memory.pages,
     types: signatures.size
   };
@@ -1842,6 +2248,23 @@ function checkV053EngineLimits(mod) {
     }
   }
   return Object.freeze({ functions: plans.map((plan) => Object.freeze({ ...plan })), totals: Object.freeze(totals) });
+}
+
+// P0-08 (P8-R22): the two reported quantities of a verified typed-v0.53
+// module and its owned range; the build compares backing_bytes with the host
+// limit before lowering. A module without a borrowed export owns its memory
+// privately (BASE 0, no owned-range export).
+function v053MemoryLayoutReport(mod) {
+  if (!isTypedV053Ast(mod)) typedLowerFail("air.v051.typed_lowering_unsupported", "memory layout requires a typed-v0.53 AST");
+  const memory = v053ModuleFeatures(mod).memory;
+  return Object.freeze({
+    backingBytes: memory.backingBytes,
+    base: memory.base,
+    borrowed: memory.borrowed,
+    end: memory.base + memory.backingBytes,
+    pages: memory.pages,
+    regionSlotBytes: memory.regionSlotBytes
+  });
 }
 
 function lowerGlobal(global) {
@@ -4304,5 +4727,10 @@ module.exports = { lowerToWat, watToWasm };
 // not part of the enumerable exports that the public index spreads.
 Object.defineProperty(module.exports, "typedV053", {
   enumerable: false,
-  value: Object.freeze({ ENGINE_LIMITS: V053_ENGINE_LIMITS, checkEngineLimits: checkV053EngineLimits })
+  value: Object.freeze({
+    ENGINE_LIMITS: V053_ENGINE_LIMITS,
+    checkEngineLimits: checkV053EngineLimits,
+    contractImport: V053_CONTRACT_IMPORT,
+    memoryLayout: v053MemoryLayoutReport
+  })
 });

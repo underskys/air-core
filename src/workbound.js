@@ -102,8 +102,9 @@ function loadCostTable(text) {
       throw new TypeError("CT-1 row is invalid");
     }
     // P0-06 (slice text §5.2): `steps_per_lane` is the per-lane weight of
-    // `aggregate.transfer` (CT-1 revision P0-06-AGG-1).
-    const allowed = new Set(["construct", "ct1", "steps", "calls", "iterations", "steps_per_arm", "steps_per_case", "steps_per_lane", "effect_per_key"]);
+    // `aggregate.transfer`. P0-08 (slice text §5): `steps_per_8_bytes` is the
+    // zeroing weight of `memory.alloc` (CT-1 revision P0-08-MEM-1).
+    const allowed = new Set(["construct", "ct1", "steps", "calls", "iterations", "steps_per_arm", "steps_per_case", "steps_per_lane", "steps_per_8_bytes", "effect_per_key"]);
     for (const key of Object.keys(row)) if (!allowed.has(key)) throw new TypeError(`CT-1 row '${row.construct}' has unknown field '${key}'`);
     if (rows.has(row.construct)) throw new TypeError(`CT-1 row '${row.construct}' is duplicated`);
     rows.set(row.construct, Object.freeze({
@@ -114,6 +115,7 @@ function loadCostTable(text) {
       stepsPerArm: row.steps_per_arm === undefined ? null : exactDecimal(row.steps_per_arm, `${row.construct}.steps_per_arm`),
       stepsPerCase: row.steps_per_case === undefined ? null : exactDecimal(row.steps_per_case, `${row.construct}.steps_per_case`),
       stepsPerLane: row.steps_per_lane === undefined ? null : exactDecimal(row.steps_per_lane, `${row.construct}.steps_per_lane`),
+      stepsPer8Bytes: row.steps_per_8_bytes === undefined ? null : exactDecimal(row.steps_per_8_bytes, `${row.construct}.steps_per_8_bytes`),
       effectPerKey: row.effect_per_key === undefined ? null : exactDecimal(row.effect_per_key, `${row.construct}.effect_per_key`)
     }));
   }
@@ -150,14 +152,18 @@ function exactCount(value, label) {
   throw new TypeError(`${label} must be a BigInt or a canonical decimal string; JS numbers are not WorkBound values`);
 }
 
-function freezeSummary(steps, calls, iterations, effects) {
+function freezeSummary(steps, calls, iterations, effects, regionBytes = 0n) {
+  // P0-08 (slice text P8-R20): `region_bytes` is a member only when it is
+  // not 0, so every summary of a function that allocates nothing keeps its
+  // pre-P0-08 form; it is not a SUMMARY_FIELDS dimension.
+  if (regionBytes > 0n) return Object.freeze({ calls, effects, iterations, region_bytes: regionBytes, steps });
   return Object.freeze({ calls, effects, iterations, steps });
 }
 
 function summary(input = {}) {
   if (!input || typeof input !== "object" || Array.isArray(input)) throw new TypeError("summary must be an object");
   for (const key of Object.keys(input)) {
-    if (!SUMMARY_FIELDS.includes(key)) throw new TypeError(`summary has unknown dimension '${key}'`);
+    if (!SUMMARY_FIELDS.includes(key) && key !== "region_bytes") throw new TypeError(`summary has unknown dimension '${key}'`);
   }
   const effects = new Map();
   const source = input.effects instanceof Map ? [...input.effects.entries()] : Object.entries(input.effects || {});
@@ -170,7 +176,8 @@ function summary(input = {}) {
     exactCount(input.steps === undefined ? 0n : input.steps, "steps"),
     exactCount(input.calls === undefined ? 0n : input.calls, "calls"),
     exactCount(input.iterations === undefined ? 0n : input.iterations, "iterations"),
-    effects
+    effects,
+    exactCount(input.region_bytes === undefined ? 0n : input.region_bytes, "region_bytes")
   );
 }
 
@@ -179,7 +186,9 @@ const ZERO = summary();
 function canonicalSummary(value) {
   const effects = {};
   for (const key of [...value.effects.keys()].sort()) effects[key] = value.effects.get(key).toString();
-  return { calls: value.calls.toString(), effects, iterations: value.iterations.toString(), steps: value.steps.toString() };
+  const out = { calls: value.calls.toString(), effects, iterations: value.iterations.toString(), steps: value.steps.toString() };
+  if (value.region_bytes !== undefined && value.region_bytes > 0n) out.region_bytes = value.region_bytes.toString();
+  return out;
 }
 
 function summaryExceeds(value) {
@@ -250,6 +259,7 @@ function row(construct, loc, params = {}) {
   // row node keeps its shape.
   const fields = { arms: params.arms, cases: params.cases, construct, key: params.key };
   if (params.lanes !== undefined) fields.lanes = params.lanes;
+  if (params.bytes !== undefined) fields.bytes = params.bytes;
   return node("row", loc, fields);
 }
 
@@ -421,6 +431,11 @@ function rowValue(item) {
   if (item.lanes !== undefined) {
     if (weights.stepsPerLane === null) costUndefined(`${item.construct}.lanes`, item.loc);
     steps += weights.stepsPerLane * exactCount(item.lanes, "aggregate lanes");
+  }
+  // P0-08 (P8-R18): `memory.alloc` with maximum B is 1 + ceil(B/8).
+  if (item.bytes !== undefined) {
+    if (weights.stepsPer8Bytes === null) costUndefined(`${item.construct}.bytes`, item.loc);
+    steps += weights.stepsPer8Bytes * ((exactCount(item.bytes, "region bytes") + 7n) / 8n);
   }
   const effects = new Map();
   if (item.key !== undefined) {
@@ -891,6 +906,30 @@ function typedAggregateNode(statement, loc, ctx, scope) {
   return costUndefined(`expression.${value.op}`, loc);
 }
 
+// P0-08 (slice text P8-R18; CT-1 P0-08-MEM-1): the rows of one memory
+// statement. An `alloc_region` reads its maximum from the verifier's record
+// of the statement (P8-R7): none proven is `unknown_bound` and a `max` that is
+// not a canonical decimal is `invalid_bound`, each at the site. A load into a
+// refined destination adds its refinement check (P0-03 §5.0).
+const V053_MEMORY_VIEW_OPS = new Set(["buffer.from_ptr", "free_region", "slice.from_region", "slice.len", "slice.literal", "slice.sub"]);
+
+function typedMemoryNode(statement, loc, scope) {
+  const value = statement.value;
+  if (value.op === "alloc_region") {
+    const site = require("./verifier").typedV053.memorySite(statement);
+    if (!site) costUndefined("memory.alloc (unverified site)", loc);
+    if (site.failure === "invalid_bound") return failLeaf("invalid_bound", loc, `alloc_region maximum '${site.maxText}' is not a canonical decimal literal`);
+    if (site.max === null) return failLeaf("unknown_bound", loc, "alloc_region has no proven maximum");
+    return row("memory.alloc", loc, { bytes: site.max });
+  }
+  let node = V053_MEMORY_VIEW_OPS.has(value.op) ? row("memory.view", loc) : row("memory.access", loc);
+  const bufferType = value.op === "buffer.store" && scope ? scope.get(String(value.args[0]).trim().slice(1)) : null;
+  if (value.op === "store.f32" || value.op === "slice.store.f32" || (typeof bufferType === "string" && bufferType.startsWith("buffer<f32,"))) {
+    node = add(node, row("memory.f32_canonical", loc), loc);
+  }
+  return statement.kind === "local" ? withRefinementCheck(node, statement.type, value, loc, scope) : node;
+}
+
 // A block: its statement sequence ending in its yield, in its own scope.
 function typedBlockNode(block, fn, ctx, scope, yieldType, loc) {
   return typedSequence(block && Array.isArray(block.statements) ? block.statements : [], fn, ctx, scope ? new Map(scope) : null, yieldType, loc);
@@ -910,12 +949,16 @@ function typedStatementNode(fn, statement, scope = null, ctx = null, yieldType =
     if (ctx && statement.value && typeof statement.value === "object" && statement.value.kind === "aggregate_operation") {
       return typedAggregateNode(statement, loc, ctx, scope);
     }
+    if (ctx && statement.value && typeof statement.value === "object" && statement.value.kind === "memory_operation") {
+      return typedMemoryNode(statement, loc, scope);
+    }
     // P0-06 (P6-R13 item 2): `%b: A = %a` for an aggregate A is one transfer.
     if (ctx && ctx.aggregate(statement.type)) return transfer(ctx.lanes(statement.type), loc);
     const construct = isConstructorAtom(statement.value) ? "statement.constructor" : "statement.scalar";
     return withRefinementCheck(row(construct, loc), statement.type, statement.value, loc, scope);
   }
   if (ctx && statement.kind === "call") return typedCallNode(statement.value, loc, ctx, scope);
+  if (ctx && statement.kind === "memory") return typedMemoryNode(statement, loc, scope);
   // P0-07 (P7-R13; OD-P7-1 (a′)): state.set is one aggregate.access.
   if (ctx && statement.kind === "state_set") return row("aggregate.access", loc);
   if (ctx && statement.kind === "if") {
@@ -992,12 +1035,33 @@ function typedV051Model(mod) {
       name: fn.name,
       // An aggregate parameter is never an ingress type: exports take no
       // aggregate (P6-R10), and ingress is summed for exports only.
-      params: (fn.params || []).map((parameter) => (ctx && ctx.aggregate(parameter.type)
-        ? { kind: "aggregate" }
-        : typedTypeInfo(parameter.type, declarations, fn.loc)))
+      params: typedEntryParams(fn, ctx, declarations)
     })),
     module: moduleId
   };
+}
+
+// P0-08 (P8-R18; A14): an exported borrowed_slice parameter is one
+// `ingress.borrowed_slice` (its entry checks and the owned-range guard,
+// emitted or not), and each pair of them whose overlap check runs (not both
+// readonly) one `ingress.borrowed_alias`. A region pointer, view or buffer is
+// never an export parameter (P8-R12), so it is never an ingress type.
+function typedEntryParams(fn, ctx, declarations) {
+  const out = [];
+  const borrowed = [];
+  for (const parameter of fn.params || []) {
+    const text = String(parameter.type || "");
+    if (ctx && ctx.aggregate(parameter.type)) out.push({ kind: "aggregate" });
+    else if (ctx && /^borrowed_slice</.test(text)) {
+      out.push({ kind: "borrowed_slice" });
+      borrowed.push(/^borrowed_slice<\s*readonly\s*,/.test(text));
+    } else if (ctx && (text === "ptr" || text === "slice" || text.startsWith("buffer<"))) out.push({ kind: "aggregate" });
+    else out.push(typedTypeInfo(parameter.type, declarations, fn.loc));
+  }
+  for (let left = 0; left < borrowed.length; left += 1) {
+    for (let right = left + 1; right < borrowed.length; right += 1) if (!(borrowed[left] && borrowed[right])) out.push({ kind: "borrowed_alias" });
+  }
+  return out;
 }
 
 function typedV053Context(mod) {
@@ -1014,7 +1078,81 @@ function typedV053Context(mod) {
 // Summaries of a verified typed-v0.51 module: B(f) for every function
 // (R-WB-11) and E(f) for every export. The caller has already verified `mod`.
 function analyzeVerifiedTypedModule(mod) {
-  return analyzeModel(typedV051Model(mod));
+  const analysis = analyzeModel(typedV051Model(mod));
+  return isTypedV053Ast(mod) && analysis.status === "ok" ? withRegionPeaks(mod, analysis) : analysis;
+}
+
+// P0-08 (slice text P8-R19, P8-R20): peak(f) = L(f) ⊕ C(f), L(f) the sum of
+// the maxima of every site syntactically in f (every block and branch, each
+// once), C(f) the largest peak of its distinct callees and fold callbacks
+// (the call graph is acyclic here, R-WB-2f.1); E(e).region_bytes = peak(e).
+// It runs only on a fully summarised module, where every site has a proven
+// maximum. A peak above WB_MAX fails as overflow at the function header.
+function withRegionPeaks(mod, analysis) {
+  const verifier = require("./verifier").typedV053;
+  const byName = new Map(mod.functions.map((fn) => [fn.name, fn]));
+  const local = new Map();
+  const callees = new Map();
+  for (const fn of mod.functions) {
+    let sum = 0n;
+    const targets = new Set();
+    const stack = [fn.statements || []];
+    while (stack.length) {
+      for (const statement of stack.pop()) {
+        const value = statement && statement.value;
+        if (value && value.kind === "memory_operation" && value.op === "alloc_region") {
+          const site = verifier.memorySite(statement);
+          sum += site && site.max !== null ? site.max : 0n;
+        }
+        if (value && value.kind === "call") targets.add(value.callee);
+        if (value && value.kind === "fold") targets.add(value.callback);
+        // A block-bodied match arm's block is in `blocks` too (P4-R17): each site once.
+        for (const block of statement.blocks || []) stack.push(block.statements || []);
+      }
+    }
+    local.set(fn.name, sum);
+    callees.set(fn.name, [...targets].filter((name) => byName.has(name)));
+  }
+  // Callee first, with an explicit stack. A summarised module's reachable
+  // call graph is acyclic; a cycle among functions no export reaches (the
+  // verifier refuses it) adds nothing and never loops.
+  const peaks = new Map();
+  const active = new Set();
+  for (const start of mod.functions.map((fn) => fn.name)) {
+    if (peaks.has(start)) continue;
+    const work = [{ name: start, next: 0 }];
+    active.add(start);
+    while (work.length) {
+      const frame = work[work.length - 1];
+      const list = callees.get(frame.name);
+      if (frame.next < list.length) {
+        const callee = list[frame.next++];
+        if (!peaks.has(callee) && !active.has(callee)) {
+          active.add(callee);
+          work.push({ name: callee, next: 0 });
+        }
+        continue;
+      }
+      peaks.set(frame.name, local.get(frame.name) + list.reduce((best, callee) => (peaks.has(callee) && peaks.get(callee) > best ? peaks.get(callee) : best), 0n));
+      active.delete(frame.name);
+      work.pop();
+    }
+  }
+  const over = mod.functions.find((fn) => peaks.get(fn.name) > WB_MAX);
+  if (over) {
+    const failure = Object.freeze({
+      cause: null, code: FAILURE_CODES.overflow, detail: `region_bytes of '${over.name}' exceeds WB_MAX`, function: over.name, loc: position(over.loc),
+      module: analysis.module, order: 0, reason: "overflow", root: true
+    });
+    return Object.freeze({ ...analysis, primary: failure, roots: Object.freeze([failure]), status: "rejected" });
+  }
+  const attach = (results) => new Map([...results].map(([name, result]) => {
+    const peak = peaks.get(name) || 0n;
+    if (!result.ok || peak === 0n) return [name, result];
+    const value = result.value;
+    return [name, okResult(freezeSummary(value.steps, value.calls, value.iterations, value.effects, peak))];
+  }));
+  return Object.freeze({ ...analysis, entries: attach(analysis.entries), functions: attach(analysis.functions) });
 }
 
 // ---------------------------------------------------------------------------
@@ -1070,8 +1208,14 @@ function validateRecord(record) {
     throw new TypeError("WorkBound summary record entries must be an object");
   }
   for (const [name, value] of Object.entries(record.entries)) {
-    if (!value || typeof value !== "object" || Object.keys(value).sort().join(",") !== SUMMARY_FIELDS.join(",")) {
+    const keys = value && typeof value === "object" ? Object.keys(value).filter((key) => key !== "region_bytes").sort().join(",") : "";
+    if (!value || typeof value !== "object" || keys !== SUMMARY_FIELDS.join(",")) {
       throw new TypeError(`WorkBound entry '${name}' has missing or unknown dimensions`);
+    }
+    // P8-R20: the peak member, only with a canonical decimal above 0.
+    if (Object.prototype.hasOwnProperty.call(value, "region_bytes") &&
+        (typeof value.region_bytes !== "string" || !DECIMAL.test(value.region_bytes) || value.region_bytes === "0" || BigInt(value.region_bytes) > WB_MAX)) {
+      throw new TypeError(`WorkBound entry '${name}'.region_bytes is not a canonical decimal above 0 within WB_MAX`);
     }
     for (const field of ADDITIVE) {
       if (typeof value[field] !== "string" || !DECIMAL.test(value[field]) || BigInt(value[field]) > WB_MAX) {

@@ -33,6 +33,8 @@ const { AIR_VERSION } = require("./version");
 const { checkedNumericFailureReason, typedV053FailureIdentity } = require("./v052_numeric_diagnostic");
 const { parseRefinementType } = require("./types");
 const { createToolchainGuard } = require("./v052_toolchain_identity");
+const { AirError } = require("./errors");
+const typedBorrowed = require("./borrowed_slices").typedV053;
 const {
   WorkBoundError,
   analysisError,
@@ -311,8 +313,10 @@ function normalizedBuildRecord(record) {
   if (record.sourceProfile !== (typedV053 ? SOURCE_PROFILE_TYPED_V053 : SOURCE_PROFILE_TYPED_V051)) {
     fail("air.v052.verified_build_invalid", "verified build source profile is invalid");
   }
-  const descriptor = normalizeTypedInterfaceDescriptor(record.descriptor);
-  if (record.descriptorDigest !== descriptorDigest(descriptor)) {
+  // P0-08: a typed-v0.53 borrowed-lane record carries the v2 descriptor.
+  const borrowedLane = typedV053 && isTypedBorrowedDescriptor(record.descriptor);
+  const descriptor = borrowedLane ? normalizeTypedBorrowedDescriptor(record.descriptor) : normalizeTypedInterfaceDescriptor(record.descriptor);
+  if (record.descriptorDigest !== recordDescriptorDigest(descriptor)) {
     fail("air.v052.verified_build_descriptor_mismatch", "descriptor digest does not bind the descriptor");
   }
   for (const [label, value] of [["sourceDigest", record.sourceDigest], ["wasmDigest", record.wasmDigest]]) {
@@ -346,9 +350,49 @@ function normalizedBuildRecord(record) {
     schema: typedV053 ? VERIFIED_TYPED_V053_BUILD_SCHEMA : VERIFIED_TYPED_BUILD_SCHEMA,
     sourceDigest: record.sourceDigest,
     sourceProfile: record.sourceProfile,
-    ...(typedV053 ? { sourceSignature: normalizedSourceSignature(record.sourceSignature, descriptor) } : {}),
+    ...(typedV053 ? {
+      sourceSignature: borrowedLane
+        ? normalizedBorrowedSourceSignature(record.sourceSignature, descriptor)
+        : normalizedSourceSignature(record.sourceSignature, descriptor)
+    } : {}),
     wasmDigest: record.wasmDigest
   };
+}
+
+// P0-08: the source signature of a borrowed-lane record lists the v2
+// descriptor's exports in order; a borrowed parameter's canonical source type
+// states the descriptor's access, length and alignment, any other parameter
+// type is the descriptor's.
+function normalizedBorrowedSourceSignature(signature, descriptor) {
+  const mismatch = (message) => fail("air.v052.verified_build_descriptor_mismatch", `sourceSignature ${message}`);
+  const exactKeys = (value, keys) => value && typeof value === "object" && !Array.isArray(value) &&
+    Object.keys(value).sort().join(",") === keys;
+  if (!Array.isArray(signature) || signature.length !== descriptor.exports.length) {
+    mismatch("must list every descriptor export in descriptor order");
+  }
+  return signature.map((entry, index) => {
+    const exported = descriptor.exports[index];
+    if (!exactKeys(entry, "function,name,parameters,return_type")) mismatch(`entry ${index} has missing or unknown fields`);
+    if (entry.name !== exported.name || entry.function !== exported.name) mismatch(`entry ${index} does not match export '${exported.name}'`);
+    if (!Array.isArray(entry.parameters) || !Array.isArray(exported.params) || entry.parameters.length !== exported.params.length) {
+      mismatch(`export '${exported.name}' parameter count does not match the descriptor`);
+    }
+    const parameters = entry.parameters.map((parameter, position) => {
+      const declared = exported.params[position];
+      let borrow = null;
+      try { borrow = exactKeys(parameter, "name,type") ? typedBorrowed.borrowOf(parameter.type) : null; } catch (_) { borrow = null; }
+      const matches = exactKeys(parameter, "name,type") && parameter.name === declared.name && (declared.kind === "borrowed_slice"
+        ? Boolean(borrow) && !/\s/.test(parameter.type) && borrow.access === declared.access && borrow.alignment === declared.alignment &&
+          declared.length && borrow.length.min === declared.length.min && borrow.length.max === declared.length.max
+        : declared.kind === "value" && parameter.type === declared.type);
+      if (!matches) mismatch(`export '${exported.name}' parameter ${position} does not match the descriptor`);
+      return { name: parameter.name, type: parameter.type };
+    });
+    if (typeof entry.return_type !== "string" || sourceTypeDescriptorImage(entry.return_type) === null) {
+      mismatch(`export '${exported.name}' return type is not a canonical type`);
+    }
+    return { function: entry.function, name: entry.name, parameters, return_type: entry.return_type };
+  });
 }
 
 // Slice text §4.3 item 3: every descriptor export, in descriptor order, as
@@ -400,9 +444,11 @@ function sourceTypeDescriptorImage(typeText) {
 function typedV053SourceSignature(mod, descriptor) {
   const functions = new Map((mod.functions || []).map((fn) => [fn.name, fn]));
   return descriptor.exports.map((entry) => {
-    const fn = functions.get(entry.function);
+    // A v2 borrowed descriptor names each export by its function (P0-08).
+    const name = isTypedBorrowedDescriptor(descriptor) ? entry.name : entry.function;
+    const fn = functions.get(name);
     return {
-      function: entry.function,
+      function: name,
       name: entry.name,
       parameters: fn.params.map((parameter) => ({ name: parameter.name, type: parameter.type })),
       return_type: fn.returnType
@@ -495,6 +541,77 @@ async function buildVerifiedTypedModule(input) {
   return buildVerifiedTypedModuleInternal(input, { limits: VERIFIED_TYPED_RUNTIME_LIMITS });
 }
 
+// P0-08 (slice text P8-R22): the host's backing limit, 64 MiB by default and
+// lowerable by the host (OPEN-37 (a)). Above it the build is a bounded
+// BUILD_REFUSED before lowering; the legacy 256 MiB ceiling is unchanged.
+const TYPED_V053_MEMORY_BACKING_LIMIT = 67108864;
+
+function normalizeMemoryBackingLimit(value) {
+  if (value === undefined) return TYPED_V053_MEMORY_BACKING_LIMIT;
+  if (!Number.isSafeInteger(value) || value < 0 || value > TYPED_V053_MEMORY_BACKING_LIMIT) {
+    fail("air.v052.runtime_input_invalid", `memoryBackingLimit must be an integer from 0 to ${TYPED_V053_MEMORY_BACKING_LIMIT}`);
+  }
+  return value;
+}
+
+function enforceMemoryBackingLimit(layout, limit) {
+  if (layout.backingBytes <= limit) return;
+  const refused = new V052VerifiedBuildError("air.build.memory_backing_limit",
+    `BUILD_REFUSED backing_bytes ${layout.backingBytes} exceeds the host backing limit ${limit}`);
+  refused.disposition = "BUILD_REFUSED";
+  refused.backingBytes = layout.backingBytes;
+  refused.limit = limit;
+  throw refused;
+}
+
+// P0-08 (P8-R13, P8-R15; R2.1 delta review N-4): a borrowed-lane build takes
+// the v2 borrowed descriptor, validated here with src/borrowed_slices.js;
+// validateDescriptorAgainstSource is not used for it. A descriptor of another
+// lane keeps the EXISTING code, at the first borrowed export, its message
+// naming the lane the module needs (AD-4, reading R-12).
+function isTypedBorrowedDescriptor(value) {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value) && value.schema === typedBorrowed.INTERFACE.schema;
+}
+
+function validateTypedBorrowedDescriptor(input, mod) {
+  const expected = typedBorrowed.interfaceDescriptor(mod);
+  if (!isTypedBorrowedDescriptor(input)) {
+    const exported = (mod.functions || []).find((fn) => fn.exported && (fn.params || []).some((param) => typedBorrowed.borrowOf(param.type)));
+    const requested = input && typeof input === "object" ? input.air_abi_lane || input.airAbi : undefined;
+    throwBuildSourceError(new AirError(
+      `air.abi.borrowed_slice_requires_0_11: module '${mod.name}' uses borrowed-slice exports and requires AIR ABI ${typedBorrowed.INTERFACE.airAbi}` +
+        `${typeof requested === "string" ? `, not ${requested}` : ""}`,
+      exported.loc
+    ), "verify");
+  }
+  const descriptor = normalizeTypedBorrowedDescriptor(input);
+  if (typedBorrowed.stableStringify(descriptor) !== typedBorrowed.stableStringify(expected)) {
+    fail("air.borrow.interface_invalid", `descriptor does not describe the borrowed exports of module '${mod.name}'`);
+  }
+  return descriptor;
+}
+
+// A JSON copy of a v2 descriptor with its fixed lane fields checked; the
+// build compares the whole descriptor with the one its source implies.
+function normalizeTypedBorrowedDescriptor(value) {
+  if (!isTypedBorrowedDescriptor(value) || value.airAbi !== typedBorrowed.INTERFACE.airAbi ||
+      value.feature !== typedBorrowed.INTERFACE.feature || !Array.isArray(value.exports) || !value.exports.length) {
+    fail("air.borrow.interface_invalid", "typed-v0.53 borrowed descriptor schema, lane or feature is invalid");
+  }
+  let copy;
+  try { copy = JSON.parse(JSON.stringify(value)); } catch (_) { copy = null; }
+  if (!copy || typedBorrowed.stableStringify(copy) !== typedBorrowed.stableStringify(value)) {
+    fail("air.borrow.interface_invalid", "typed-v0.53 borrowed descriptor must contain only JSON values");
+  }
+  return copy;
+}
+
+function recordDescriptorDigest(descriptor) {
+  return isTypedBorrowedDescriptor(descriptor)
+    ? `sha256:${typedBorrowed.interfaceDigest(normalizeTypedBorrowedDescriptor(descriptor))}`
+    : descriptorDigest(descriptor);
+}
+
 function rethrowCodedSourceError(error, phase) {
   if (error instanceof AnalysisRefusedError) throw error;
   throwBuildSourceError(error, phase);
@@ -518,6 +635,7 @@ async function buildVerifiedTypedV053Internal(input, controls = {}) {
   const sourceName = typeof input.sourceName === "string" && input.sourceName
     ? input.sourceName
     : "<typed-source>";
+  const memoryBackingLimit = normalizeMemoryBackingLimit(input.memoryBackingLimit);
   const limits = controls.limits;
   if (limits) {
     enforceWorkLimit("air.v052.work_limit_source_bytes", Buffer.byteLength(source, "utf8"), limits.maxSourceBytes, "source bytes");
@@ -533,12 +651,19 @@ async function buildVerifiedTypedV053Internal(input, controls = {}) {
     verifierModule.typedV053.verify(mod);
   } catch (error) { rethrowCodedSourceError(error, "verify"); }
   const workBoundAnalysis = summarizeVerifiedTypedBuild(mod);
-  const descriptor = validateDescriptorAgainstSource(input.descriptor, mod);
-  const descriptorBytes = Buffer.byteLength(canonicalDescriptor(descriptor), "utf8");
+  // P0-08 (P8-R22): backing_bytes and region-slot bytes are functions of the
+  // verified module; a borrowed export selects the typed borrowed lane.
+  const layout = lowerWasmModule.typedV053.memoryLayout(mod);
+  const descriptor = layout.borrowed ? validateTypedBorrowedDescriptor(input.descriptor, mod) : validateDescriptorAgainstSource(input.descriptor, mod);
+  const descriptorBytes = Buffer.byteLength(layout.borrowed ? typedBorrowed.stableStringify(descriptor) : canonicalDescriptor(descriptor), "utf8");
   if (limits) {
     enforceWorkLimit("air.v052.work_limit_descriptor_bytes", descriptorBytes, limits.maxDescriptorBytes, "canonical descriptor bytes");
   }
+  // The engine-structural limits first (P0-06 keeps its code for a module
+  // whose memory exceeds them), then the host backing limit (P8-R22); both
+  // before lowering.
   lowerWasmModule.typedV053.checkEngineLimits(mod);
+  enforceMemoryBackingLimit(layout, memoryBackingLimit);
   const toolchain = currentToolchainIdentity();
   const wat = lowerToWat(mod, limits ? { analysisCapacity, maxWatBytes: limits.maxWatBytes } : { analysisCapacity });
   if (limits) enforceWorkLimit("air.v052.work_limit_wat_bytes", Buffer.byteLength(wat, "utf8"), limits.maxWatBytes, "lowered WAT bytes");
@@ -554,7 +679,7 @@ async function buildVerifiedTypedV053Internal(input, controls = {}) {
   const record = publicBuildRecord({
     compiler: { implementationDigest: toolchain.implementationDigest, name: "airc", version: AIR_VERSION },
     descriptor,
-    descriptorDigest: descriptorDigest(descriptor),
+    descriptorDigest: recordDescriptorDigest(descriptor),
     kind: VERIFIED_TYPED_BUILD_KIND,
     lowering: { implementationDigest: loweringImplementationDigest(), name: LOWERING_ID },
     schema: VERIFIED_TYPED_V053_BUILD_SCHEMA,
@@ -563,19 +688,50 @@ async function buildVerifiedTypedV053Internal(input, controls = {}) {
     sourceSignature: typedV053SourceSignature(mod, descriptor),
     wasmDigest: digestBytes(wasmBytes)
   });
-  const build = Object.freeze({
+  const build = {
     ...record,
     artifactDigest: digestCanonical(record),
     wasmBytes: Buffer.from(wasmBytes)
-  });
+  };
+  // P0-08 (R-MEM-11, P8-R22): the two reported quantities, on a
+  // non-enumerable property so the build's keys and JSON are unchanged.
+  const memory = Object.freeze({ backingBytes: layout.backingBytes, regionSlotBytes: layout.regionSlotBytes });
+  Object.defineProperty(build, "memory", { enumerable: false, value: memory });
+  Object.freeze(build);
   // R-WB-20 with the typed-v0.53 profile in the key (V53-WB-ID-01).
   const workBound = bindVerifiedTypedWorkBound(workBoundAnalysis, {
     compilerImplementationDigest: record.compiler.implementationDigest,
     sourceDigest: record.sourceDigest,
     sourceProfile: record.sourceProfile
   });
-  BUILDS.set(build, { record, wasmBytes: Buffer.from(wasmBytes), workBound });
+  // P0-08 (P8-R15, R-ABI53-3a T1): the record of a borrowed-lane artifact
+  // (digest, contract id, lane, owned range) lives in this private state.
+  const borrowedLane = layout.borrowed ? typedBorrowedLaneRecord(record, wasmBytes, { end: layout.end, start: layout.base }) : null;
+  BUILDS.set(build, { borrowedLane, memory, record, wasmBytes: Buffer.from(wasmBytes), workBound });
   return build;
+}
+
+function typedBorrowedLaneRecord(record, wasmBytes, ownedRange) {
+  const contract = lowerWasmModule.typedV053.contractImport;
+  return Object.freeze({
+    contractId: contract.field,
+    contractModule: contract.module,
+    descriptor: deepFreeze(copyDescriptorData(record.descriptor)),
+    lane: typedBorrowed.INTERFACE.airAbi,
+    ownedRange: Object.freeze({ end: ownedRange.end, start: ownedRange.start }),
+    wasmBytes: Buffer.from(wasmBytes),
+    wasmDigest: record.wasmDigest
+  });
+}
+
+// P0-08 (R-ABI53-9, P8-R24): a borrowed-lane artifact is invoked only through
+// the typed admission, which supplies the contract import and binds borrowed
+// views; the plain verified paths refuse it before instantiation.
+function refuseBorrowedLane(build) {
+  const state = BUILDS.get(build);
+  if (state && state.borrowedLane) {
+    fail("air.assurance.profile_unsupported", "a typed-v0.53 borrowed-lane build is invoked only through the typed admission (admitTypedV053Artifact)");
+  }
 }
 
 function assertTrustedBuild(build) {
@@ -601,7 +757,7 @@ function assertTrustedBuild(build) {
   if (!Buffer.isBuffer(build.wasmBytes) || digestBytes(build.wasmBytes) !== state.record.wasmDigest) {
     fail("air.v052.verified_build_wasm_mismatch", "Wasm bytes do not match the verified build descriptor");
   }
-  if (descriptorDigest(build.descriptor) !== state.record.descriptorDigest) {
+  if (recordDescriptorDigest(build.descriptor) !== state.record.descriptorDigest) {
     fail("air.v052.verified_build_descriptor_mismatch", "descriptor does not match the verified build descriptor");
   }
   return { record: state.record, wasmBytes: Buffer.from(build.wasmBytes) };
@@ -831,6 +987,7 @@ function typedV053FailureMessage(identity) {
 
 async function invokeVerifiedTypedExport(build, exportName, args = []) {
   const { record, wasmBytes } = assertTrustedBuild(build);
+  refuseBorrowedLane(build);
   let instance;
   try {
     const instantiated = await WebAssembly.instantiate(wasmBytes, {});
@@ -894,6 +1051,19 @@ function normalizeRuntimeBuildRequest(input, limits, analysisCapacity) {
     } catch (error) { throwBuildSourceError(error, "parse"); }
     enforceWorkLimit("air.v052.work_limit_ast_nodes", structuredObjectCount(mod), limits.maxAstNodes, "parsed AST nodes");
     enforceAnalysisCapacity(mod, analysisCapacity);
+    // P0-08 (P8-R15, P8-R24): a borrowed-lane module is invoked only through
+    // the typed admission. Its static failures come first; then a descriptor
+    // of another lane keeps the builder's code (V53-MEM-N14), and the v2
+    // descriptor is refused by this runtime.
+    if (typedBorrowed.moduleUsesBorrowedSlices(mod)) {
+      try {
+        verifierModule.typedV053.verify(mod);
+      } catch (error) { rethrowCodedSourceError(error, "verify"); }
+      if (isTypedBorrowedDescriptor(input.descriptor)) {
+        fail("air.assurance.profile_unsupported", "a typed-v0.53 borrowed-lane module is invoked only through the typed admission (admitTypedV053Artifact)");
+      }
+      validateTypedBorrowedDescriptor(input.descriptor, mod);
+    }
   }
   enforceStructuredInputLimit(input.descriptor, limits.maxDescriptorBytes, "descriptor input bytes");
   const descriptor = normalizeTypedInterfaceDescriptor(input.descriptor);
@@ -1037,6 +1207,7 @@ function createVerifiedTypedRuntime(options) {
   async function compileEntry(request, generation) {
     const build = await buildVerifiedTypedModuleInternal(request.buildInput, { analysisCapacity, limits });
     const trusted = assertTrustedBuild(build);
+    refuseBorrowedLane(build);
     let module;
     try {
       module = await WebAssembly.compile(trusted.wasmBytes);
@@ -1170,6 +1341,40 @@ function createVerifiedTypedRuntime(options) {
   return Object.freeze({ build, clear, inspect, invalidate, invoke });
 }
 
+// P0-08 (R-ABI53-3a): the T1 record of a borrowed-lane build, read by the
+// typed admission from this private state by the build object's identity;
+// null for anything else (the admission then refuses it as untrusted).
+function readBorrowedLaneRecord(candidate) {
+  if (!candidate || (typeof candidate !== "object" && typeof candidate !== "function")) return null;
+  const state = BUILDS.get(candidate);
+  if (state) return state.borrowedLane || null;
+  return HARNESS_RECORDS.get(candidate) || null;
+}
+
+// Test-only builder-defect seam (docs/v0.53/TYPED_MEMORY.md; V53-MEM-N23,
+// N38, V53-ABI-42, -58, -64 (c)): mints a T1 record that a defective builder
+// could have produced, from a real borrowed-lane build, with the artifact
+// bytes and/or the owned range replaced. Non-enumerable, never in index.js.
+const HARNESS_RECORDS = new WeakMap();
+
+function mintHarnessRecord(options = {}) {
+  const base = readBorrowedLaneRecord(options.from);
+  if (!base || !BUILDS.has(options.from)) fail("air.v052.runtime_input_invalid", "harness record requires a borrowed-lane build");
+  const wasmBytes = options.wasmBytes === undefined ? base.wasmBytes : Buffer.from(options.wasmBytes);
+  const range = options.ownedRange === undefined ? base.ownedRange : options.ownedRange;
+  if (!range || !Number.isSafeInteger(range.start) || !Number.isSafeInteger(range.end)) {
+    fail("air.v052.runtime_input_invalid", "harness ownedRange must have integer start and end");
+  }
+  const token = Object.freeze({ kind: "air.v053.harnessRecord" });
+  HARNESS_RECORDS.set(token, Object.freeze({
+    ...base,
+    ownedRange: Object.freeze({ end: range.end, start: range.start }),
+    wasmBytes: Buffer.from(wasmBytes),
+    wasmDigest: digestBytes(wasmBytes)
+  }));
+  return token;
+}
+
 function inspectVerifiedTypedBuild(build) {
   const { record, wasmBytes } = assertTrustedBuild(build);
   return Object.freeze({ ...copyDescriptorData(record), artifactDigest: digestCanonical(record), wasmBytes: Buffer.from(wasmBytes) });
@@ -1193,3 +1398,13 @@ module.exports = {
   invokeVerifiedTypedExport,
   verifiedTypedAstNodeCount
 };
+// P0-08 typed borrowed lane (T1 reader, test seam, backing limit); not part
+// of the enumerable exports that src/index.js spreads.
+Object.defineProperty(module.exports, "typedV053", {
+  enumerable: false,
+  value: Object.freeze({
+    MEMORY_BACKING_LIMIT: TYPED_V053_MEMORY_BACKING_LIMIT,
+    mintHarnessRecord,
+    readBorrowedLaneRecord
+  })
+});

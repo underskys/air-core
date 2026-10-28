@@ -1,6 +1,6 @@
 {
   "id": "air.workbound.cost/1",
-  "revision": "P0-06-AGG-1",
+  "revision": "P0-08-MEM-1",
   "rows": [
     {
       "construct": "statement.scalar",
@@ -26,7 +26,7 @@
     },
     {
       "construct": "aggregate.access",
-      "ct1": "element or field access with a static index or an O(1) dynamic index: struct.get, struct.set, array.get, array.set, table.get; the index domain check included",
+      "ct1": "element or field access with a static index or an O(1) dynamic index: struct.get, struct.set, array.get, array.set, table.get, state.get, state.set; the index domain check included",
       "steps": "1",
       "calls": "0",
       "iterations": "0"
@@ -156,6 +156,49 @@
     {
       "construct": "ingress.result",
       "ct1": "entry ingress per exported parameter: result<T,E>: 1 + max(ingress(T), ingress(E))",
+      "steps": "1",
+      "calls": "0",
+      "iterations": "0"
+    },
+    {
+      "construct": "memory.alloc",
+      "ct1": "alloc_region with proven maximum size B bytes (R-MEM-1), zero-initialization included (R-MEM-5): steps 1 + ceil(B / 8); a site without a proven maximum is fail(unknown_bound)",
+      "steps": "1",
+      "steps_per_8_bytes": "1",
+      "calls": "0",
+      "iterations": "0"
+    },
+    {
+      "construct": "memory.view",
+      "ct1": "free_region; creating or narrowing a view (slice.from_region, slice.sub, buffer.from_ptr, a literal view) or reading its length (slice.len); every domain check of the statement included, whether or not lowering elides it",
+      "steps": "1",
+      "calls": "0",
+      "iterations": "0"
+    },
+    {
+      "construct": "memory.access",
+      "ct1": "raw or element memory access: load.T, store.T, slice.load.T, slice.store.T, buffer.load, buffer.store; every domain check of the statement included, whether or not lowering elides it",
+      "steps": "1",
+      "calls": "0",
+      "iterations": "0"
+    },
+    {
+      "construct": "memory.f32_canonical",
+      "ct1": "NaN canonicalization of an f32 value stored to memory (store.f32, slice.store.f32, buffer.store into buffer<f32,N>; OPEN-41 (a)), in addition to memory.access",
+      "steps": "1",
+      "calls": "0",
+      "iterations": "0"
+    },
+    {
+      "construct": "ingress.borrowed_slice",
+      "ct1": "entry ingress per exported borrowed_slice parameter: its length, alignment and memory-bounds checks, and any per-parameter guard the accepted ABI decision adds",
+      "steps": "1",
+      "calls": "0",
+      "iterations": "0"
+    },
+    {
+      "construct": "ingress.borrowed_alias",
+      "ct1": "entry ingress per pair of exported borrowed_slice parameters whose mutual-overlap check runs (at least one of the two is not readonly)",
       "steps": "1",
       "calls": "0",
       "iterations": "0"

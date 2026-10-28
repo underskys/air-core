@@ -273,6 +273,67 @@ function borrowedSliceInterfaceDigest(mod) {
     .digest("hex");
 }
 
+// P0-08 (slice text P8-R13, P8-R15; ABI-1 (A), AD-3): the typed-v0.53
+// borrowed lane. Its descriptor keeps the v1 fields and binding semantics
+// under its own schema, lane, feature and digest domain; the v1 schema and
+// domain above stay for legacy, byte for byte. A typed-v0.53 parameter type is
+// its canonical source text, so the borrow is read from that text.
+const TYPED_BORROWED_SLICE_INTERFACE = Object.freeze({
+  airAbi: "0.13",
+  digestDomain: "air.borrowed-slice-interface.v2\0",
+  feature: "typed-memory-v1",
+  schema: "air.borrowed-slice-interface.v2"
+});
+
+function typedBorrowOf(type) {
+  return /^borrowed_slice</.test(String(type || "")) ? parseBorrowedSliceType(type).borrow : null;
+}
+
+function typedModuleUsesBorrowedSlices(mod) {
+  return (mod.functions || []).some((fn) => fn.exported && (fn.params || []).some((param) => typedBorrowOf(param.type)));
+}
+
+function typedBorrowedSliceInterfaceDescriptor(mod) {
+  if (!typedModuleUsesBorrowedSlices(mod)) return null;
+  return {
+    schema: TYPED_BORROWED_SLICE_INTERFACE.schema,
+    airAbi: TYPED_BORROWED_SLICE_INTERFACE.airAbi,
+    feature: TYPED_BORROWED_SLICE_INTERFACE.feature,
+    lengthUnit: "bytes",
+    memoryDomains: BORROWED_SLICE_DOMAINS.slice(),
+    transferModeRequired: true,
+    exports: (mod.functions || [])
+      .filter((fn) => fn.exported && (fn.params || []).some((param) => typedBorrowOf(param.type)))
+      .map((fn) => ({
+        name: fn.name,
+        params: fn.params.map((param) => {
+          const borrow = typedBorrowOf(param.type);
+          return borrow
+            ? {
+                name: param.name,
+                kind: "borrowed_slice",
+                lowered: [`${param.name}$ptr`, `${param.name}$byte_len`],
+                access: borrow.access,
+                length: { ...borrow.length },
+                alignment: borrow.alignment,
+                lifetime: borrow.lifetime,
+                noescape: borrow.noescape
+              }
+            : { name: param.name, kind: "value", type: param.type };
+        }),
+        entryContracts: []
+      }))
+  };
+}
+
+function typedBorrowedSliceInterfaceDigest(descriptor) {
+  return crypto
+    .createHash("sha256")
+    .update(TYPED_BORROWED_SLICE_INTERFACE.digestDomain)
+    .update(stableStringify(descriptor))
+    .digest("hex");
+}
+
 function stableStringify(value) {
   if (Array.isArray(value)) return `[${value.map(stableStringify).join(",")}]`;
   if (value && typeof value === "object") {
@@ -331,3 +392,16 @@ module.exports = {
   parseBorrowedSliceType,
   rangeIntersectsAirOwnedMemory
 };
+// typed-v0.53 borrowed lane (P0-08), used by the verified build and the typed
+// admission; not part of the enumerable exports.
+Object.defineProperty(module.exports, "typedV053", {
+  enumerable: false,
+  value: Object.freeze({
+    INTERFACE: TYPED_BORROWED_SLICE_INTERFACE,
+    borrowOf: typedBorrowOf,
+    interfaceDescriptor: typedBorrowedSliceInterfaceDescriptor,
+    interfaceDigest: typedBorrowedSliceInterfaceDigest,
+    moduleUsesBorrowedSlices: typedModuleUsesBorrowedSlices,
+    stableStringify
+  })
+});

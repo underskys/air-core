@@ -1147,12 +1147,12 @@ async function main() {
       const blob = childProcess.spawnSync("git", ["hash-object", file], { cwd: ROOT, encoding: "utf8" }).stdout.trim();
       const bytes = fs.readFileSync(file);
       const table = JSON.parse(bytes.toString("utf8"));
-      assert.equal(blob, "c3a2022be20bfa9511642dad2e82cc238fdffc65");
-      assert.equal(sha256(bytes), "sha256:770315ade1bd192dfa65f50aca5458296ff702fae50cdc33b72e5b1b6bbfb5a4");
-      assert.equal(bytes.length, 5370);
-      assert.equal(wb.COST_TABLE_DIGEST, "sha256:d8b341ea2358a787d699507a5dca9ce6cab0d58e3358d324df4c5ff8e469760e");
-      assert.equal(table.revision, "P0-06-AGG-1");
-      assert.equal(table.rows.length, 22);
+      assert.equal(blob, "4a5c2055b761e223173cbe8fc225191854d0eec2");
+      assert.equal(sha256(bytes), "sha256:4f9b6ea3f84cd077e13c279a65f8862991b0d03cb5c8a3018de6f08880133c87");
+      assert.equal(bytes.length, 7253);
+      assert.equal(wb.COST_TABLE_DIGEST, "sha256:e12c77da26fdf47dedde297ea79f3a0790580a1be0ee7031f936472f1cb56a53");
+      assert.equal(table.revision, "P0-08-MEM-1");
+      assert.equal(table.rows.length, 28);
       // The amendment diff P0-02-F1-RD3 -> P0-06-AGG-1 (card exact_evidence):
       // every frozen row keeps its weights; two rows are added after
       // statement.constructor; four row texts are reworded.
@@ -1167,9 +1167,9 @@ async function main() {
       const before = new Map(base.rows.map((row) => [row.construct, row]));
       for (const row of base.rows) assert.equal(weights(table.rows.find((item) => item.construct === row.construct)), weights(row), `${row.construct}: weights unchanged`);
       const added = table.rows.filter((row) => !before.has(row.construct));
-      assert.deepEqual(added.map((row) => row.construct), ["aggregate.transfer", "aggregate.access"]);
+      assert.deepEqual(added.map((row) => row.construct), ["aggregate.transfer", "aggregate.access", "memory.alloc", "memory.view", "memory.access", "memory.f32_canonical", "ingress.borrowed_slice", "ingress.borrowed_alias"]);
       assert.deepEqual(table.rows.map((row) => row.construct).slice(1, 4), ["statement.constructor", "aggregate.transfer", "aggregate.access"]);
-      assert.deepEqual(added.map(weights), [JSON.stringify({ construct: "aggregate.transfer", steps: "0", steps_per_lane: "1", calls: "0", iterations: "0" }), JSON.stringify({ construct: "aggregate.access", steps: "1", calls: "0", iterations: "0" })]);
+      assert.deepEqual(added.map(weights), [JSON.stringify({ construct: "aggregate.transfer", steps: "0", steps_per_lane: "1", calls: "0", iterations: "0" }), JSON.stringify({ construct: "aggregate.access", steps: "1", calls: "0", iterations: "0" }), JSON.stringify({ construct: "memory.alloc", steps: "1", steps_per_8_bytes: "1", calls: "0", iterations: "0" }), JSON.stringify({ construct: "memory.view", steps: "1", calls: "0", iterations: "0" }), JSON.stringify({ construct: "memory.access", steps: "1", calls: "0", iterations: "0" }), JSON.stringify({ construct: "memory.f32_canonical", steps: "1", calls: "0", iterations: "0" }), JSON.stringify({ construct: "ingress.borrowed_slice", steps: "1", calls: "0", iterations: "0" }), JSON.stringify({ construct: "ingress.borrowed_alias", steps: "1", calls: "0", iterations: "0" })]);
       const reworded = base.rows.filter((row) => table.rows.find((item) => item.construct === row.construct).ct1 !== row.ct1).map((row) => row.construct);
       assert.deepEqual(reworded.sort(), ["call", "loop.exit", "match.atom_arm", "return"]);
       return {

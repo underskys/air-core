@@ -947,6 +947,347 @@ function bindingFail(code, message) {
   throw new BorrowedMemoryBindingError(code, message);
 }
 
+// ---------------------------------------------------------------------------
+// P0-08 typed-v0.53 admission (slice text P8-R14, P8-R15; R-ABI53-3, -3a, -8;
+// docs/v0.53/TYPED_MEMORY.md). A typed-v0.53 borrowed-lane artifact imports
+// the AIR contract and is instantiated only here, never through
+// instantiateAirModule. Step 1 runs at admission on one private copy of the
+// bytes, taken synchronously, and again before every instantiation (the
+// compile cache keys a Module by digest only); steps 2-4 run per invocation:
+// instantiate with a contract function created for that instantiation in a
+// fresh import object, check the owned range and the marker before any export
+// is reachable, arm (no capability at P0-08), bind with the trusted range and
+// invoke. Nothing here exports the contract function or its word. The legacy
+// functions above are unchanged.
+const TYPED_CONTRACT = Object.freeze({ field: "typed-v0.53.v1", module: "air:contract" });
+const TYPED_CONTRACT_WORD = 1095324209;
+const TYPED_MEMORY_MARKER_EXPORT = "__air_abi_feature_typed_memory_v1";
+const TYPED_MEMORY_MARKER = 0x000d0001;
+const LEGACY_MARKER_EXPORT = "__air_abi_feature_borrowed_slice_v1";
+const TYPED_LANE = "0.13";
+const TYPED_MODULE_CACHE_LIMIT = 16;
+const typedModuleCache = new Map();
+
+class TypedAdmissionError extends BorrowedMemoryBindingError {
+  constructor(code, message, step) {
+    super(code, message);
+    this.name = "TypedAdmissionError";
+    this.step = step;
+  }
+}
+
+function admissionFail(step, code, message) {
+  throw new TypedAdmissionError(code, message, step);
+}
+
+function typedTrace(trace, event) {
+  if (trace) trace.push(event);
+}
+
+// The T1 reader of the verified builder (lazy: the builder module is loaded
+// only when a typed admission runs).
+function readTrustedBuildRecord(candidate) {
+  return require("./v052_verified_build").typedV053.readBorrowedLaneRecord(candidate);
+}
+
+function privateCopy(value) {
+  if (value instanceof ArrayBuffer) return Buffer.from(new Uint8Array(value.slice(0)));
+  if (ArrayBuffer.isView(value)) return Buffer.from(new Uint8Array(value.buffer, value.byteOffset, value.byteLength));
+  return null;
+}
+
+function typedDigest(bytes) {
+  return `sha256:${crypto.createHash("sha256").update(bytes).digest("hex")}`;
+}
+
+// Step 1 checks on the private copy (R-ABI53-3 (1), -3a): the trust root, the
+// digest, the Module compiled from that copy, the contract id read through
+// Module.imports, and the import set (the contract only; no imported memory).
+async function typedAdmissionStep1(admission) {
+  const trace = admission.trace;
+  typedTrace(trace, "step1.digest");
+  const digest = typedDigest(admission.bytes);
+  if (admission.root.kind === "T1") {
+    if (admission.root.record.wasmDigest !== digest) {
+      admissionFail(1, "air.borrow.module_identity_mismatch", "the artifact bytes do not match the verified build record");
+    }
+    if (admission.root.record.lane !== TYPED_LANE) admissionFail(1, "air.abi.contract_unsupported", "the record does not name the typed-v0.53 lane");
+  } else if (admission.root.pinnedDigest !== digest) {
+    admissionFail(1, "air.borrow.module_identity_mismatch", "the artifact bytes do not match the host-pinned digest");
+  }
+  typedTrace(trace, "step1.compile");
+  let module = typedModuleCache.get(digest);
+  if (!module) {
+    try {
+      module = await WebAssembly.compile(admission.bytes);
+    } catch (_) {
+      admissionFail(1, "air.borrow.interface_invalid", "the artifact bytes are not a valid WebAssembly module");
+    }
+    if (typedModuleCache.size >= TYPED_MODULE_CACHE_LIMIT) typedModuleCache.delete(typedModuleCache.keys().next().value);
+    typedModuleCache.set(digest, module);
+  }
+  typedTrace(trace, "step1.contract_id");
+  const imports = WebAssembly.Module.imports(module);
+  const contract = imports.filter((item) => item.module === TYPED_CONTRACT.module);
+  const expected = admission.root.kind === "T1" ? admission.root.record.contractId : TYPED_CONTRACT.field;
+  if (contract.length !== 1 || contract[0].kind !== "function" || contract[0].name !== expected || expected !== TYPED_CONTRACT.field) {
+    admissionFail(1, "air.abi.contract_unsupported", `the artifact must import exactly ${TYPED_CONTRACT.module} ${TYPED_CONTRACT.field}`);
+  }
+  if (imports.length !== 1) {
+    admissionFail(1, "air.abi.contract_unsupported", "the artifact imports more than the AIR contract (no capability is bound at P0-08; no imported memory)");
+  }
+  return { digest, module };
+}
+
+// Steps 2 and 3: a fresh contract function and import object for this
+// instantiation; the owned range and the marker checked before the instance
+// is used; a failing instance is discarded, never returned.
+function typedAdmissionInstantiate(admission, module) {
+  const trace = admission.trace;
+  let calls = 0;
+  const contractFunction = () => {
+    calls += 1;
+    typedTrace(trace, "step2.contract_call");
+    return TYPED_CONTRACT_WORD;
+  };
+  const importObject = { [TYPED_CONTRACT.module]: { [TYPED_CONTRACT.field]: contractFunction } };
+  typedTrace(trace, "step2.instantiate");
+  let instance;
+  try {
+    instance = new WebAssembly.Instance(module, importObject);
+  } catch (_) {
+    admissionFail(2, "air.abi.contract_unsupported", "the artifact did not complete the contract handshake");
+  }
+  if (calls !== 1) admissionFail(2, "air.abi.contract_unsupported", "the artifact did not call the contract import exactly once");
+  typedTrace(trace, "step3.owned_range");
+  const owned = airOwnedMemoryRange(instance);
+  if (!owned) admissionFail(3, "air.borrow.air_memory_layout_unknown", "the instance does not export a valid AIR-owned memory range");
+  const recorded = admission.root.kind === "T1" ? admission.root.record.ownedRange : admission.root.ownedRange;
+  if (recorded && (recorded.start !== owned.start || recorded.end !== owned.end)) {
+    admissionFail(3, "air.borrow.air_memory_layout_unknown", `the exported owned range [${owned.start}, ${owned.end}) differs from the record`);
+  }
+  typedTrace(trace, "step3.marker");
+  const marker = instance.exports[TYPED_MEMORY_MARKER_EXPORT];
+  if (!(marker instanceof WebAssembly.Global) || marker.value !== TYPED_MEMORY_MARKER || instance.exports[LEGACY_MARKER_EXPORT] !== undefined) {
+    admissionFail(3, "air.borrow.interface_invalid", "the instance does not expose exactly the typed-memory-v1 marker");
+  }
+  const memory = instance.exports.memory;
+  if (!(memory instanceof WebAssembly.Memory)) admissionFail(3, "air.borrow.memory_missing", "the instance does not export its memory");
+  return { instance, memory, owned: recorded || owned };
+}
+
+function normalizeTypedInterfaceEntry(descriptor, entrypointName) {
+  if (!descriptor || descriptor.schema !== "air.borrowed-slice-interface.v2" || descriptor.airAbi !== TYPED_LANE ||
+      descriptor.feature !== "typed-memory-v1" || descriptor.lengthUnit !== "bytes") {
+    bindingFail("air.borrow.interface_invalid", "typed admission requires the AIR ABI 0.13 borrowed-slice-interface.v2 descriptor");
+  }
+  if (typeof entrypointName !== "string" || !entrypointName) {
+    bindingFail("air.borrow.entrypoint_missing", "entrypoint must name a borrowed export");
+  }
+  const entry = (descriptor.exports || []).find((item) => item && item.name === entrypointName);
+  if (!entry) bindingFail("air.borrow.entrypoint_missing", `missing borrowed export '${entrypointName}'`);
+  return entry;
+}
+
+// A typed scalar argument: an i32-family value (the module's own ingress
+// checks a refinement, value 16) or an f32.
+function normalizeTypedScalarArguments(value, entry) {
+  const scalarParams = (entry.params || []).filter((param) => param.kind !== "borrowed_slice");
+  if (value === undefined) value = {};
+  requirePlainObject(value, "arguments");
+  const expectedNames = scalarParams.map((param) => param.name).sort();
+  if (expectedNames.join("\0") !== Object.keys(value).sort().join("\0")) {
+    bindingFail("air.borrow.argument_set_mismatch", `arguments must match scalar parameters: ${expectedNames.join(", ")}`);
+  }
+  const out = new Map();
+  for (const param of scalarParams) {
+    const item = value[param.name];
+    if (/^i32(?:<-?[0-9]+\.\.-?[0-9]+>)?$/.test(param.type)) {
+      if (!Number.isInteger(item) || item < -0x80000000 || item > MAX_SIGNED_I32) {
+        bindingFail("air.borrow.argument_invalid", `arguments.${param.name} must be a signed i32`);
+      }
+    } else if (param.type === "f32") {
+      if (typeof item !== "number") bindingFail("air.borrow.argument_invalid", `arguments.${param.name} must be a number`);
+    } else {
+      bindingFail("air.borrow.argument_invalid", `scalar type '${param.type}' is unsupported by the typed admission`);
+    }
+    out.set(param.name, item);
+  }
+  return out;
+}
+
+// Wasm-view bindings checked against the trusted owned range (the T1 record,
+// or for T2 the range step 3 read), never against the exports alone.
+function prepareTypedWasmViewBindings(memory, bindings, owned) {
+  const memoryBuffer = memory.buffer;
+  const preparedBindings = bindings.map((binding) => {
+    if (binding.hostBuffer !== memoryBuffer) {
+      bindingFail("air.borrow.backing_identity_mismatch", `bindings.${binding.name}.buffer is not backed by the selected instance memory`);
+    }
+    return Object.freeze({ ...binding, wasmPointer: binding.hostByteOffset });
+  });
+  for (const binding of preparedBindings) assertRangeInMemory(binding, memoryBuffer);
+  for (const binding of preparedBindings) {
+    if (rangeIntersectsAirOwnedMemory(owned, binding.wasmPointer, binding.actualLength)) {
+      bindingFail("air.borrow.air_owned_memory_overlap", `bindings.${binding.name} overlaps AIR-owned module memory [${owned.start}, ${owned.end})`);
+    }
+  }
+  rejectWasmOverlap(preparedBindings);
+  return { bindings: preparedBindings, memoryBuffer };
+}
+
+// P8-R16: a trap through `$__air_borrow_failure` is classified first by the
+// instance's reason value (64: the owned-overlap guard; 0: the frozen
+// identity); any other trap is mapped by the registry.
+function classifyTypedTrap(error, instance) {
+  const { typedV053FailureIdentity } = require("./v052_numeric_diagnostic");
+  if (isGeneratedBorrowFailure(error)) {
+    const flag = instance.exports.__air_failure_reason;
+    const value = flag instanceof WebAssembly.Global ? flag.value : null;
+    if (value === 0) return { code: "air.borrow.pointer_out_of_bounds", value };
+    if (value === 64) return { code: "air.borrow.air_owned_memory_overlap", value };
+  }
+  const identity = typedV053FailureIdentity(error, instance);
+  return identity ? { code: identity.code, reason: identity.reason, value: identity.value } : null;
+}
+
+function typedTrapResult(failure, input) {
+  return stableObject({
+    result: null,
+    diagnostics: [borrowedDiagnostic(failure.code, failure.value === undefined || failure.value === null
+      ? "the typed-v0.53 artifact trapped"
+      : `the typed-v0.53 artifact trapped with failure reason ${failure.value}`)],
+    evidence: input ? createInvocationEvidence({ ...input, failureReason: failure.code, result: null, status: "failed" }) : null
+  });
+}
+
+function admitTypedV053Artifact(options = {}) {
+  // R-ABI53-3 (1): the private copy is taken before the first await.
+  requirePlainObject(options, "options");
+  const bytes = privateCopy(options.wasmBytes);
+  const trace = Array.isArray(options.trace) ? options.trace : null;
+  typedTrace(trace, "step1.private_copy");
+  return admitTypedV053ArtifactCopy(options, bytes, trace);
+}
+
+async function admitTypedV053ArtifactCopy(options, bytes, trace) {
+  if (!bytes) admissionFail(1, "air.borrow.interface_invalid", "wasmBytes must be bytes (Uint8Array, Buffer or ArrayBuffer)");
+  // R-ABI53-3a: T1, the verified builder's in-process record, recognised by
+  // identity; T2, a host-pinned digest, whose bytes are the authority and
+  // whose range step 3 reads, compared with a supplied record when there is one.
+  typedTrace(trace, "step1.trust");
+  const t1 = readTrustedBuildRecord(options.record);
+  let root;
+  if (options.pinnedDigest !== undefined) {
+    if (typeof options.pinnedDigest !== "string" || !/^sha256:[0-9a-f]{64}$/.test(options.pinnedDigest)) {
+      admissionFail(1, "air.abi.record_untrusted", "pinnedDigest must be a canonical SHA-256 digest");
+    }
+    const supplied = t1 ? t1.ownedRange : options.record && options.record.ownedRange;
+    root = { kind: "T2", ownedRange: supplied ? { end: supplied.end, start: supplied.start } : null, pinnedDigest: options.pinnedDigest };
+  } else if (t1) {
+    root = { kind: "T1", record: t1 };
+  } else {
+    admissionFail(1, "air.abi.record_untrusted", "typed admission requires a verified build record (T1) or a host-pinned digest (T2)");
+  }
+  const admission = { bytes, root, trace };
+  const { digest } = await typedAdmissionStep1(admission);
+  const descriptor = root.kind === "T1" ? root.record.descriptor : options.interfaceDescriptor;
+
+  // Steps 1 (rerun), 2 and 3, then arm (no capability at P0-08). The admitted
+  // instance is returned only after step 3 passed, for one invocation.
+  async function instantiate() {
+    const { module } = await typedAdmissionStep1(admission);
+    const admitted = typedAdmissionInstantiate(admission, module);
+    typedTrace(trace, "step4.arm");
+    return createAdmittedInstance(admitted, descriptor, digest, trace);
+  }
+
+  return Object.freeze({
+    digest,
+    trust: root.kind,
+    instantiate,
+    async invoke(request = {}) {
+      return (await instantiate()).invoke(request);
+    }
+  });
+}
+
+function createAdmittedInstance(admitted, descriptor, digest, trace) {
+  const { instance, memory, owned } = admitted;
+  let used = false;
+  const claim = () => {
+    if (used) bindingFail("air.borrow.invocation_reused", "an admitted typed-v0.53 instance runs one invocation");
+    used = true;
+  };
+  return Object.freeze({
+    memory,
+    // Step 4 with host bindings, bound with the trusted range; a refusal or a
+    // trap is returned as a failed result, as invokeBorrowedMemory returns it.
+    invoke(request = {}) {
+      try {
+        requirePlainObject(request, "request");
+        claim();
+        const entry = normalizeTypedInterfaceEntry(descriptor, request.entrypoint);
+        typedTrace(trace, "step4.bind");
+        const bindings = normalizeBindings(request.bindings, entry);
+        const scalarArguments = normalizeTypedScalarArguments(request.arguments, entry);
+        if (new Set(bindings.map((binding) => binding.transferMode)).size > 1) {
+          bindingFail("air.borrow.transfer_mode_mixed_unavailable", "copied and Wasm-view bindings cannot share one invocation");
+        }
+        rejectHostOverlap(bindings);
+        const prepared = bindings.some((binding) => binding.transferMode === "copied_into_wasm")
+          ? prepareCopiedBindings(memory, bindings)
+          : prepareTypedWasmViewBindings(memory, bindings, owned);
+        const entrypoint = instance.exports[entry.name];
+        const flattened = (entry.params || []).reduce((count, param) => count + (param.kind === "borrowed_slice" ? 2 : 1), 0);
+        if (typeof entrypoint !== "function" || entrypoint.length !== flattened) {
+          bindingFail("air.borrow.interface_invalid", `export '${entry.name}' does not match the canonical flattened parameter count`);
+        }
+        const wasmArguments = flattenArguments(entry, prepared.bindings, scalarArguments);
+        const evidence = { bindings: prepared.bindings, copiedIn: true, entry, interfaceDescriptor: descriptor, moduleDigest: digest, packageDigest: null, resourceCertificateDigest: null };
+        let inputDigests = emptyDigestMap(prepared.bindings);
+        try {
+          inputDigests = copyReadableInputs(prepared.bindings, prepared.memoryBuffer);
+          typedTrace(trace, "step4.invoke");
+          let result;
+          try {
+            result = entrypoint(...wasmArguments);
+          } catch (error) {
+            const failure = classifyTypedTrap(error, instance);
+            if (!failure) throw error;
+            return typedTrapResult(failure, { ...evidence, inputDigests, outputDigests: emptyDigestMap(prepared.bindings) });
+          }
+          assertMemoryIdentity(memory, prepared.memoryBuffer);
+          const outputDigests = copyMutableOutputs(prepared.bindings, prepared.memoryBuffer);
+          return stableObject({ result, diagnostics: [], evidence: createInvocationEvidence({ ...evidence, inputDigests, outputDigests, result, status: "passed" }) });
+        } finally {
+          clearCopiedRanges(prepared.bindings, prepared.memoryBuffer);
+        }
+      } catch (error) {
+        if (error instanceof BorrowedMemoryBindingError) {
+          return createRejectedInvocationResult(error, { entrypoint: request && request.entrypoint, interfaceDescriptor: descriptor, moduleDigest: digest });
+        }
+        throw error;
+      }
+    },
+    // A direct-export host's call (R-ABI53-7): raw Wasm lanes, no binding;
+    // the in-module guard and the registry classify a trap.
+    invokeRaw(entrypointName, lanes = []) {
+      claim();
+      const entrypoint = instance.exports[entrypointName];
+      if (typeof entrypoint !== "function") bindingFail("air.borrow.entrypoint_missing", `export '${entrypointName}' is not executable`);
+      typedTrace(trace, "step4.invoke");
+      try {
+        return Object.freeze({ result: entrypoint(...lanes), diagnostics: [] });
+      } catch (error) {
+        const failure = classifyTypedTrap(error, instance);
+        if (!failure) throw error;
+        return typedTrapResult(failure, null);
+      }
+    }
+  });
+}
+
 module.exports = {
   BORROWED_MEMORY_EVIDENCE_KIND,
   BORROWED_MEMORY_EVIDENCE_SCHEMA_VERSION,
@@ -955,3 +1296,8 @@ module.exports = {
   prepareBorrowedMemoryInvocation,
   registerBorrowedMemoryInstanceIdentity
 };
+// P0-08 typed-v0.53 admission; public through src/sdk.js only.
+Object.defineProperty(module.exports, "typedV053", {
+  enumerable: false,
+  value: Object.freeze({ TypedAdmissionError, admitTypedV053Artifact })
+});

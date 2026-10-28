@@ -63,6 +63,7 @@ const acceptedFixedStateFirstSliceFiles = new Set([
   "src/verifier_safety_fuzz.js",
   "src/verifier.js",
   "src/workbound.js",
+  "src/workbound_cost_table_v1.json",
   "spec/AIR_PACKAGE_MANIFEST.md"
 ]);
 
