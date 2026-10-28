@@ -138,6 +138,7 @@ const REPAIR_HINTS_BY_CODE = Object.freeze({
   "air.memory.free_not_owner": "Free a region only in the function that allocated it; a ptr parameter belongs to the caller.",
   "air.memory.readonly_data": "A literal view is read-only: copy its bytes into a region (alloc_region, store) before writing, and pass it only to readonly uses.",
   "air.memory.region_size_unsupported": "Keep every region size at most 16777216 bytes (REGION_MAX): use a smaller literal size, max bound or refinement.",
+  "air.abi.borrowed_lane_plain_export": "A module with a borrowed_slice export is invoked only through the typed admission: give every export a borrowed_slice parameter, or move the plain export to a module without borrowed exports.",
   "air.abi.slice_return_unsupported": "An export cannot return a slice: return a scalar, or write into a writeonly or readwrite borrowed_slice parameter.",
   "air.build.memory_backing_limit": "BUILD_REFUSED is not a verdict: the module's backing_bytes exceed this host's backing limit (64 MiB by default). Reduce region maxima or literal views, or use a host with a larger limit.",
   "air.abi.contract_unsupported": "The artifact's AIR contract import is not the one this host implements (air:contract typed-v0.53.v1, nothing else imported); rebuild it with a matching compiler.",

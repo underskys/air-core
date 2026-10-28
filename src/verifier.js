@@ -5032,6 +5032,7 @@ function verifyV053TypedModule(mod) {
     if (!fn || typeof fn.name !== "string" || functions.has(fn.name)) throw new VerificationError("air.v051.function_duplicate: typed function names must be unique", fn && fn.loc);
     functions.set(fn.name, fn);
   }
+  verifyV053BorrowedLaneExports(mod);
   for (const fn of mod.functions || []) {
     const ctx = { declarations, fn, functions, moduleName: mod.name, names: new Set(), states, tables };
     const scope = { locals: new Map(), memory: new Map(), regions: new Map(), staticValues: new Map() };
@@ -5713,6 +5714,21 @@ function v053MemorySite(statement) {
 }
 
 // P8-R12: where a memory type may not stand in a signature.
+// OD-P8-6 (b), F-1: a borrowed-lane artifact is invoked only through the
+// typed admission, whose v2 descriptor lists borrowed exports only (P8-R13,
+// P8-R15, P8-R24). A plain export beside a borrowed one would be a Wasm
+// export no supported host path can call, so the module is refused before
+// any artifact exists, at the first plain export in source order.
+function verifyV053BorrowedLaneExports(mod) {
+  const exported = (mod.functions || []).filter((fn) => fn && fn.exported);
+  const borrowed = (fn) => (fn.params || []).some((parameter) => parameter && /^borrowed_slice\s*</.test(String(parameter.type)));
+  const lane = exported.find(borrowed);
+  if (!lane) return;
+  const plain = exported.find((fn) => !borrowed(fn));
+  if (!plain) return;
+  throw new VerificationError(`air.abi.borrowed_lane_plain_export: export '${plain.name}' takes no borrowed_slice in a module whose export '${lane.name}' does; a borrowed-lane artifact is invoked only through the typed admission, so every export of the module must take a borrowed_slice`, plain.loc);
+}
+
 function verifyV053MemorySignature(fn, signature, returnType) {
   // P8-R15: the typed-memory-v1 marker's export name is reserved, as the
   // legacy lane reserves the v1 marker's (assertWasmTargetSupport).

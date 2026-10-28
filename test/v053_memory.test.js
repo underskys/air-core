@@ -93,7 +93,7 @@ const EARLIER_CODE_REGISTRY = Object.freeze([
   "air.state.index_out_of_bounds", "air.state.init_invalid", "air.state.length_invalid", "air.state.op_invalid", "air.state.segment_invalid"
 ]);
 const P0_08_CODE_REGISTRY = Object.freeze([
-  "air.abi.borrowed_slice_interface_mismatch", "air.abi.borrowed_slice_requires_0_11", "air.abi.contract_unsupported",
+  "air.abi.borrowed_lane_plain_export", "air.abi.borrowed_slice_interface_mismatch", "air.abi.borrowed_slice_requires_0_11", "air.abi.contract_unsupported",
   "air.abi.record_untrusted", "air.abi.slice_return_unsupported", "air.borrow.air_memory_layout_unknown",
   "air.borrow.air_owned_memory_overlap", "air.borrow.module_identity_mismatch", "air.build.memory_backing_limit",
   "air.memory.free_not_owner", "air.memory.readonly_data", "air.memory.region_bounds_runtime", "air.memory.region_bounds_static",
@@ -1377,14 +1377,27 @@ function direct(built, name, lanes) {
   }
 }
 
-// One typed admission invocation (H-NEW, T1) of a borrowed-lane build.
+// One typed admission invocation (H-NEW, T1) of a borrowed-lane build, with
+// its admission trace.
 async function admitted(built, request, prepare) {
-  const handle = await admitTypedV053Artifact({ record: built, wasmBytes: built.wasmBytes });
+  const trace = [];
+  const handle = await admitTypedV053Artifact({ record: built, trace, wasmBytes: built.wasmBytes });
   const instance = await handle.instantiate();
   const bindings = prepare ? prepare(instance.memory) : request.bindings;
   const result = instance.invoke({ ...request, bindings });
   if (result.diagnostics.length) observedFailures.push({ code: result.diagnostics[0].code, kind: "BINDING" });
-  return { instance, outcome: outcomeOf(result), result };
+  return { instance, outcome: outcomeOf(result), result, trace };
+}
+
+// OD-P8-6 (b), F-3: an owned-overlap refusal at step 4, from the record,
+// before invocation: the binding stage's diagnostic (not the in-module guard's
+// trap, which gives the same code), and the export never invoked.
+function assertBindingStageRefusal(result, trace, name, owned, label) {
+  assert.deepEqual(outcomeOf(result), { code: "air.borrow.air_owned_memory_overlap" }, label);
+  assert.equal(result.diagnostics[0].message, `bindings.${name} overlaps AIR-owned module memory [${owned[0]}, ${owned[1]})`, `${label}: the binding stage refused`);
+  assert.equal(result.evidence.failureReason, "air.borrow.air_owned_memory_overlap", `${label}: the rejected-invocation evidence`);
+  assert(trace.includes("step4.bind") && !trace.includes("step4.invoke"), `${label}: the export was never invoked (${trace.join(" ")})`);
+  return { message: result.diagnostics[0].message, step4: "bind, never invoke" };
 }
 
 async function sectionBorrowed() {
@@ -1422,10 +1435,11 @@ async function sectionBorrowed() {
     // Over 4 bytes inside the region slot [16, 32): refused before invocation; no store ran (the host word stays).
     const inside = await admitted(r.built, { entrypoint: "peek" }, (memory) => ({ src: bind(viewAt(memory, 20, word(3)), "readonly", 4, 4) }));
     assert.deepEqual(inside.outcome, { code: "air.borrow.air_owned_memory_overlap" });
+    const refusal = assertBindingStageRefusal(inside.result, inside.trace, "src", [16, 32], "N08");
     assert.deepEqual([...new Uint8Array(inside.instance.memory.buffer, 16, 8)], [0, 0, 0, 0, 3, 0, 0, 0], "no module store executed");
     const disjoint = await admitted(r.built, { entrypoint: "peek" }, (memory) => ({ src: bind(viewAt(memory, 64, word(1234)), "readonly", 4, 4) }));
     assert.deepEqual(disjoint.outcome, { value: 1234 });
-    return { value: { "E(peek)": expectE(r.built, "peek", 8, 0, 0, 16), disjoint: disjoint.outcome, inside_slot: inside.outcome, measures: expectMeasures("N08") } };
+    return { value: { "E(peek)": expectE(r.built, "peek", 8, 0, 0, 16), disjoint: disjoint.outcome, inside_slot: { ...inside.outcome, ...refusal }, measures: expectMeasures("N08") } };
   });
   await vector("V53-MEM-P06", async () => {
     const r = await accepted(pinned("P06"), [], "p06");
@@ -1574,6 +1588,34 @@ async function sectionBorrowed() {
     const reused = [instance.exports.run(), instance.exports.run()];
     assert.deepEqual(reused, [7, 7], "one instantiateAirModule instance, two calls");
     return { value: { "E(run)": expectE(r.built, "run", 24, 0, 0, 100), backing: expectBacking(r.built, 160, 112), invocations: r.invocations, measures: expectMeasures("P11ii"), reused } };
+  });
+  // OD-P8-6 (b) (owner record 701827f6...; P0-08 exact-SHA QA f1cc9e2e... §2).
+  await vector("P0-08-OD-P8-6-F1", async () => {
+    // F-1: a borrowed-lane module with a plain export is refused before any
+    // artifact exists, at the plain export's line; the same module without
+    // the plain export builds and is admitted.
+    const rd = func("export func rd(b: borrowed_slice<readonly,len=16..16,align=4>, o: i32) -> i32", ["%v: i32 = slice.load.i32 %b, %o", "return %v"]);
+    const mixed = mod(M, func("export func q(o: i32) -> i32", ["return %o"]), rd);
+    const rejected = await staticReject(mixed, "air.abi.borrowed_lane_plain_export", 3, "export 'q'");
+    const v2 = await captureAsync(() => buildVerifiedTypedModule({ ...GATED, descriptor: v2Of(mod(M, rd)), source: mixed }));
+    assert(v2 && v2.code === "air.abi.borrowed_lane_plain_export" && v2.loc.line === 3, `the v2 descriptor does not change it: ${v2 && v2.message}`);
+    const control = await accepted(mod(M, rd), [], "od_p8_6_f1_control");
+    const host = new Uint8Array(16);
+    host.set(word(42), 12);
+    const { outcome } = await admitted(control.built, { arguments: { o: 12 }, bindings: { b: bind(host, "readonly", 16, 4, "copied_into_wasm") }, entrypoint: "rd" });
+    assert.deepEqual(outcome, { value: 42 });
+    return { value: { control: { "E(rd)": expectE(control.built, "rd", 3), outcome, source_sha256: hexOf(mod(M, rd)) }, refused: rejected.outcome, source_sha256: hexOf(mixed), with_v2_descriptor: v2.code }, sourceDigest: sha256(mixed) };
+  });
+  await vector("P0-08-OD-P8-6-F2", async () => {
+    // F-2 (accepted reading): a read-only literal view passed to a `slice`
+    // parameter of a local call is refused at the call, although the callee
+    // only reads; a region view to the same callee verifies.
+    const len = func("func len(v: slice) -> i32", ["%n: i32 = slice.len %v", "return %n"]);
+    const literal = mod(M, len, func("export func run() -> i32", ['%s: slice = "abcd"', "%r: i32 = call @len(%s)", "return %r"]));
+    const rejected = await staticReject(literal, "air.memory.readonly_data", 10);
+    const region = mod(M, len, func("export func run() -> i32", [A16, "%s: slice = slice.from_region %p, 4", "%r: i32 = call @len(%s)", FREE, "return %r"]));
+    const control = await accepted(region, [["run", [], v(4)]], "od_p8_6_f2_control");
+    return { value: { control: control.invocations, refused: rejected.outcome, source_sha256: hexOf(literal) }, sourceDigest: sha256(literal) };
   });
   await vector("V53-MEM-N06", () => ({ status: "DEFERRED", value: { first_executable: "P0-10" } }));
   await vector("V53-MEM-N34", () => ({ status: "DEFERRED", value: { first_executable: "P0-10" } }));
@@ -2226,13 +2268,15 @@ async function sectionAbi(matrix) {
   await vector("V53-ABI-30", async () => {
     const value = {};
     for (const [root, options] of [["T1", { record: t53.built }], ["T2", { interfaceDescriptor: t53.built.descriptor, pinnedDigest: pinOf(bytes) }]]) {
-      const admittedInstance = await (await admitTypedV053Artifact({ ...options, wasmBytes: bytes })).instantiate();
+      const trace = [];
+      const admittedInstance = await (await admitTypedV053Artifact({ ...options, trace, wasmBytes: bytes })).instantiate();
       const view = viewAt(admittedInstance.memory, 16, word(5));
-      const outcome = outcomeOf(admittedInstance.invoke({ bindings: { src: bind(view, "readonly", 4, 4) }, entrypoint: "f" }));
-      assert.deepEqual(outcome, { code: "air.borrow.air_owned_memory_overlap" }, root);
+      const result = admittedInstance.invoke({ bindings: { src: bind(view, "readonly", 4, 4) }, entrypoint: "f" });
+      const outcome = outcomeOf(result);
+      const refusal = assertBindingStageRefusal(result, trace, "src", [16, 32], `ABI-30 ${root}`);
       assert.equal(leRead(admittedInstance.memory, 16), 5, `${root}: host value 5 (the guard was not reached)`);
       observedFailures.push({ code: outcome.code, kind: "BINDING" });
-      value[root] = { host: 5, outcome };
+      value[root] = { host: 5, outcome, ...refusal };
     }
     cell("V53-ABI-30", "ART-T53", "H-NEW typed admission, overlap view", value);
     return { value };
