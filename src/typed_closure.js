@@ -555,11 +555,12 @@ function importsOf(mod) {
   return out;
 }
 
-function countOnce(mod, counter) {
+// One pass of a module (P9-R10; OD-P9-8 (A)): every counter counts each real
+// pass, so a module verified or summarized twice reads 2.
+function count(mod, counter) {
   const context = MODULES.get(mod);
   if (!context) return;
-  const counters = context.closure.counters.get(context.key);
-  if (counters[counter] === 0) counters[counter] = 1;
+  context.closure.counters.get(context.key)[counter] += 1;
 }
 
 // The per-module counters of P9-R10 (card exact_evidence), by module key.
@@ -581,7 +582,7 @@ module.exports = {
   USE_PATH,
   closureCounters,
   closureOf,
-  countOnce,
+  count,
   enforceCapacity,
   importsOf,
   loadMapClosure,

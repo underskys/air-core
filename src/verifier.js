@@ -5014,11 +5014,17 @@ function verifyV053TypedModule(mod) {
       if (member === mod || closure.verified.has(key)) continue;
       verifyV053ClosureModule(member, typedClosure.importsOf(member));
       closure.verified.add(key);
-      typedClosure.countOnce(member, "verify");
+      typedClosure.count(member, "verify");
     }
   }
   verifyV053ClosureModule(mod, closure ? typedClosure.importsOf(mod) : null);
-  if (closure) typedClosure.countOnce(mod, "verify");
+  // The closure counters count the verifier's closure pass only (OD-P9-8 (A)):
+  // a later call on the same root, such as the lowering's verification of its
+  // input (src/lower_wasm.js), verifies the root again outside the counters.
+  if (closure && !closure.verified.has(closure.rootKey)) {
+    closure.verified.add(closure.rootKey);
+    typedClosure.count(mod, "verify");
+  }
   return mod;
 }
 

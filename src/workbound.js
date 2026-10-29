@@ -1089,7 +1089,7 @@ function analyzeVerifiedTypedModule(mod) {
   const result = isTypedV053Ast(mod) && analysis.status === "ok" ? withRegionPeaks(mod, analysis, imported) : analysis;
   if (context) {
     context.closure.analyses.set(context.key, result);
-    typedClosure.countOnce(mod, "summarize");
+    typedClosure.count(mod, "summarize");
   }
   return result;
 }

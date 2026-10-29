@@ -1153,6 +1153,8 @@ const tc = require(path.join(srcDir, "typed_closure.js"));
 const options = { allowCandidateProfile: true, sourceProfile: "typed-v0.53" };
 const mod = sp.parseSource(fs.readFileSync(rootPath, "utf8"), rootPath, options);
 sp.verifySource(mod, options);
+// The lowering verifies its input again, outside the closure counters.
+require(path.join(srcDir, "lower_wasm.js")).lowerToWat(mod, {});
 const closure = tc.closureOf(mod);
 process.stdout.write(JSON.stringify({ counters: tc.closureCounters(mod), totals: closure.totals }));
 `;
@@ -1163,6 +1165,16 @@ const MEMO_MUTANT = [
   ["typed_closure.js", "      if (!records.has(target)) {\n        const resolution = pkg.resolve(target);", "      if (!records.has(target) || target === \"d.air\") {\n        const resolution = pkg.resolve(target);"],
   ["typed_closure.js", "      if (records.has(target)) continue;\n      discover(target);\n      counters.set(target, newCounters());", "      if (records.has(target) && target !== \"d.air\") continue;\n      discover(target);\n      if (!counters.has(target)) counters.set(target, newCounters());"],
   ["typed_closure.js", "    if (!record.ast) {", "    if (!record.ast || key === \"d.air\") {"]
+];
+// OD-P9-8 (A): verification and summary memoization. M4 verifies a shared
+// module once per importer (the closure pass walks the import edges and
+// skips nothing); M5 removes the per-key summary cache.
+const VERIFY_PER_IMPORTER_MUTANT = [
+  ["verifier.js", "    for (const key of closure.order) {\n      const member = closure.records.get(key).ast;\n      if (member === mod || closure.verified.has(key)) continue;",
+    "    for (const key of closure.edges.map((edge) => edge.to)) {\n      const member = closure.records.get(key).ast;\n      if (member === mod) continue;"]
+];
+const SUMMARY_CACHE_MUTANT = [
+  ["workbound.js", "  if (context && context.closure.analyses.has(context.key)) return context.closure.analyses.get(context.key);\n", ""]
 ];
 const PER_EDGE_MUTANT = [
   ["typed_closure.js", "    totals: Object.freeze({ ...totals }),", "    totals: Object.freeze({ ...totals, astNodes: totals.astNodes + edges.filter((edge) => edges.some((other) => other !== edge && other.to === edge.to && other.from !== edge.from) && edges.findIndex((other) => other.to === edge.to) !== edges.indexOf(edge)).reduce((sum, edge) => sum + nodeCount(records.get(edge.to).ast), 0), sourceBytes: totals.sourceBytes + edges.filter((edge) => edges.findIndex((other) => other.to === edge.to) !== edges.indexOf(edge)).reduce((sum, edge) => sum + records.get(edge.to).bytes, 0) }),"]
@@ -1260,7 +1272,8 @@ async function sectionChecks(counterEvidence) {
       out[label] = { counters: run.counters };
     }
     const mutants = {};
-    for (const [name, edits] of [["memoization_disabled", MEMO_MUTANT], ["per_edge_totals", PER_EDGE_MUTANT]]) {
+    for (const [name, edits] of [["memoization_disabled", MEMO_MUTANT], ["per_edge_totals", PER_EDGE_MUTANT],
+      ["M4_verify_per_importer", VERIFY_PER_IMPORTER_MUTANT], ["M5_no_summary_cache", SUMMARY_CACHE_MUTANT]]) {
       const scratch = scratchSource(name, edits);
       const mutated = spawnJson(probe, [scratch, diamond.rootPath]);
       fs.rmSync(scratch, { force: true, recursive: true });
@@ -1270,6 +1283,8 @@ async function sectionChecks(counterEvidence) {
     }
     assert.equal(mutants.memoization_disabled.counters_d.read, 2, "memoization disabled: d is read twice");
     assert.equal(mutants.memoization_disabled.counters_d.parse, 2, "memoization disabled: d is parsed twice");
+    assert(mutants.M4_verify_per_importer.counters_d.verify >= 2, "M4: d is verified once per importer");
+    assert(mutants.M5_no_summary_cache.counters_d.summarize >= 2, "M5: d is summarized more than once");
     counterEvidence.push(...Object.entries(out).map(([label, value]) => ({ counters: value.counters, label })));
     return { value: { checked: out, mutants, N, unique_bytes: diamondTotal } };
   });
