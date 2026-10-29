@@ -984,6 +984,7 @@ function v053MemoryPlan(mod, declarations) {
     backingBytes: layout.backingBytes,
     base: shift,
     borrowed: shift > 0,
+    borrowedParameter: (mod.functions || []).some((fn) => (fn.params || []).some((parameter) => /^borrowed_slice</.test(String(parameter.type || "")))),
     fields: new Map((mod.structs || []).map((item) => [item.type_id, item.fields])),
     frames,
     isAggregate,
@@ -1120,7 +1121,10 @@ function v053ModuleHeaderLines(features) {
     ...[...features.memory.literals.values()].filter((entry) => entry.bytes.length > 0)
       .map((entry) => `  (data (i32.const ${entry.address}) ${v053DataString(entry.bytes)})`),
     ...(features.usesRegionBounds ? [v053FailureHelper(V053_REGION_BOUNDS_HELPER, 34)] : []),
-    ...(borrowed ? borrowed.globals : [])
+    ...(borrowed ? borrowed.globals : []),
+    // OD-P8-7 (B-1): on the plain lane, a function that takes a borrowed_slice
+    // still calls the trap-only helper from its view checks.
+    ...(!borrowed && features.memory.borrowedParameter ? [`  (func $${BORROW_FAILURE_FUNCTION} (param $code i32) unreachable)`] : [])
   ];
 }
 
@@ -2218,6 +2222,7 @@ function checkV053EngineLimits(mod) {
   const signatures = new Set(helpers ? ["->"] : []);
   // P0-08 (P8-R15): `$__air_borrow_failure` (i32 -> ) and the contract import ( -> i32).
   if (features.memory.borrowed) signatures.add("i32->").add("->i32");
+  else if (features.memory.borrowedParameter) signatures.add("i32->");
   for (const fn of mod.functions || []) {
     const lanes = (fn.params || []).flatMap((parameter) => v053TypeInfo(parameter.type, features.declarations, features.memory).watTypes);
     signatures.add(`${lanes.join(",")}->${v053TypeInfo(fn.returnType, features.declarations, features.memory).watTypes.join(",")}`);

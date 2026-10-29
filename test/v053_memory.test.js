@@ -1617,6 +1617,39 @@ async function sectionBorrowed() {
     const control = await accepted(region, [["run", [], v(4)]], "od_p8_6_f2_control");
     return { value: { control: control.invocations, refused: rejected.outcome, source_sha256: hexOf(literal) }, sourceDigest: sha256(literal) };
   });
+  // OD-P8-7 (A) (owner record 14904402...; B-1, P0-09 R2.4 AD-P9-17 (ii)).
+  await vector("P0-08-OD-P8-7-B1", async () => {
+    // B-1: a plain-lane module whose internal function takes a borrowed_slice
+    // verifies, builds and runs (R-COMP-3); the trap-only helper is internal,
+    // and nothing is imported, started or exported beyond the plain lane's.
+    // The controls' WAT is byte-identical to the base 94562338 / fe750210
+    // (sha256 values of the base lowering).
+    const peek = (name, exported) => func(`${exported ? "export " : ""}func ${name}(b: borrowed_slice<readonly,len=8..8,align=4>) -> i32`, ["%v: i32 = slice.load.i32 %b, 0", "return %v"]);
+    const rd = func("export func rd(b: borrowed_slice<readonly,len=16..16,align=4>, o: i32) -> i32", ["%v: i32 = slice.load.i32 %b, %o", "return %v"]);
+    const source = mod("v53.imp.b1", peek("peek", false), func("export func run(x: i32) -> i32", ["return %x"]));
+    assert.equal(hexOf(source), "13b32afce2cafb49556501e000fd98aa0e1dfc16f2d5987eb50ae5148239c4fa", "P0-09 R2.4 VECTORS_ADDITIONS.md §3b fixture (a)");
+    const r = await accepted(source, [["run", [5], v(5)]], "od_p8_7_b1");
+    const artifact = new WebAssembly.Module(r.built.wasmBytes);
+    const exported = WebAssembly.Module.exports(artifact).map((item) => `${item.kind}:${item.name}`);
+    assert.deepEqual(exported, ["global:__air_failure_reason", "function:run"]);
+    assert.deepEqual(WebAssembly.Module.imports(artifact), []);
+    assert.equal(r.wat.split("(func $__air_borrow_failure (param $code i32) unreachable)").length - 1, 1, "the helper is defined once");
+    assert(r.wat.includes("call $__air_borrow_failure") && !r.wat.includes("(start "), "the view checks call the helper; no start function");
+    const controls = {
+      abi52_link: [mod("v53.imp.main", rd, peek("lib__peek", false)), "c13bd90888da61b9e16f74e804c1325a10e6305d75abedce0e68e18981a4a2a8"],
+      borrowed_lane: [mod("v53.mem", rd), "ae0fc87da74f87dabc4f010f76bab2dfc973272a4fcb6bd1d8d15bea642345f0"],
+      c7_carrier: [mod("v53.imp.main", func("export func run(x: i32) -> i32", ["%a: i32 = call @buf__keep(%x)", "return %a"]),
+        func("func buf__keep(x: i32) -> i32", ["%p: ptr = alloc_region 16", "store.i32 %p, 0, %x", "%v: i32 = load.i32 %p, 0", "%o: i32 = i32.wrapping_add %v, 1", "free_region %p", "return %o"])),
+      "a5f11d7d4727760c4db80e2caff5b6ee5853ba0e1f56d5b213247bf3de1209af"],
+      plain: [mod("v53.imp.math", func("export func add_one(x: i32) -> i32", ["%o: i32 = i32.wrapping_add %x, 1", "return %o"])), "144bc0913f985947cedc16e52a54a10eedca155be8f4e19033952918f27dafe2"]
+    };
+    const unchanged = {};
+    for (const [key, [text, base]] of Object.entries(controls)) {
+      unchanged[key] = hexOf(lowerToWat(typedV053(text, `${key}.air`), { maxWatBytes: MAX_WAT }));
+      assert.equal(unchanged[key], base, `control ${key}: WAT byte-identical to the base`);
+    }
+    return { value: { "E(run)": expectE(r.built, "run", 1), exports: exported, imports: 0, invocations: r.invocations, source_sha256: hexOf(source), unchanged_control_wat_sha256: unchanged }, sourceDigest: sha256(source) };
+  });
   await vector("V53-MEM-N06", () => ({ status: "DEFERRED", value: { first_executable: "P0-10" } }));
   await vector("V53-MEM-N34", () => ({ status: "DEFERRED", value: { first_executable: "P0-10" } }));
   await vector("V53-REF-N12@P0-08", async () => {
@@ -2763,7 +2796,30 @@ async function sectionEachSlice() {
       assembled += 1;
     }
     assert.equal(assembled, verifiedCount, "every verified fuzz source builds");
-    return { value: { assembled, cases, verified: verifiedCount } };
+    // OD-P8-7 (B-1): the same claim over a directed mutation of the corpus:
+    // each borrowed export becomes internal and a plain export is added, so
+    // the module is on the plain lane with functions taking a borrowed_slice.
+    const b1 = { assembled: 0, cases: 0, verified: 0 };
+    for (const text of corpus) {
+      if (!/^export func [^\n]*borrowed_slice</mu.test(text)) continue;
+      const source = `${text.replace(/^export (func [^\n]*borrowed_slice<)/gmu, "$1")}\nexport func fuzz_b1_run(x: i32) -> i32 {\n  return %x\n}\n`;
+      b1.cases += 1;
+      let ast;
+      try {
+        ast = typedV053(source, "fuzz_b1.air");
+        b1.verified += 1;
+      } catch (error) {
+        assert(!(error instanceof TypeError) && !(error instanceof RangeError) && !(error instanceof SyntaxError), `${error && error.stack}\n${source}`);
+        assert(typeof error.code === "string" && inRegistry(error.code), `unregistered or missing code ${error && error.code}: ${error && error.message}\n${source}`);
+        continue;
+      }
+      const wat = lowerToWat(ast, { maxWatBytes: MAX_WAT });
+      new WebAssembly.Module(await watToWasm(wat, "fuzz_b1.air"));
+      b1.assembled += 1;
+    }
+    assert(b1.verified > 0, "the directed B-1 mutation gives verified sources");
+    assert.equal(b1.assembled, b1.verified, "every verified B-1 mutation builds");
+    return { value: { assembled, b1_directed: b1, cases, verified: verifiedCount } };
   });
 }
 
