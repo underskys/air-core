@@ -311,11 +311,22 @@ function formatV053TypedAir(mod) {
     throw new AirError("air.source_profile.ast_mismatch: typed-v0.53 formatting requires a typed-v0.53 AST");
   }
   const out = [`module ${mod.name}`];
+  // P0-09 (P9-R25; AD-P9-3 (a)): every `use` line right after the header,
+  // sorted by path, with one blank line before and after the group. The
+  // imported files are neither read nor changed.
+  const uses = Array.isArray(mod.uses) ? mod.uses.slice().sort((left, right) => compareAscii(left.path, right.path)) : [];
+  if (uses.length) out.push("", ...uses.map((use) => `use "${use.path}" as ${use.alias}`));
+  let header = uses.length > 0;
   const capabilities = Array.from(mod.capabilities || []).sort();
-  if (capabilities.length) out.push(`capabilities { ${capabilities.join(", ")} }`);
+  if (capabilities.length) {
+    if (header) out.push("");
+    header = false;
+    out.push(`capabilities { ${capabilities.join(", ")} }`);
+  }
   // P0-05 (slice text P5-R11): the `work` line follows the module header with
   // no blank line, its keys in the dimension order, spaced as `capabilities`.
   if (mod.work && Array.isArray(mod.work.limits) && mod.work.limits.length) {
+    if (header) out.push("");
     out.push(`work { ${mod.work.limits.map((limit) => `${limit.key} <= ${limit.bound}`).join(", ")} }`);
   }
   for (const declaration of (mod.enums || []).slice().sort((left, right) => compareAscii(left.type_id, right.type_id))) {

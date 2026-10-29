@@ -4998,10 +4998,31 @@ const V053_INTEGER_RANGE = Object.freeze({
   64: Object.freeze({ max: 9223372036854775807n, min: -9223372036854775808n })
 });
 
+// P0-09 (P9-R10): the modules of a root's closure are verified dependencies
+// first, each once and each in its own declarations, capabilities and
+// contracts; the root last. A module's verdict does not depend on whether it
+// is the root or an import, so P0-08's per-module checks run on every module.
 function verifyV053TypedModule(mod) {
   if (!isTypedV053Ast(mod)) {
     throw new VerificationError("air.source_profile.ast_mismatch: typed-v0.53 verification requires a typed-v0.53 AST");
   }
+  const typedClosure = require("./typed_closure");
+  const closure = typedClosure.closureOf(mod);
+  if (closure) {
+    for (const key of closure.order) {
+      const member = closure.records.get(key).ast;
+      if (member === mod || closure.verified.has(key)) continue;
+      verifyV053ClosureModule(member, typedClosure.importsOf(member));
+      closure.verified.add(key);
+      typedClosure.countOnce(member, "verify");
+    }
+  }
+  verifyV053ClosureModule(mod, closure ? typedClosure.importsOf(mod) : null);
+  if (closure) typedClosure.countOnce(mod, "verify");
+  return mod;
+}
+
+function verifyV053ClosureModule(mod, imports) {
   for (const capability of mod.capabilities || []) {
     if (!KNOWN_CAPABILITIES.has(capability)) {
       throw new VerificationError(`air.capability.unknown: unknown capability '${capability}'`);
@@ -5034,7 +5055,7 @@ function verifyV053TypedModule(mod) {
   }
   verifyV053BorrowedLaneExports(mod);
   for (const fn of mod.functions || []) {
-    const ctx = { declarations, fn, functions, moduleName: mod.name, names: new Set(), states, tables };
+    const ctx = { declarations, fn, functions, imports, moduleName: mod.name, names: new Set(), states, tables };
     const scope = { locals: new Map(), memory: new Map(), regions: new Map(), staticValues: new Map() };
     // P7-R10: a state name in an exported signature is a state handle.
     const handle = fn && fn.exported ? [...(fn.params || []).map((parameter) => parameter && parameter.type), fn.returnType].find((type) => typeof type === "string" && states.has(type.trim())) : undefined;
@@ -5138,7 +5159,7 @@ function v053TypeContained(source, destination) {
 // checked here: it is a WorkBound result (invalid_bound, unknown_bound) of phase
 // S (P5-R3), and a statically known count is never a static rejection (P5-R4).
 function verifyV053Fold(value, ctx, scope, loc, destination) {
-  const callback = ctx.functions.get(value.callback);
+  const callback = ctx.functions.get(value.callback) || verifyV053ImportedCallee(value.callback, ctx, loc);
   if (!callback) throw new VerificationError(`air.call.unknown_function: '@${value.callback}' is not a function of module '${ctx.moduleName || "this module"}'`, loc);
   const params = callback.params || [];
   if (params.length !== 1 && params.length !== 2) {
@@ -5294,8 +5315,34 @@ function verifyV053Return(statement, ctx, scope) {
 // atoms checked against the parameters (a refined parameter is a refinement
 // entry point: proven, or checked at the call site); a bound result has the
 // callee's declared result type (P4-R5).
+// P0-09 (P9-R11, P9-R12; OD-P9-2 (a)): `@alias.f` names the export `f` of the
+// module the alias imports; anything else stays unknown_function. Only types
+// the importer can spell cross the boundary, decided before any argument
+// check (AD-P9-15 (a)). A `void` result passes no value, so it crosses nothing.
+function verifyV053ImportedCallee(name, ctx, loc) {
+  const dot = typeof name === "string" ? name.indexOf(".") : -1;
+  if (dot < 1 || !ctx.imports) return undefined;
+  const imported = ctx.imports.get(name.slice(0, dot));
+  if (!imported) return undefined;
+  const callee = (imported.ast.functions || []).find((fn) => fn.exported && fn.name === name.slice(dot + 1));
+  if (!callee) return undefined;
+  const crossing = [...(callee.params || []).map((parameter) => parameter.type), ...(callee.returnType === "void" ? [] : [callee.returnType])];
+  const blocked = crossing.find((type) => !v053ImportableType(type));
+  if (blocked !== undefined) {
+    throw new VerificationError(`air.import.signature_type_unsupported: '@${name}' takes or returns ${blocked}, which cannot cross a module boundary; only i32, i64, f32, f64, bool, refined integers and option<T> of these do`, loc);
+  }
+  return callee;
+}
+
+function v053ImportableType(type) {
+  const text = String(type).trim();
+  if (/^(i32|i64|f32|f64|bool)$/.test(text) || parseRefinementType(text)) return true;
+  const option = /^option<(.+)>$/.exec(text);
+  return Boolean(option) && (/^(i32|i64|f32|f64|bool)$/.test(option[1].trim()) || Boolean(parseRefinementType(option[1].trim())));
+}
+
 function verifyV053Call(value, ctx, scope, loc, destination) {
-  const callee = ctx.functions.get(value.callee);
+  const callee = ctx.functions.get(value.callee) || verifyV053ImportedCallee(value.callee, ctx, loc);
   if (!callee) throw new VerificationError(`air.call.unknown_function: '@${value.callee}' is not a function of module '${ctx.moduleName || "this module"}'`, loc);
   const args = Array.isArray(value.args) ? value.args : [];
   const params = callee.params || [];

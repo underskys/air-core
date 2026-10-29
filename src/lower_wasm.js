@@ -890,9 +890,14 @@ function v053TypeInfo(typeName, declarations, memory = null) {
 }
 
 function v053ModuleFeatures(mod) {
+  const closure = require("./typed_closure").closureOf(mod);
+  if (closure) return v053LinkedFeatures(mod, closure);
   const declarations = new Map((mod.enums || []).map((item) => [item.type_id, item]));
+  return v053FeaturesOf(mod, declarations, v053MemoryPlan(mod, declarations));
+}
+
+function v053FeaturesOf(mod, declarations, memory) {
   const functions = mod.functions || [];
-  const memory = v053MemoryPlan(mod, declarations);
   const operations = functions.flatMap((fn) => v053FunctionStatements(fn))
     .filter((statement) => statement.kind === "local" && statement.value && statement.value.kind === "aggregate_operation")
     .map((statement) => statement.value.op);
@@ -915,6 +920,85 @@ function v053ModuleFeatures(mod) {
   };
 }
 
+// P0-09 (P9-R18..P9-R21; RUNTIME_LINKING=false): a verified closure lowers to
+// one Wasm module. Each module keeps its own declarations and storage: the
+// P0-06/P0-07 plan module by module in link order, then P0-08's layout pass
+// over the modules in the same order, every address shifted by the root's
+// BASE (the root's exports are the artifact's entries, so the lane is the
+// root's). Each module's functions are lowered once, under `$<k>.<name>`;
+// an imported call is a direct call, and only the root's exports are Wasm
+// exports. Each module's features inherit the artifact's, which the header
+// uses with every module's segments.
+function v053LinkedFeatures(root, closure) {
+  const shift = v053BorrowedLane(root) ? V053_OWNED_BASE : 0;
+  const placement = { next: 0, shift };
+  const members = closure.order.map((key, k) => {
+    const mod = closure.records.get(key).ast;
+    const declarations = new Map((mod.enums || []).map((item) => [item.type_id, item]));
+    return { declarations, k, key, mod, plan: v053MemoryPlan(mod, declarations, placement) };
+  });
+  let cursor = placement.next;
+  for (const member of members) {
+    member.layout = v053MemoryLayout(member.mod, cursor, shift);
+    cursor = member.layout.backingBytes;
+  }
+  const used = shift > 0 || members.some(({ mod, plan }) => plan.tables.size > 0 || plan.states.size > 0 ||
+    [...plan.frames.values()].some((frame) => frame.result !== null || frame.slots.size > 0) ||
+    (mod.functions || []).some((fn) => v053SourceStatements(fn).some((statement) => v053MemoryOperationOf(statement))));
+  const lane = {
+    backingBytes: cursor,
+    base: shift,
+    borrowed: shift > 0,
+    borrowedParameter: members.some(({ mod }) => (mod.functions || []).some((fn) => (fn.params || []).some((parameter) => /^borrowed_slice</.test(String(parameter.type || ""))))),
+    pages: used ? Math.max(1, Math.ceil((shift + cursor) / V053_MEMORY_PAGE)) : 0,
+    regionSlotBytes: members.reduce((sum, member) => sum + member.layout.regionSlotBytes, 0)
+  };
+  const merged = (pick) => new Map(members.flatMap((member) => [...pick(member)].map(([name, entry]) => [`${member.k}:${typeof name === "string" ? name : member.k}`, entry])));
+  const own = members.map((member) => v053FeaturesOf(member.mod, member.declarations, {
+    ...lane, ...member.plan, literals: member.layout.literals, slots: member.layout.slots
+  }));
+  const flags = ["usesArrayIndex", "usesCanonicalSumIngress", "usesCheckedNumeric", "usesDynamicFold", "usesRegionBounds", "usesTableGet", "usesTypedRefinement"];
+  const artifact = {
+    ...Object.fromEntries(flags.map((flag) => [flag, own.some((features) => features[flag])])),
+    linked: [],
+    memory: {
+      ...lane,
+      literals: new Map(members.flatMap((member) => [...member.layout.literals])),
+      slots: new Map(members.flatMap((member) => [...member.layout.slots])),
+      states: merged((member) => member.plan.states),
+      tables: merged((member) => member.plan.tables)
+    }
+  };
+  members.forEach((member, index) => {
+    const features = Object.setPrototypeOf(own[index], artifact);
+    const names = new Map((member.mod.functions || []).map((fn) => [fn.name, `$${member.k}.${wasmName(fn.name)}`]));
+    const record = closure.records.get(member.key);
+    for (const [alias, target] of record.imports) {
+      const callee = members.find((candidate) => candidate.key === target);
+      for (const fn of callee.mod.functions || []) {
+        if (!fn.exported) continue;
+        names.set(`${alias}.${fn.name}`, `$${callee.k}.${wasmName(fn.name)}`);
+        features.functions.set(`${alias}.${fn.name}`, fn);
+      }
+    }
+    features.link = { names, root: member.mod === root };
+    features.module = member.mod;
+    artifact.linked.push(features);
+  });
+  return artifact;
+}
+
+// The functions an artifact lowers, each with its module's features: one
+// module's in source order, or a closure's module by module in link order.
+function v053LoweredFunctions(mod, features) {
+  if (!features.linked) return (mod.functions || []).map((fn) => [fn, features]);
+  return features.linked.flatMap((own) => (own.module.functions || []).map((fn) => [fn, own]));
+}
+
+function v053FunctionRef(features, name) {
+  return features.link ? features.link.names.get(name) : `$${wasmName(name)}`;
+}
+
 // ---------------------------------------------------------------------------
 // P0-06 (slice text P6-R5, P6-R19, P6-R24; docs/v0.53/P0_06_AGGREGATES.md).
 // One internal memory, never exported and never imported (EXPORTED_MEMORY=
@@ -931,7 +1015,7 @@ function v053ModuleFeatures(mod) {
 const V053_LANE_BYTES = Object.freeze({ f32: 4, f64: 8, i32: 4, i64: 8 });
 const V053_MEMORY_PAGE = 65536;
 
-function v053MemoryPlan(mod, declarations) {
+function v053MemoryPlan(mod, declarations, placement = null) {
   const typed = parserModule.typedV053;
   const structs = typed.structFieldTypes(mod);
   const sizes = new Map();
@@ -940,8 +1024,10 @@ function v053MemoryPlan(mod, declarations) {
   const sizeOf = (typeName) => Number(typed.measureType(typeName, structs, laneBytes, sizes));
   // P0-08 (P8-R22): an artifact with a borrowed export shifts its whole
   // backing by BASE = 16; every other artifact starts at 0.
-  const shift = v053BorrowedLane(mod) ? V053_OWNED_BASE : 0;
-  let next = 0;
+  // P0-09 (P9-R20): in a linked closure the lane is the root's and the static
+  // storage continues where the previous module's ends (`placement`).
+  const shift = placement ? placement.shift : v053BorrowedLane(mod) ? V053_OWNED_BASE : 0;
+  let next = placement ? placement.next : 0;
   const reserve = (bytes) => {
     next = Math.ceil(next / 8) * 8;
     const base = next;
@@ -972,6 +1058,10 @@ function v053MemoryPlan(mod, declarations) {
       }
     }
     frames.set(fn.name, { result, slots });
+  }
+  if (placement) {
+    placement.next = next;
+    return { fields: new Map((mod.structs || []).map((item) => [item.type_id, item.fields])), frames, isAggregate, sizeOf, states, tables };
   }
   // P0-08 (P8-R22): the literal views and region slots follow the earlier
   // slices' storage, which ends at `next` (P). A module with a memory
@@ -1132,14 +1222,15 @@ function lowerV053TypedToWat(mod, options = {}) {
   const opts = options || {};
   // An AST entrypoint recomputes both capacity measures before lowering
   // (slice text §3.1), then verifies (phase S).
-  enforceAnalysisCapacity(mod, opts.analysisCapacity);
+  // P0-09 (P9-R26b): over the closure when the module has one.
+  require("./typed_closure").enforceCapacity(mod, opts.analysisCapacity);
   verifierModule.typedV053.verify(mod);
   const writer = v053WatWriter(opts.maxWatBytes);
   try {
     const features = v053ModuleFeatures(mod);
     const header = v053ModuleHeaderLines(features);
     header.forEach((line, index) => writer.charge((index ? 1 : 0) + Buffer.byteLength(line, "utf8")));
-    const functions = (mod.functions || []).map((fn) => lowerV053TypedFunction(fn, features, writer, false));
+    const functions = v053LoweredFunctions(mod, features).map(([fn, own]) => lowerV053TypedFunction(fn, own, writer, false));
     writer.charge(1 + 1);
     const wat = [...header, ...functions, ")"].join("\n");
     if (Buffer.byteLength(wat, "utf8") !== writer.total) {
@@ -1155,12 +1246,17 @@ function lowerV053TypedToWat(mod, options = {}) {
 function lowerV053TypedFunction(fn, features, writer, counting) {
   const { declarations, memory } = features;
   const frame = memory.frames.get(fn.name);
+  // P0-09 (P9-R19, P9-R21): in a linked closure only the root's exports are
+  // entries; an imported module's export is an internal function (no Wasm
+  // export, no ingress guard).
+  const entry = fn.exported === true && (!features.link || features.link.root);
   const state = {
     constants: features.constants,
     declarations,
-    exported: fn.exported === true,
+    exported: entry,
     frame,
     functions: features.functions,
+    link: features.link || null,
     localDecls: new V053WatLines(writer, 4, counting),
     locals: new Map(),
     memory,
@@ -1195,8 +1291,8 @@ function lowerV053TypedFunction(fn, features, writer, counting) {
   let headerLine = null;
   if (!counting) {
     const result = resultInfo.watTypes.length ? ` (result ${resultInfo.watTypes.join(" ")})` : "";
-    const exportDecl = fn.exported ? ` (export "${fn.name}")` : "";
-    headerLine = `  (func $${wasmName(fn.name)}${exportDecl}${params.length ? ` ${params.join(" ")}` : ""}${result}`;
+    const exportDecl = entry ? ` (export "${fn.name}")` : "";
+    headerLine = `  (func ${v053FunctionRef(features, fn.name)}${exportDecl}${params.length ? ` ${params.join(" ")}` : ""}${result}`;
     writer.charge(1 + Buffer.byteLength(headerLine, "utf8"));
   }
   // Ingress checks in parameter order, before any other evaluation (T-5).
@@ -1204,7 +1300,7 @@ function lowerV053TypedFunction(fn, features, writer, counting) {
   // (P8-R13..P8-R15): an exported borrowed view's preflight and guard run in
   // its place, then the pairwise overlap checks.
   for (const record of records) emitV053TypedRuntimeValidation(state, record);
-  if (fn.exported) emitV053BorrowedAliasPreflight(state, records);
+  if (entry) emitV053BorrowedAliasPreflight(state, records);
   for (const statement of fn.statements || []) {
     if (statement.kind === "return") {
       if (resultInfo.kind === "aggregate") {
@@ -1364,7 +1460,7 @@ function emitV053Call(state, value) {
     emitV053TypedExpression(state, argument, parameter.type);
     emitV053NarrowingCheck(state, v051TypedTypeInfo(parameter.type, state.declarations), argument);
   });
-  state.body.push(`call $${wasmName(callee.name)}`);
+  state.body.push(`call ${v053FunctionRef(state, value.callee)}`);
   return callee;
 }
 
@@ -1405,7 +1501,7 @@ function emitV053Fold(state, value, record) {
   if (accumulator) emitV053Copy(state, { base: accumulator.slots.get(callback.params[0].name) }, { base: record.address }, size);
   else emitV051TypedGet(state, record);
   if (callback.params.length === 2) state.body.push(`local.get ${index}`);
-  state.body.push(`call $${wasmName(callback.name)}`);
+  state.body.push(`call ${v053FunctionRef(state, value.callback)}`);
   if (accumulator) emitV053Copy(state, { base: record.address }, { base: accumulator.result }, size);
   else emitV051TypedSet(state, record);
   state.body.push(`local.get ${index}`, "i32.const 1", "i32.add", `local.set ${index}`, "br 0", "end", "end");
@@ -2218,14 +2314,15 @@ function checkV053EngineLimits(mod) {
   if (!isTypedV053Ast(mod)) typedLowerFail("air.v051.typed_lowering_unsupported", "engine-limit planning requires a typed-v0.53 AST");
   const features = v053ModuleFeatures(mod);
   const helpers = v053ModuleHeaderLines(features).filter((line) => line.startsWith("  (func ")).length;
-  const plans = (mod.functions || []).map((fn) => lowerV053TypedFunction(fn, features, null, true));
+  const lowered = v053LoweredFunctions(mod, features);
+  const plans = lowered.map(([fn, own]) => lowerV053TypedFunction(fn, own, null, true));
   const signatures = new Set(helpers ? ["->"] : []);
   // P0-08 (P8-R15): `$__air_borrow_failure` (i32 -> ) and the contract import ( -> i32).
   if (features.memory.borrowed) signatures.add("i32->").add("->i32");
   else if (features.memory.borrowedParameter) signatures.add("i32->");
-  for (const fn of mod.functions || []) {
-    const lanes = (fn.params || []).flatMap((parameter) => v053TypeInfo(parameter.type, features.declarations, features.memory).watTypes);
-    signatures.add(`${lanes.join(",")}->${v053TypeInfo(fn.returnType, features.declarations, features.memory).watTypes.join(",")}`);
+  for (const [fn, own] of lowered) {
+    const lanes = (fn.params || []).flatMap((parameter) => v053TypeInfo(parameter.type, own.declarations, own.memory).watTypes);
+    signatures.add(`${lanes.join(",")}->${v053TypeInfo(fn.returnType, own.declarations, own.memory).watTypes.join(",")}`);
   }
   // `__air_failure_reason` is the one global and one extra export (T-1).
   // P0-06: one data segment per table; the internal memory's pages. P0-07:
@@ -2237,7 +2334,7 @@ function checkV053EngineLimits(mod) {
   const totals = {
     dataSegments: features.memory.tables.size + features.memory.states.size + literalSegments,
     exports: (mod.functions || []).filter((fn) => fn.exported).length + 1 + 4 * borrowed,
-    functions: (mod.functions || []).length + helpers,
+    functions: lowered.length + helpers,
     globals: 1 + 3 * borrowed,
     imports: borrowed,
     memoryPages: features.memory.pages,

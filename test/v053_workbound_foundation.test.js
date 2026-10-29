@@ -626,7 +626,7 @@ function envWithout(names, extra = {}) {
           for (const match of fs.readFileSync(file, "utf8").matchAll(/air\.v052\.work_limit_[a-z_]+/gu)) codes.add(match[0]);
         }
       }
-      assert.deepEqual([...codes].sort(), ["ast_nodes", "cache_bytes", "concurrent_builds", "descriptor_bytes", "invocation_lanes", "source_bytes", "source_name_bytes", "wasm_bytes", "wat_bytes"].map((name) => `air.v052.work_limit_${name}`));
+      assert.deepEqual([...codes].sort(), ["ast_nodes", "cache_bytes", "concurrent_builds", "descriptor_bytes", "invocation_lanes", "modules", "source_bytes", "source_name_bytes", "wasm_bytes", "wat_bytes"].map((name) => `air.v052.work_limit_${name}`));
       // (c) deriveEffectiveAuthority has no WorkBound input; IC06 unchanged
       const frozen = runV051Reference();
       assert.equal(frozen.IC06, "PASS_limit");

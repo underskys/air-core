@@ -4,6 +4,7 @@ const { AirError, SOURCE_PROFILE_TYPED_V053, isTypedV053Ast } = require("./error
 const { enforceAnalysisCapacity } = require("./analysis_capacity");
 const format = require("./format");
 const parser = require("./parser");
+const typedClosure = require("./typed_closure");
 const verifier = require("./verifier");
 
 const { formatModule, formatV051Air } = format;
@@ -73,12 +74,12 @@ function parseTypedV053Source(source, file, options = {}) {
   if (sourceBytes > VERIFIED_TYPED_RUNTIME_LIMITS.maxSourceBytes) {
     throw intakeRefused("air.v052.work_limit_source_bytes", `source bytes ${sourceBytes} exceed the configured limit of ${VERIFIED_TYPED_RUNTIME_LIMITS.maxSourceBytes}`);
   }
-  const mod = parser.typedV053.parse(source, file);
+  const mod = typedClosure.parseTypedV053Closure(source, file, options);
   const astNodes = verifiedTypedAstNodeCount(mod);
   if (astNodes > VERIFIED_TYPED_RUNTIME_LIMITS.maxAstNodes) {
     throw intakeRefused("air.v052.work_limit_ast_nodes", `parsed AST nodes ${astNodes} exceed the configured limit of ${VERIFIED_TYPED_RUNTIME_LIMITS.maxAstNodes}`);
   }
-  enforceAnalysisCapacity(mod, options.analysisCapacity);
+  typedClosure.enforceCapacity(mod, options.analysisCapacity);
   return mod;
 }
 
@@ -123,7 +124,7 @@ function verifySource(mod, options = {}) {
   requireProfileMatch(mod, sourceProfile);
   if (sourceProfile === SOURCE_PROFILE_TYPED_V053) {
     // An AST entrypoint recomputes both measures before any phase-S analysis.
-    enforceAnalysisCapacity(mod, options.analysisCapacity);
+    typedClosure.enforceCapacity(mod, options.analysisCapacity);
     return verifier.typedV053.verify(mod);
   }
   if (sourceProfile === SOURCE_PROFILE_TYPED_V051) {
@@ -136,7 +137,7 @@ function formatSource(mod, options = {}) {
   const sourceProfile = normalizeSourceProfile(options.sourceProfile, options);
   requireProfileMatch(mod, sourceProfile);
   if (sourceProfile === SOURCE_PROFILE_TYPED_V053) {
-    enforceAnalysisCapacity(mod, options.analysisCapacity);
+    typedClosure.enforceCapacity(mod, options.analysisCapacity);
     return format.typedV053.format(mod);
   }
   if (sourceProfile === SOURCE_PROFILE_TYPED_V051) return formatV051Air(mod);

@@ -1569,6 +1569,30 @@ function v053RejectOtherLoopForm(line, loc) {
   }
 }
 
+// P0-09 (P9-R1..P9-R3): the `use` line. Its string syntax, `as` and the alias
+// are typed_syntax_invalid; a literal outside the package-relative grammar is
+// path_uncontained (AD-P9-1 (a)); a dotted name is a bundle, `std.` the
+// standard library, both refused (OPEN-26 (a)). Resolution is the loader's
+// (src/typed_closure.js).
+const V053_USE_PATH = /^\.\.?(?:\/[A-Za-z0-9_.-]+)*\/[A-Za-z0-9_.-]+\.air$/;
+
+function v053UseDeclaration(line, loc) {
+  const quoted = /^use\s+"([^"]*)"(?:\s+as\s+([a-z_][a-z0-9_]*))?$/.exec(line);
+  if (quoted) {
+    if (quoted[2] === undefined) throw v053SyntaxError(`a use declaration names its alias: use "<path>" as <alias>`, loc);
+    if (!V053_USE_PATH.test(quoted[1])) {
+      throw new AirError(`air.import.path_uncontained: '${quoted[1]}' is not a package-relative path beginning with ./ or ../ and ending in .air`, loc);
+    }
+    return { alias: quoted[2], line: loc.line, path: quoted[1] };
+  }
+  const dotted = /^use\s+([A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)+)$/.exec(line);
+  if (dotted && dotted[1].startsWith("std.")) {
+    throw new AirError(`air.import.stdlib_unsupported: '${dotted[1]}' names a standard-library module; typed-v0.53 has no standard library`, loc);
+  }
+  if (dotted) throw new AirError(`air.import.bundle_unsupported: '${dotted[1]}' names a bundle; typed-v0.53 imports package-relative modules only`, loc);
+  throw v053SyntaxError(`invalid use declaration '${line}'`, loc);
+}
+
 // P0-05 (slice text P5-R11): `work { steps <= N1, calls <= N2, iterations <= N3 }`,
 // one module-level line. Keys are the additive non-effect dimensions, each at
 // most once and at least one; a bound is a canonical decimal in 0..WB_MAX.
@@ -1891,6 +1915,16 @@ function parseV053TypedAir(source, file = "<input>") {
         continue;
       }
       if (!mod.name) throw v053SyntaxError("missing module declaration", loc);
+      // P0-09 (P9-R1..P9-R3): one `use "<path>" as <alias>` per line, after
+      // the header. The `uses` list exists only once one is declared, so a
+      // module without imports keeps its AST unchanged (P9-R10).
+      if (/^use(?:\s|$)/.test(line)) {
+        const use = v053UseDeclaration(line, loc);
+        if (!mod.uses) mod.uses = [];
+        if (mod.uses.some((item) => item.alias === use.alias)) throw v053SyntaxError(`duplicate import alias '${use.alias}'`, loc);
+        mod.uses.push(use);
+        continue;
+      }
       if (/^work(?:\s|\{|$)/.test(line)) {
         // P5-R11: at most one declaration; a second one is refused at its line.
         if (mod.work) throw v053SyntaxError("a module has at most one work declaration", loc);

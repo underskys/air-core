@@ -649,7 +649,7 @@ function validateModel(model) {
   return moduleId;
 }
 
-function analyzeModel(model) {
+function analyzeModel(model, imported = null) {
   const moduleId = validateModel(model);
   const functions = model.functions;
   const order = new Map(functions.map((fn, index) => [fn.name, index]));
@@ -687,7 +687,10 @@ function analyzeModel(model) {
     });
   }
 
-  const summaries = new Map();
+  // P0-09 (P9-R22, R-WB-10): an imported callee's B(f) is its summary in its
+  // own module, recomputed in this closure; it is never an edge of this
+  // module's call graph (module cycles are refused, P9-R13).
+  const summaries = new Map(imported ? [...imported].map(([name, entry]) => [name, entry.result]) : []);
   const context = newContext(moduleId, summaries);
   for (const component of components) {
     const fn = byName.get(component[0]);
@@ -1018,7 +1021,7 @@ function typedFunctionBody(fn, ctx) {
   return typedSequence(fn.statements || [], fn, ctx, scope, null, fn.loc);
 }
 
-function typedV051Model(mod) {
+function typedV051Model(mod, imported = null) {
   if (!mod || !mod.v051TypedAst || !Array.isArray(mod.functions)) {
     throw new TypeError("WorkBound summaries need a verified typed-v0.51 AST");
   }
@@ -1026,7 +1029,7 @@ function typedV051Model(mod) {
   const moduleId = typeof mod.name === "string" && MODULE_ID.test(mod.name) ? mod.name : "v53.model";
   // typed-v0.53 (P0-04): calls need the callees' signatures. P0-06: the
   // lanes of an aggregate type (P6-R11), exact BigInt.
-  const ctx = isTypedV053Ast(mod) ? typedV053Context(mod) : null;
+  const ctx = isTypedV053Ast(mod) ? typedV053Context(mod, imported) : null;
   return {
     functions: mod.functions.map((fn) => ({
       body: typedFunctionBody(fn, ctx),
@@ -1064,13 +1067,13 @@ function typedEntryParams(fn, ctx, declarations) {
   return out;
 }
 
-function typedV053Context(mod) {
+function typedV053Context(mod, imported = null) {
   const { typedV053 } = require("./parser");
   const structs = typedV053.structFieldTypes(mod);
   const memo = new Map();
   return {
     aggregate: (typeName) => typeName !== null && typeName !== undefined && typedV053.isAggregateType(typeName, structs),
-    functions: new Map(mod.functions.map((fn) => [fn.name, fn])),
+    functions: new Map([...mod.functions.map((fn) => [fn.name, fn]), ...(imported ? [...imported].map(([name, entry]) => [name, entry.fn]) : [])]),
     lanes: (typeName) => typedV053.measureType(typeName, structs, typedV053.baseLanes, memo)
   };
 }
@@ -1078,8 +1081,31 @@ function typedV053Context(mod) {
 // Summaries of a verified typed-v0.51 module: B(f) for every function
 // (R-WB-11) and E(f) for every export. The caller has already verified `mod`.
 function analyzeVerifiedTypedModule(mod) {
-  const analysis = analyzeModel(typedV051Model(mod));
-  return isTypedV053Ast(mod) && analysis.status === "ok" ? withRegionPeaks(mod, analysis) : analysis;
+  const typedClosure = isTypedV053Ast(mod) ? require("./typed_closure") : null;
+  const context = typedClosure ? typedClosure.moduleContext(mod) : null;
+  if (context && context.closure.analyses.has(context.key)) return context.closure.analyses.get(context.key);
+  const imported = context ? importedSummaries(mod, typedClosure) : null;
+  const analysis = analyzeModel(typedV051Model(mod, imported), imported);
+  const result = isTypedV053Ast(mod) && analysis.status === "ok" ? withRegionPeaks(mod, analysis, imported) : analysis;
+  if (context) {
+    context.closure.analyses.set(context.key, result);
+    typedClosure.countOnce(mod, "summarize");
+  }
+  return result;
+}
+
+// P0-09 (P9-R16, P9-R22): every export of every module this module imports,
+// by `alias.name`, with its summary from that module's own analysis in the
+// same closure (dependencies are verified and summarized first, P9-R10).
+function importedSummaries(mod, typedClosure) {
+  const out = new Map();
+  for (const [alias, imported] of typedClosure.importsOf(mod)) {
+    const analysis = analyzeVerifiedTypedModule(imported.ast);
+    for (const fn of imported.ast.functions || []) {
+      if (fn.exported && analysis.functions.has(fn.name)) out.set(`${alias}.${fn.name}`, { fn, result: analysis.functions.get(fn.name) });
+    }
+  }
+  return out;
 }
 
 // P0-08 (slice text P8-R19, P8-R20): peak(f) = L(f) ⊕ C(f), L(f) the sum of
@@ -1088,7 +1114,7 @@ function analyzeVerifiedTypedModule(mod) {
 // (the call graph is acyclic here, R-WB-2f.1); E(e).region_bytes = peak(e).
 // It runs only on a fully summarised module, where every site has a proven
 // maximum. A peak above WB_MAX fails as overflow at the function header.
-function withRegionPeaks(mod, analysis) {
+function withRegionPeaks(mod, analysis, imported = null) {
   const verifier = require("./verifier").typedV053;
   const byName = new Map(mod.functions.map((fn) => [fn.name, fn]));
   const local = new Map();
@@ -1111,12 +1137,13 @@ function withRegionPeaks(mod, analysis) {
       }
     }
     local.set(fn.name, sum);
-    callees.set(fn.name, [...targets].filter((name) => byName.has(name)));
+    callees.set(fn.name, [...targets].filter((name) => byName.has(name) || (imported && imported.has(name))));
   }
   // Callee first, with an explicit stack. A summarised module's reachable
   // call graph is acyclic; a cycle among functions no export reaches (the
   // verifier refuses it) adds nothing and never loops.
-  const peaks = new Map();
+  // P0-09: an imported callee's peak is its summary's region_bytes (G-22).
+  const peaks = new Map(imported ? [...imported].map(([name, entry]) => [name, entry.result.ok && entry.result.value.region_bytes ? entry.result.value.region_bytes : 0n]) : []);
   const active = new Set();
   for (const start of mod.functions.map((fn) => fn.name)) {
     if (peaks.has(start)) continue;
@@ -1256,6 +1283,9 @@ function bindVerifiedTypedWorkBound(analysis, identity) {
   const key = workBoundKey({
     bodyDigest: identity.sourceDigest,
     compilerImplementationDigest: identity.compilerImplementationDigest,
+    // P0-09 (P9-R16): one entry per distinct imported identity; none for a
+    // module without imports.
+    dependencies: identity.dependencies,
     profile: identity.sourceProfile
   });
   const entries = {};

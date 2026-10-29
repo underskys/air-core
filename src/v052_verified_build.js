@@ -35,6 +35,7 @@ const { parseRefinementType } = require("./types");
 const { createToolchainGuard } = require("./v052_toolchain_identity");
 const { AirError } = require("./errors");
 const typedBorrowed = require("./borrowed_slices").typedV053;
+const typedClosure = require("./typed_closure");
 const {
   WorkBoundError,
   analysisError,
@@ -632,6 +633,10 @@ async function buildVerifiedTypedV053Internal(input, controls = {}) {
     analysisCapacity = normalizeAnalysisCapacity(controls.analysisCapacity !== undefined ? controls.analysisCapacity : input.analysisCapacity);
   } catch (error) { throwBuildSourceError(error, "parse"); }
   const source = requireAsciiText(input.source, "source");
+  // P0-09 (P9-R26; OD-P9-6 (a)): the typed-v0.53 build input key `modules`.
+  if (input.modules !== undefined) {
+    typedClosure.validateModuleMap(input.modules, input.sourceName, VERIFIED_TYPED_RUNTIME_LIMITS.maxSourceNameBytes, "air.v052.verified_build_input_invalid", fail);
+  }
   const sourceName = typeof input.sourceName === "string" && input.sourceName
     ? input.sourceName
     : "<typed-source>";
@@ -646,8 +651,12 @@ async function buildVerifiedTypedV053Internal(input, controls = {}) {
     mod = parserModule.typedV053.parse(source, sourceName);
   } catch (error) { throwBuildSourceError(error, "parse"); }
   if (limits) enforceWorkLimit("air.v052.work_limit_ast_nodes", structuredObjectCount(mod), limits.maxAstNodes, "parsed AST nodes");
+  // P0-09 (P9-R5..P9-R10, P9-R26): the closure from the module map, the
+  // closure limits of the caller (the defaults on the direct builder) and
+  // its capacity over the closure (P9-R26b).
+  loadTypedBuildClosure(mod, source, input.modules, sourceName, { analysisCapacity, closureLimits: controls.closureLimits, limits });
   try {
-    enforceAnalysisCapacity(mod, analysisCapacity);
+    typedClosure.enforceCapacity(mod, analysisCapacity);
     verifierModule.typedV053.verify(mod);
   } catch (error) { rethrowCodedSourceError(error, "verify"); }
   const workBoundAnalysis = summarizeVerifiedTypedBuild(mod);
@@ -699,16 +708,74 @@ async function buildVerifiedTypedV053Internal(input, controls = {}) {
   Object.defineProperty(build, "memory", { enumerable: false, value: memory });
   Object.freeze(build);
   // R-WB-20 with the typed-v0.53 profile in the key (V53-WB-ID-01).
+  const closure = bindTypedClosureWorkBounds(mod, record.compiler.implementationDigest);
   const workBound = bindVerifiedTypedWorkBound(workBoundAnalysis, {
     compilerImplementationDigest: record.compiler.implementationDigest,
+    dependencies: closure ? closure.dependencies : undefined,
     sourceDigest: record.sourceDigest,
     sourceProfile: record.sourceProfile
   });
   // P0-08 (P8-R15, R-ABI53-3a T1): the record of a borrowed-lane artifact
   // (digest, contract id, lane, owned range) lives in this private state.
   const borrowedLane = layout.borrowed ? typedBorrowedLaneRecord(record, wasmBytes, { end: layout.end, start: layout.base }) : null;
-  BUILDS.set(build, { borrowedLane, memory, record, wasmBytes: Buffer.from(wasmBytes), workBound });
+  BUILDS.set(build, { borrowedLane, closure, memory, record, wasmBytes: Buffer.from(wasmBytes), workBound });
   return build;
+}
+
+// P0-09: a closure intake refusal keeps its disposition and fields (P9-R8);
+// an import diagnostic its code and position (P9-R24); a capacity refusal
+// passes through, as on one module.
+function loadTypedBuildClosure(mod, source, modules, sourceName, settings) {
+  try {
+    return typedClosure.loadMapClosure(mod, source, modules, sourceName, settings);
+  } catch (error) {
+    if (error instanceof typedClosure.ClosureIntakeError) {
+      const wrapped = new V052VerifiedBuildError(error.code, error.message.slice(error.code.length + 2));
+      wrapped.disposition = error.disposition;
+      wrapped.fields = error.fields;
+      throw wrapped;
+    }
+    return rethrowCodedSourceError(error, "parse");
+  }
+}
+
+// P0-09 (P9-R15, P9-R16; R-WB-18, R-WB-21): every module of the closure is
+// bound in link order, each key listing one entry per distinct identity of
+// its direct imports, with the digest of that import's own summary record
+// recomputed here; the root's entries go into the build's key. The
+// identities and records stay in this private state (P9-R17).
+function bindTypedClosureWorkBounds(mod, compilerImplementationDigest) {
+  const closure = typedClosure.closureOf(mod);
+  if (!closure) return null;
+  const bindings = new Map();
+  const entriesOf = (key) => {
+    const byIdentity = new Map();
+    for (const target of closure.records.get(key).imports.values()) {
+      byIdentity.set(closure.identities.get(target), {
+        body_digest: typedClosure.sourceDigest(closure.records.get(target).source),
+        module: closure.identities.get(target),
+        summary_digest: bindings.get(target).recordDigest
+      });
+    }
+    return [...byIdentity.keys()].sort().map((identity) => byIdentity.get(identity));
+  };
+  for (const key of closure.order) {
+    if (key === closure.rootKey) continue;
+    const member = closure.records.get(key);
+    bindings.set(key, bindVerifiedTypedWorkBound(summarizeVerifiedTypedBuild(member.ast), {
+      compilerImplementationDigest,
+      dependencies: entriesOf(key),
+      sourceDigest: typedClosure.sourceDigest(member.source),
+      sourceProfile: SOURCE_PROFILE_TYPED_V053
+    }));
+  }
+  return Object.freeze({
+    bindings,
+    counters: typedClosure.closureCounters(mod),
+    dependencies: entriesOf(closure.rootKey),
+    identities: new Map(closure.identities),
+    order: closure.order.slice()
+  });
 }
 
 function typedBorrowedLaneRecord(record, wasmBytes, ownedRange) {
@@ -998,7 +1065,7 @@ async function invokeVerifiedTypedExport(build, exportName, args = []) {
   return invokeInstantiatedExport(record, instance, exportName, args);
 }
 
-function normalizeRuntimeBuildRequest(input, limits, analysisCapacity) {
+function normalizeRuntimeBuildRequest(input, limits, analysisCapacity, closureLimits) {
   requireRuntimeObject(input, "runtime build input");
   // typed-v0.53 requests also accept the candidate opt-in (slice text R-1);
   // a typed-v0.51 request keeps its key set and behaviour.
@@ -1006,7 +1073,7 @@ function normalizeRuntimeBuildRequest(input, limits, analysisCapacity) {
   requireNoUnknownKeys(
     input,
     typedV053
-      ? ["allowCandidateProfile", "buildOptions", "descriptor", "source", "sourceName", "sourceProfile"]
+      ? ["allowCandidateProfile", "buildOptions", "descriptor", "modules", "source", "sourceName", "sourceProfile"]
       : ["buildOptions", "descriptor", "source", "sourceName", "sourceProfile"],
     "runtime build input"
   );
@@ -1020,6 +1087,12 @@ function normalizeRuntimeBuildRequest(input, limits, analysisCapacity) {
   if (typeof sourceName !== "string" || !sourceName) {
     fail("air.v052.runtime_input_invalid", "sourceName must be non-empty text when provided");
   }
+  // P0-09 (P9-R26): with `modules`, sourceName is the root's key and is kept
+  // for resolution and positions.
+  const modules = typedV053 && input.modules !== undefined ? input.modules : undefined;
+  if (modules !== undefined) typedClosure.validateModuleMap(modules, input.sourceName, limits.maxSourceNameBytes, "air.v052.runtime_input_invalid", fail);
+  const rootName = modules !== undefined ? sourceName : "<typed-source>";
+  let reached = null;
   const sourceProfile = input.sourceProfile === undefined
     ? SOURCE_PROFILE_TYPED_V051
     : input.sourceProfile;
@@ -1047,10 +1120,12 @@ function normalizeRuntimeBuildRequest(input, limits, analysisCapacity) {
     // never served to a request that this runtime's capacity refuses.
     let mod;
     try {
-      mod = parserModule.typedV053.parse(source, "<typed-source>");
+      mod = parserModule.typedV053.parse(source, rootName);
     } catch (error) { throwBuildSourceError(error, "parse"); }
     enforceWorkLimit("air.v052.work_limit_ast_nodes", structuredObjectCount(mod), limits.maxAstNodes, "parsed AST nodes");
-    enforceAnalysisCapacity(mod, analysisCapacity);
+    // P0-09 (P9-R26a): the whole closure is read in phase A, before the cache.
+    reached = loadTypedBuildClosure(mod, source, modules, rootName, { analysisCapacity, closureLimits, limits });
+    typedClosure.enforceCapacity(mod, analysisCapacity);
     // P0-08 (P8-R15, P8-R24): a borrowed-lane module is invoked only through
     // the typed admission. Its static failures come first; then a descriptor
     // of another lane keeps the builder's code (V53-MEM-N14), and the v2
@@ -1074,8 +1149,16 @@ function normalizeRuntimeBuildRequest(input, limits, analysisCapacity) {
     "canonical descriptor bytes"
   );
   const toolchain = pinnedToolchainIdentity();
+  // P0-09 (P9-R26a): with `modules`, the key also covers every module the
+  // closure intake reached, by key and raw-bytes digest; map entries the
+  // closure does not reach do not change it. Without `modules` the record is
+  // the base's, byte for byte.
+  const closureModules = modules === undefined ? null : (reached
+    ? reached.order.slice().sort().map((key) => ({ key, sourceDigest: typedClosure.sourceDigest(reached.records.get(key).source) }))
+    : [{ key: rootName, sourceDigest: digestBytes(Buffer.from(source, "utf8")) }]);
   const keyRecord = deepFreeze({
     buildOptions: {},
+    ...(closureModules ? { closureDigest: digestCanonical({ modules: closureModules }) } : {}),
     compilerImplementationDigest: toolchain.implementationDigest,
     descriptorDigest: descriptorDigest(descriptor),
     schema: VERIFIED_TYPED_RUNTIME_CACHE_KEY_SCHEMA,
@@ -1085,8 +1168,9 @@ function normalizeRuntimeBuildRequest(input, limits, analysisCapacity) {
   return {
     // sourceName is non-semantic display metadata. A fixed internal name also
     // prevents one single-flight caller's path from leaking to another caller.
+    // With `modules` it is the root's key (P9-R26).
     buildInput: typedV053
-      ? { allowCandidateProfile: true, buildOptions: {}, descriptor, source, sourceName: "<typed-source>", sourceProfile }
+      ? { allowCandidateProfile: true, buildOptions: {}, descriptor, ...(modules !== undefined ? { modules: Object.freeze({ ...modules }) } : {}), source, sourceName: rootName, sourceProfile }
       : { buildOptions: {}, descriptor, source, sourceName: "<typed-source>", sourceProfile },
     key: digestCanonical(keyRecord),
     keyRecord
@@ -1095,12 +1179,15 @@ function normalizeRuntimeBuildRequest(input, limits, analysisCapacity) {
 
 function createVerifiedTypedRuntime(options) {
   requireRuntimeObject(options, "runtime options");
-  requireNoUnknownKeys(options, ["admit", "analysisCapacity", "limits"], "runtime options");
+  requireNoUnknownKeys(options, ["admit", "analysisCapacity", "closureLimits", "limits"], "runtime options");
   if (typeof options.admit !== "function") {
     fail("air.v052.runtime_input_invalid", "runtime admit callback is required");
   }
   const admit = options.admit;
   const limits = normalizeRuntimeLimits(options.limits);
+  // P0-09 (P9-R26): this runtime's closure limits, for typed-v0.53 requests;
+  // not part of `limits`, whose key set is pinned.
+  const closureLimits = typedClosure.normalizeClosureLimits(options.closureLimits, fail);
   // PS-1 (slice text R-12, R-13): the analysis capacity of this runtime
   // instance, applied to typed-v0.53 requests only. It is not part of the
   // `limits` object, whose key set is pinned.
@@ -1205,7 +1292,7 @@ function createVerifiedTypedRuntime(options) {
   }
 
   async function compileEntry(request, generation) {
-    const build = await buildVerifiedTypedModuleInternal(request.buildInput, { analysisCapacity, limits });
+    const build = await buildVerifiedTypedModuleInternal(request.buildInput, { analysisCapacity, closureLimits, limits });
     const trusted = assertTrustedBuild(build);
     refuseBorrowedLane(build);
     let module;
@@ -1235,7 +1322,7 @@ function createVerifiedTypedRuntime(options) {
 
   async function build(input, admissionContext) {
     counters.buildRequests += 1;
-    const request = normalizeRuntimeBuildRequest(input, limits, analysisCapacity);
+    const request = normalizeRuntimeBuildRequest(input, limits, analysisCapacity, closureLimits);
     let entry = cache.get(request.key);
     await requireAdmission("build", {
       ...request.keyRecord,
