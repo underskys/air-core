@@ -1,0 +1,9 @@
+module mig_imp
+use "./lib.air" as lib
+capabilities { }
+
+export func f(x: f32) -> f32 {
+entry:
+  %y:f32 = @lib.wave(%x)
+  return %y
+}

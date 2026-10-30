@@ -1,0 +1,8 @@
+module mig_conv
+capabilities { }
+
+export func f(i: i32) -> f32 {
+entry:
+  %o:f32 = f32.convert_i32_s %i
+  return %o
+}

@@ -1,0 +1,12 @@
+module mig_merge
+capabilities { }
+
+export func f(x: i32) -> i32 {
+entry:
+  %y:i32 = i32.mul %x, %x
+  br done
+done:
+  %one:i32 = 1
+  %z:i32 = i32.add %y, %one
+  return %z
+}

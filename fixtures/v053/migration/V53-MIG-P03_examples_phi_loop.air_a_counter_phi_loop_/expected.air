@@ -1,0 +1,13 @@
+module phi_loop
+
+export func run() -> i32 {
+  %zero: i32 = 0
+  %i: i32 = loop.fold @run__loop, %zero, 5
+  return %i
+}
+
+func run__loop(i: i32) -> i32 {
+  %one: i32 = 1
+  %next: i32 = i32.wrapping_add %i, %one
+  return %next
+}

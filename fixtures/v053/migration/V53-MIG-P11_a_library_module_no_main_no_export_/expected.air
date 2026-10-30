@@ -1,0 +1,6 @@
+module mig_lib
+
+func double(x: i32) -> i32 {
+  %y: i32 = i32.wrapping_add %x, %x
+  return %y
+}

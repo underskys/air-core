@@ -1,0 +1,10 @@
+module mig_state
+capabilities { }
+
+global counter:i32 = const.i32 0
+
+export func run(x: i32) -> i32 {
+entry:
+  %y:i32 = i32.add %x, 1
+  return %y
+}

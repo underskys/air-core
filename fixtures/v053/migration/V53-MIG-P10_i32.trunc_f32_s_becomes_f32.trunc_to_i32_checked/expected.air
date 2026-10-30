@@ -1,0 +1,6 @@
+module mig_trunc
+
+export func f(x: f32) -> i32 {
+  %o: i32 = f32.trunc_to_i32_checked %x
+  return %o
+}

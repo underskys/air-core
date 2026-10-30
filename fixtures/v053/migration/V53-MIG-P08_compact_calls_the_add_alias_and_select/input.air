@@ -1,0 +1,16 @@
+module mig_forms
+capabilities { }
+
+func twice(x: i32) -> i32 {
+entry:
+  %y:i32 = add %x, %x
+  return %y
+}
+
+export func run(a: i32, c: bool) -> i32 {
+entry:
+  %t:i32 = @twice(%a)
+  %u:i32 = call @twice(%t)
+  %s:i32 = select.i32 %c, %t, %u
+  return %s
+}

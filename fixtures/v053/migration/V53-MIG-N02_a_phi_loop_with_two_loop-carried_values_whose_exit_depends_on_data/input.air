@@ -1,0 +1,21 @@
+module mig_sum
+capabilities { }
+
+export func run() -> i32 {
+entry:
+  %zero:i32 = 0
+  br loop
+loop:
+  %i:i32 = phi.i32 entry:%zero, body:%next
+  %acc:i32 = phi.i32 entry:%zero, body:%sum
+  %limit:i32 = 100
+  %done:bool = i32.ge_s %acc, %limit
+  br_if %done, exit, body
+body:
+  %one:i32 = 1
+  %next:i32 = add %i, %one
+  %sum:i32 = add %acc, %i
+  br loop
+exit:
+  return %acc
+}

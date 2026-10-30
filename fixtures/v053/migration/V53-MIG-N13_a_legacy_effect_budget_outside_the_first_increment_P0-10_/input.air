@@ -1,0 +1,8 @@
+module mig_fx
+capabilities { }
+effects { cpu.instructions <= 40 }
+
+export func f(x: i32) -> i32 {
+entry:
+  return %x
+}

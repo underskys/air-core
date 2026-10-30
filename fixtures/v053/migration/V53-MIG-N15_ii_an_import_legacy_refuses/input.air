@@ -1,0 +1,9 @@
+module mig_impbad
+use "./lib.air" as lib
+capabilities { }
+
+export func f(x: i32) -> i32 {
+entry:
+  %y:i32 = @lib.bump(%x)
+  return %y
+}

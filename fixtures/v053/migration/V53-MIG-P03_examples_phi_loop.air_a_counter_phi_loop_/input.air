@@ -1,0 +1,19 @@
+module phi_loop
+capabilities { }
+
+export func run() -> i32 {
+entry:
+  %zero:i32 = 0
+  br loop
+loop:
+  %i:i32 = phi.i32 entry:%zero, body:%next
+  %limit:i32 = 5
+  %done:bool = i32.ge_s %i, %limit
+  br_if %done, exit, body
+body:
+  %one:i32 = 1
+  %next:i32 = add %i, %one
+  br loop
+exit:
+  return %i
+}

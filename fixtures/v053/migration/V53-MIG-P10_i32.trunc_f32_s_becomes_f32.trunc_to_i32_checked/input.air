@@ -1,0 +1,8 @@
+module mig_trunc
+capabilities { }
+
+export func f(x: f32) -> i32 {
+entry:
+  %o:i32 = i32.trunc_f32_s %x
+  return %o
+}

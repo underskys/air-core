@@ -1,0 +1,6 @@
+module mig_div
+export func f(a: i32, b: i32) -> i32 {
+entry:
+%o:i32 = i32.div_s %a, %b
+return %o
+}

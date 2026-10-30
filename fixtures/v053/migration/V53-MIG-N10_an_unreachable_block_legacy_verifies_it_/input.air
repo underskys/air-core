@@ -1,0 +1,10 @@
+module mig_dead
+capabilities { }
+
+export func f(x: i32) -> i32 {
+entry:
+  return %x
+dead:
+  %z:i32 = 0
+  return %z
+}

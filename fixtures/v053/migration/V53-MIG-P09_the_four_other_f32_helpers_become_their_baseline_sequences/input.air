@@ -1,0 +1,26 @@
+module mig_ease
+capabilities { }
+
+export func clamp(x: f32, lo: f32, hi: f32) -> f32 {
+entry:
+  %o:f32 = f32.clamp %x, %lo, %hi
+  return %o
+}
+
+export func inv(a: f32, b: f32, x: f32) -> f32 {
+entry:
+  %o:f32 = f32.inverse_lerp %a, %b, %x
+  return %o
+}
+
+export func quad(t: f32) -> f32 {
+entry:
+  %o:f32 = ease.out_quad %t
+  return %o
+}
+
+export func smooth(t: f32) -> f32 {
+entry:
+  %o:f32 = ease.smoothstep %t
+  return %o
+}

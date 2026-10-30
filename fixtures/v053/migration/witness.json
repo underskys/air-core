@@ -1,0 +1,646 @@
+{
+ "corpus": {
+  "examples/network_tcp_flags.air": {
+   "domain": null,
+   "exports": {
+    "run": {
+     "": "11"
+    }
+   },
+   "sha256": "8ac88f9bad5b456db6305ef3b34cf6e5c7243a91fda868619ec44f55fe5b1c33"
+  },
+  "examples/package_manifest/generated/asset_handles.air": {
+   "domain": null,
+   "exports": {
+    "audio_sfx_package_click": {
+     "": "1"
+    },
+    "material_package_basic": {
+     "": "2"
+    },
+    "shader_package_unlit": {
+     "": "3"
+    },
+    "texture_package_checker": {
+     "": "4"
+    }
+   },
+   "sha256": "a5e863a4d86d83b75e9e8110939810e797563513f2b9a235aa1bc7ec042f8ffc"
+  },
+  "examples/package_manifest/generated/audio_handles.air": {
+   "domain": null,
+   "exports": {
+    "sfx_package_click": {
+     "": "1"
+    }
+   },
+   "sha256": "1f780fe11ed669f8abb9aa0fc501469e2a65b3f49ecf162f54d4a0a05aeaba48"
+  },
+  "examples/package_manifest/generated/material_handles.air": {
+   "domain": null,
+   "exports": {
+    "mat_package_basic": {
+     "": "1"
+    }
+   },
+   "sha256": "71a246489597c9ece3fdf3e1a3c9c33344d345d7b54bf3032cb13e43cbb4e143"
+  },
+  "examples/phi_loop.air": {
+   "domain": "X-SND-01",
+   "exports": {},
+   "sha256": "a301fa5044d3d66109f1a4eb586dd58ce4efd4ce9e76f592be2312400b90a7eb"
+  },
+  "examples/refinement_types/bounded_score.air": {
+   "domain": null,
+   "exports": {
+    "keep_score": {
+     "0": "0",
+     "50": "50",
+     "100": "100"
+    }
+   },
+   "sha256": "1c4f2115288295b334dc66ad617719beecf6f5a737103c4c5e2a6a846d52c6aa"
+  },
+  "fixtures/v052/numerics/g2_existing_i32.air": {
+   "domain": null,
+   "exports": {
+    "i32_add": {
+     "-1,-1": "-2",
+     "-1,-2147483648": "2147483647",
+     "-1,-7": "-8",
+     "-1,0": "-1",
+     "-1,1": "0",
+     "-1,2147483647": "2147483646",
+     "-1,7": "6",
+     "-2147483648,-1": "2147483647",
+     "-2147483648,-2147483648": "0",
+     "-2147483648,-7": "2147483641",
+     "-2147483648,0": "-2147483648",
+     "-2147483648,1": "-2147483647",
+     "-2147483648,2147483647": "-1",
+     "-2147483648,7": "-2147483641",
+     "-7,-1": "-8",
+     "-7,-2147483648": "2147483641",
+     "-7,-7": "-14",
+     "-7,0": "-7",
+     "-7,1": "-6",
+     "-7,2147483647": "2147483640",
+     "-7,7": "0",
+     "0,-1": "-1",
+     "0,-2147483648": "-2147483648",
+     "0,-7": "-7",
+     "0,0": "0",
+     "0,1": "1",
+     "0,2147483647": "2147483647",
+     "0,7": "7",
+     "1,-1": "0",
+     "1,-2147483648": "-2147483647",
+     "1,-7": "-6",
+     "1,0": "1",
+     "1,1": "2",
+     "1,2147483647": "-2147483648",
+     "1,7": "8",
+     "2147483647,-1": "2147483646",
+     "2147483647,-2147483648": "-1",
+     "2147483647,-7": "2147483640",
+     "2147483647,0": "2147483647",
+     "2147483647,1": "-2147483648",
+     "2147483647,2147483647": "-2",
+     "2147483647,7": "-2147483642",
+     "7,-1": "6",
+     "7,-2147483648": "-2147483641",
+     "7,-7": "0",
+     "7,0": "7",
+     "7,1": "8",
+     "7,2147483647": "-2147483642",
+     "7,7": "14"
+    },
+    "i32_div_s": {
+     "-1,-1": "1",
+     "-1,-2147483648": "0",
+     "-1,-7": "0",
+     "-1,0": "trap",
+     "-1,1": "-1",
+     "-1,2147483647": "0",
+     "-1,7": "0",
+     "-2147483648,-1": "trap",
+     "-2147483648,-2147483648": "1",
+     "-2147483648,-7": "306783378",
+     "-2147483648,0": "trap",
+     "-2147483648,1": "-2147483648",
+     "-2147483648,2147483647": "-1",
+     "-2147483648,7": "-306783378",
+     "-7,-1": "7",
+     "-7,-2147483648": "0",
+     "-7,-7": "1",
+     "-7,0": "trap",
+     "-7,1": "-7",
+     "-7,2147483647": "0",
+     "-7,7": "-1",
+     "0,-1": "0",
+     "0,-2147483648": "0",
+     "0,-7": "0",
+     "0,0": "trap",
+     "0,1": "0",
+     "0,2147483647": "0",
+     "0,7": "0",
+     "1,-1": "-1",
+     "1,-2147483648": "0",
+     "1,-7": "0",
+     "1,0": "trap",
+     "1,1": "1",
+     "1,2147483647": "0",
+     "1,7": "0",
+     "2147483647,-1": "-2147483647",
+     "2147483647,-2147483648": "0",
+     "2147483647,-7": "-306783378",
+     "2147483647,0": "trap",
+     "2147483647,1": "2147483647",
+     "2147483647,2147483647": "1",
+     "2147483647,7": "306783378",
+     "7,-1": "-7",
+     "7,-2147483648": "0",
+     "7,-7": "-1",
+     "7,0": "trap",
+     "7,1": "7",
+     "7,2147483647": "0",
+     "7,7": "1"
+    },
+    "i32_mul": {
+     "-1,-1": "1",
+     "-1,-2147483648": "-2147483648",
+     "-1,-7": "7",
+     "-1,0": "0",
+     "-1,1": "-1",
+     "-1,2147483647": "-2147483647",
+     "-1,7": "-7",
+     "-2147483648,-1": "-2147483648",
+     "-2147483648,-2147483648": "0",
+     "-2147483648,-7": "-2147483648",
+     "-2147483648,0": "0",
+     "-2147483648,1": "-2147483648",
+     "-2147483648,2147483647": "-2147483648",
+     "-2147483648,7": "-2147483648",
+     "-7,-1": "7",
+     "-7,-2147483648": "-2147483648",
+     "-7,-7": "49",
+     "-7,0": "0",
+     "-7,1": "-7",
+     "-7,2147483647": "-2147483641",
+     "-7,7": "-49",
+     "0,-1": "0",
+     "0,-2147483648": "0",
+     "0,-7": "0",
+     "0,0": "0",
+     "0,1": "0",
+     "0,2147483647": "0",
+     "0,7": "0",
+     "1,-1": "-1",
+     "1,-2147483648": "-2147483648",
+     "1,-7": "-7",
+     "1,0": "0",
+     "1,1": "1",
+     "1,2147483647": "2147483647",
+     "1,7": "7",
+     "2147483647,-1": "-2147483647",
+     "2147483647,-2147483648": "-2147483648",
+     "2147483647,-7": "-2147483641",
+     "2147483647,0": "0",
+     "2147483647,1": "2147483647",
+     "2147483647,2147483647": "1",
+     "2147483647,7": "2147483641",
+     "7,-1": "-7",
+     "7,-2147483648": "-2147483648",
+     "7,-7": "-49",
+     "7,0": "0",
+     "7,1": "7",
+     "7,2147483647": "2147483641",
+     "7,7": "49"
+    }
+   },
+   "sha256": "faee29c69e01bba96384000479a437781670a5cdd21b719ba2df0e5762cdbf49"
+  },
+  "fixtures/v052/public_reality/legacy.air": {
+   "domain": null,
+   "exports": {
+    "echo": {
+     "0": "0",
+     "1": "1",
+     "7": "7",
+     "2147483647": "2147483647",
+     "-1": "-1",
+     "-2147483648": "-2147483648",
+     "-7": "-7"
+    }
+   },
+   "sha256": "58382ab71629adac97eb1430a1b77349287d1b1ead732ed082e365ae614c4940"
+  },
+  "stdlib/packet.air": {
+   "domain": null,
+   "exports": {},
+   "sha256": "f90d36c4645f19f13dd1ddc731442af7265dc67307e2b8f8845fb23f50765137"
+  },
+  "test/fixtures/ai_review/frame_budget.air": {
+   "domain": null,
+   "exports": {
+    "frame": {
+     "0": "8",
+     "1": "9",
+     "7": "15",
+     "2147483647": "-2147483641",
+     "-1": "7",
+     "-2147483648": "-2147483640",
+     "-7": "1"
+    }
+   },
+   "sha256": "af98b6b269afa61261d410b5f320f164db3c26cbd94feeb685c8171eb55910bd"
+  },
+  "test/fixtures/ai_review/large_function.air": {
+   "domain": null,
+   "exports": {
+    "run": {
+     "0": "35",
+     "1": "36",
+     "7": "42",
+     "2147483647": "-2147483614",
+     "-1": "34",
+     "-2147483648": "-2147483613",
+     "-7": "28"
+    }
+   },
+   "sha256": "e0158655256fcbdf621221f5995b4d39c8a2e78a44f1c4b39aa195299291c3d5"
+  },
+  "test/fixtures/ai_review/repeated_literal.air": {
+   "domain": null,
+   "exports": {
+    "run": {
+     "0": "126",
+     "1": "127",
+     "7": "133",
+     "2147483647": "-2147483523",
+     "-1": "125",
+     "-2147483648": "-2147483522",
+     "-7": "119"
+    }
+   },
+   "sha256": "3f3b394b2272379aadbca1693b9821e94789d28317acb5d5c5dbc5fa07ae0856"
+  },
+  "test/fixtures/conformance_batch/airops/module.air": {
+   "domain": null,
+   "exports": {
+    "incident_score": {
+     "0": "5",
+     "1": "6",
+     "7": "12",
+     "2147483647": "-2147483644",
+     "-1": "4",
+     "-2147483648": "-2147483643",
+     "-7": "-2"
+    }
+   },
+   "sha256": "855c0d9766c8140360f6e45e77742bbf736381323f1de9077994a654886aec53"
+  },
+  "test/fixtures/conformance_batch/flowdesk/module.air": {
+   "domain": null,
+   "exports": {
+    "score_task": {
+     "0": "10",
+     "1": "11",
+     "7": "17",
+     "2147483647": "-2147483639",
+     "-1": "9",
+     "-2147483648": "-2147483638",
+     "-7": "3"
+    }
+   },
+   "sha256": "45b0616eaf8c8d958b1a5acf8fed0545f7ada2d008b408018a8594723854eec0"
+  },
+  "test/fixtures/conformance_policy/module.air": {
+   "domain": null,
+   "exports": {
+    "policy_score": {
+     "0": "10",
+     "1": "11",
+     "7": "17",
+     "2147483647": "-2147483639",
+     "-1": "9",
+     "-2147483648": "-2147483638",
+     "-7": "3"
+    },
+    "service_allowed": {
+     "0": "1",
+     "1": "1",
+     "7": "0",
+     "2147483647": "0",
+     "-1": "1",
+     "-2147483648": "1",
+     "-7": "1"
+    }
+   },
+   "sha256": "d0cd6347d1cfbe0e3051de4c17b9fe281cd7288e8e7985da445844b18232077c"
+  },
+  "test/fixtures/host_interaction/visual_panel/module.air": {
+   "domain": null,
+   "exports": {
+    "panel_score": {
+     "0": "10",
+     "1": "11",
+     "7": "17",
+     "2147483647": "-2147483639",
+     "-1": "9",
+     "-2147483648": "-2147483638",
+     "-7": "3"
+    }
+   },
+   "sha256": "d0cc2cdb3edc97f340923c37c5503b88eded7d93fa093be1a73aa20f65d58ba4"
+  },
+  "test/fixtures/lowering/linked_wasm_basic/math.air": {
+   "domain": null,
+   "exports": {
+    "double_plus_two": {
+     "0": "2",
+     "1": "4",
+     "7": "16",
+     "2147483647": "0",
+     "-1": "0",
+     "-2147483648": "2",
+     "-7": "-12"
+    }
+   },
+   "sha256": "d619126f9bf247416e79b294e9975396f2c05aec08ecee5517b9139f822f7efc"
+  },
+  "test/fixtures/package_composition/conformance_multi_module/math.air": {
+   "domain": null,
+   "exports": {
+    "add_two": {
+     "0": "2",
+     "1": "3",
+     "7": "9",
+     "2147483647": "-2147483647",
+     "-1": "1",
+     "-2147483648": "-2147483646",
+     "-7": "-5"
+    }
+   },
+   "sha256": "b962bc9909f51875777e1ac0ed25ddf2b6be096976a157dce8787379880ef9f4"
+  },
+  "test/fixtures/package_composition/private_import/math.air": {
+   "domain": null,
+   "exports": {},
+   "sha256": "6454a66923d7339bcaffd7f97014ed131911fda4f91671b4756e4446973c4f16"
+  },
+  "test/fixtures/package_composition/unresolved_symbol/math.air": {
+   "domain": null,
+   "exports": {
+    "add_one": {
+     "0": "1",
+     "1": "2",
+     "7": "8",
+     "2147483647": "-2147483648",
+     "-1": "0",
+     "-2147483648": "-2147483647",
+     "-7": "-6"
+    }
+   },
+   "sha256": "542485ae4981cd86c9f3471e7c90824fcad32e5612073212d786580ecae4193f"
+  },
+  "test/fixtures/package_diff/old/module.air": {
+   "domain": null,
+   "exports": {
+    "run": {
+     "": "1"
+    }
+   },
+   "sha256": "5eb6f38563cc5e8e3f9c9f203633bbb105f5334e8657fa0df53e11a5e222be68"
+  },
+  "test/fixtures/package_graph/private_call/math.air": {
+   "domain": null,
+   "exports": {},
+   "sha256": "6454a66923d7339bcaffd7f97014ed131911fda4f91671b4756e4446973c4f16"
+  },
+  "test/fixtures/package_minimal/generated/asset_handles.air": {
+   "domain": null,
+   "exports": {
+    "audio_sfx_package_click": {
+     "": "1"
+    },
+    "material_package_basic": {
+     "": "2"
+    },
+    "shader_package_unlit": {
+     "": "3"
+    },
+    "texture_package_checker": {
+     "": "4"
+    }
+   },
+   "sha256": "a5e863a4d86d83b75e9e8110939810e797563513f2b9a235aa1bc7ec042f8ffc"
+  },
+  "test/fixtures/package_minimal/generated/audio_handles.air": {
+   "domain": null,
+   "exports": {
+    "sfx_package_click": {
+     "": "1"
+    }
+   },
+   "sha256": "1f780fe11ed669f8abb9aa0fc501469e2a65b3f49ecf162f54d4a0a05aeaba48"
+  },
+  "test/fixtures/package_minimal/generated/material_handles.air": {
+   "domain": null,
+   "exports": {
+    "mat_package_basic": {
+     "": "1"
+    }
+   },
+   "sha256": "71a246489597c9ece3fdf3e1a3c9c33344d345d7b54bf3032cb13e43cbb4e143"
+  },
+  "test/fixtures/profiles/pure_verifier_only.air": {
+   "domain": null,
+   "exports": {
+    "run": {
+     "": "0"
+    }
+   },
+   "sha256": "d1911eeda9b85acbcd0b9beb091da1abf3abebff9bb0dbd39bc8f1b0489d2b3e"
+  },
+  "test/fixtures/replay/v0_48/scalar_module.air": {
+   "domain": null,
+   "exports": {
+    "run": {
+     "": "42"
+    }
+   },
+   "sha256": "054c26e88b81ccd7910f1dc63241a538700afb4b5127457f8b818df82daf124f"
+  },
+  "test/fixtures/structured_io/flowdesk_task_summary/main.air": {
+   "domain": null,
+   "exports": {
+    "run": {
+     "": "1"
+    }
+   },
+   "sha256": "e937350b82777b9f247fdbdeaa0bb3158401f005dfccf19722d66c29efb24886"
+  }
+ },
+ "provenance": {
+  "dev_commit": "94001cd1c822ccd914874c85543aa99e91d6ae4e",
+  "node": "v26.0.0",
+  "public_checked_rows": 27,
+  "public_commit": "9c2b1788a42f747bf6d61f2517c8348a7d519159",
+  "rule": "P11-R18; OD-P11-8 (a): legacy execution at H52_BASELINE, outside every LEGACY_DEFECT domain; a witness never sets an expected value",
+  "tool_sha256": "bc6b1c078c402df45811991c7615de409b58b73e44dabc785903e3c0412d9f81"
+ },
+ "schema": "air.migration-witness/1",
+ "vectors": {
+  "V53-MIG-N01 (iv)": {
+   "exports": {
+    "f": {
+     "": "9007199254740994"
+    }
+   },
+   "package": "V53-MIG-N01_iv_2_53_2_above_2_53_yet_exact_control_",
+   "sha256": "19ccfdedf5e575cffb3dee452808919af57fa2220e40424925fdf4f4fbf6c9db"
+  },
+  "V53-MIG-N01 (v)": {
+   "exports": {
+    "f": {
+     "": "0"
+    }
+   },
+   "package": "V53-MIG-N01_v_-0_a_spelling_change_not_a_defect_control_",
+   "sha256": "66e3eff1d2b5b5664f92055a0919e580e8c6f9174f70b9966e19eb3e40c6e182"
+  },
+  "V53-MIG-N01 (vi)": {
+   "exports": {
+    "f": {
+     "": "7"
+    }
+   },
+   "package": "V53-MIG-N01_vi_007_a_spelling_change_not_a_defect_control_",
+   "sha256": "6ec4d201d848a449c6499d429a9a9e7a207b636bbc5dc30005abdebea4bc2631"
+  },
+  "V53-MIG-N03 (ii)": {
+   "exports": {
+    "f": {
+     "7": "7"
+    }
+   },
+   "package": "V53-MIG-N03_ii_the_same_with_--module-id_plugin_control_",
+   "sha256": "4e35e17d67d232d35ed4a71ce1f16133db4cf8aeafe4a7b5001d0a1e90bcb9e5"
+  },
+  "V53-MIG-N04": {
+   "exports": {
+    "keep_score": {
+     "50": "50"
+    }
+   },
+   "package": "V53-MIG-N04_examples_refinement_types_bounded_score.air",
+   "sha256": "1c4f2115288295b334dc66ad617719beecf6f5a737103c4c5e2a6a846d52c6aa"
+  },
+  "V53-MIG-P01": {
+   "exports": {
+    "f": {
+     "-1,-1": "-2",
+     "-2147483648,-1": "2147483647",
+     "1,2": "3",
+     "2147483647,1": "-2147483648"
+    }
+   },
+   "package": "V53-MIG-P01_i32.add_becomes_i32.wrapping_add_R3.1_s_literal_text_",
+   "sha256": "bd70c20598cd185189ee8b19338c118b3eb7f44706ec9f425eafd32d88aa8f4c"
+  },
+  "V53-MIG-P02": {
+   "exports": {
+    "f": {
+     "-2147483648,-1": "trap",
+     "-7,2": "-3",
+     "1,0": "trap",
+     "7,2": "3"
+    }
+   },
+   "package": "V53-MIG-P02_i32.div_s_becomes_i32.checked_div_s",
+   "sha256": "cfb3c887562b247afc37da05e6cf3a1904311f16e31e4e79967490be86124c1d"
+  },
+  "V53-MIG-P05": {
+   "exports": {
+    "f": {
+     "00000000,41200000,3f000000": "40a00000",
+     "3f800000,40400000,3e800000": "3fc00000",
+     "4cbebc20,3e99999a,3f800000": "00000000",
+     "nan,3f800000,3f000000": "nan"
+    }
+   },
+   "package": "V53-MIG-P05_f32.lerp_becomes_its_baseline_sequence",
+   "sha256": "30aeff0681b048c8e237de27fc772912951c7941ecd95e6dc22a10b31982f9ed"
+  },
+  "V53-MIG-P06": {
+   "exports": {
+    "f": {
+     "3": "10",
+     "46341": "-2147479014",
+     "-1": "2"
+    }
+   },
+   "package": "V53-MIG-P06_a_br_to_a_block_with_one_predecessor_merges_the_two_blocks",
+   "sha256": "d201b5687093f49a828f4a2e55e21443c2310b935a64980f623f4d8221a907b5"
+  },
+  "V53-MIG-P07": {
+   "exports": {
+    "sign": {
+     "0": "1",
+     "7": "1",
+     "-2147483648": "-1",
+     "-5": "-1"
+    }
+   },
+   "package": "V53-MIG-P07_a_branch_whose_arms_both_return_becomes_one_value_if_and_one_return",
+   "sha256": "ece6579ff0c57ff9c28f8d5511e9e2efa76ef7eba13953c54e1580889c572f5e"
+  },
+  "V53-MIG-P08": {
+   "exports": {
+    "run": {
+     "1073741824,false": "0",
+     "3,false": "12",
+     "3,true": "6"
+    }
+   },
+   "package": "V53-MIG-P08_compact_calls_the_add_alias_and_select",
+   "sha256": "22edd4fd07d0cf09d2da4d9ab8fb490583c7a2b64f40b5e41dbf7606f163235f"
+  },
+  "V53-MIG-P09": {
+   "exports": {
+    "clamp": {
+     "3f000000,3f800000,00000000": "00000000",
+     "40a00000,00000000,3f800000": "3f800000",
+     "nan,00000000,3f800000": "nan"
+    },
+    "inv": {
+     "3f800000,40400000,40000000": "3f000000",
+     "40000000,40000000,3f800000": "ff800000"
+    },
+    "quad": {
+     "40000000": "00000000",
+     "3f000000": "3f400000"
+    },
+    "smooth": {
+     "3dcccccd": "3ce56042",
+     "3f000000": "3f000000"
+    }
+   },
+   "package": "V53-MIG-P09_the_four_other_f32_helpers_become_their_baseline_sequences",
+   "sha256": "65372e86e4b08517208aaeac34545c039ab173d437433b41b710547b0573e6e5"
+  },
+  "V53-MIG-P10": {
+   "exports": {
+    "f": {
+     "402ccccd": "2",
+     "4f32d05e": "trap",
+     "c02ccccd": "-2",
+     "nan": "trap"
+    }
+   },
+   "package": "V53-MIG-P10_i32.trunc_f32_s_becomes_f32.trunc_to_i32_checked",
+   "sha256": "8834e5635571320dfcff6703885a306fd319b9b68646a271b3e9ef806989c330"
+  }
+ }
+}

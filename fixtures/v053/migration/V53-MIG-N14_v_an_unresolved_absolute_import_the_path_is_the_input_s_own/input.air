@@ -1,0 +1,8 @@
+module mig_noabs
+use "/nonexistent/air-migration/missing.air" as m
+capabilities { }
+
+export func f(x: i32) -> i32 {
+entry:
+  return %x
+}

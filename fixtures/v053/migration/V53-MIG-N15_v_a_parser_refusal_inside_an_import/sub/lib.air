@@ -1,0 +1,8 @@
+module lib
+use "./missing.air" as m
+capabilities { }
+
+func g(x: i32) -> i32 {
+entry:
+  return %x
+}

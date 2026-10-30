@@ -1,0 +1,9 @@
+module lib
+capabilities { gfx }
+extern gfx.begin_frame(t: i32) -> void
+
+func leak(s: i32) -> i32 {
+entry:
+  @gfx.begin_frame(%s)
+  return %s
+}

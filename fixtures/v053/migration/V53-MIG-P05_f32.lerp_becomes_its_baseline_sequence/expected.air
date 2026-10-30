@@ -1,0 +1,8 @@
+module mig_lerp
+
+export func f(a: f32, b: f32, t: f32) -> f32 {
+  %o__1: f32 = f32.sub %b, %a
+  %o__2: f32 = f32.mul %o__1, %t
+  %o: f32 = f32.add %o__2, %a
+  return %o
+}

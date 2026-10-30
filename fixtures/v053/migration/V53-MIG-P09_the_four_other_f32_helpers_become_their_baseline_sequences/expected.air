@@ -1,0 +1,32 @@
+module mig_ease
+
+export func clamp(x: f32, lo: f32, hi: f32) -> f32 {
+  %o__1: f32 = f32.max %x, %lo
+  %o: f32 = f32.min %o__1, %hi
+  return %o
+}
+
+export func inv(a: f32, b: f32, x: f32) -> f32 {
+  %o__1: f32 = f32.sub %x, %a
+  %o__2: f32 = f32.sub %b, %a
+  %o: f32 = f32.div %o__1, %o__2
+  return %o
+}
+
+export func quad(t: f32) -> f32 {
+  %o__1: f32 = 1.0
+  %o__2: f32 = f32.sub %o__1, %t
+  %o__3: f32 = f32.mul %o__2, %o__2
+  %o: f32 = f32.sub %o__1, %o__3
+  return %o
+}
+
+export func smooth(t: f32) -> f32 {
+  %o__1: f32 = f32.mul %t, %t
+  %o__2: f32 = 2.0
+  %o__3: f32 = f32.mul %o__2, %t
+  %o__4: f32 = 3.0
+  %o__5: f32 = f32.sub %o__4, %o__3
+  %o: f32 = f32.mul %o__1, %o__5
+  return %o
+}

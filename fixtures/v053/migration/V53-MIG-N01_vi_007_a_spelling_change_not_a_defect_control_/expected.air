@@ -1,0 +1,6 @@
+module mig_lit
+
+export func f() -> i64 {
+  %x: i64 = 7
+  return %x
+}

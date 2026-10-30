@@ -93,6 +93,7 @@ const SOURCE_COMMAND_OPTIONS = Object.freeze({
   "gfx-check": { values: ["--manifest", "--source-profile"] },
   "gfx-wit": { values: ["--manifest", "--source-profile"] },
   "input-check": { values: ["--manifest", "--source-profile"] },
+  migrate: { values: ["--module-id", "--record", "-o"] },
   report: { flags: ["--ai-review"], values: ["--audio-manifest", "--manifest", "--profile", "--source-profile"] },
   verify: { flags: ["--library"], values: ["--source-profile"] },
   wit: { values: ["--source-profile"] }
@@ -721,6 +722,10 @@ async function main(argv) {
     return runFormatCommand([file, ...rest].filter(Boolean));
   }
 
+  if (command === "migrate") {
+    return runMigrateCommand([file, ...rest].filter(Boolean));
+  }
+
   if (!SOURCE_FILE_COMMANDS.has(command)) {
     throw new AirError(`air.cli.command_unknown: ${command}`);
   }
@@ -989,6 +994,33 @@ function runFormatCommand(args) {
   }
 
   return finishFormatResult({ opts, inputKind, changed, canonical, diagnostics });
+}
+
+// P0-11 (P11-R22): M() takes the file's exact bytes and its path, and decides
+// the library rule itself. The output goes to -o or stdout, the record to
+// --record or stderr, so stdout alone is always the typed source.
+function runMigrateCommand(args) {
+  const { file, rest } = parseSourceInvocation(args, { command: "migrate" });
+  const option = (name) => {
+    if (rest.includes(name) && readOption(rest, name) === undefined) throw new AirError(`air.cli.option_unknown: '${name}' needs a value`);
+    return readOption(rest, name);
+  };
+  const [moduleId, outputFile, recordFile] = [option("--module-id"), option("-o"), option("--record")];
+  readSourceFile(file);
+  const { migrateV053 } = require("../src/migrate_v053");
+  const result = migrateV053(fs.readFileSync(file), { moduleId, path: file });
+  if (recordFile !== undefined) fs.writeFileSync(recordFile, result.record);
+  if (result.kind === "REJECTED") {
+    console.error(`${file}${result.line === null ? "" : `:${result.line}`}: ${result.code}: ${result.construct} (${result.reason})`);
+    if (result.legacy_message !== undefined) console.error(result.legacy_message);
+    if (result.origin) console.error(`origin: ${result.origin.file}${result.origin.line === null ? "" : `:${result.origin.line}`} ${result.origin.construct}`);
+  } else if (outputFile !== undefined) {
+    fs.writeFileSync(outputFile, result.output);
+  } else {
+    process.stdout.write(result.output);
+  }
+  if (recordFile === undefined) process.stderr.write(result.record);
+  return result.kind === "REJECTED" ? 1 : 0;
 }
 
 // Shared bounded regular-file reader (src/bounded_file.js).

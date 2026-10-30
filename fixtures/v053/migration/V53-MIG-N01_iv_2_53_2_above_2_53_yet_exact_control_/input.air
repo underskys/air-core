@@ -1,0 +1,8 @@
+module mig_lit
+capabilities { }
+
+export func f() -> i64 {
+entry:
+  %x:i64 = const.i64 9007199254740994
+  return %x
+}

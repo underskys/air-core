@@ -108,6 +108,7 @@ const REPAIR_HINTS_BY_CODE = Object.freeze({
   "air.source_profile.candidate_disabled": "typed-v0.53 is a candidate profile: select it with allowCandidateProfile: true or --allow-candidate-profile.",
   // typed-v0.53 P0-03 (slice text §4.1, §4.4; docs/v0.53/P0_03_REFINEMENTS.md).
   "air.refinement.ingress_out_of_range": "The host passed a value outside the exported parameter's refinement; pass a value inside i32<MIN..MAX> or widen the parameter type.",
+  "air.migration.unsupported_construct": "This legacy construct has no typed-v0.53 migration yet (later_increment), is not admitted in typed-v0.53 (not_admitted), or legacy-v0.50 itself refuses the program (legacy_invalid); keep the module in legacy-v0.50, fix it there, or rewrite the construct by hand.",
   "air.refinement.base_type_unsupported": "typed-v0.53 refines only i32: use i32<MIN..MAX>, or keep i64, f32 and f64 values unrefined and check them explicitly.",
   "air.runtime.trap_unclassified": "Implementation defect: a typed-v0.53 trap left failure reason 0, which is never a valid language disposition. Report it with the source and the build record.",
   "air.runtime.failure_reason_unknown": "The artifact reported a failure reason that is not in the registry; the adapter fails closed. Rebuild the artifact with the matching compiler and adapter.",

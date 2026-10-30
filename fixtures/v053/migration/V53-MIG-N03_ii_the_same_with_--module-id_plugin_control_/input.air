@@ -1,0 +1,7 @@
+module Plugin
+capabilities { }
+
+export func f(x: i32) -> i32 {
+entry:
+  return %x
+}

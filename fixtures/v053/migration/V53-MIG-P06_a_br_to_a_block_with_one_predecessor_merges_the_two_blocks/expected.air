@@ -1,0 +1,8 @@
+module mig_merge
+
+export func f(x: i32) -> i32 {
+  %y: i32 = i32.wrapping_mul %x, %x
+  %one: i32 = 1
+  %z: i32 = i32.wrapping_add %y, %one
+  return %z
+}

@@ -1,0 +1,9 @@
+module mig_badbr
+capabilities { }
+
+export func f(c: bool, x: i32) -> i32 {
+entry:
+  br_if %c, a
+a:
+  return %x
+}

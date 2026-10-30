@@ -1,0 +1,8 @@
+module lib
+capabilities { }
+
+func bump(x: i32) -> i32 {
+entry:
+  %y:i32 = i32.add %x, %nope
+  return %y
+}

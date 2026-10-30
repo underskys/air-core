@@ -1,0 +1,12 @@
+module mig_phi
+capabilities { }
+
+export func f(c: bool, x: i32, y: i32) -> i32 {
+entry:
+  br_if %c, a, b
+a:
+  %r:i32 = phi.i32 entry:%x, b:%y
+  return %r
+b:
+  return %y
+}

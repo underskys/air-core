@@ -1,0 +1,15 @@
+module mig_flow
+use "./a/lib.air" as l
+capabilities { debug, gfx }
+effects { debug.metric <= 2, gfx.begin_frame <= 2 }
+flow policy required
+flow source param expose.secret public
+flow sink return expose public
+extern debug.metric(id: i32, value: i32) -> void
+
+export func expose(secret: i32) -> i32 {
+entry:
+  @debug.metric(%secret, %secret)
+  %r:i32 = @l.leak(%secret)
+  return %r
+}

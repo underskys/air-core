@@ -1,0 +1,8 @@
+module mig_nostd
+use std.voxel
+capabilities { }
+
+export func f(x: i32) -> i32 {
+entry:
+  return %x
+}

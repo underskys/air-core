@@ -1,0 +1,8 @@
+module mig_sqrt
+capabilities { }
+
+export func f(x: f32) -> f32 {
+entry:
+  %o:f32 = f32.sqrt %x
+  return %o
+}

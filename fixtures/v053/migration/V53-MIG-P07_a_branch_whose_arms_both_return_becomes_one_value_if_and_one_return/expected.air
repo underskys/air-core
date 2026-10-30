@@ -1,0 +1,14 @@
+module mig_ret
+
+export func sign(x: i32) -> i32 {
+  %zero: i32 = 0
+  %neg: bool = i32.lt_s %x, %zero
+  %ret: i32 = if %neg {
+    %m: i32 = -1
+    yield %m
+  } else {
+    %p: i32 = 1
+    yield %p
+  }
+  return %ret
+}

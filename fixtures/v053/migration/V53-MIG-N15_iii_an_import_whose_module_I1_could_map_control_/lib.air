@@ -1,0 +1,8 @@
+module lib
+capabilities { }
+
+func twice(x: i32) -> i32 {
+entry:
+  %y:i32 = add %x, %x
+  return %y
+}

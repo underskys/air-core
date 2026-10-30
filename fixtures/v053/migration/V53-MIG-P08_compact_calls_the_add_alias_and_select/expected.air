@@ -1,0 +1,13 @@
+module mig_forms
+
+export func run(a: i32, c: bool) -> i32 {
+  %t: i32 = call @twice(%a)
+  %u: i32 = call @twice(%t)
+  %s: i32 = select.i32 %c, %t, %u
+  return %s
+}
+
+func twice(x: i32) -> i32 {
+  %y: i32 = i32.wrapping_add %x, %x
+  return %y
+}

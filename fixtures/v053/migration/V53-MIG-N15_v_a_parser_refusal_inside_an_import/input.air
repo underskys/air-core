@@ -1,0 +1,9 @@
+module mig_nest
+capabilities { }
+use "./sub/lib.air" as l
+
+export func f(x: i32) -> i32 {
+entry:
+  %y:i32 = @l.g(%x)
+  return %y
+}

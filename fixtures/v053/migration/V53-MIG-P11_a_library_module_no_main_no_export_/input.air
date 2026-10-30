@@ -1,0 +1,8 @@
+module mig_lib
+capabilities { }
+
+func double(x: i32) -> i32 {
+entry:
+  %y:i32 = add %x, %x
+  return %y
+}

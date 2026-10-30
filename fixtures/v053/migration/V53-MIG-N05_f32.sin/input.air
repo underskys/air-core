@@ -1,0 +1,8 @@
+module mig_trig
+capabilities { }
+
+export func f(x: f32) -> f32 {
+entry:
+  %s:f32 = f32.sin %x
+  return %s
+}

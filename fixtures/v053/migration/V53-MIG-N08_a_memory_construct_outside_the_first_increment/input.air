@@ -1,0 +1,10 @@
+module mig_mem
+capabilities { }
+
+export func f() -> i32 {
+entry:
+  %p:ptr = alloc_region 16
+  free_region %p
+  %z:i32 = 0
+  return %z
+}
