@@ -601,24 +601,28 @@ const STEP = ["  %one:i32 = 1", "  %next:i32 = add %i, %one"];
 
 async function sectionRules() {
   await vector("P0-11-CHECK-LITERALS", async () => {
+    // OD-P11-12 (A): every literal inside the domain has this whole entry, also when its text does not change.
+    const defectEntry = (from, to, legacyValue) => ({ class: "LEGACY_DEFECT_CORRECTED", construct: "literal", from, ledger: "X-SND-08", legacy_value: legacyValue, line: 6, rule: "P11-R8", to });
     // P11-R8: a compact literal inside the domain changes value, so it has its entry (P11-R1: nothing changes silently).
     const compact = run(moduleOf(fnOf("f() -> i64", ["%x:i64 = 9007199254740993", "return %x"])));
     assert.equal(compact.kind, "MIGRATED");
     assert.equal(compact.class, "LEGACY_DEFECT_CORRECTED");
-    const [literal] = entryOf(compact, "literal");
-    assert.deepEqual([literal.from, literal.to, literal.ledger, literal.legacy_value], ["9007199254740993", "9007199254740993", "X-SND-08", "9007199254740992"]);
+    assert.deepEqual(entryOf(compact, "literal"), [defectEntry("9007199254740993", "9007199254740993", "9007199254740992")]);
     // P11-R8: legacy writes the text of -0's Number, `0`, which denotes +0.0; the literal denotes -0.0.
     for (const type of ["f32", "f64"]) {
-      const zero = run(moduleOf(fnOf(`f() -> ${type}`, [`%x:${type} = -0.0`, "return %x"])));
-      assert.equal(zero.class, "LEGACY_DEFECT_CORRECTED", `${type} -0.0`);
-      assert.equal(entryOf(zero, "literal")[0].legacy_value, "0");
-      assert.match(zero.output, /= -0\.0\n/u);
+      for (const [from, line] of [["-0.0", `%x:${type} = -0.0`], [`const.${type} -0.0`, `%x:${type} = const.${type} -0.0`]]) {
+        const zero = run(moduleOf(fnOf(`f() -> ${type}`, [line, "return %x"])));
+        assert.equal(zero.class, "LEGACY_DEFECT_CORRECTED", line);
+        assert.deepEqual(entryOf(zero, "literal"), [defectEntry(from, "-0.0", "0")], line);
+        assert.match(zero.output, /= -0\.0\n/u);
+      }
     }
     assert.equal(run(moduleOf(fnOf("f() -> f32", ["%x:f32 = 0.0", "return %x"]))).class, "EXACT");
     // f32: the literal lies just below the tie 1 + 2^-24, so it rounds to 1.0; the text of its Number,
     // 1.0000000596046448, lies above it, so legacy's value is the next binary32. Control: both round up.
     const twice = run(moduleOf(fnOf("f() -> f32", ["%x:f32 = 1.00000005960464477539", "return %x"])));
-    assert.deepEqual([twice.class, entryOf(twice, "literal")[0].legacy_value], ["LEGACY_DEFECT_CORRECTED", "1.0000000596046448"]);
+    assert.equal(twice.class, "LEGACY_DEFECT_CORRECTED");
+    assert.deepEqual(entryOf(twice, "literal"), [defectEntry("1.00000005960464477539", "1.00000005960464477539", "1.0000000596046448")]);
     assert.equal(run(moduleOf(fnOf("f() -> f32", ["%x:f32 = 1.0000000596046448887", "return %x"]))).class, "EXACT");
     assert.equal(run(moduleOf(fnOf("f() -> f32", ["%x:f32 = 0.1", "return %x"]))).class, "EXACT");
     // An integer-spelled float (OPEN-4 (a)), a carrier, a canonical integer spelling.
