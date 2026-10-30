@@ -1164,7 +1164,7 @@ process.stdout.write(JSON.stringify({ budgetOrGrantExports: exportNames.filter((
       assert.equal(analysis.status, "ok");
       return Object.fromEntries([...analysis.entries].map(([name, value]) => [name, value.value.steps.toString()]));
     });
-    await correction("P002-RD3-COST_TABLE_REVISION", { revision: "P0-08-MEM-1", prior_digest_reused: false }, () => ({
+    await correction("P002-RD3-COST_TABLE_REVISION", { revision: "P0-10-EFF-1", prior_digest_reused: false }, () => ({
       revision: ctTable.revision,
       prior_digest_reused: wb.COST_TABLE_DIGEST === "sha256:fca8c3db1c12077748e77e40c28324343cc851af79ea806ce34ecd18973768b5"
     }));

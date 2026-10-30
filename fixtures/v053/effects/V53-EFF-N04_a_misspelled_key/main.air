@@ -1,0 +1,10 @@
+module v53.eff
+capabilities { output }
+demand { output.emitt <= 1 }
+
+extern output.emit(output_id: i32, arg0: i32, arg1: i32, arg2: i32, arg3: i32) -> i32
+
+export func run(x: i32) -> i32 {
+  %s: i32 = call @output.emit(1, %x, 0, 0, 0)
+  return %s
+}

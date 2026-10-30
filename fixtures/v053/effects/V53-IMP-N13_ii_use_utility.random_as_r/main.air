@@ -1,0 +1,7 @@
+module v53.imp.main
+
+use utility.random as r
+
+export func run(x: i32) -> i32 {
+  return %x
+}

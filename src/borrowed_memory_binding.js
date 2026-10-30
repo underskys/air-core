@@ -1000,9 +1000,214 @@ function typedDigest(bytes) {
   return `sha256:${crypto.createHash("sha256").update(bytes).digest("hex")}`;
 }
 
+// P0-10 (P10-R12 step 1 (2), P10-R16): the private copy's own type, import
+// and data sections, read from the bytes that were hashed and compiled. It
+// returns every import in order (a function import with its Wasm type) and
+// the byte ranges the active data segments initialize (the literal views,
+// tables and states), into which a window is never written back; `readOnly`
+// is null when a segment's offset is not a constant (then nothing is written
+// back). A module the reader cannot follow returns null.
+const TYPED_WASM_VALTYPES = Object.freeze({ 0x7c: "f64", 0x7d: "f32", 0x7e: "i64", 0x7f: "i32" });
+
+function typedWasmSections(bytes) {
+  let offset = 8;
+  const byte = () => {
+    if (offset >= bytes.length) throw new RangeError("truncated");
+    return bytes[offset++];
+  };
+  const unsigned = () => {
+    let result = 0; let shift = 0; let next;
+    do { next = byte(); result += (next & 0x7f) * 2 ** shift; shift += 7; } while (next & 0x80 && shift < 35);
+    if (next & 0x80) throw new RangeError("leb");
+    return result;
+  };
+  const signed = () => {
+    let result = 0; let shift = 0; let next;
+    do { next = byte(); result += (next & 0x7f) * 2 ** shift; shift += 7; } while (next & 0x80 && shift < 35);
+    if (next & 0x80) throw new RangeError("leb");
+    return next & 0x40 ? result - 2 ** shift : result;
+  };
+  const name = () => {
+    const length = unsigned();
+    if (offset + length > bytes.length) throw new RangeError("truncated");
+    const text = Buffer.from(bytes.subarray(offset, offset + length)).toString("utf8");
+    offset += length;
+    return text;
+  };
+  const limits = () => { const flags = unsigned(); unsigned(); if (flags & 1) unsigned(); };
+  try {
+    if (bytes.length < 8 || bytes.readUInt32LE(0) !== 0x6d736100 || bytes.readUInt32LE(4) !== 1) return null;
+    const types = [];
+    const imports = [];
+    let readOnly = [];
+    while (offset < bytes.length) {
+      const id = byte();
+      const size = unsigned();
+      const end = offset + size;
+      if (end > bytes.length) return null;
+      if (id === 1) {
+        for (let count = unsigned(); count > 0; count -= 1) {
+          if (byte() !== 0x60) return null;
+          const params = []; const results = [];
+          for (let n = unsigned(); n > 0; n -= 1) params.push(TYPED_WASM_VALTYPES[byte()] || "other");
+          for (let n = unsigned(); n > 0; n -= 1) results.push(TYPED_WASM_VALTYPES[byte()] || "other");
+          types.push({ params, results });
+        }
+      } else if (id === 2) {
+        for (let count = unsigned(); count > 0; count -= 1) {
+          const module = name(); const field = name(); const kind = byte();
+          if (kind === 0) imports.push({ field, kind: "function", module, type: types[unsigned()] || null });
+          else if (kind === 1) { byte(); limits(); imports.push({ field, kind: "table", module }); }
+          else if (kind === 2) { limits(); imports.push({ field, kind: "memory", module }); }
+          else if (kind === 3) { byte(); byte(); imports.push({ field, kind: "global", module }); }
+          else return null;
+        }
+      } else if (id === 11 && readOnly) {
+        for (let count = unsigned(); count > 0 && readOnly; count -= 1) {
+          const flags = unsigned();
+          if (flags === 1) { offset += unsigned(); continue; }
+          if (flags === 2) unsigned();
+          else if (flags !== 0) { readOnly = null; break; }
+          if (byte() !== 0x41) { readOnly = null; break; }
+          const start = signed();
+          if (byte() !== 0x0b) { readOnly = null; break; }
+          const length = unsigned();
+          offset += length;
+          if (length > 0) readOnly.push([start >>> 0, (start >>> 0) + length]);
+        }
+      }
+      offset = end;
+    }
+    return { imports, readOnly };
+  } catch (_) {
+    return null;
+  }
+}
+
+// P10-R12 step 1 (2): exactly one contract import (checked through
+// Module.imports by the caller); every other import a function import whose
+// "<family>" "<name>" is a Host ABI entry typed-v0.53 admits and whose Wasm
+// type is that entry's (`ptr` and `bool` lower to i32); no memory, table or
+// global import. Under T2 too, so no admitted artifact carries a host import
+// outside the registry (NEW_HOST_IMPORT=false). Returns the capability
+// imports by name, sorted.
+function typedCapabilityImports(sections, compiled) {
+  const verifier = require("./verifier").typedV053;
+  const lowered = (type) => (type === "ptr" || type === "bool" ? "i32" : type);
+  if (!sections || sections.imports.length !== compiled.length ||
+      sections.imports.some((item, index) => item.module !== compiled[index].module || item.field !== compiled[index].name || item.kind !== compiled[index].kind)) {
+    admissionFail(1, "air.abi.contract_unsupported", "the artifact's import section cannot be read");
+  }
+  const capabilities = new Map();
+  for (const item of sections.imports) {
+    if (item.module === TYPED_CONTRACT.module) continue;
+    const name = `${item.module}.${item.field}`;
+    const signature = verifier.hostImport(name);
+    const expected = signature && { params: signature.params.map(lowered), results: signature.returnType === "void" ? [] : [lowered(signature.returnType)] };
+    if (item.kind !== "function" || !signature || !item.type || JSON.stringify(item.type) !== JSON.stringify(expected) || capabilities.has(name)) {
+      admissionFail(1, "air.abi.contract_unsupported", `the artifact imports '${item.module}' '${item.field}' (${item.kind}), which is not a host import typed-v0.53 admits with its registry type; no memory, table or global is imported`);
+    }
+    capabilities.set(name, signature);
+  }
+  return new Map([...capabilities.entries()].sort((left, right) => (left[0] < right[0] ? -1 : left[0] > right[0] ? 1 : 0)));
+}
+
+// P10-R12 steps 3-6, before any instantiation: `handlers` absent is {}; a
+// value that is not a plain object is binding_invalid; then, by capability
+// import in sorted order, an own property of that name of any kind (no value
+// read), else binding_missing; then every own key, read as a descriptor only
+// (a getter is never called): a name the artifact does not import, an
+// accessor or a non-function value is binding_invalid. The functions are
+// read once; a later change to the map has no effect (DEFAULT_IMPORTS=false:
+// no default, fallback or stub handler).
+function typedHandlerSnapshot(value, capabilities) {
+  if (value === undefined) value = {};
+  const prototype = value !== null && typeof value === "object" && !Array.isArray(value) ? Object.getPrototypeOf(value) : undefined;
+  if (prototype !== Object.prototype && prototype !== null) {
+    admissionFail(1, "air.host.binding_invalid", "handlers must be a plain object whose own properties are host import names");
+  }
+  for (const name of capabilities.keys()) {
+    if (!Object.prototype.hasOwnProperty.call(value, name)) admissionFail(1, "air.host.binding_missing", `no handler for the host import '${name}'; the adapter supplies none`);
+  }
+  const snapshot = new Map();
+  for (const key of Reflect.ownKeys(value)) {
+    const descriptor = Object.getOwnPropertyDescriptor(value, key);
+    if (typeof key !== "string" || !capabilities.has(key)) admissionFail(1, "air.host.binding_invalid", `handlers.${String(key)} names no host import of this artifact`);
+    if (!descriptor || !("value" in descriptor) || typeof descriptor.value !== "function") {
+      admissionFail(1, "air.host.binding_invalid", `handlers.${key} must be a data property whose value is a function`);
+    }
+    snapshot.set(key, descriptor.value);
+  }
+  return snapshot;
+}
+
+// P10-R12..R16: one instantiation's wrappers, created disarmed. A disarmed
+// call (only a start function can make one) refuses with
+// call_before_admission without calling the host function. Armed for one
+// invocation, a wrapper copies each window in, calls the handler, then fails
+// the invocation with reentrancy_forbidden if the invocation was poisoned
+// (P10-R15), import_failed if the handler threw or returned a promise
+// (P10-R14), result_invalid for any other invalid result (P10-R13); on a
+// valid result it writes each writable window back (P10-R16) and returns the
+// value. Calls already made are never rolled back.
+function typedHostWrappers(capabilities, handlers, readOnly) {
+  const values = require("./v052_verified_build").typedV053;
+  const state = { armed: null, memory: null, refused: false };
+  const writable = (pointer, capacity) => readOnly !== null && capacity > 0 &&
+    !readOnly.some(([start, end]) => pointer < end && start < pointer + capacity);
+  const wrappers = new Map();
+  for (const [name, signature] of capabilities) {
+    const handler = handlers.get(name);
+    wrappers.set(name, (...lanes) => {
+      const invocation = state.armed;
+      if (!invocation) {
+        state.refused = true;
+        throw new TypedAdmissionError("air.host.call_before_admission", `the host import '${name}' was called before admission`, 2);
+      }
+      const windows = [];
+      const args = signature.params.map((type, index) => {
+        if (type !== "ptr") return lanes[index];
+        const window = values.hostWindowIn(state.memory, lanes[index], lanes[index + 1]);
+        if (!window) bindingFail("air.borrow.pointer_out_of_bounds", `the window of '${name}' is not inside the instance memory`);
+        windows.push({ capacity: lanes[index + 1], pointer: lanes[index], window });
+        return window;
+      });
+      let thrown = false;
+      let result;
+      try {
+        result = handler(...args);
+      } catch (_) {
+        thrown = true;
+      }
+      const checked = thrown ? null : values.hostResult(signature.returnType, result);
+      if (invocation.poisoned) bindingFail("air.host.reentrancy_forbidden", `an invocation was attempted during the '${name}' call; the running invocation fails`);
+      if (thrown) bindingFail("air.host.import_failed", `the '${name}' handler threw; evaluation does not continue`);
+      if (!checked.ok) {
+        bindingFail(checked.code, checked.code === "air.host.import_failed"
+          ? `the '${name}' handler returned a promise; the adapter never awaits`
+          : `the '${name}' handler returned a value that is not a ${signature.returnType}`);
+      }
+      for (const item of windows) if (writable(item.pointer, item.capacity)) values.hostWindowOut(state.memory, item.pointer, item.capacity, item.window);
+      return checked.value;
+    });
+  }
+  return { state, wrappers };
+}
+
+// P10-R15: the in-call guard of one admission object and every instance it
+// made, checked synchronously at every invocation entry point before
+// anything else. A refused entry marks the running invocation poisoned.
+function typedGuardRefusal(guard) {
+  if (!guard.running) return null;
+  guard.running.poisoned = true;
+  return new BorrowedMemoryBindingError("air.host.reentrancy_forbidden", "an invocation through this admission is already running; the inner invocation never starts");
+}
+
 // Step 1 checks on the private copy (R-ABI53-3 (1), -3a): the trust root, the
 // digest, the Module compiled from that copy, the contract id read through
 // Module.imports, and the import set (the contract only; no imported memory).
+// P0-10 (P10-R12): the import set is the contract import plus admitted
+// capability imports with their registry types, read from the private copy.
 async function typedAdmissionStep1(admission) {
   const trace = admission.trace;
   typedTrace(trace, "step1.digest");
@@ -1033,16 +1238,18 @@ async function typedAdmissionStep1(admission) {
   if (contract.length !== 1 || contract[0].kind !== "function" || contract[0].name !== expected || expected !== TYPED_CONTRACT.field) {
     admissionFail(1, "air.abi.contract_unsupported", `the artifact must import exactly ${TYPED_CONTRACT.module} ${TYPED_CONTRACT.field}`);
   }
-  if (imports.length !== 1) {
-    admissionFail(1, "air.abi.contract_unsupported", "the artifact imports more than the AIR contract (no capability is bound at P0-08; no imported memory)");
-  }
-  return { digest, module };
+  const sections = typedWasmSections(admission.bytes);
+  const capabilities = typedCapabilityImports(sections, imports);
+  return { capabilities, digest, module, readOnly: sections.readOnly };
 }
 
 // Steps 2 and 3: a fresh contract function and import object for this
 // instantiation; the owned range and the marker checked before the instance
 // is used; a failing instance is discarded, never returned.
-function typedAdmissionInstantiate(admission, module) {
+// P0-10 (P10-R12): every capability import gets its wrapper, disarmed, in the
+// same fresh import object; a disarmed call fails the instantiation with
+// call_before_admission and the instance is discarded (V53-ABI-65).
+function typedAdmissionInstantiate(admission, module, checked) {
   const trace = admission.trace;
   let calls = 0;
   const contractFunction = () => {
@@ -1051,11 +1258,18 @@ function typedAdmissionInstantiate(admission, module) {
     return TYPED_CONTRACT_WORD;
   };
   const importObject = { [TYPED_CONTRACT.module]: { [TYPED_CONTRACT.field]: contractFunction } };
+  const host = typedHostWrappers(checked.capabilities, admission.handlers, checked.readOnly);
+  for (const [name, wrapper] of host.wrappers) {
+    const dot = name.indexOf(".");
+    if (!importObject[name.slice(0, dot)]) importObject[name.slice(0, dot)] = {};
+    importObject[name.slice(0, dot)][name.slice(dot + 1)] = wrapper;
+  }
   typedTrace(trace, "step2.instantiate");
   let instance;
   try {
     instance = new WebAssembly.Instance(module, importObject);
   } catch (_) {
+    if (host.state.refused) admissionFail(2, "air.host.call_before_admission", "a capability import was called before admission; the host function did not run and the instance is discarded");
     admissionFail(2, "air.abi.contract_unsupported", "the artifact did not complete the contract handshake");
   }
   if (calls !== 1) admissionFail(2, "air.abi.contract_unsupported", "the artifact did not call the contract import exactly once");
@@ -1073,7 +1287,8 @@ function typedAdmissionInstantiate(admission, module) {
   }
   const memory = instance.exports.memory;
   if (!(memory instanceof WebAssembly.Memory)) admissionFail(3, "air.borrow.memory_missing", "the instance does not export its memory");
-  return { instance, memory, owned: recorded || owned };
+  host.state.memory = memory;
+  return { host: host.state, instance, memory, owned: recorded || owned };
 }
 
 function normalizeTypedInterfaceEntry(descriptor, entrypointName) {
@@ -1189,35 +1404,63 @@ async function admitTypedV053ArtifactCopy(options, bytes, trace) {
   } else {
     admissionFail(1, "air.abi.record_untrusted", "typed admission requires a verified build record (T1) or a host-pinned digest (T2)");
   }
+  // P0-10 (P10-R12): the handler map, taken with the other options before the
+  // first await, is checked after the import set and snapshot once.
+  const handlersOption = options.handlers;
   const admission = { bytes, root, trace };
-  const { digest } = await typedAdmissionStep1(admission);
+  const { capabilities, digest } = await typedAdmissionStep1(admission);
+  typedTrace(trace, "step1.handlers");
+  admission.handlers = typedHandlerSnapshot(handlersOption, capabilities);
   const descriptor = root.kind === "T1" ? root.record.descriptor : options.interfaceDescriptor;
+  // P0-10 (P10-R15): one guard for this admission object and its instances.
+  const guard = { running: null };
 
   // Steps 1 (rerun), 2 and 3, then arm (no capability at P0-08). The admitted
   // instance is returned only after step 3 passed, for one invocation.
+  // P0-10: its capability wrappers are armed when that invocation runs.
   async function instantiate() {
-    const { module } = await typedAdmissionStep1(admission);
-    const admitted = typedAdmissionInstantiate(admission, module);
+    const checked = await typedAdmissionStep1(admission);
+    const admitted = typedAdmissionInstantiate(admission, checked.module, checked);
     typedTrace(trace, "step4.arm");
-    return createAdmittedInstance(admitted, descriptor, digest, trace);
+    return createAdmittedInstance(admitted, descriptor, digest, trace, guard);
   }
 
   return Object.freeze({
     digest,
     trust: root.kind,
     instantiate,
+    // P10-R15: refused synchronously on entry while an invocation runs, with
+    // a promise resolved (never rejected) with the failed result.
     async invoke(request = {}) {
+      const refused = typedGuardRefusal(guard);
+      if (refused) return createRejectedInvocationResult(refused, { entrypoint: request && request.entrypoint, interfaceDescriptor: descriptor, moduleDigest: digest });
       return (await instantiate()).invoke(request);
     }
   });
 }
 
-function createAdmittedInstance(admitted, descriptor, digest, trace) {
-  const { instance, memory, owned } = admitted;
+function createAdmittedInstance(admitted, descriptor, digest, trace, guard) {
+  const { host, instance, memory, owned } = admitted;
   let used = false;
   const claim = () => {
     if (used) bindingFail("air.borrow.invocation_reused", "an admitted typed-v0.53 instance runs one invocation");
     used = true;
+  };
+  // P0-10 (P10-R12, P10-R15): the wrappers are armed and the guard held for
+  // the one invocation, then released; a poisoned invocation fails with
+  // reentrancy_forbidden whatever the handler did.
+  const run = (call) => {
+    const invocation = { poisoned: false };
+    guard.running = invocation;
+    host.armed = invocation;
+    try {
+      const result = call();
+      if (invocation.poisoned) bindingFail("air.host.reentrancy_forbidden", "an invocation was attempted during a host call; the running invocation fails");
+      return result;
+    } finally {
+      host.armed = null;
+      guard.running = null;
+    }
   };
   return Object.freeze({
     memory,
@@ -1225,6 +1468,8 @@ function createAdmittedInstance(admitted, descriptor, digest, trace) {
     // trap is returned as a failed result, as invokeBorrowedMemory returns it.
     invoke(request = {}) {
       try {
+        const refused = typedGuardRefusal(guard);
+        if (refused) throw refused;
         requirePlainObject(request, "request");
         claim();
         const entry = normalizeTypedInterfaceEntry(descriptor, request.entrypoint);
@@ -1251,7 +1496,7 @@ function createAdmittedInstance(admitted, descriptor, digest, trace) {
           typedTrace(trace, "step4.invoke");
           let result;
           try {
-            result = entrypoint(...wasmArguments);
+            result = run(() => entrypoint(...wasmArguments));
           } catch (error) {
             const failure = classifyTypedTrap(error, instance);
             if (!failure) throw error;
@@ -1272,13 +1517,16 @@ function createAdmittedInstance(admitted, descriptor, digest, trace) {
     },
     // A direct-export host's call (R-ABI53-7): raw Wasm lanes, no binding;
     // the in-module guard and the registry classify a trap.
+    // P0-10 (P10-R15): a refused entry throws the binding error.
     invokeRaw(entrypointName, lanes = []) {
+      const refused = typedGuardRefusal(guard);
+      if (refused) throw refused;
       claim();
       const entrypoint = instance.exports[entrypointName];
       if (typeof entrypoint !== "function") bindingFail("air.borrow.entrypoint_missing", `export '${entrypointName}' is not executable`);
       typedTrace(trace, "step4.invoke");
       try {
-        return Object.freeze({ result: entrypoint(...lanes), diagnostics: [] });
+        return Object.freeze({ result: run(() => entrypoint(...lanes)), diagnostics: [] });
       } catch (error) {
         const failure = classifyTypedTrap(error, instance);
         if (!failure) throw error;

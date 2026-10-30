@@ -335,6 +335,13 @@ function validateTypedPackageBinding(manifest, packageDir, options = {}) {
     verifyV051Air(sourceModule);
   }
   if (sourceModule) validateDescriptorAgainstSource(descriptor, sourceModule);
+  // P0-10 (slice text P10-R21): a typed-v0.53 source with a host import of
+  // Host ABI 0.11 only needs the manifest's host_abi_lane 0.11; every other
+  // admitted entry is in both existing lanes.
+  if (sourceModule && isTypedV053Ast(sourceModule) && manifest.hostAbi !== "0.11" &&
+      require("./verifier").typedV053.hostAbiLane(sourceModule) === "0.11") {
+    fail("air.v051.typed_manifest_invalid", "TypedPackageManifestV1.host_abi_lane must be 0.11 for a typed-v0.53 source with a host import of Host ABI 0.11");
+  }
   const semanticManifest = normalizeSemanticManifest({
     air_abi_lane: ABI_012,
     capabilities: manifest.capabilities || [],

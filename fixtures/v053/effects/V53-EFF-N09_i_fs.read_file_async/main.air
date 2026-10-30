@@ -1,0 +1,8 @@
+module v53.eff
+capabilities { fs }
+
+extern fs.read_file_async(a: i32, b: i32, out: ptr, cap: i32) -> i32
+
+export func run(x: i32) -> i32 {
+  return %x
+}

@@ -1336,12 +1336,12 @@ async function main() {
       const blob = childProcess.spawnSync("git", ["hash-object", file], { cwd: ROOT, encoding: "utf8" }).stdout.trim();
       const bytes = fs.readFileSync(file);
       const table = JSON.parse(bytes.toString("utf8"));
-      assert.equal(blob, "4a5c2055b761e223173cbe8fc225191854d0eec2");
-      assert.equal(sha256(bytes), "sha256:4f9b6ea3f84cd077e13c279a65f8862991b0d03cb5c8a3018de6f08880133c87");
-      assert.equal(bytes.length, 7253);
-      assert.equal(wb.COST_TABLE_DIGEST, "sha256:e12c77da26fdf47dedde297ea79f3a0790580a1be0ee7031f936472f1cb56a53");
-      assert.equal(table.revision, "P0-08-MEM-1");
-      assert.equal(table.rows.length, 28);
+      assert.equal(blob, "3b6b7a0a4a8512f884347b50ead1a7d78ef968a6");
+      assert.equal(sha256(bytes), "sha256:b3b1730afdce68b2f739d988ba08faf5e1e4ffc6cc3d8f63af4f98e920c55e19");
+      assert.equal(bytes.length, 7634);
+      assert.equal(wb.COST_TABLE_DIGEST, "sha256:b53e8e6a5755c61a2c755acc8746a9bdadf5c755bbbf203a7e5d26896dc92f70");
+      assert.equal(table.revision, "P0-10-EFF-1");
+      assert.equal(table.rows.length, 29);
       let base = null;
       for (const commit of BASE_COMMITS) {
         const shown = childProcess.spawnSync("git", ["show", `${commit}:src/workbound_cost_table_v1.json`], { cwd: ROOT, encoding: null });
@@ -1350,7 +1350,7 @@ async function main() {
       assert(base, "the base CT-1 is readable from git objects");
       const p07 = ["491aad12e49a6683029b410af890dcfa86e7d64c", "fb17d750b5f4c1d037010ba56d9ac797e95fc509"].map((commit) => childProcess.spawnSync("git", ["show", `${commit}:src/workbound_cost_table_v1.json`], { cwd: ROOT, encoding: null })).find((shown) => shown.status === 0);
       assert(p07 && p07.stdout.equals(base.bytes), "P0-07 itself changed no CT-1 byte: the accepted P0-07 commit's CT-1 file is the P0-06 base's");
-      assert(!bytes.equals(base.bytes) && sha256(bytes) === "sha256:4f9b6ea3f84cd077e13c279a65f8862991b0d03cb5c8a3018de6f08880133c87", "OD-P8-1 (a): the CT-1 file is P0-08-MEM-1, not the P0-06 base's");
+      assert(!bytes.equals(base.bytes) && sha256(bytes) === "sha256:b3b1730afdce68b2f739d988ba08faf5e1e4ffc6cc3d8f63af4f98e920c55e19", "OD-P10-1 (d): the CT-1 file is P0-10-EFF-1, not the P0-06 base's");
       const access = table.rows.find((row) => row.construct === "aggregate.access");
       assert.deepEqual({ ...access, ct1: undefined }, { calls: "0", construct: "aggregate.access", ct1: undefined, iterations: "0", steps: "1" });
       assert.match(access.ct1, /element or field access with a static index/u, "the leading clause OD-P7-1 (a′) reads");

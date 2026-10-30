@@ -1,0 +1,21 @@
+module v53.eff
+capabilities { fs }
+demand { fs.read_file <= 1, fs.write_file <= 1 }
+
+extern fs.read_file(a: i32, b: i32, out: ptr, cap: i32) -> i32
+extern fs.write_file(a: i32, b: i32, src: ptr, len: i32) -> i32
+
+export func rd() -> i32 {
+  %p: ptr = alloc_region 16
+  %n: i32 = call @fs.read_file(1, 0, %p, 4)
+  %v: i32 = load.i32 %p, 0
+  free_region %p
+  return %v
+}
+
+export func wr() -> i32 {
+  %s: slice = "abcd"
+  %n: i32 = call @fs.write_file(1, 0, %s, 4)
+  %v: i32 = slice.load.i32 %s, 0
+  return %v
+}

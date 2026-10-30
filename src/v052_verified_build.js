@@ -35,6 +35,7 @@ const { parseRefinementType } = require("./types");
 const { createToolchainGuard } = require("./v052_toolchain_identity");
 const { AirError } = require("./errors");
 const typedBorrowed = require("./borrowed_slices").typedV053;
+const { BORROWED_SLICE_DOMAINS } = require("./borrowed_slices");
 const typedClosure = require("./typed_closure");
 const {
   WorkBoundError,
@@ -575,10 +576,14 @@ function isTypedBorrowedDescriptor(value) {
 }
 
 function validateTypedBorrowedDescriptor(input, mod) {
-  const expected = typedBorrowed.interfaceDescriptor(mod);
+  const expected = typedContractDescriptor(mod);
   if (!isTypedBorrowedDescriptor(input)) {
     const exported = (mod.functions || []).find((fn) => fn.exported && (fn.params || []).some((param) => typedBorrowed.borrowOf(param.type)));
     const requested = input && typeof input === "object" ? input.air_abi_lane || input.airAbi : undefined;
+    if (!exported) {
+      fail("air.borrow.interface_invalid", `module '${mod.name}' imports host functions; a typed-v0.53 contract artifact takes the AIR ABI ` +
+        `${typedBorrowed.INTERFACE.airAbi} ${typedBorrowed.INTERFACE.schema} descriptor${typeof requested === "string" ? `, not lane ${requested}` : ""}`);
+    }
     throwBuildSourceError(new AirError(
       `air.abi.borrowed_slice_requires_0_11: module '${mod.name}' uses borrowed-slice exports and requires AIR ABI ${typedBorrowed.INTERFACE.airAbi}` +
         `${typeof requested === "string" ? `, not ${requested}` : ""}`,
@@ -590,6 +595,50 @@ function validateTypedBorrowedDescriptor(input, mod) {
     fail("air.borrow.interface_invalid", `descriptor does not describe the borrowed exports of module '${mod.name}'`);
   }
   return descriptor;
+}
+
+// P0-10 (P10-R11; ABI-8: OPEN-ABI-2 (b); OD-P10-3 (a)): every module of a
+// verified closure, the root alone without imports; and the names of the host
+// imports its artifact carries, sorted (P10-R21: a T1 fact of the record,
+// never authority over the bytes).
+function typedClosureModules(mod) {
+  const closure = typedClosure.closureOf(mod);
+  return closure ? closure.order.map((key) => closure.records.get(key).ast) : [mod];
+}
+
+// P10-R28: a sourceName of P9-R5's module-key form (the form validateModuleMap
+// requires of a root key with `modules`); a `<…>` label or any other text has
+// no package, and every `use` stays not_found (P9-R5's label rule).
+function typedRootKey(sourceName, maxBytes) {
+  return typeof sourceName === "string" && /^(?:[A-Za-z0-9_.-]+\/)*[A-Za-z0-9_.-]+\.air$/.test(sourceName) &&
+    Buffer.byteLength(sourceName, "utf8") <= maxBytes && sourceName.split("/").every((segment) => segment !== "." && segment !== "..");
+}
+
+function typedHostImportNames(mod) {
+  return [...new Set(typedClosureModules(mod).flatMap((item) => (item.externs || []).map((extern) => extern.name)))].sort();
+}
+
+// A contract artifact with an extern takes P0-08's v2 descriptor, which lists
+// every export of the root (a scalar parameter as a value, a borrowed one as
+// P0-08's generator writes it), so the typed admission invokes any of them.
+// An artifact without an extern keeps P0-08's descriptor, byte for byte.
+function typedContractDescriptor(mod) {
+  const borrowed = typedBorrowed.interfaceDescriptor(mod);
+  if (!typedHostImportNames(mod).length) return borrowed;
+  const written = new Map(((borrowed && borrowed.exports) || []).map((entry) => [entry.name, entry]));
+  return {
+    schema: typedBorrowed.INTERFACE.schema,
+    airAbi: typedBorrowed.INTERFACE.airAbi,
+    feature: typedBorrowed.INTERFACE.feature,
+    lengthUnit: "bytes",
+    memoryDomains: BORROWED_SLICE_DOMAINS.slice(),
+    transferModeRequired: true,
+    exports: (mod.functions || []).filter((fn) => fn.exported).map((fn) => written.get(fn.name) || {
+      name: fn.name,
+      params: (fn.params || []).map((param) => ({ name: param.name, kind: "value", type: param.type })),
+      entryContracts: []
+    })
+  };
 }
 
 // A JSON copy of a v2 descriptor with its fixed lane fields checked; the
@@ -717,7 +766,7 @@ async function buildVerifiedTypedV053Internal(input, controls = {}) {
   });
   // P0-08 (P8-R15, R-ABI53-3a T1): the record of a borrowed-lane artifact
   // (digest, contract id, lane, owned range) lives in this private state.
-  const borrowedLane = layout.borrowed ? typedBorrowedLaneRecord(record, wasmBytes, { end: layout.end, start: layout.base }) : null;
+  const borrowedLane = layout.borrowed ? typedBorrowedLaneRecord(record, wasmBytes, { end: layout.end, start: layout.base }, typedHostImportNames(mod)) : null;
   BUILDS.set(build, { borrowedLane, closure, memory, record, wasmBytes: Buffer.from(wasmBytes), workBound });
   return build;
 }
@@ -778,9 +827,10 @@ function bindTypedClosureWorkBounds(mod, compilerImplementationDigest) {
   });
 }
 
-function typedBorrowedLaneRecord(record, wasmBytes, ownedRange) {
+function typedBorrowedLaneRecord(record, wasmBytes, ownedRange, capabilityImports) {
   const contract = lowerWasmModule.typedV053.contractImport;
   return Object.freeze({
+    capabilityImports: Object.freeze(capabilityImports.slice()),
     contractId: contract.field,
     contractModule: contract.module,
     descriptor: deepFreeze(copyDescriptorData(record.descriptor)),
@@ -794,10 +844,12 @@ function typedBorrowedLaneRecord(record, wasmBytes, ownedRange) {
 // P0-08 (R-ABI53-9, P8-R24): a borrowed-lane artifact is invoked only through
 // the typed admission, which supplies the contract import and binds borrowed
 // views; the plain verified paths refuse it before instantiation.
+// P0-10 (P10-R17): so is a contract artifact with a host import; its T1 record
+// is the same record (P10-R11).
 function refuseBorrowedLane(build) {
   const state = BUILDS.get(build);
   if (state && state.borrowedLane) {
-    fail("air.assurance.profile_unsupported", "a typed-v0.53 borrowed-lane build is invoked only through the typed admission (admitTypedV053Artifact)");
+    fail("air.assurance.profile_unsupported", "a typed-v0.53 contract build (a borrowed export or a host import) is invoked only through the typed admission (admitTypedV053Artifact)");
   }
 }
 
@@ -1124,18 +1176,32 @@ function normalizeRuntimeBuildRequest(input, limits, analysisCapacity, closureLi
     } catch (error) { throwBuildSourceError(error, "parse"); }
     enforceWorkLimit("air.v052.work_limit_ast_nodes", structuredObjectCount(mod), limits.maxAstNodes, "parsed AST nodes");
     // P0-09 (P9-R26a): the whole closure is read in phase A, before the cache.
-    reached = loadTypedBuildClosure(mod, source, modules, rootName, { analysisCapacity, closureLimits, limits });
+    // P0-10 (P10-R28; AD-P10-12 (a)): without `modules`, a sourceName of the
+    // module-key form keys the root for resolution only, so every root `use`
+    // resolves as on the direct builder (a self-import is a cycle); the root's
+    // name and the cache key stay `<typed-source>`, and a root intake failure
+    // is relabelled so after the base's unwrapping.
+    const intakeKey = modules === undefined && typedRootKey(sourceName, limits.maxSourceNameBytes) ? sourceName : rootName;
+    try {
+      reached = loadTypedBuildClosure(mod, source, modules, intakeKey, { analysisCapacity, closureLimits, limits });
+    } catch (error) {
+      if (intakeKey !== rootName && error instanceof V052VerifiedBuildError && error.loc && error.loc.file === intakeKey) {
+        error.loc = { ...error.loc, file: rootName };
+      }
+      throw error;
+    }
     typedClosure.enforceCapacity(mod, analysisCapacity);
     // P0-08 (P8-R15, P8-R24): a borrowed-lane module is invoked only through
     // the typed admission. Its static failures come first; then a descriptor
     // of another lane keeps the builder's code (V53-MEM-N14), and the v2
     // descriptor is refused by this runtime.
-    if (typedBorrowed.moduleUsesBorrowedSlices(mod)) {
+    // P0-10 (P10-R17): so is a contract artifact with a host import.
+    if (typedBorrowed.moduleUsesBorrowedSlices(mod) || typedHostImportNames(mod).length) {
       try {
         verifierModule.typedV053.verify(mod);
       } catch (error) { rethrowCodedSourceError(error, "verify"); }
       if (isTypedBorrowedDescriptor(input.descriptor)) {
-        fail("air.assurance.profile_unsupported", "a typed-v0.53 borrowed-lane module is invoked only through the typed admission (admitTypedV053Artifact)");
+        fail("air.assurance.profile_unsupported", "a typed-v0.53 contract module (a borrowed export or a host import) is invoked only through the typed admission (admitTypedV053Artifact)");
       }
       validateTypedBorrowedDescriptor(input.descriptor, mod);
     }
@@ -1485,12 +1551,62 @@ module.exports = {
   invokeVerifiedTypedExport,
   verifiedTypedAstNodeCount
 };
+// P0-10 (P10-R13, P10-R14, P10-R16; OD-P10-2 (a)): the typed admission's
+// value rules for a host import, used by src/borrowed_memory_binding.js. A
+// handler's result is validated against its registry type before it reaches
+// Wasm and is never coerced (the JS-API conversions are not relied on). A
+// native promise, resolved or not, fails as import_failed: it is detected
+// without reading a property and marked handled with the intrinsic `then`
+// captured here, inside a try, so its rejection never reaches
+// unhandledRejection; a marking that throws is discarded and the call still
+// fails. Any other object, a thenable included, is result_invalid, unread.
+const INTRINSIC_PROMISE_THEN = Promise.prototype.then;
+const { isPromise } = require("util").types;
+const TYPED_I64_MIN = -(2n ** 63n);
+const TYPED_I64_MAX = 2n ** 63n - 1n;
+
+function typedHostResult(type, value) {
+  if (isPromise(value)) {
+    try {
+      INTRINSIC_PROMISE_THEN.call(value, undefined, () => {});
+    } catch (_) {
+      // P10-R14: host code ran during the marking and threw; the call fails anyway.
+    }
+    return Object.freeze({ code: "air.host.import_failed", ok: false });
+  }
+  const accepted =
+    type === "i32" ? typeof value === "number" && Number.isInteger(value) && value >= -2147483648 && value <= 2147483647
+      : type === "bool" ? value === 0 || value === 1
+        : type === "void" ? value === undefined
+          : type === "i64" ? typeof value === "bigint" && value >= TYPED_I64_MIN && value <= TYPED_I64_MAX
+            : type === "f32" ? typeof value === "number" && (Number.isNaN(value) || Object.is(Math.fround(value), value))
+              : false;
+  return accepted ? Object.freeze({ ok: true, value }) : Object.freeze({ code: "air.host.result_invalid", ok: false });
+}
+
+// A (ptr, cap) window: a fresh array of exactly cap bytes copied out of the
+// instance memory, never a view of it; null when the window is not inside the
+// memory. Written back only on a valid result, and only into a writable view.
+function typedHostWindowIn(memory, pointer, capacity) {
+  const buffer = memory.buffer;
+  if (!Number.isInteger(pointer) || !Number.isInteger(capacity) || pointer < 0 || capacity < 0 || pointer + capacity > buffer.byteLength) return null;
+  return new Uint8Array(buffer.slice(pointer, pointer + capacity));
+}
+
+function typedHostWindowOut(memory, pointer, capacity, bytes) {
+  if (!(bytes instanceof Uint8Array) || bytes.length !== capacity) return;
+  new Uint8Array(memory.buffer, pointer, capacity).set(bytes);
+}
+
 // P0-08 typed borrowed lane (T1 reader, test seam, backing limit); not part
 // of the enumerable exports that src/index.js spreads.
 Object.defineProperty(module.exports, "typedV053", {
   enumerable: false,
   value: Object.freeze({
     MEMORY_BACKING_LIMIT: TYPED_V053_MEMORY_BACKING_LIMIT,
+    hostResult: typedHostResult,
+    hostWindowIn: typedHostWindowIn,
+    hostWindowOut: typedHostWindowOut,
     mintHarnessRecord,
     readBorrowedLaneRecord
   })

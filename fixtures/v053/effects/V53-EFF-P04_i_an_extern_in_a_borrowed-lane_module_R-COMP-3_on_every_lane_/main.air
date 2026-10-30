@@ -1,0 +1,11 @@
+module v53.eff
+capabilities { debug }
+demand { debug.metric <= 1 }
+
+extern debug.metric(id: i32, value: i32) -> void
+
+export func rd(b: borrowed_slice<readonly,len=4..4,align=4>) -> i32 {
+  %v: i32 = slice.load.i32 %b, 0
+  call @debug.metric(2, %v)
+  return %v
+}

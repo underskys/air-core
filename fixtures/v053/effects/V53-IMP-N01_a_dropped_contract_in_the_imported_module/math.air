@@ -1,0 +1,11 @@
+module v53.pkg.math
+capabilities { debug }
+demand { debug.metric <= 0 }
+
+extern debug.metric(id: i32, value: i32) -> void
+
+export func add_one(x: i32) -> i32 {
+  call @debug.metric(1, %x)
+  %o: i32 = i32.wrapping_add %x, 1
+  return %o
+}

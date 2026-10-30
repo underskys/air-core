@@ -1,0 +1,10 @@
+module v53.eff
+capabilities { random }
+demand { random.f32 <= 1 }
+
+extern random.f32() -> f32
+
+export func u() -> f32 {
+  %x: f32 = call @random.f32()
+  return %x
+}

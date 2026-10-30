@@ -1,0 +1,15 @@
+module v53.cfg
+capabilities { debug }
+demand { debug.metric <= 1 }
+
+extern debug.metric(id: i32, value: i32) -> void
+
+export func f(c: bool) -> i32 {
+  %r: i32 = if %c {
+    call @debug.metric(1, 1)
+    yield 1
+  } else {
+    yield 2
+  }
+  return %r
+}

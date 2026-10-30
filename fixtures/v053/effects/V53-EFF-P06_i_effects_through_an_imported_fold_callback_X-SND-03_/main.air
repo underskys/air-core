@@ -1,0 +1,11 @@
+module v53.pkg.main
+
+use "./lib.air" as lib
+
+capabilities { output }
+demand { output.emit <= 10 }
+
+export func run() -> i32 {
+  %r: i32 = loop.fold @lib.step, 0, 10
+  return %r
+}

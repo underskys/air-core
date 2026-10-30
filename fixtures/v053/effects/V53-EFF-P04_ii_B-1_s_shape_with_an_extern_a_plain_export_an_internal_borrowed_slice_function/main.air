@@ -1,0 +1,15 @@
+module v53.eff
+capabilities { debug }
+demand { debug.metric <= 1 }
+
+extern debug.metric(id: i32, value: i32) -> void
+
+func peek(b: borrowed_slice<readonly,len=8..8,align=4>) -> i32 {
+  %v: i32 = slice.load.i32 %b, 0
+  return %v
+}
+
+export func run(x: i32) -> i32 {
+  call @debug.metric(1, %x)
+  return %x
+}

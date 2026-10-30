@@ -25,7 +25,7 @@ const ROOT = path.resolve(__dirname, "..");
 const V053 = "typed-v0.53";
 const GATED = Object.freeze({ allowCandidateProfile: true, sourceProfile: V053 });
 const FORMULA = "R3.1 R-WB-15c (analysis_units, nesting_depth); unchanged under R3_N2_CHOICE=A";
-const COST_TABLE_DIGEST = "sha256:e12c77da26fdf47dedde297ea79f3a0790580a1be0ee7031f936472f1cb56a53";
+const COST_TABLE_DIGEST = "sha256:b53e8e6a5755c61a2c755acc8746a9bdadf5c755bbbf203a7e5d26896dc92f70";
 const ANA01_SOURCE = "module v53.ana\nexport func f(a: i32, b: i32) -> i32 {\n%o: i32 = i32.checked_add %a, %b\nreturn %o\n}\n";
 const ANA01_DESCRIPTOR = Object.freeze({
   air_abi_lane: "0.12", module_id: "v53.ana", schema: "air.typed-interface/0.12-candidate.1", types: [],

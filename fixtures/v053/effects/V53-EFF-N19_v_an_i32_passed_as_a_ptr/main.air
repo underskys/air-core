@@ -1,0 +1,10 @@
+module v53.eff
+capabilities { fs }
+demand { fs.read_file <= 1 }
+
+extern fs.read_file(a: i32, b: i32, out: ptr, cap: i32) -> i32
+
+export func run(x: i32) -> i32 {
+  %n: i32 = call @fs.read_file(1, 0, %x, 4)
+  return %n
+}

@@ -1585,7 +1585,9 @@ function v053UseDeclaration(line, loc) {
     }
     return { alias: quoted[2], line: loc.line, path: quoted[1] };
   }
-  const dotted = /^use\s+([A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)+)$/.exec(line);
+  // P0-10 (P10-R27; AD-P10-11 (a)): the dotted name decides the code whatever
+  // follows it, so `use std.bounds as b` is still the standard library.
+  const dotted = /^use\s+([A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)+)/.exec(line);
   if (dotted && dotted[1].startsWith("std.")) {
     throw new AirError(`air.import.stdlib_unsupported: '${dotted[1]}' names a standard-library module; typed-v0.53 has no standard library`, loc);
   }
@@ -1617,6 +1619,49 @@ function v053WorkDeclaration(line, loc) {
     bounds.set(limit[1], limit[2]);
   }
   return { limits: V053_WORK_KEYS.filter((key) => bounds.has(key)).map((key) => ({ bound: bounds.get(key), key })), loc };
+}
+
+// P0-10 (P10-R1): `extern <family>.<name>(<p>: <T>, …) -> <R>`, one module
+// line. The name has exactly one dot and no `:` (the contract namespace never
+// appears in source, V53-ABI-51); the types are parsed as typed-v0.53 types,
+// `void` only as the result. Registry admission is phase S (P10-R2).
+const V053_EXTERN_LINE = /^extern\s+(\S+?)\s*\((.*)\)\s*->\s*(.+)$/;
+const V053_EXTERN_NAME = /^[a-z][a-z0-9_]*\.[a-z][a-z0-9_]*$/;
+
+function v053ExternDeclaration(line, moduleId, loc) {
+  const extern = line.match(V053_EXTERN_LINE);
+  if (!extern) throw v053SyntaxError(`an extern declaration is extern <family>.<name>(<p>: <T>, ...) -> <R>, not '${line}'`, loc);
+  if (!V053_EXTERN_NAME.test(extern[1])) throw v053SyntaxError(`extern name '${extern[1]}' must be <family>.<name> with lower-case segments`, loc);
+  const params = extern[2].trim() ? splitComma(extern[2]).map((part) => {
+    const parameter = part.match(/^([A-Za-z_][A-Za-z0-9_]*)\s*:\s*(.+)$/);
+    if (!parameter) throw v053SyntaxError(`invalid extern parameter '${part}'`, loc);
+    return { name: parameter[1], type: parseV053TypedType(parameter[2], moduleId, false, loc) };
+  }) : [];
+  const dot = extern[1].indexOf(".");
+  return { family: extern[1].slice(0, dot), loc, name: extern[1], params, returnType: parseV053TypedType(extern[3], moduleId, true, loc) };
+}
+
+// P0-10 (P10-R4): `demand { <key> <= <n>, … }`, at most one per module. Each
+// key has the effect-key form and appears once; each bound is a canonical
+// decimal in 0..WB_MAX. The keys stay in source order (P10-R4's first invalid
+// key); the formatter sorts them.
+const V053_DEMAND_LINE = /^demand\s*\{([^{}]*)\}$/;
+const V053_DEMAND_LIMIT = /^([a-z][a-z0-9_]*(?:\.[a-z][a-z0-9_]*)+)[ \t]*<=[ \t]*(0|[1-9][0-9]*)$/;
+
+function v053DemandDeclaration(line, loc) {
+  const block = line.match(V053_DEMAND_LINE);
+  if (!block) throw v053SyntaxError(`a demand declaration is demand { <key> <= N, ... }, not '${line}'`, loc);
+  const items = block[1].trim() ? block[1].split(",").map((item) => item.trim()) : [];
+  if (!items.length) throw v053SyntaxError("a demand declaration needs at least one bound", loc);
+  const keys = [];
+  for (const item of items) {
+    const limit = item.match(V053_DEMAND_LIMIT);
+    if (!limit) throw v053SyntaxError(`demand bound '${item}' must be an effect key <= a canonical decimal`, loc);
+    if (keys.some((entry) => entry.key === limit[1])) throw v053SyntaxError(`demand key '${limit[1]}' is declared twice`, loc);
+    if (BigInt(limit[2]) > V053_WB_MAX) throw v053SyntaxError(`demand bound ${limit[2]} exceeds WB_MAX ${V053_WB_MAX}`, loc);
+    keys.push({ bound: limit[2], key: limit[1] });
+  }
+  return { keys, loc };
 }
 
 // P0-06 (slice text P6-R1, P6-R2, P6-R24): `table <name>: <T>[<N>] = [v0, …]`,
@@ -1929,6 +1974,23 @@ function parseV053TypedAir(source, file = "<input>") {
         // P5-R11: at most one declaration; a second one is refused at its line.
         if (mod.work) throw v053SyntaxError("a module has at most one work declaration", loc);
         mod.work = v053WorkDeclaration(line, loc);
+        continue;
+      }
+      // P0-10 (P10-R1, P10-R4): the `externs` list and `demand` exist only once
+      // declared, so a module without them keeps its AST unchanged. The lines
+      // may come in any order after the header (P10-R1).
+      if (/^extern(?:\s|$)/.test(line)) {
+        const declaration = v053ExternDeclaration(line, mod.name, loc);
+        if ((mod.externs || []).some((item) => item.name === declaration.name)) {
+          throw new AirError(`air.v051.function_duplicate: duplicate extern '${declaration.name}'`, loc);
+        }
+        if (!mod.externs) mod.externs = [];
+        mod.externs.push(declaration);
+        continue;
+      }
+      if (/^demand(?:\s|\{|$)/.test(line)) {
+        if (mod.demand) throw v053SyntaxError("a module has at most one demand declaration", loc);
+        mod.demand = v053DemandDeclaration(line, loc);
         continue;
       }
       // P0-06: the `structs` and `tables` lists exist only once one is

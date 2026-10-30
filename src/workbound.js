@@ -834,6 +834,15 @@ function isCallValue(value) {
 // c2 = c1 ⊕ (steps 1, calls 1); c3 = c2 ⊕ B(f). Every node takes the position
 // of the call statement (P4-R2).
 function typedCallNode(value, loc, ctx, scope) {
+  // P0-10 (P10-R9; CT-1 P0-10-EFF-1): a host extern call is one extern.call
+  // (steps 1, effects[k] 1; its (ptr, cap) checks included) and one
+  // extern.f32_canonical per f32 argument. An imported function of the same
+  // name comes first (P10-R6).
+  if (!ctx.functions.has(value.callee) && ctx.externs.has(value.callee)) {
+    const host = ctx.externs.get(value.callee);
+    const rows = [extern(value.callee, loc), ...host.params.filter((parameter) => parameter.type === "f32").map(() => row("extern.f32_canonical", loc))];
+    return rows.length === 1 ? rows[0] : seq(rows, loc);
+  }
   const callee = ctx.functions.get(value.callee);
   if (!callee) costUndefined(`call.@${value.callee}`, loc);
   const c1 = [];
@@ -946,7 +955,7 @@ function typedStatementNode(fn, statement, scope = null, ctx = null, yieldType =
     if (ctx && isCallValue(statement.value)) {
       // The binding adds nothing but its check (P4-R5; R-WB-26b).
       const node = typedCallNode(statement.value, loc, ctx, scope);
-      const callee = ctx.functions.get(statement.value.callee);
+      const callee = ctx.functions.get(statement.value.callee) || ctx.externs.get(statement.value.callee);
       return refinementCheckNeeded(statement.type, null, loc, scope, callee.returnType) ? add(node, row("refinement.check", loc), loc) : node;
     }
     if (ctx && statement.value && typeof statement.value === "object" && statement.value.kind === "aggregate_operation") {
@@ -1073,6 +1082,7 @@ function typedV053Context(mod, imported = null) {
   const memo = new Map();
   return {
     aggregate: (typeName) => typeName !== null && typeName !== undefined && typedV053.isAggregateType(typeName, structs),
+    externs: new Map((mod.externs || []).map((item) => [item.name, item])),
     functions: new Map([...mod.functions.map((fn) => [fn.name, fn]), ...(imported ? [...imported].map(([name, entry]) => [name, entry.fn]) : [])]),
     lanes: (typeName) => typedV053.measureType(typeName, structs, typedV053.baseLanes, memo)
   };

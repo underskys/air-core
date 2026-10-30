@@ -1,0 +1,14 @@
+module v53.mem
+capabilities { fs }
+demand { fs.read_file <= 1 }
+
+extern fs.read_file(a: i32, b: i32, out: ptr, cap: i32) -> i32
+
+export func r() -> i32 {
+  %p: ptr = alloc_region 16
+  %s: slice = slice.from_region %p, 16
+  %v: slice = slice.sub %s, 12, 4
+  %n: i32 = call @fs.read_file(1, 0, %v, 5)
+  free_region %p
+  return %n
+}

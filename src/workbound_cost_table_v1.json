@@ -1,6 +1,6 @@
 {
   "id": "air.workbound.cost/1",
-  "revision": "P0-08-MEM-1",
+  "revision": "P0-10-EFF-1",
   "rows": [
     {
       "construct": "statement.scalar",
@@ -69,7 +69,7 @@
     },
     {
       "construct": "extern.call",
-      "ct1": "host extern call to key k: (steps 1, effects[k] 1)",
+      "ct1": "host extern call to key k: (steps 1, effects[k] 1); every domain check of the call included, whether or not lowering elides it: the checks of each Host ABI (ptr, cap) argument pair (R-MEM-3)",
       "steps": "1",
       "calls": "0",
       "iterations": "0",
@@ -199,6 +199,13 @@
     {
       "construct": "ingress.borrowed_alias",
       "ct1": "entry ingress per pair of exported borrowed_slice parameters whose mutual-overlap check runs (at least one of the two is not readonly)",
+      "steps": "1",
+      "calls": "0",
+      "iterations": "0"
+    },
+    {
+      "construct": "extern.f32_canonical",
+      "ct1": "NaN canonicalization of one f32 argument of a host extern call (OPEN-41 (a)), in addition to extern.call",
       "steps": "1",
       "calls": "0",
       "iterations": "0"

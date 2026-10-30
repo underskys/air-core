@@ -1,0 +1,10 @@
+module v53.eff
+capabilities { time }
+demand { time.now_ms <= 1 }
+
+extern time.now_ms() -> i64
+
+export func t() -> i64 {
+  %x: i64 = call @time.now_ms()
+  return %x
+}

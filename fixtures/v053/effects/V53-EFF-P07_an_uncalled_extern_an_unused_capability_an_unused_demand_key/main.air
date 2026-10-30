@@ -1,0 +1,11 @@
+module v53.eff
+capabilities { debug, output, random }
+demand { debug.metric <= 1, output.emit <= 1, random.u32 <= 2 }
+
+extern debug.metric(id: i32, value: i32) -> void
+extern output.emit(output_id: i32, arg0: i32, arg1: i32, arg2: i32, arg3: i32) -> i32
+
+export func run(x: i32) -> i32 {
+  %s: i32 = call @output.emit(1, %x, 0, 0, 0)
+  return %s
+}

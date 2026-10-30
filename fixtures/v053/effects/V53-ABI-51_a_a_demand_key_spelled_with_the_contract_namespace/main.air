@@ -1,0 +1,9 @@
+module v53.eff
+capabilities { output }
+
+extern output.emit(output_id: i32, arg0: i32, arg1: i32, arg2: i32, arg3: i32) -> i32
+demand { air:contract.typed <= 1 }
+
+export func run(x: i32) -> i32 {
+  return %x
+}

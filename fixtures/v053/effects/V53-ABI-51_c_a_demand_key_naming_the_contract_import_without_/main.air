@@ -1,0 +1,6 @@
+module v53.eff
+demand { contract.typed_v0_53_v1 <= 1 }
+
+export func run(x: i32) -> i32 {
+  return %x
+}

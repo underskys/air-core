@@ -5014,17 +5014,13 @@ function verifyV053TypedModule(mod) {
       if (member === mod || closure.verified.has(key)) continue;
       verifyV053ClosureModule(member, typedClosure.importsOf(member));
       closure.verified.add(key);
-      typedClosure.count(member, "verify");
     }
   }
   verifyV053ClosureModule(mod, closure ? typedClosure.importsOf(mod) : null);
   // The closure counters count the verifier's closure pass only (OD-P9-8 (A)):
   // a later call on the same root, such as the lowering's verification of its
   // input (src/lower_wasm.js), verifies the root again outside the counters.
-  if (closure && !closure.verified.has(closure.rootKey)) {
-    closure.verified.add(closure.rootKey);
-    typedClosure.count(mod, "verify");
-  }
+  if (closure) closure.verified.add(closure.rootKey);
   return mod;
 }
 
@@ -5034,6 +5030,7 @@ function verifyV053ClosureModule(mod, imports) {
       throw new VerificationError(`air.capability.unknown: unknown capability '${capability}'`);
     }
   }
+  verifyV053HostDeclarations(mod);
   const declarations = new Map();
   for (const declaration of mod.enums || []) {
     if (!declaration || (declaration.kind !== "enum" && declaration.kind !== "error_enum") || typeof declaration.type_id !== "string") {
@@ -5060,8 +5057,9 @@ function verifyV053ClosureModule(mod, imports) {
     functions.set(fn.name, fn);
   }
   verifyV053BorrowedLaneExports(mod);
+  const externs = new Map((mod.externs || []).map((extern) => [extern.name, extern]));
   for (const fn of mod.functions || []) {
-    const ctx = { declarations, fn, functions, imports, moduleName: mod.name, names: new Set(), states, tables };
+    const ctx = { declarations, externs, fn, functions, imports, moduleName: mod.name, names: new Set(), states, tables };
     const scope = { locals: new Map(), memory: new Map(), regions: new Map(), staticValues: new Map() };
     // P7-R10: a state name in an exported signature is a state handle.
     const handle = fn && fn.exported ? [...(fn.params || []).map((parameter) => parameter && parameter.type), fn.returnType].find((type) => typeof type === "string" && states.has(type.trim())) : undefined;
@@ -5103,6 +5101,13 @@ function verifyV053ClosureModule(mod, imports) {
   // summaries are part of phase S wherever typed-v0.53 is verified, after the
   // verifier's own checks. A recursion or a summary failure is STATIC_REJECT.
   verifyV053WorkBound(mod);
+  verifyV053EffectDemand(mod);
+  // P0-10 (P10-R29; AD-P10-13 (a)): each module's verification counts itself;
+  // the root only while it is not yet marked verified in its closure, that is,
+  // within the verifier's first closure pass.
+  const typedClosure = require("./typed_closure");
+  const context = typedClosure.moduleContext(mod);
+  if (context && (context.key !== context.closure.rootKey || !context.closure.verified.has(context.key))) typedClosure.count(mod, "verify");
   return mod;
 }
 
@@ -5139,6 +5144,142 @@ function verifyV053WorkAssertion(mod, analysis) {
         const error = new VerificationError(`air.workbound.assertion_exceeded: export '${fn.name}' ${limit.key} ${value} exceeds the declared work bound ${limit.bound}`, mod.work.loc);
         error.disposition = "STATIC_REJECT";
         error.workAssertion = Object.freeze({ bound: limit.bound, export: fn.name, key: limit.key, value: value.toString() });
+        throw error;
+      }
+    }
+  }
+}
+
+// P0-10 (slice text P10-R2; OPEN-29 (a)): the host imports a typed-v0.53 module
+// may declare are the Host ABI registry entries less its six async and io
+// entries, which are DEFERRED_V054 (R-EFF-7). Nothing here adds, removes or
+// changes a registry entry.
+const V053_DEFERRED_HOST_IMPORTS = new Set(["fs.read_file_async", "fs.write_file_async", "net.http_get_async", "io.poll", "io.cancel", "io.result_len"]);
+// P10-R21: the one registry entry of Host ABI 0.11 only; every other admitted
+// entry is in 0.10 and 0.11.
+const V053_HOST_ABI_011_IMPORTS = new Set(["output.emit"]);
+
+function v053HostImport(name) {
+  if (typeof name !== "string" || V053_DEFERRED_HOST_IMPORTS.has(name)) return undefined;
+  const signature = hostSignature(name);
+  return signature ? Object.freeze({ params: Object.freeze([...signature.params]), returnType: signature.returnType }) : undefined;
+}
+
+// The Host ABI lane a verified typed-v0.53 module needs: 0.11 when it or a
+// module of its closure declares an entry of 0.11 only (P10-R21), else 0.10.
+function v053HostAbiLane(mod) {
+  const closure = require("./typed_closure").closureOf(mod);
+  const modules = closure ? closure.order.map((key) => closure.records.get(key).ast) : [mod];
+  return modules.some((item) => (item.externs || []).some((extern) => V053_HOST_ABI_011_IMPORTS.has(extern.name))) ? "0.11" : "0.10";
+}
+
+// P10-R2, P10-R6 (the alias rule), P10-R3's extern check and P10-R4's key
+// validity, in that order, each over the lines in source order. A declaration
+// is metadata: a typed requirement on the host, never a binding (R-EFF-8).
+function verifyV053HostDeclarations(mod) {
+  const externs = mod.externs || [];
+  for (const extern of externs) {
+    if (V053_DEFERRED_HOST_IMPORTS.has(extern.name)) {
+      throw new VerificationError(`air.extern.unsupported: '${extern.name}' is an async or io host import, DEFERRED_V054 (R-EFF-7); typed-v0.53 admits no async import or polling`, extern.loc);
+    }
+    const signature = v053HostImport(extern.name);
+    if (!signature) throw new VerificationError(`air.extern.unsupported: '${extern.name}' is not a Host ABI registry entry; typed-v0.53 adds no host import`, extern.loc);
+    const params = (extern.params || []).map((parameter) => parameter.type);
+    if (params.length !== signature.params.length || params.some((type, index) => type !== signature.params[index]) || extern.returnType !== signature.returnType) {
+      throw new VerificationError(`air.extern.signature_mismatch: '${extern.name}' is (${signature.params.join(", ")}) -> ${signature.returnType} in the Host ABI registry, not (${params.join(", ")}) -> ${extern.returnType}`, extern.loc);
+    }
+  }
+  // OD-P10-5 (a): an import alias equal to an extern's family would make
+  // `@family.name` ambiguous, whatever the order of the lines.
+  for (const extern of externs) {
+    if ((mod.uses || []).some((use) => use.alias === extern.family)) {
+      throw new VerificationError(`air.extern.alias_conflict: extern '${extern.name}' has the family '${extern.family}', which this module also uses as an import alias; rename the alias`, extern.loc);
+    }
+  }
+  for (const extern of externs) {
+    if (!mod.capabilities || !mod.capabilities.has(extern.family)) {
+      throw new VerificationError(`air.capability.required_missing: extern '${extern.name}' needs capabilities { ${extern.family} } in this module`, extern.loc);
+    }
+  }
+  for (const entry of mod.demand ? mod.demand.keys : []) {
+    if (!v053HostImport(entry.key)) {
+      throw new VerificationError(`air.effect.demand_key_invalid: demand key '${entry.key}' is not a host import typed-v0.53 admits; a work key, an unknown or async key and the contract import are never demand keys`, mod.demand.loc);
+    }
+  }
+}
+
+// P10-R3's call check and P10-R5, after the functions verify and the WorkBound
+// phase succeeds (imported modules first, P9-R10). A contributing site is a
+// direct extern call or a call or fold callback whose callee's summary has the
+// key (an imported callee's summary comes from its own module, P9-R16).
+// Capabilities: every key any function reaches needs its family declared.
+// Completeness: every key of an extern called anywhere, and every key an
+// export's E(e) has, is in the demand. Bound: E(e).effects[k] <= the declared
+// bound for every export e (source order) and key k (sorted), reported at the
+// export. A demand bounds the module's calls per key; it is never a grant.
+// It runs right after the WorkBound phase succeeds, on that phase's analysis
+// (kept with the closure; recomputed for a module without imports), and only
+// for a module that can reach an effect: an extern, a demand or an import.
+function verifyV053EffectDemand(mod) {
+  if (!mod.externs && !mod.demand && !mod.uses) return;
+  const externs = new Map((mod.externs || []).map((extern) => [extern.name, extern]));
+  const imports = require("./typed_closure").importsOf(mod);
+  const workbound = require("./workbound");
+  const analysis = workbound.analyzeVerifiedTypedModule(mod);
+  const functions = new Set((mod.functions || []).map((fn) => fn.name));
+  const summaryKeys = (name) => {
+    let result = functions.has(name) ? analysis.functions.get(name) : undefined;
+    const dot = name.indexOf(".");
+    if (!functions.has(name) && dot > 0 && imports && imports.has(name.slice(0, dot))) {
+      result = workbound.analyzeVerifiedTypedModule(imports.get(name.slice(0, dot)).ast).functions.get(name.slice(dot + 1));
+    }
+    return result && result.ok ? [...result.value.effects.keys()].sort() : [];
+  };
+  const sites = [];
+  for (const fn of mod.functions || []) {
+    const stack = [[...(fn.statements || [])].reverse()];
+    while (stack.length) {
+      const statements = stack[stack.length - 1];
+      if (!statements.length) { stack.pop(); continue; }
+      const statement = statements.pop();
+      const value = statement && statement.value;
+      if (value && value.kind === "call") {
+        // A local name has no dot, and an alias never equals an extern's
+        // family (OD-P10-5 (a)), so a declared extern's name is that extern.
+        const direct = externs.has(value.callee);
+        const keys = direct ? [value.callee] : summaryKeys(value.callee);
+        if (keys.length) sites.push({ direct, keys, loc: statement.loc });
+      } else if (value && value.kind === "fold") {
+        const keys = summaryKeys(value.callback);
+        if (keys.length) sites.push({ direct: false, keys, loc: statement.loc });
+      }
+      if (Array.isArray(statement && statement.blocks)) stack.push([...statement.blocks].reverse().flatMap((block) => [...(block.statements || [])].reverse()));
+    }
+  }
+  for (const site of sites) {
+    const missing = site.keys.find((key) => !mod.capabilities || !mod.capabilities.has(key.slice(0, key.indexOf("."))));
+    if (missing !== undefined) {
+      throw new VerificationError(`air.capability.required_missing: this call reaches '${missing}', which needs capabilities { ${missing.slice(0, missing.indexOf("."))} } in this module; importing grants no capability`, site.loc);
+    }
+  }
+  const exported = (mod.functions || []).filter((fn) => fn.exported).map((fn) => ({ entry: analysis.entries instanceof Map ? analysis.entries.get(fn.name) : undefined, fn }));
+  const required = new Set(sites.filter((site) => site.direct).flatMap((site) => site.keys));
+  for (const { entry } of exported) if (entry && entry.ok) for (const key of entry.value.effects.keys()) required.add(key);
+  const declared = new Map((mod.demand ? mod.demand.keys : []).map((item) => [item.key, BigInt(item.bound)]));
+  for (const site of sites) {
+    const missing = site.keys.find((key) => required.has(key) && !declared.has(key));
+    if (missing !== undefined) {
+      throw new VerificationError(`air.effect.demand_missing: this call contributes the effect key '${missing}', which the module's demand does not declare (demand { ${missing} <= N })`, site.loc);
+    }
+  }
+  for (const { entry, fn } of exported) {
+    if (!entry || !entry.ok) continue;
+    for (const key of [...entry.value.effects.keys()].sort()) {
+      const value = entry.value.effects.get(key);
+      if (value > declared.get(key)) {
+        const error = new VerificationError(`air.effect.demand_exceeded: export '${fn.name}' reaches ${key} ${value} time(s), above the declared demand ${declared.get(key)}`, fn.loc);
+        error.disposition = "STATIC_REJECT";
+        error.effectDemand = Object.freeze({ bound: declared.get(key).toString(), export: fn.name, key, value: value.toString() });
         throw error;
       }
     }
@@ -5348,15 +5489,23 @@ function v053ImportableType(type) {
 }
 
 function verifyV053Call(value, ctx, scope, loc, destination) {
-  const callee = ctx.functions.get(value.callee) || verifyV053ImportedCallee(value.callee, ctx, loc);
+  // P0-10 (P10-R6): `@a.b` is the function `b` of the module imported as `a`,
+  // else the declared extern `a.b`, else unknown.
+  const callee = ctx.functions.get(value.callee) || verifyV053ImportedCallee(value.callee, ctx, loc) || (ctx.externs && ctx.externs.get(value.callee));
   if (!callee) throw new VerificationError(`air.call.unknown_function: '@${value.callee}' is not a function of module '${ctx.moduleName || "this module"}'`, loc);
   const args = Array.isArray(value.args) ? value.args : [];
   const params = callee.params || [];
   if (args.length !== params.length) {
     throw new VerificationError(`air.call.argument_count_mismatch: '@${callee.name}' takes ${params.length} argument(s), got ${args.length}`, loc);
   }
+  const host = ctx.externs && ctx.externs.get(value.callee) === callee;
+  const windows = [];
   args.forEach((argument, index) => {
     if (typeof argument !== "string") throw new VerificationError("air.v051.typed_atom_invalid: expected a typed atom", loc);
+    if (host && params[index].type === "ptr") {
+      windows.push({ index, info: verifyV053HostWindow(argument, index, callee, scope, loc) });
+      return;
+    }
     const parameter = verifyV053TypedType(params[index].type, ctx.declarations, loc);
     // P0-08 (P8-R12): a memory value passed to a local call.
     if (parameter.kind === "memory" || (scope.memory && scope.memory.has(argument.trim().slice(1)))) {
@@ -5366,6 +5515,22 @@ function verifyV053Call(value, ctx, scope, loc, destination) {
     }
     verifyV053TypedExpression(argument, parameter, scope.locals, ctx.declarations, loc, scope.staticValues);
   });
+  // P10-R7 (R-MEM-0, R-MEM-3): the capacity after a window is in bytes,
+  // 0 <= cap <= the region's extent or the view's length. What is proven here
+  // is static; the rest is checked before the call (value 34).
+  for (const { index, info } of windows) {
+    const cap = v053StaticInteger(args[index + 1], scope.staticValues, ctx.declarations);
+    const extent = info.kind === "ptr" ? info.ext : info.len;
+    const fail = (detail, message) => {
+      const error = new VerificationError(`air.memory.region_bounds_static: ${message}`, loc);
+      error.detail = detail;
+      return error;
+    };
+    if (cap !== undefined && cap < 0n) throw fail("lower_bound", `capacity ${cap} of @${callee.name} is negative`);
+    if (cap !== undefined && extent !== undefined && extent !== null && cap > extent) {
+      throw fail("extent", `capacity ${cap} of @${callee.name} passes the ${extent}-byte ${info.kind === "ptr" ? "region" : "view"}`);
+    }
+  }
   if (!destination) {
     if (callee.returnType !== "void") {
       throw new VerificationError(`air.call.result_unbound: '@${callee.name}' returns ${callee.returnType}; bind its result (%r: T = call @${callee.name}(...))`, loc);
@@ -5861,6 +6026,21 @@ function verifyV053MemoryArgument(argument, parameter, ctx, scope, loc, callee, 
   }
 }
 
+// P0-10 (P10-R7, P10-R16): a host import's `ptr` argument is a live region
+// pointer or a `slice` view, a read-only literal view included (it is copied in
+// and never written back, AD-P10-9 (a)); any other atom is a type mismatch.
+function verifyV053HostWindow(argument, index, callee, scope, loc) {
+  const text = String(argument || "").trim();
+  const name = /^%[A-Za-z_][A-Za-z0-9_]*$/.test(text) ? text.slice(1) : null;
+  if (name && !scope.locals.has(name)) throw new VerificationError(`air.v051.local_unknown: '${text}'`, loc);
+  const info = name ? scope.memory.get(name) : undefined;
+  if (!info || (info.kind !== "ptr" && info.kind !== "slice")) {
+    throw new VerificationError(`air.v051.typed_atom_type_mismatch: argument ${index} of @${callee.name} is a host memory window; pass a region pointer or a slice view, not '${text}'`, loc);
+  }
+  verifyV053RegionLive(info, scope, loc);
+  return info;
+}
+
 function verifyV053RegionLive(info, scope, loc) {
   if (info.region && scope.regions.get(info.region) !== "live") {
     throw new VerificationError(`air.memory.region_not_live: the region of '%${info.region.name}' is ${scope.regions.get(info.region) === "maybe" ? "possibly freed" : "freed"} here`, loc);
@@ -6299,5 +6479,7 @@ Object.defineProperty(module.exports, "typedV053", {
   enumerable: false,
   // P0-08: `memorySite(statement)` reads the maximum (P8-R7) the last
   // verification recorded for an `alloc_region` statement.
-  value: Object.freeze({ memorySite: v053MemorySite, verify: verifyV053TypedModule })
+  // P0-10: `hostImport(name)` is an admitted Host ABI entry's signature
+  // (P10-R2), `hostAbiLane(mod)` the lane a verified module needs (P10-R21).
+  value: Object.freeze({ hostAbiLane: v053HostAbiLane, hostImport: v053HostImport, memorySite: v053MemorySite, verify: verifyV053TypedModule })
 });

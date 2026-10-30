@@ -1,0 +1,7 @@
+module v53.eff
+
+extern contract.typed_v0_53_v1() -> i32
+
+export func run(x: i32) -> i32 {
+  return %x
+}

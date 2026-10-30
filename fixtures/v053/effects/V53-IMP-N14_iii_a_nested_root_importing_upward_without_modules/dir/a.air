@@ -1,0 +1,8 @@
+module v53.imp.a
+
+use "../x.air" as up
+
+export func run(x: i32) -> i32 {
+  %o: i32 = call @up.run(%x)
+  return %o
+}

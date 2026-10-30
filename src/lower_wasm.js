@@ -904,7 +904,9 @@ function v053FeaturesOf(mod, declarations, memory) {
   return {
     constants: new Map((mod.constants || []).map((constant) => [constant.name, constant])),
     declarations,
+    externs: new Map((mod.externs || []).map((extern) => [extern.name, extern])),
     functions: new Map(functions.map((fn) => [fn.name, fn])),
+    hostImports: v053HostImports([mod]),
     memory,
     usesArrayIndex: operations.includes("array.get") || operations.includes("array.set"),
     usesCanonicalSumIngress: functions.some((fn) => (fn.params || []).some((parameter) => {
@@ -914,7 +916,8 @@ function v053FeaturesOf(mod, declarations, memory) {
     usesCheckedNumeric: functions.some(v053FunctionUsesCheckedNumeric),
     usesDynamicFold: functions.some((fn) => v053FunctionStatements(fn).some((statement) => statement.kind === "local" &&
       statement.value && typeof statement.value === "object" && statement.value.kind === "fold" && statement.value.count.kind === "dynamic")),
-    usesRegionBounds: functions.some(v053FunctionUsesRegionBounds),
+    usesRegionBounds: functions.some(v053FunctionUsesRegionBounds) ||
+      functions.some((fn) => v053FunctionUsesHostWindow(fn, new Map((mod.externs || []).map((extern) => [extern.name, extern])))),
     usesTableGet: operations.includes("table.get"),
     usesTypedRefinement: functions.some(v053FunctionUsesRefinement)
   };
@@ -930,7 +933,8 @@ function v053FeaturesOf(mod, declarations, memory) {
 // exports. Each module's features inherit the artifact's, which the header
 // uses with every module's segments.
 function v053LinkedFeatures(root, closure) {
-  const shift = v053BorrowedLane(root) ? V053_OWNED_BASE : 0;
+  const modules = closure.order.map((key) => closure.records.get(key).ast);
+  const shift = v053ContractLane(root, modules) ? V053_OWNED_BASE : 0;
   const placement = { next: 0, shift };
   const members = closure.order.map((key, k) => {
     const mod = closure.records.get(key).ast;
@@ -960,6 +964,7 @@ function v053LinkedFeatures(root, closure) {
   const flags = ["usesArrayIndex", "usesCanonicalSumIngress", "usesCheckedNumeric", "usesDynamicFold", "usesRegionBounds", "usesTableGet", "usesTypedRefinement"];
   const artifact = {
     ...Object.fromEntries(flags.map((flag) => [flag, own.some((features) => features[flag])])),
+    hostImports: v053HostImports(modules),
     linked: [],
     memory: {
       ...lane,
@@ -1026,7 +1031,8 @@ function v053MemoryPlan(mod, declarations, placement = null) {
   // backing by BASE = 16; every other artifact starts at 0.
   // P0-09 (P9-R20): in a linked closure the lane is the root's and the static
   // storage continues where the previous module's ends (`placement`).
-  const shift = placement ? placement.shift : v053BorrowedLane(mod) ? V053_OWNED_BASE : 0;
+  // P0-10 (P10-R11): an artifact with an extern is a contract artifact too.
+  const shift = placement ? placement.shift : v053ContractLane(mod, [mod]) ? V053_OWNED_BASE : 0;
   let next = placement ? placement.next : 0;
   const reserve = (bytes) => {
     next = Math.ceil(next / 8) * 8;
@@ -1176,7 +1182,9 @@ function v053ModuleHeaderLines(features) {
   return [
     "(module",
     // P0-08 (P8-R15): the contract import precedes every definition.
+    // P0-10 (P10-R11): then the capability imports, sorted by name.
     ...(borrowed ? borrowed.imports : []),
+    ...features.hostImports.map(v053HostImportLine),
     `  (global $${V053_FAILURE_REASON_GLOBAL} (export "${V053_FAILURE_REASON_GLOBAL}") (mut i32) (i32.const 0))`,
     v053FailureHelper("__air_v051_invalid_tag", 49),
     v053FailureHelper("__air_v051_invalid_enum_discriminant", 48),
@@ -1255,6 +1263,7 @@ function lowerV053TypedFunction(fn, features, writer, counting) {
     declarations,
     exported: entry,
     frame,
+    externs: features.externs,
     functions: features.functions,
     link: features.link || null,
     localDecls: new V053WatLines(writer, 4, counting),
@@ -1440,6 +1449,9 @@ function emitV053YieldInto(state, value, destination) {
 // refined parameter checked at the call site before the callee runs (17);
 // then the call. Typed values cross by their lanes; nothing is observable.
 function emitV053Call(state, value) {
+  if (!state.functions.has(value.callee) && state.externs && state.externs.has(value.callee)) {
+    return emitV053HostCall(state, value, state.externs.get(value.callee));
+  }
   const callee = state.functions.get(value.callee);
   if (!callee || (callee.params || []).length !== (value.args || []).length) {
     typedLowerFail("air.v051.typed_lowering_unsupported", `unverified call '@${value.callee}'`);
@@ -1462,6 +1474,51 @@ function emitV053Call(state, value) {
   });
   state.body.push(`call ${v053FunctionRef(state, value.callee)}`);
   return callee;
+}
+
+// P0-10 (P10-R7, P10-R11): a host extern call. Each window's capacity is
+// checked first, 0 <= cap <= the region's extent or the view's length (34), so
+// a negative capacity never reaches the host and a failing call makes none;
+// then every argument by its registry type, an f32 with its NaN replaced by
+// 0x7fc00000 (OPEN-41 (a)), a window as its address; then the import. The
+// window is the region or view itself: no memory outside the AIR-owned range.
+function emitV053HostCall(state, value, host) {
+  const args = value.args || [];
+  if (host.params.length !== args.length) typedLowerFail("air.v051.typed_lowering_unsupported", `unverified host call '@${value.callee}'`);
+  const capacities = new Map();
+  host.params.forEach((parameter, index) => {
+    if (parameter.type !== "ptr") return;
+    const view = v053MemoryLocal(state, args[index]);
+    const capacity = v053AtomTemporary(state, args[index + 1]);
+    state.body.push(`local.get ${capacity}`, "i32.const 0", "i32.lt_s");
+    emitV053RegionFailIf(state);
+    state.body.push(`local.get ${capacity}`, `local.get ${view.names[1]}`, "i32.gt_s");
+    emitV053RegionFailIf(state);
+    capacities.set(index + 1, capacity);
+  });
+  host.params.forEach((parameter, index) => {
+    if (parameter.type === "ptr") {
+      state.body.push(`local.get ${v053MemoryLocal(state, args[index]).names[0]}`);
+    } else if (capacities.has(index)) {
+      state.body.push(`local.get ${capacities.get(index)}`);
+    } else if (parameter.type === "f32") {
+      emitV053StoredValue(state, args[index], "f32");
+    } else {
+      emitV053TypedExpression(state, args[index], parameter.type);
+    }
+  });
+  state.body.push(`call ${v053HostImportRef(host.name)}`);
+  return host;
+}
+
+// P0-10 (P10-R7): a function that passes a window to a host import uses the
+// region-domain helper (34).
+function v053FunctionUsesHostWindow(fn, externs) {
+  return v053SourceStatements(fn).some((statement) => {
+    const value = statement && statement.value;
+    const host = value && value.kind === "call" && externs.get(value.callee);
+    return Boolean(host) && host.params.some((parameter) => parameter.type === "ptr");
+  });
 }
 
 // P0-05 (slice text P5-R5, P5-R15): the seed into the destination's lanes
@@ -1960,6 +2017,36 @@ function v053BorrowedLane(mod) {
   return (mod.functions || []).some((fn) => fn.exported && (fn.params || []).some((parameter) => /^borrowed_slice</.test(String(parameter.type || ""))));
 }
 
+// P0-10 (P10-R11; ABI-8: OPEN-ABI-2 (b); OD-P10-3 (a)): an artifact with any
+// capability import is a contract artifact of P0-08's one contract shape, as
+// an artifact with a borrowed export is. `modules` are the closure's modules
+// (the root alone without imports); the lane is decided once per artifact.
+function v053ContractLane(root, modules) {
+  return v053BorrowedLane(root) || modules.some((mod) => (mod.externs || []).length > 0);
+}
+
+// The artifact's capability imports: every extern a module of the closure
+// declares, called or not, once by name, sorted (P10-R11; V53-EFF-P07). Each is
+// imported as the legacy lowering names it, module = the family, field = the
+// rest, so the Host ABI wire names are unchanged.
+function v053HostImports(modules) {
+  const byName = new Map();
+  for (const mod of modules) for (const extern of mod.externs || []) if (!byName.has(extern.name)) byName.set(extern.name, extern);
+  return [...byName.keys()].sort((left, right) => (left < right ? -1 : left > right ? 1 : 0)).map((name) => byName.get(name));
+}
+
+const V053_HOST_WAT_TYPE = Object.freeze({ bool: "i32", f32: "f32", i32: "i32", i64: "i64", ptr: "i32" });
+
+function v053HostImportRef(name) {
+  return `$__air_host.${name}`;
+}
+
+function v053HostImportLine(extern) {
+  const params = extern.params.map((parameter) => V053_HOST_WAT_TYPE[parameter.type]);
+  const result = extern.returnType === "void" ? "" : ` (result ${V053_HOST_WAT_TYPE[extern.returnType]})`;
+  return `  (import "${extern.family}" "${extern.name.slice(extern.family.length + 1)}" (func ${v053HostImportRef(extern.name)}${params.length ? ` (param ${params.join(" ")})` : ""}${result}))`;
+}
+
 // Every statement of a function in source order. A block-bodied match arm's
 // block is in the statement's `blocks` too (P4-R17), so `blocks` reaches each
 // block once; nesting is bounded by the analysis capacity (SCALAR AMD-3).
@@ -2320,6 +2407,10 @@ function checkV053EngineLimits(mod) {
   // P0-08 (P8-R15): `$__air_borrow_failure` (i32 -> ) and the contract import ( -> i32).
   if (features.memory.borrowed) signatures.add("i32->").add("->i32");
   else if (features.memory.borrowedParameter) signatures.add("i32->");
+  // P0-10 (P10-R11): each capability import's type.
+  for (const host of features.hostImports) {
+    signatures.add(`${host.params.map((parameter) => V053_HOST_WAT_TYPE[parameter.type]).join(",")}->${host.returnType === "void" ? "" : V053_HOST_WAT_TYPE[host.returnType]}`);
+  }
   for (const [fn, own] of lowered) {
     const lanes = (fn.params || []).flatMap((parameter) => v053TypeInfo(parameter.type, own.declarations, own.memory).watTypes);
     signatures.add(`${lanes.join(",")}->${v053TypeInfo(fn.returnType, own.declarations, own.memory).watTypes.join(",")}`);
@@ -2336,7 +2427,7 @@ function checkV053EngineLimits(mod) {
     exports: (mod.functions || []).filter((fn) => fn.exported).length + 1 + 4 * borrowed,
     functions: lowered.length + helpers,
     globals: 1 + 3 * borrowed,
-    imports: borrowed,
+    imports: borrowed + features.hostImports.length,
     memoryPages: features.memory.pages,
     types: signatures.size
   };

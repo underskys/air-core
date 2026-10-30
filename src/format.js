@@ -327,7 +327,21 @@ function formatV053TypedAir(mod) {
   // no blank line, its keys in the dimension order, spaced as `capabilities`.
   if (mod.work && Array.isArray(mod.work.limits) && mod.work.limits.length) {
     if (header) out.push("");
+    header = false;
     out.push(`work { ${mod.work.limits.map((limit) => `${limit.key} <= ${limit.bound}`).join(", ")} }`);
+  }
+  // P0-10 (slice text P10-R10): the `demand` line closes the header block, its
+  // keys sorted; then one blank line and the `extern` lines sorted by name,
+  // whatever the order of the input lines.
+  if (mod.demand && Array.isArray(mod.demand.keys) && mod.demand.keys.length) {
+    if (header) out.push("");
+    header = false;
+    const keys = mod.demand.keys.slice().sort((left, right) => compareAscii(left.key, right.key));
+    out.push(`demand { ${keys.map((item) => `${item.key} <= ${item.bound}`).join(", ")} }`);
+  }
+  const externs = Array.isArray(mod.externs) ? mod.externs.slice().sort((left, right) => compareAscii(left.name, right.name)) : [];
+  if (externs.length) {
+    out.push("", ...externs.map((extern) => `extern ${extern.name}(${extern.params.map((parameter) => `${parameter.name}: ${parameter.type}`).join(", ")}) -> ${extern.returnType}`));
   }
   for (const declaration of (mod.enums || []).slice().sort((left, right) => compareAscii(left.type_id, right.type_id))) {
     const typeName = declaration.type_id.slice(declaration.type_id.lastIndexOf("::") + 2);

@@ -1,0 +1,5 @@
+module v53.pkg.out
+
+export func emit(x: i32) -> i32 {
+  return %x
+}

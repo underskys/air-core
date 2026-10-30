@@ -1,0 +1,13 @@
+module v53.pkg.main
+
+use "./math.air" as math
+
+capabilities { debug }
+demand { debug.metric <= 3 }
+
+export func run(x: i32) -> i32 {
+  %a: i32 = call @math.add_one(%x)
+  %b: i32 = call @math.add_one(%a)
+  %c: i32 = call @math.add_one(%b)
+  return %c
+}

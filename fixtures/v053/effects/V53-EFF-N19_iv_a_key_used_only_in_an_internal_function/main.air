@@ -1,0 +1,16 @@
+module v53.eff
+capabilities { debug, random }
+demand { random.u32 <= 1 }
+
+extern debug.metric(id: i32, value: i32) -> void
+extern random.u32() -> i32
+
+func note(x: i32) -> i32 {
+  call @debug.metric(1, %x)
+  return %x
+}
+
+export func run(x: i32) -> i32 {
+  %v: i32 = call @random.u32()
+  return %v
+}
