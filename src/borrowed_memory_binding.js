@@ -1006,7 +1006,9 @@ function typedDigest(bytes) {
 // the byte ranges the active data segments initialize (the literal views,
 // tables and states), into which a window is never written back; `readOnly`
 // is null when a segment's offset is not a constant (then nothing is written
-// back). A module the reader cannot follow returns null.
+// back). `exportResults` gives each exported function's Wasm result lanes (the
+// v2 descriptor names none; OD-P10-10 (A)). A module the reader cannot follow
+// returns null.
 const TYPED_WASM_VALTYPES = Object.freeze({ 0x7c: "f64", 0x7d: "f32", 0x7e: "i64", 0x7f: "i32" });
 
 function typedWasmSections(bytes) {
@@ -1039,6 +1041,8 @@ function typedWasmSections(bytes) {
     if (bytes.length < 8 || bytes.readUInt32LE(0) !== 0x6d736100 || bytes.readUInt32LE(4) !== 1) return null;
     const types = [];
     const imports = [];
+    const functionTypes = [];
+    const exportResults = new Map();
     let readOnly = [];
     while (offset < bytes.length) {
       const id = byte();
@@ -1056,11 +1060,22 @@ function typedWasmSections(bytes) {
       } else if (id === 2) {
         for (let count = unsigned(); count > 0; count -= 1) {
           const module = name(); const field = name(); const kind = byte();
-          if (kind === 0) imports.push({ field, kind: "function", module, type: types[unsigned()] || null });
+          if (kind === 0) {
+            const type = types[unsigned()] || null;
+            functionTypes.push(type);
+            imports.push({ field, kind: "function", module, type });
+          }
           else if (kind === 1) { byte(); limits(); imports.push({ field, kind: "table", module }); }
           else if (kind === 2) { limits(); imports.push({ field, kind: "memory", module }); }
           else if (kind === 3) { byte(); byte(); imports.push({ field, kind: "global", module }); }
           else return null;
+        }
+      } else if (id === 3) {
+        for (let count = unsigned(); count > 0; count -= 1) functionTypes.push(types[unsigned()] || null);
+      } else if (id === 7) {
+        for (let count = unsigned(); count > 0; count -= 1) {
+          const exported = name(); const kind = byte(); const index = unsigned();
+          if (kind === 0 && functionTypes[index]) exportResults.set(exported, functionTypes[index].results);
         }
       } else if (id === 11 && readOnly) {
         for (let count = unsigned(); count > 0 && readOnly; count -= 1) {
@@ -1078,7 +1093,7 @@ function typedWasmSections(bytes) {
       }
       offset = end;
     }
-    return { imports, readOnly };
+    return { exportResults, imports, readOnly };
   } catch (_) {
     return null;
   }
@@ -1240,7 +1255,7 @@ async function typedAdmissionStep1(admission) {
   }
   const sections = typedWasmSections(admission.bytes);
   const capabilities = typedCapabilityImports(sections, imports);
-  return { capabilities, digest, module, readOnly: sections.readOnly };
+  return { capabilities, digest, exportResults: sections.exportResults, module, readOnly: sections.readOnly };
 }
 
 // Steps 2 and 3: a fresh contract function and import object for this
@@ -1288,7 +1303,7 @@ function typedAdmissionInstantiate(admission, module, checked) {
   const memory = instance.exports.memory;
   if (!(memory instanceof WebAssembly.Memory)) admissionFail(3, "air.borrow.memory_missing", "the instance does not export its memory");
   host.state.memory = memory;
-  return { host: host.state, instance, memory, owned: recorded || owned };
+  return { exportResults: checked.exportResults, host: host.state, instance, memory, owned: recorded || owned };
 }
 
 function normalizeTypedInterfaceEntry(descriptor, entrypointName) {
@@ -1440,7 +1455,7 @@ async function admitTypedV053ArtifactCopy(options, bytes, trace) {
 }
 
 function createAdmittedInstance(admitted, descriptor, digest, trace, guard) {
-  const { host, instance, memory, owned } = admitted;
+  const { exportResults, host, instance, memory, owned } = admitted;
   let used = false;
   const claim = () => {
     if (used) bindingFail("air.borrow.invocation_reused", "an admitted typed-v0.53 instance runs one invocation");
@@ -1473,6 +1488,14 @@ function createAdmittedInstance(admitted, descriptor, digest, trace, guard) {
         requirePlainObject(request, "request");
         claim();
         const entry = normalizeTypedInterfaceEntry(descriptor, request.entrypoint);
+        // P0-10 (OD-P10-10 (A), OD-P10-11 (B)): the invocation evidence hashes
+        // the result and cannot carry a BigInt or undefined, so an export with
+        // an i64 result lane or a void result is refused here, before any host
+        // call. invokeRaw still runs it.
+        const resultLanes = exportResults.get(entry.name);
+        if (resultLanes && (resultLanes.length === 0 || resultLanes.includes("i64"))) {
+          bindingFail("air.borrow.interface_invalid", `export '${entry.name}' has ${resultLanes.length ? "an i64" : "a void"} result, which the typed invoke's evidence cannot carry; nothing ran (invokeRaw runs it)`);
+        }
         typedTrace(trace, "step4.bind");
         const bindings = normalizeBindings(request.bindings, entry);
         const scalarArguments = normalizeTypedScalarArguments(request.arguments, entry);

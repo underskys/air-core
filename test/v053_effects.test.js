@@ -14,9 +14,10 @@
 // carries their package (the SDK and the CLI with the files on disk, the
 // verified builder and the runtime with `modules`), V53-IMP-N13 and N14
 // (P10-R27, P10-R28), and the slice checks P0-10-CHECK-LINK, -WAT, -CT1,
-// -CANON and -ROOTVERIFY (P10-R25, P10-R29); test/v053_host_binding.test.js
-// runs every vector with a host. Set AIR_P010_VECTOR_RESULTS_DIR=<dir> to
-// write one canonical result record per vector.
+// -CANON and -ROOTVERIFY (P10-R25, P10-R29) and -INVOKE-RESULT (OD-P10-10 (A),
+// OD-P10-11 (B)); test/v053_host_binding.test.js runs every vector with a
+// host. Set AIR_P010_VECTOR_RESULTS_DIR=<dir> to write one canonical result
+// record per vector.
 
 const assert = require("node:assert/strict");
 const childProcess = require("node:child_process");
@@ -719,7 +720,92 @@ async function sectionChecks() {
     }
     return { value: { controls, counts: real.counts, math: real.math } };
   });
+  await vector("P0-10-CHECK-INVOKE-RESULT", () => {
+    // OD-P10-10 (A), OD-P10-11 (B): through admission.invoke and instance.invoke
+    // an export whose result the invocation evidence cannot carry is refused
+    // with the coded failure and an empty host log; invokeRaw still runs it.
+    const n15 = pkgOf("V53-EFF-N15_");
+    const voidPkg = { files: { "main.air": VOID_EXPORT }, label: "void", root: "main.air" };
+    const cases = path.join(tmp, "invoke-result-cases.json");
+    fs.writeFileSync(cases, JSON.stringify([
+      { args: {}, descriptor: descriptorOf(n15), entrypoint: "t", host: "time.now_ms", label: "i64", lanes: [], returns: "bigint", source: n15.files[n15.root] },
+      { args: { x: 7 }, descriptor: descriptorOf(voidPkg), entrypoint: "v", host: "debug.metric", label: "void", lanes: [7], returns: "undefined", source: VOID_EXPORT }
+    ]));
+    const probe = path.join(tmp, "invoke-result-probe.js");
+    fs.writeFileSync(probe, INVOKE_RESULT_PROBE);
+    const real = spawnJson(probe, [path.join(ROOT, "src"), cases]);
+    assert.deepEqual([...invokeResultProblems(real, "i64", "5"), ...invokeResultProblems(real, "void", "undefined")], [], "the unmutated control");
+    const controls = {};
+    for (const [name, mutant] of Object.entries(INVOKE_RESULT_MUTANTS)) {
+      const scratch = scratchSource(name, mutant.edits);
+      const mutated = spawnJson(probe, [scratch, cases]);
+      fs.rmSync(scratch, { force: true, recursive: true });
+      const caught = [["i64", "5"], ["void", "undefined"]].filter(([label, raw]) => invokeResultProblems(mutated, label, raw).length).map(([label]) => label);
+      assert.deepEqual(caught, mutant.caught, `${name} (${mutant.description}) must fail exactly on ${mutant.caught.join(", ")}`);
+      controls[name] = { caught, description: mutant.description, facts: mutated };
+    }
+    return { value: { controls, real } };
+  });
 }
+
+// The typed invoke's facts of each export, in a child process on a given src/:
+// each route's code and host calls, and invokeRaw's result. V53-EFF-N15's
+// `t() -> i64` is the slice text's; the `void` export is OD-P10-11 (B)'s, which
+// pins no fixture, so its text is here.
+const VOID_EXPORT = ["module v53.eff", "capabilities { debug }", "demand { debug.metric <= 1 }", "", "extern debug.metric(id: i32, value: i32) -> void", "",
+  "export func v(x: i32) -> void {", "  call @debug.metric(1, %x)", "  return", "}", ""].join("\n");
+const INVOKE_RESULT_PROBE = `"use strict";
+const path = require("path");
+const fs = require("fs");
+const [srcDir, casesFile] = process.argv.slice(2);
+const { buildVerifiedTypedModule } = require(path.join(srcDir, "v052_verified_build.js"));
+const { admitTypedV053Artifact } = require(path.join(srcDir, "sdk.js"));
+(async () => {
+  const out = {};
+  for (const item of JSON.parse(fs.readFileSync(casesFile, "utf8"))) {
+    const built = await buildVerifiedTypedModule({ allowCandidateProfile: true, descriptor: item.descriptor, source: item.source, sourceName: "main.air", sourceProfile: "typed-v0.53" });
+    const request = { arguments: item.args, bindings: {}, entrypoint: item.entrypoint };
+    const admitted = async () => {
+      const log = [];
+      const handlers = { [item.host]: (...args) => { log.push(args); return item.returns === "bigint" ? 5n : undefined; } };
+      return { admission: await admitTypedV053Artifact({ handlers, record: built, wasmBytes: built.wasmBytes }), log };
+    };
+    const typed = async (call) => {
+      const { admission, log } = await admitted();
+      try {
+        const outcome = await call(admission);
+        return { code: outcome.diagnostics.length ? outcome.diagnostics[0].code : null, host_calls: log.length };
+      } catch (error) {
+        return { host_calls: log.length, thrown: error.name };
+      }
+    };
+    const direct = await admitted();
+    const raw = (await direct.admission.instantiate()).invokeRaw(item.entrypoint, item.lanes);
+    out[item.label] = {
+      admission: await typed((admission) => admission.invoke(request)),
+      instance: await typed(async (admission) => (await admission.instantiate()).invoke(request)),
+      raw: { host_calls: direct.log.length, result: String(raw.result) }
+    };
+  }
+  process.stdout.write(JSON.stringify(out));
+})().catch((error) => { console.error(error && error.stack || error); process.exit(1); });
+`;
+function invokeResultProblems(facts, label, rawResult) {
+  const problems = [];
+  for (const route of ["admission", "instance"]) {
+    const item = facts[label][route];
+    if (item.code !== "air.borrow.interface_invalid" || item.host_calls !== 0 || item.thrown) problems.push(`${label} ${route}: ${JSON.stringify(item)}`);
+  }
+  const raw = facts[label].raw;
+  if (raw.host_calls !== 1 || raw.result !== rawResult) problems.push(`${label} invokeRaw: ${JSON.stringify(raw)}`);
+  return problems;
+}
+const GUARD = "        if (resultLanes && (resultLanes.length === 0 || resultLanes.includes(\"i64\"))) {";
+const INVOKE_RESULT_MUTANTS = Object.freeze({
+  G1: { caught: ["i64", "void"], description: "the guard removed", edits: [["borrowed_memory_binding.js", GUARD, "        if (resultLanes && false) {"]] },
+  G2: { caught: ["void"], description: "the void clause removed", edits: [["borrowed_memory_binding.js", GUARD, "        if (resultLanes && resultLanes.includes(\"i64\")) {"]] },
+  G3: { caught: ["i64"], description: "the i64 clause removed", edits: [["borrowed_memory_binding.js", GUARD, "        if (resultLanes && resultLanes.length === 0) {"]] }
+});
 
 const ROOTVERIFY_PROBE = `"use strict";
 const path = require("path");
