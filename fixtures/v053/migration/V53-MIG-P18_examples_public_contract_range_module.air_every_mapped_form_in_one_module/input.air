@@ -1,0 +1,25 @@
+module public_contract_range
+capabilities { }
+requires export run
+
+func needs_nonnegative(value: i32) -> i32 {
+  requires param value >= 0
+entry:
+  return %value
+}
+
+func nonnegative(value: i32) -> i32 {
+  requires param value >= 0
+  ensures return >= 0
+entry:
+  return %value
+}
+
+export func run(input: i32) -> i32 {
+  requires param input >= 0
+entry:
+  %known:i32 = call @nonnegative(%input)
+  %out:i32 = call @needs_nonnegative(%known)
+  return %out
+}
+

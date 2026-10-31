@@ -1,0 +1,8 @@
+module mig_cap
+requires capability debug
+capabilities { debug }
+
+export func f(n: i32) -> i32 {
+entry:
+  return %n
+}

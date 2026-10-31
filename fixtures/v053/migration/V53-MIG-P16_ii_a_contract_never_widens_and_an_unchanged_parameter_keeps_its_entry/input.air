@@ -1,0 +1,12 @@
+module mig_narrow
+capabilities { }
+
+export func f(a: i32<0..10>, b: i32<0..10>, c: i32) -> i32 {
+  requires param a >= 2
+  requires param a >= 1
+  requires param b <= 20
+  requires param c <= 5
+  requires param c <= 9
+entry:
+  return %a
+}

@@ -1,0 +1,10 @@
+module mig_compose
+capabilities { }
+
+export func f(n: i32<0..10>, m: i32) -> i32<0..10> {
+  requires param n >= 2
+  requires param m == 4
+  ensures return <= 9
+entry:
+  return %n
+}

@@ -1,0 +1,11 @@
+module mig_ensif
+
+export func f(c: bool, x: i32) -> i32<0..2147483647> {
+  %ret: i32<0..2147483647> = if %c {
+    yield %x
+  } else {
+    %z: i32 = 0
+    yield %z
+  }
+  return %ret
+}

@@ -1,0 +1,6 @@
+module mig_lit
+
+export func f() -> f32 {
+  %x: f32 = 1.00000005960464477539
+  return %x
+}

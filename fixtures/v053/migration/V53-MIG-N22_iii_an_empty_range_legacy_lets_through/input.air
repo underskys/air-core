@@ -1,0 +1,9 @@
+module mig_eqgap
+capabilities { }
+
+export func f(n: i32) -> i32 {
+  requires param n >= 5
+  requires param n == 4
+entry:
+  return %n
+}

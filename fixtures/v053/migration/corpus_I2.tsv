@@ -1,16 +1,16 @@
-# P0-11 I1 corpus dispositions (P0_11_SLICE_RFC.md P11-R20), predicted by tools/legacy_inventory_p011.js at airlang 1a52a255
+# P0-11 I2 corpus dispositions (P0_11_SLICE_RFC.md P11-R20), predicted by tools/legacy_inventory_p011.js at airlang 91b705be (I1 accepted)
 # origin: <file>:<line>|<construct> where the reported construct or refusal lies in an imported file (OD-P11-11 (a)); imports: <file>=<sha256>;…
 # projection: both, or dev for a row whose file or imports the public tree does not hold with the same bytes (AD-P11-1)
 # path	sha256	disposition	construct	line	reason	origin	imports	projection
 examples/ai_generated/network_health_generated.air	ecd771ea6044860af27d20b7c474fb8be6262351f7b3e58f617b8b23abb915f1	REJECTED	capabilities	2	later_increment	-	-	both
 examples/airops_incident_package/module.air	6e8e630d79b2fa2fc61584a8446abcb2e29781e23e69cdc0e07e7a9786ce0994	REJECTED	constants	2	later_increment	-	-	both
 examples/async_io.air	e275748b886d4aa5d5a56ca2d807eb60eb5f15ac7d6c149b832971f0d2856835	REJECTED	io.poll_bounded	21	not_admitted	-	-	both
-examples/borrowed_memory_conformance/checksum/module.air	a2754077c0b5d111becfe874ff3cb5c3fbaef1904e2e8536a603116bef9b233e	REJECTED	requires	4	later_increment	-	-	both
-examples/borrowed_memory_conformance/vector_affine/module.air	90edd69c1b8dcdf9eb3ab835398b35520e99eae982f294cc2f7d078d90471ccc	REJECTED	requires	4	later_increment	-	-	both
-examples/borrowed_slices/source_only/transform.air	e0c35cb1d1e84f31a7de341ee9096691939662b350ed3d5a030627ef1070b31f	REJECTED	requires	4	later_increment	-	-	both
-examples/borrowed_slices/source_only/zero_length.air	e748944070246be7d659530dec5248a3b017db833eeb0fcfe3d23c8e05863c2a	REJECTED	requires	4	later_increment	-	-	both
-examples/borrowed_slices/wasm/copy_final_i32.air	18e7061a815ff084aa4b2751a370ae631b324ea58d10ac54ae844ed1d10d910a	REJECTED	requires	4	later_increment	-	-	both
-examples/bounded_loop.air	160557a8385c89b120abfe87c9462edb4ca59cbf63523556bccc0cf6f85a0d42	REJECTED	requires	3	later_increment	-	-	both
+examples/borrowed_memory_conformance/checksum/module.air	a2754077c0b5d111becfe874ff3cb5c3fbaef1904e2e8536a603116bef9b233e	REJECTED	type borrowed_slice	6	later_increment	-	-	both
+examples/borrowed_memory_conformance/vector_affine/module.air	90edd69c1b8dcdf9eb3ab835398b35520e99eae982f294cc2f7d078d90471ccc	REJECTED	type borrowed_slice	6	later_increment	-	-	both
+examples/borrowed_slices/source_only/transform.air	e0c35cb1d1e84f31a7de341ee9096691939662b350ed3d5a030627ef1070b31f	REJECTED	type borrowed_slice	6	later_increment	-	-	both
+examples/borrowed_slices/source_only/zero_length.air	e748944070246be7d659530dec5248a3b017db833eeb0fcfe3d23c8e05863c2a	REJECTED	type borrowed_slice	6	later_increment	-	-	both
+examples/borrowed_slices/wasm/copy_final_i32.air	18e7061a815ff084aa4b2751a370ae631b324ea58d10ac54ae844ed1d10d910a	REJECTED	type borrowed_slice	6	later_increment	-	-	both
+examples/bounded_loop.air	160557a8385c89b120abfe87c9462edb4ca59cbf63523556bccc0cf6f85a0d42	REJECTED	loop.fold.i32	15	later_increment	-	-	both
 examples/branch.air	73b25c599a0bb13988155f1f7a7d6bdb3b9c8f8c4a861ed3af1991d275162e84	REJECTED	type slice	4	later_increment	-	-	both
 examples/call.air	f3ea3c9b9716ce5a275353e872f653da41edc83ab1141292558fdce0f7341307	REJECTED	type slice	11	later_increment	-	-	both
 examples/compact_tables_package/main.air	414a8e628f5fbefaa41d2bd9bf68fa70bf14fa776aba66f7a00e31254f0e530d	REJECTED	tables	2	not_admitted	-	-	both
@@ -54,21 +54,21 @@ examples/policy_audit_package/allowlist.air	4ff9f16be20f9a071599d450679957be87a4
 examples/profile_portability/module.air	faea82affe9bd0b1ea683d17d8aa8ff1783c8d1bda88fe7afad6ec9c229eddd8	REJECTED	capabilities	2	later_increment	-	-	both
 examples/provenance_flow/allowed.air	30188ca0883729055c654946a96f3e6d8e1586929b60876de5c7a0a3b2b4b8c4	REJECTED	flowDeclarations	3	not_admitted	-	-	both
 examples/provenance_flow/forbidden.air	845c0df0b8b892ec44719e4fffd41961603dd816dafbfc3c15200114e170f605	REJECTED	legacy-invalid	9	legacy_invalid	-	-	both
-examples/public/bounded_execution/module.air	8b6d6cbf9bf9bc2aaf7a291c3699bf9afcb0fdecfeadf7d6b57ed008cd55a77c	REJECTED	requires	3	later_increment	-	-	both
-examples/public/contract_range/module.air	883896d2ee054eb46c2e5b81b142cd793b61bdb91018cd3d33d08b65799e872c	REJECTED	requires	3	later_increment	-	-	both
-examples/public/evidence_report/module.air	a8a04efd7a74244ebfe07dfccfb613a71c00f0243a18256d090f1a64718a8109	REJECTED	requires	3	later_increment	-	-	both
+examples/public/bounded_execution/module.air	8b6d6cbf9bf9bc2aaf7a291c3699bf9afcb0fdecfeadf7d6b57ed008cd55a77c	REJECTED	loop.fold.i32	15	later_increment	-	-	both
+examples/public/contract_range/module.air	883896d2ee054eb46c2e5b81b142cd793b61bdb91018cd3d33d08b65799e872c	MIGRATED	-	-	-	-	-	both
+examples/public/evidence_report/module.air	a8a04efd7a74244ebfe07dfccfb613a71c00f0243a18256d090f1a64718a8109	MIGRATED	-	-	-	-	-	both
 examples/public/hallucinated_api_rejected/module.air	66e51df8aef73474fbac24e2f3d5e38a4da7ad6568c5f10051c03bec74da6309	REJECTED	legacy-invalid	8	legacy_invalid	-	-	both
 examples/public/region_leak_rejected/module.air	5c0ae6458f1884cd194445bbe041a8e44b9bdd0b906db92d1e698fc29628ac2a	REJECTED	legacy-invalid	10	legacy_invalid	-	-	both
-examples/public/safe_policy/module.air	e2ee71a20f335244b7dcb78def2cccebe3d62f7c84a7a9f289282f08dc5d48fd	REJECTED	requires	3	later_increment	-	-	both
-examples/realtime_safe/module.air	dca6226532a7c37f7f6644f0a669d1d452fdefce4338a085ee0b19b430185a7c	REJECTED	requires	4	later_increment	-	-	both
+examples/public/safe_policy/module.air	e2ee71a20f335244b7dcb78def2cccebe3d62f7c84a7a9f289282f08dc5d48fd	MIGRATED	-	-	-	-	-	both
+examples/realtime_safe/module.air	dca6226532a7c37f7f6644f0a669d1d452fdefce4338a085ee0b19b430185a7c	REJECTED	type borrowed_slice	6	later_increment	-	-	both
 examples/refinement_types/bounded_score.air	1c4f2115288295b334dc66ad617719beecf6f5a737103c4c5e2a6a846d52c6aa	MIGRATED	-	-	-	-	-	both
-examples/refinement_types/contract_bridge.air	c50d0db9d4a7e35bab8c3a069ec093fb2cda418943af9493892e6b2d755ec5e4	REJECTED	ensures	5	later_increment	-	-	both
+examples/refinement_types/contract_bridge.air	c50d0db9d4a7e35bab8c3a069ec093fb2cda418943af9493892e6b2d755ec5e4	MIGRATED	-	-	-	-	-	both
 examples/refinement_types/non_empty_slice.air	c436f772ec6a0b1d285582a55db13b03ff0f0ea47fe8e252119235f4260d610d	REJECTED	legacy-invalid	4	legacy_invalid	-	-	both
 examples/resource_certificate/module.air	c632d97eb39fed315b5397c51df68a0f39230a45fb626873866aa98462a35901	REJECTED	capabilities	2	later_increment	-	-	both
 examples/resource_contract.air	f9336c8af0b2d2111c667555bf992c1d8eb0945172544d9683dd77aeef02fe1a	REJECTED	capabilities	2	later_increment	-	-	both
-examples/showcase/anti_hallucination/safe_repaired.air	622e3e341d837579136e295729f5ad23fe003cb3a407c13b826bab79fb9394fc	REJECTED	requires	3	later_increment	-	-	dev
-examples/showcase/evidence_report/module.air	ae2426f792dffb12b03a5453afa427044ef6782112b7eed8d973bab42d3edebd	REJECTED	requires	3	later_increment	-	-	dev
-examples/showcase/host_boundary_tiny/module.air	a0d03cf3da060c0d510b83239ec22f280f8a6d00a024fb83229dbceaea23b298	REJECTED	requires	3	later_increment	-	-	dev
+examples/showcase/anti_hallucination/safe_repaired.air	622e3e341d837579136e295729f5ad23fe003cb3a407c13b826bab79fb9394fc	MIGRATED	-	-	-	-	-	dev
+examples/showcase/evidence_report/module.air	ae2426f792dffb12b03a5453afa427044ef6782112b7eed8d973bab42d3edebd	MIGRATED	-	-	-	-	-	dev
+examples/showcase/host_boundary_tiny/module.air	a0d03cf3da060c0d510b83239ec22f280f8a6d00a024fb83229dbceaea23b298	MIGRATED	-	-	-	-	-	dev
 examples/showcase/minesweeper_tiny/module.air	2e1857fc4fc391e00481e7b9682a81f28ffad7c387cae4e41e2874e0a856addd	REJECTED	constants	2	later_increment	-	-	dev
 examples/slice_borrow.air	84c7f565debc9b795971a1108b4899fc59de0e271d3fb2958d92a749c5462613	REJECTED	alloc_region	7	later_increment	-	-	both
 examples/sprite_pack.air	dc3b0fd81bbaf9c13137ec9871e4fe677f7505d2dbea6ae03dc68278f69306b4	REJECTED	uses	2	later_increment	-	std:color=13e2622f096fdf22eb787dcff852b8d72fe9dd183766dcf6011d49204c0ffc85	both
@@ -84,17 +84,17 @@ examples/ui_tool.air	6574d6552dd7dcd3cbd036e1b0de18f4f10592de7d129d2c96bfb005435
 examples/utility_math.air	a49f667e142d5edd7b86f3afdc4b66a790a3dcfb3da7800b8027ce4827d57082	REJECTED	uses	6	not_admitted	-	-	both
 examples/utility_plugin.air	25510a40999a499bbcd2d18e65e73aed13f161f72090123ced1d54533765e681	REJECTED	uses	2	not_admitted	-	-	both
 examples/vector_hit_test.air	fc63c945037a348cad612c6bca88e42bfe581d1da954d73b26cdc636f1aede5b	REJECTED	uses	2	later_increment	-	std:bounds=3bd93981a20c1548217023413ce0bc72ed5505af3ce562b8dbd1d7c54c0ae548	both
-fixtures/semantic_patch/base/module.air	cb43a657318be3bf3ceb6508061a3061b930363e57675848710ca653ae066187	REJECTED	requires	3	later_increment	-	-	both
-fixtures/semantic_patch/compatible/module.air	801f13587702050eafc129d9742a99fb51e6f004872f6f1f27dabaa1928c291d	REJECTED	requires	3	later_increment	-	-	both
-fixtures/v050/region_bounds/dynamic_f32.air	e69c19c66c4a0f1ac9a53c297793961810e49c31a6ee9dd0384c206cf95c35a1	REJECTED	requires	4	later_increment	-	-	both
-fixtures/v050/region_bounds/dynamic_i32.air	c2931b64b91675f86f6f57d1af37ea5f6a3d99eb06d25a68a7881c6d15eeeacb	REJECTED	requires	4	later_increment	-	-	both
+fixtures/semantic_patch/base/module.air	cb43a657318be3bf3ceb6508061a3061b930363e57675848710ca653ae066187	MIGRATED	-	-	-	-	-	both
+fixtures/semantic_patch/compatible/module.air	801f13587702050eafc129d9742a99fb51e6f004872f6f1f27dabaa1928c291d	MIGRATED	-	-	-	-	-	both
+fixtures/v050/region_bounds/dynamic_f32.air	e69c19c66c4a0f1ac9a53c297793961810e49c31a6ee9dd0384c206cf95c35a1	REJECTED	alloc_region	9	later_increment	-	-	both
+fixtures/v050/region_bounds/dynamic_i32.air	c2931b64b91675f86f6f57d1af37ea5f6a3d99eb06d25a68a7881c6d15eeeacb	REJECTED	alloc_region	9	later_increment	-	-	both
 fixtures/v050/region_bounds/dynamic_loop.air	0c1f421039fdc776b1e9fad1b4b14414f180a1c713896bd07e472d437ee30f8b	REJECTED	phi-loop	13	not_admitted	-	-	both
 fixtures/v050/region_bounds/dynamic_mat4.air	14d63fd65920e60b24a29f22afdc6679045c8552a6b2dc1598383688d37db37c	REJECTED	mat4.identity	10	not_admitted	-	-	both
-fixtures/v050/region_bounds/dynamic_size.air	d37b03662a21ad90a62aba0be9aa96fa554594f0d7e2b76b8f1f08329364aebb	REJECTED	requires	4	later_increment	-	-	both
+fixtures/v050/region_bounds/dynamic_size.air	d37b03662a21ad90a62aba0be9aa96fa554594f0d7e2b76b8f1f08329364aebb	REJECTED	alloc_region	8	later_increment	-	-	both
 fixtures/v050/region_bounds/static_negative_offset.air	8a5bf4bcd9eaec1c68ef63902ae0a39748ed39128004fb44e98fe67e20682d73	REJECTED	legacy-invalid	10	legacy_invalid	-	-	both
 fixtures/v050/region_bounds/static_one_byte_beyond.air	bf11987b1c0ffae3571074da9e8c734d1d94a9b3c5d6ab5bc4c99e75e4c82901	REJECTED	legacy-invalid	11	legacy_invalid	-	-	both
 fixtures/v050/region_bounds/static_overflow_offset.air	82b6b57bf47d770a380acece6f7aec439b43001ac0d415d3c32371464d2ca03a	REJECTED	legacy-invalid	10	legacy_invalid	-	-	both
-fixtures/v050/region_bounds/static_valid_final_element.air	3894dbf256f207e123ec065caa33a4b510d8912f3c040986ebe79b7d2e626574	REJECTED	requires	4	later_increment	-	-	both
+fixtures/v050/region_bounds/static_valid_final_element.air	3894dbf256f207e123ec065caa33a4b510d8912f3c040986ebe79b7d2e626574	REJECTED	alloc_region	9	later_increment	-	-	both
 fixtures/v050/region_bounds/static_zero_length.air	e45760c7190c4a7847e5a8612cf47c64eee6e096817ae43ba9d3df20a7cfce14	REJECTED	legacy-invalid	10	legacy_invalid	-	-	both
 fixtures/v050/region_bounds/use_after_free_load.air	1a3fb97c8c021429c9616958aceee3b4cb5086c046a93f0d27b09a7f5df5f9dd	REJECTED	legacy-invalid	10	legacy_invalid	-	-	both
 fixtures/v050/region_bounds/use_after_free_store.air	7b780390e2b419fd150977c1a6335076203bf76c8374fbeec87cd585beeec7d5	REJECTED	legacy-invalid	11	legacy_invalid	-	-	both
@@ -160,10 +160,10 @@ test/fixtures/structured_io/flowdesk_task_summary/generated/structured_io_handle
 test/fixtures/structured_io/flowdesk_task_summary/main.air	e937350b82777b9f247fdbdeaa0bb3158401f005dfccf19722d66c29efb24886	MIGRATED	-	-	-	-	-	both
 stdlib/bounds.air	3bd93981a20c1548217023413ce0bc72ed5505af3ce562b8dbd1d7c54c0ae548	REJECTED	structs	4	later_increment	-	-	both
 stdlib/collision.air	c4ec68001379210f1fd34ff4ffe829eedf43d24fb40cfece868e4fb2d74c32a4	REJECTED	type vec3	84	not_admitted	-	-	both
-stdlib/color.air	13e2622f096fdf22eb787dcff852b8d72fe9dd183766dcf6011d49204c0ffc85	REJECTED	requires	57	later_increment	-	-	both
+stdlib/color.air	13e2622f096fdf22eb787dcff852b8d72fe9dd183766dcf6011d49204c0ffc85	MIGRATED	-	-	-	-	-	both
 stdlib/easing.air	438d2a910727fc1e6665888a66365fac7c43fcfd268e912c17089e4271f8f4e1	REJECTED	physics.damp_i32	98	not_admitted	-	-	both
-stdlib/grid.air	8901529ec30795c97391746c66b97c762c4c436094d3d0c01448e829a6b532b3	REJECTED	requires	5	later_increment	-	-	both
-stdlib/noise.air	569c68c448dabfd9c6d6f99b95872365e0a544bdb9bfec7f4bdaf23fd725296e	REJECTED	requires	34	later_increment	-	-	both
+stdlib/grid.air	8901529ec30795c97391746c66b97c762c4c436094d3d0c01448e829a6b532b3	MIGRATED	-	-	-	-	-	both
+stdlib/noise.air	569c68c448dabfd9c6d6f99b95872365e0a544bdb9bfec7f4bdaf23fd725296e	MIGRATED	-	-	-	-	-	both
 stdlib/packet.air	f90d36c4645f19f13dd1ddc731442af7265dc67307e2b8f8845fb23f50765137	MIGRATED	-	-	-	-	-	both
 stdlib/physics.air	bda64f983b1e1f92214d5c05e13af340769ea568b05963a73db58419d4adccba	REJECTED	physics.damp_i32	16	not_admitted	-	-	both
 stdlib/transform.air	abf38cbe0232f1624bbcd640c42ac39dad560abe4e4d897342947ce2e5e33844	REJECTED	f32.convert_i32_s	6	not_admitted	-	-	both

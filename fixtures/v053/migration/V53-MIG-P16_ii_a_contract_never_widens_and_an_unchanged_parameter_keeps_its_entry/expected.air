@@ -1,0 +1,5 @@
+module mig_narrow
+
+export func f(a: i32<2..10>, b: i32<0..10>, c: i32<-2147483648..5>) -> i32 {
+  return %a
+}

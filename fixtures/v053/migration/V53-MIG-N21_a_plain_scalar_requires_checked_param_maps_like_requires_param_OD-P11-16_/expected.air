@@ -1,0 +1,5 @@
+module mig_chk
+
+export func f(n: i32<-2147483648..10>) -> i32 {
+  return %n
+}

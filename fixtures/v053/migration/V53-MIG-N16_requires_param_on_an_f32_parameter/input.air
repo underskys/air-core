@@ -1,0 +1,8 @@
+module mig_reqf32
+capabilities { }
+
+export func f(x: f32) -> f32 {
+  requires param x >= 0
+entry:
+  return %x
+}

@@ -1,0 +1,13 @@
+module mig_ensif
+capabilities { }
+
+export func f(c: bool, x: i32) -> i32 {
+  ensures return >= 0
+entry:
+  br_if %c, yes, no
+yes:
+  return %x
+no:
+  %z:i32 = 0
+  return %z
+}

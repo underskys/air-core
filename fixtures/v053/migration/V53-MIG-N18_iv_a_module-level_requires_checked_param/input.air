@@ -1,0 +1,8 @@
+module mig_modchk
+capabilities { }
+requires checked param n <= 10
+
+export func f(n: i32) -> i32 {
+entry:
+  return %n
+}

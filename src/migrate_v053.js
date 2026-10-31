@@ -1,7 +1,7 @@
 "use strict";
 
 // typed-v0.53 P0-11: M(), the deterministic legacy-v0.50 -> typed-v0.53
-// migration, first increment I1 (slice text R2.3; card AIR-0053-P0-11-0001;
+// migration, increment I2 (slice text R3.2; card AIR-0053-P0-11-0001;
 // docs/v0.53/MIGRATION.md). M() is a tool: it reads the legacy parser and
 // verifier and the typed-v0.53 parser, verifier and formatter, and changes no
 // profile's result (P11-R26). A record holds no host path, no clock and no
@@ -68,7 +68,7 @@ const NEVER_OPS = new Set(["f32.sin", "f32.cos", "f32.sqrt", "f32.convert_i32_s"
   "table.get.i16"]);
 const NEVER_OP_FAMILIES = Object.freeze(["vec3.", "mat4.", "quat.", "physics.", "collision.", "ray.", "fixed.", "state.", SHARED_RECORD_FAMILY, TABLE_GROUP_FAMILY]);
 const NEVER_FORMS = Object.freeze(["globals", "states", "pools", "flowDeclarations", TABLE_GROUPS]);
-const LATER_FORMS = Object.freeze(["constants", "structs", "externs", "effects", "requires", "ensures"]);
+const LATER_FORMS = Object.freeze(["constants", "structs", "externs", "effects"]);
 const COMPACT_TABLE_TYPES = new Set(["u8", "u16", "i16"]);
 
 const LITERAL_OPS = new Map([["const.i32", "i32"], ["const.i64", "i64"], ["const.f32", "f32"], ["const.f64", "f64"], ["const.bool", "bool"]]);
@@ -446,6 +446,26 @@ function typeConstruct(typeName) {
   return { construct: `type ${typeName}`, reason: GEOMETRY_TYPES.has(typeName) ? "not_admitted" : "later_increment" };
 }
 
+// P11-R30: read the bound's spelling, never legacy's rounded Number.
+function contractBound(contract, lines) {
+  const match = /(-?[0-9]+(?:\.[0-9]+)?)$/.exec(lines[contract.loc.line - 1]);
+  if (!match || match[1].includes(".")) return null;
+  const bound = BigInt(match[1]);
+  return bound >= I32_MIN && bound <= I32_MAX ? bound : null;
+}
+
+function contractReason(contract, keyword, fn, lines) {
+  if (contract.kind === "export") return null;
+  if (["capability", "no-capability", "metric"].includes(contract.kind)) return "later_increment";
+  if (!fn) return "not_admitted";
+  if (contract.kind === "checked_borrow_length" ||
+      (contract.kind === "checked_param" && fn.params.some((parameter) => parameter.type === "borrowed_slice"))) return "later_increment";
+  const parameter = keyword === "requires" && ["param", "checked_param"].includes(contract.kind)
+    ? fn.params.find((item) => item.name === (contract.name || contract.parameter)) : null;
+  const type = parameter ? parameter.type : keyword === "ensures" && contract.kind === "return" ? fn.returnType : null;
+  return type === "i32" && contractBound(contract, lines) !== null ? null : "not_admitted";
+}
+
 function ownConstructs(node, graph, moduleId, verdicts) {
   const { ast } = node;
   const found = [];
@@ -458,6 +478,14 @@ function ownConstructs(node, graph, moduleId, verdicts) {
   for (const form of LATER_FORMS) {
     for (const item of form === "externs" ? node.externs : ast[form]) add(item.loc.line, form, "later_increment");
   }
+  const sourceLines = node.text.split(/\r?\n/).map(withoutComment);
+  const contracts = (holder, fn) => {
+    for (const keyword of ["requires", "ensures"]) for (const item of holder[keyword]) {
+      const reason = contractReason(item, keyword, fn, sourceLines);
+      if (reason) add(item.loc.line, keyword, reason);
+    }
+  };
+  contracts(ast, null);
   for (const table of ast.tables) add(table.loc.line, "tables", COMPACT_TABLE_TYPES.has(table.type) ? "not_admitted" : "later_increment");
 
   for (const use of node.uses) {
@@ -483,7 +511,8 @@ function ownConstructs(node, graph, moduleId, verdicts) {
       const unmapped = typeConstruct(typeName);
       if (unmapped) add(fn.loc.line, unmapped.construct, unmapped.reason);
     }
-    for (const form of ["effects", "requires", "ensures"]) for (const item of fn[form]) add(item.loc.line, form, "later_increment");
+    for (const item of fn.effects) add(item.loc.line, "effects", "later_increment");
+    contracts(fn, fn);
     for (const block of fn.blocks) {
       for (const ins of block.instructions) {
         if (LITERAL_OPS.has(ins.op)) {
@@ -530,10 +559,11 @@ function entry(line, construct, from, to, rule, entryClass = "EXACT", ledger = n
 }
 
 class FunctionMapper {
-  constructor(fn, lines, entries) {
+  constructor(fn, lines, entries, returnType) {
     this.fn = fn;
     this.sourceLines = lines;
     this.entries = entries;
+    this.returnType = returnType;
     this.names = new Set(fn.params.map((parameter) => `%${parameter.name}`));
     for (const block of fn.blocks) for (const ins of block.instructions) if (ins.result) this.names.add(ins.result);
   }
@@ -625,7 +655,7 @@ class FunctionMapper {
     const [thenBlock, elseBlock] = branch.labels.map((label) => this.fn.blocks.find((block) => block.label === label));
     const result = this.names.has("%ret") ? this.freshName("%ret") : "%ret";
     this.names.add(result);
-    const header = `${result}: ${this.fn.returnDeclaredType || this.fn.returnType} = if ${atomText(branch.args[0])}`;
+    const header = `${result}: ${this.returnType} = if ${atomText(branch.args[0])}`;
     this.entries.push(entry(branch.loc.line, "return-split", this.branchText(branch), header, "P11-R10"));
     return [...this.blockLines(first, "return"), `${header} {`, ...this.blockLines(thenBlock, "yield"), "} else {", ...this.blockLines(elseBlock, "yield"), "}",
       `return ${result}`];
@@ -644,16 +674,47 @@ class FunctionMapper {
   }
 }
 
-function signatureLine(fn, entries) {
-  const refined = [];
-  const typeOf = (declared, base) => {
-    if (declared && declared !== base && !refined.includes(declared)) refined.push(declared);
-    return declared || base;
+function narrowedType(declared, contracts, lines) {
+  if (!contracts.length) return declared;
+  const match = /^i32<(-?[0-9]+)\.\.(-?[0-9]+)>$/.exec(declared);
+  let lo = match ? BigInt(match[1]) : I32_MIN;
+  let hi = match ? BigInt(match[2]) : I32_MAX;
+  for (const contract of contracts) {
+    const bound = contractBound(contract, lines);
+    if (contract.op !== "<=" && bound > lo) lo = bound;
+    if (contract.op !== ">=" && bound < hi) hi = bound;
+  }
+  return `i32<${lo}..${hi}>`;
+}
+
+function signatureLine(fn, entries, lines) {
+  const refined = new Set();
+  const typeOf = (declared, base, contracts) => {
+    const from = declared || base;
+    const to = narrowedType(from, contracts, lines);
+    const pair = `${from}\0${to}`;
+    if (declared && declared !== base && !refined.has(pair)) {
+      entries.push(entry(fn.loc.line, "refinement", from, to, "P11-R13", "LEGACY_DEFECT_CORRECTED", "X-SND-09"));
+      refined.add(pair);
+    }
+    return to;
   };
-  const params = fn.params.map((parameter) => `${parameter.name}: ${typeOf(parameter.declaredType, parameter.type)}`);
-  const result = typeOf(fn.returnDeclaredType, fn.returnType);
-  for (const spelling of refined) entries.push(entry(fn.loc.line, "refinement", spelling, spelling, "P11-R13", "LEGACY_DEFECT_CORRECTED", "X-SND-09"));
-  return `${fn.exported ? "export " : ""}func ${fn.name}(${params.join(", ")}) -> ${result} {`;
+  const params = new Map(fn.params.map((parameter) => [parameter.name, typeOf(parameter.declaredType, parameter.type,
+    fn.requires.filter((item) => ["param", "checked_param"].includes(item.kind) && (item.name || item.parameter) === parameter.name))]));
+  const result = typeOf(fn.returnDeclaredType, fn.returnType, fn.ensures.filter((item) => item.kind === "return"));
+  for (const keyword of ["requires", "ensures"]) for (const contract of fn[keyword]) {
+    const written = lines[contract.loc.line - 1];
+    if (contract.kind === "export") {
+      entries.push(entry(contract.loc.line, keyword, written, null, "P11-R27"));
+    } else {
+      const parameter = contract.name || contract.parameter;
+      const to = keyword === "requires" ? `${parameter}: ${params.get(parameter)}` : `-> ${result}`;
+      const corrected = keyword === "ensures" || fn.exported;
+      entries.push(entry(contract.loc.line, keyword, written, to, keyword === "requires" ? "P11-R28" : "P11-R29",
+        corrected ? "LEGACY_DEFECT_CORRECTED" : "EXACT", corrected ? "X-SND-09" : null));
+    }
+  }
+  return { header: `${fn.exported ? "export " : ""}func ${fn.name}(${[...params].map(([name, type]) => `${name}: ${type}`).join(", ")}) -> ${result} {`, result };
 }
 
 function mappedFunctions(ast, text, entries) {
@@ -661,8 +722,8 @@ function mappedFunctions(ast, text, entries) {
   const names = new Set(ast.functions.map((fn) => fn.name));
   const functions = [];
   for (const fn of ast.functions) {
-    const mapper = new FunctionMapper(fn, sourceLines, entries);
-    const signature = signatureLine(fn, entries);
+    const signature = signatureLine(fn, entries, sourceLines);
+    const mapper = new FunctionMapper(fn, sourceLines, entries, signature.result);
     const flow = controlFlowOf(fn);
     mapper.labelEntry();
     let lines;
@@ -684,7 +745,7 @@ function mappedFunctions(ast, text, entries) {
       lines = mapped.lines;
       functions.push(`func ${callback}(${mapped.callback.parameter}: i32) -> i32 {\n${mapped.callback.body.join("\n")}\n}`);
     }
-    functions.push(`${signature}\n${lines.join("\n")}\n}`);
+    functions.push(`${signature.header}\n${lines.join("\n")}\n}`);
   }
   return functions;
 }
@@ -708,7 +769,7 @@ function migrateV053(source, options = {}) {
   const common = {
     from: "legacy-v0.50",
     imports: [],
-    increment: "I1",
+    increment: "I2",
     input_sha256: sha256(bytes),
     options: moduleId === null ? {} : { module_id: moduleId },
     schema: "air.migration-record/1",
@@ -748,6 +809,10 @@ function migrateV053(source, options = {}) {
   const moduleLine = lines.find((item) => item.text.startsWith("module")).line;
   if (moduleId !== null) entries.push(entry(moduleLine, "module-identity", node.ast.name, moduleId, "P11-R7"));
   for (const item of lines) if (CAPABILITIES_LINE.test(item.text)) entries.push(entry(item.line, "capabilities", item.text, null, "P11-R6"));
+  const sourceLines = text.split(/\r?\n/).map(withoutComment);
+  for (const keyword of ["requires", "ensures"]) for (const contract of node.ast[keyword]) {
+    entries.push(entry(contract.loc.line, keyword, sourceLines[contract.loc.line - 1], null, "P11-R27"));
+  }
   const functions = mappedFunctions(node.ast, text, entries);
   entries.sort((left, right) => left.line - right.line);
 

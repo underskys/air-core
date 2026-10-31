@@ -1,0 +1,8 @@
+module mig_big
+capabilities { }
+
+export func f(n: i32) -> i32 {
+  requires param n <= 3000000000
+entry:
+  return %n
+}

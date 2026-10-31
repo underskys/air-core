@@ -1,0 +1,10 @@
+module mig_chk2
+
+export func f(n: i32<-2147483648..10>) -> i32 {
+  return %n
+}
+
+export func h(x: i32) -> i32 {
+  %r: i32 = call @f(%x)
+  return %r
+}

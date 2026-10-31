@@ -1,0 +1,10 @@
+module mig_ensret
+
+export func run(x: i32) -> i32 {
+  %y: i32 = call @source(%x)
+  return %y
+}
+
+func source(x: i32) -> i32<0..2147483647> {
+  return %x
+}

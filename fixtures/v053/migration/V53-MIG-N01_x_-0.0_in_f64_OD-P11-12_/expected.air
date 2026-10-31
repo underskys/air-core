@@ -1,0 +1,6 @@
+module mig_lit
+
+export func f() -> f64 {
+  %x: f64 = -0.0
+  return %x
+}

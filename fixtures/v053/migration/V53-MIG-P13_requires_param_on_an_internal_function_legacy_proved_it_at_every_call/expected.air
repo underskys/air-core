@@ -1,0 +1,12 @@
+module mig_reqint
+
+func bump(n: i32<0..100>) -> i32 {
+  %r: i32 = i32.wrapping_add %n, 1
+  return %r
+}
+
+export func run() -> i32 {
+  %a: i32 = 7
+  %b: i32 = call @bump(%a)
+  return %b
+}

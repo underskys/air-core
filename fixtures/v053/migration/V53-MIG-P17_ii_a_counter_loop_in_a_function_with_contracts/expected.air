@@ -1,0 +1,12 @@
+module mig_ensloop
+
+export func f(n: i32<0..2147483647>) -> i32<-2147483648..5> {
+  %zero: i32 = 0
+  %i: i32 = loop.fold @f__loop, %zero, 5
+  return %i
+}
+
+func f__loop(i: i32) -> i32 {
+  %next: i32 = i32.wrapping_add %i, 1
+  return %next
+}

@@ -1,0 +1,8 @@
+module mig_modparam
+capabilities { }
+requires param nope >= 0
+
+export func f(n: i32) -> i32 {
+entry:
+  return %n
+}

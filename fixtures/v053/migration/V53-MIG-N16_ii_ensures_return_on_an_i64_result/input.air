@@ -1,0 +1,8 @@
+module mig_ensi64
+capabilities { }
+
+export func f(x: i64) -> i64 {
+  ensures return >= 0
+entry:
+  return %x
+}

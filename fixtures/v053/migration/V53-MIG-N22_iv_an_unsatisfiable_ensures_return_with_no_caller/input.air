@@ -1,0 +1,9 @@
+module mig_unsatret
+capabilities { }
+
+export func f(n: i32) -> i32 {
+  ensures return >= 5
+  ensures return <= 4
+entry:
+  return %n
+}

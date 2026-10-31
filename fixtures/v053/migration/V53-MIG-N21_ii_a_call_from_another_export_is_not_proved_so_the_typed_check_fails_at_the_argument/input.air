@@ -1,0 +1,14 @@
+module mig_chk2
+capabilities { }
+
+export func f(n: i32) -> i32 {
+  requires checked param n <= 10
+entry:
+  return %n
+}
+
+export func h(x: i32) -> i32 {
+entry:
+  %r:i32 = @f(%x)
+  return %r
+}

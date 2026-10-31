@@ -1,0 +1,8 @@
+module mig_lit
+capabilities { }
+
+export func f() -> f32 {
+entry:
+  %x:f32 = -0.0
+  return %x
+}

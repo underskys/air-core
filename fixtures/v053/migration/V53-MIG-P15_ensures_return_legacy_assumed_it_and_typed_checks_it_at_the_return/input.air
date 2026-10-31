@@ -1,0 +1,14 @@
+module mig_ensret
+capabilities { }
+
+func source(x: i32) -> i32 {
+  ensures return >= 0
+entry:
+  return %x
+}
+
+export func run(x: i32) -> i32 {
+entry:
+  %y:i32 = @source(%x)
+  return %y
+}

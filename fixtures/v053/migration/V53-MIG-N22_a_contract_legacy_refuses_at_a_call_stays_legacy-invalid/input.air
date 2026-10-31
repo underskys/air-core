@@ -1,0 +1,15 @@
+module mig_viol
+capabilities { }
+
+func g(n: i32) -> i32 {
+  requires param n >= 0
+entry:
+  return %n
+}
+
+export func f() -> i32 {
+entry:
+  %a:i32 = -1
+  %b:i32 = @g(%a)
+  return %b
+}

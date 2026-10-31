@@ -1,0 +1,15 @@
+module public_contract_range
+
+func needs_nonnegative(value: i32<0..2147483647>) -> i32 {
+  return %value
+}
+
+func nonnegative(value: i32<0..2147483647>) -> i32<0..2147483647> {
+  return %value
+}
+
+export func run(input: i32<0..2147483647>) -> i32 {
+  %known: i32 = call @nonnegative(%input)
+  %out: i32 = call @needs_nonnegative(%known)
+  return %out
+}

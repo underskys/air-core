@@ -1,0 +1,20 @@
+module mig_ensloop
+capabilities { }
+
+export func f(n: i32) -> i32 {
+  requires param n >= 0
+  ensures return <= 5
+entry:
+  %zero:i32 = 0
+  br loop
+loop:
+  %i:i32 = phi.i32 entry:%zero, body:%next
+  %lim:i32 = 5
+  %done:bool = i32.ge_s %i, %lim
+  br_if %done, exit, body
+body:
+  %next:i32 = add %i, 1
+  br loop
+exit:
+  return %i
+}

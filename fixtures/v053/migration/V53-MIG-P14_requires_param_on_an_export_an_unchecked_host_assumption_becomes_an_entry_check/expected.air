@@ -1,0 +1,5 @@
+module mig_reqexport
+
+export func keep(n: i32<0..100>) -> i32 {
+  return %n
+}
