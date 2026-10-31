@@ -638,6 +638,25 @@ const COUNTER = (entry, header, body, exit = ["return %i"], returnType = "i32") 
 const STEP = ["  %one:i32 = 1", "  %next:i32 = add %i, %one"];
 
 async function sectionRules() {
+  await vector("P0-11-CHECK-POSITIONAL-PARAMETERS", async () => {
+    for (const [signature, contract] of [
+      ["f(n: i32, n: i32) -> i32", ""],
+      ["f(n: i32, n: i32) -> i32", "requires param n >= 0"],
+      ["f(n: i32, n: i32) -> i32", "requires checked param n <= 10"],
+      ["f(n: i32<0..10>, n: i32<0..20>) -> i32", ""]
+    ]) {
+      const text = moduleOf(fnOf(signature, ["return %n"]).replace("entry:", `${contract}\nentry:`));
+      const result = run(text);
+      assert.equal(result.kind, "REJECTED", "duplicate legacy names must not delete a positional parameter");
+      assert.equal(result.output, undefined);
+      assert.deepEqual(result.parsed.entries, []);
+      assert.deepEqual(result.parsed.rejection, {
+        code: CODE, construct: "typed-verification", line: 1, origin: null,
+        reason: "not_admitted", typed_code: "air.v051.parameter_duplicate"
+      });
+    }
+  });
+
   await vector("P0-11-CHECK-CONTRACT-RANGES", async () => {
     const source = (contracts, signature = "f(n: i32<0..10>) -> i32<0..10>") =>
       moduleOf(fnOf(signature, ["return %n"]).replace("entry:", `${contracts.join("\n")}\nentry:`));

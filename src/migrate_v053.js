@@ -699,8 +699,8 @@ function signatureLine(fn, entries, lines) {
     }
     return to;
   };
-  const params = new Map(fn.params.map((parameter) => [parameter.name, typeOf(parameter.declaredType, parameter.type,
-    fn.requires.filter((item) => ["param", "checked_param"].includes(item.kind) && (item.name || item.parameter) === parameter.name))]));
+  const params = fn.params.map((parameter) => ({ name: parameter.name, type: typeOf(parameter.declaredType, parameter.type,
+    fn.requires.filter((item) => ["param", "checked_param"].includes(item.kind) && (item.name || item.parameter) === parameter.name)) }));
   const result = typeOf(fn.returnDeclaredType, fn.returnType, fn.ensures.filter((item) => item.kind === "return"));
   for (const keyword of ["requires", "ensures"]) for (const contract of fn[keyword]) {
     const written = lines[contract.loc.line - 1];
@@ -708,13 +708,13 @@ function signatureLine(fn, entries, lines) {
       entries.push(entry(contract.loc.line, keyword, written, null, "P11-R27"));
     } else {
       const parameter = contract.name || contract.parameter;
-      const to = keyword === "requires" ? `${parameter}: ${params.get(parameter)}` : `-> ${result}`;
+      const to = keyword === "requires" ? `${parameter}: ${params.find((item) => item.name === parameter).type}` : `-> ${result}`;
       const corrected = keyword === "ensures" || fn.exported;
       entries.push(entry(contract.loc.line, keyword, written, to, keyword === "requires" ? "P11-R28" : "P11-R29",
         corrected ? "LEGACY_DEFECT_CORRECTED" : "EXACT", corrected ? "X-SND-09" : null));
     }
   }
-  return { header: `${fn.exported ? "export " : ""}func ${fn.name}(${[...params].map(([name, type]) => `${name}: ${type}`).join(", ")}) -> ${result} {`, result };
+  return { header: `${fn.exported ? "export " : ""}func ${fn.name}(${params.map(({ name, type }) => `${name}: ${type}`).join(", ")}) -> ${result} {`, result };
 }
 
 function mappedFunctions(ast, text, entries) {
