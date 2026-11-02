@@ -30,6 +30,18 @@ test:
   stage: test
   script:
     - node -e "const p=require('./package.json'); if (p.name !== process.env.AIR_NPM_EXPECTED_NAME || p.version !== process.env.AIR_NPM_EXPECTED_VERSION || p.license !== 'Apache-2.0' || !p.bin || p.bin.airc !== 'bin/airc.js' || p.private === true) { console.error(p); process.exit(1) }"
+    - |
+      set -e
+      WASMTIME_VERSION=44.0.1
+      WASMTIME_ARCHIVE="wasmtime-v${WASMTIME_VERSION}-x86_64-linux"
+      WASMTIME_SHA256=afd58715f105e3a7f454169daed22168c5736ec5f225fb04c4ac62c54c9508a3
+      WASMTIME_TMP="$(mktemp -d "${TMPDIR:-/tmp}/wasmtime.XXXXXX")"
+      curl --fail --silent --show-error --location --proto '=https' --tlsv1.2 --output "$WASMTIME_TMP/$WASMTIME_ARCHIVE.tar.xz" "https://github.com/bytecodealliance/wasmtime/releases/download/v${WASMTIME_VERSION}/$WASMTIME_ARCHIVE.tar.xz"
+      echo "$WASMTIME_SHA256  $WASMTIME_TMP/$WASMTIME_ARCHIVE.tar.xz" | sha256sum -c -
+      tar -xJf "$WASMTIME_TMP/$WASMTIME_ARCHIVE.tar.xz" -C "$WASMTIME_TMP"
+      install -m 0755 "$WASMTIME_TMP/$WASMTIME_ARCHIVE/wasmtime" /usr/local/bin/wasmtime
+      rm -rf "$WASMTIME_TMP"
+      test "$(wasmtime --version | cut -d' ' -f2)" = "$WASMTIME_VERSION"
     - npm test
     - npm run test:bundle
     - npm run check:public-package-surface

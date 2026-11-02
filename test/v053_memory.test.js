@@ -2115,7 +2115,7 @@ async function sectionAbi(matrix) {
         catch (e) { return { message: String(e.message), name: e.name }; }
       `, { bytesHex: hexBytes(bytes) });
       assert.equal(out.name, "TypeError", JSON.stringify(out));
-      assert.match(out.message, /Import #0 "air:contract"/u);
+      assert.match(out.message, /Import #0 (?:module=)?"air:contract"/u);
       cell(id, "ART-T53", `H-OLD ${shipped} instantiateAirModule`, out);
       return { value: { host: commit, outcome: out, sdk_version: shipped, binding: "unreachable: no instance" } };
     });
