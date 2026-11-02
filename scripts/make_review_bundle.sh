@@ -969,7 +969,7 @@ SUSPICIOUS='OPENAI_API_KEY|ANTHROPIC_API_KEY|GITLAB_TOKEN|GITHUB_TOKEN|AWS_SECRE
 EXPECTED_SECRET_LABEL_FILES='^(scripts/make_review_bundle\.sh|scripts/gitlab_mr_policy\.mjs|scripts/check_api_gates_v0_33\.js|test/ai_authoring_eval\.test\.js)$'
 
 danger_files="$(
-  LC_ALL=C grep -R -I -l -E -e "$DANGEROUS" "$BUNDLE" 2>/dev/null || true
+  env LC_ALL=C grep -R -I -l -E -e "$DANGEROUS" "$BUNDLE" 2>/dev/null || true
 )"
 
 if [ -n "$danger_files" ]; then
@@ -981,7 +981,7 @@ if [ -n "$danger_files" ]; then
 fi
 
 all_label_files="$(
-  LC_ALL=C grep -R -I -l -E -e "$SUSPICIOUS" "$BUNDLE" 2>/dev/null || true
+  env LC_ALL=C grep -R -I -l -E -e "$SUSPICIOUS" "$BUNDLE" 2>/dev/null || true
 )"
 
 warn_files=""

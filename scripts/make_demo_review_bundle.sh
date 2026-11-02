@@ -489,7 +489,7 @@ cp "$BUNDLE/DEMO_BUNDLE_REVIEW_NOTES.md" "$BUNDLE/BUNDLE_REVIEW_NOTES.md"
 
 DANGEROUS='-----BEGIN ((RSA|OPENSSH|EC|DSA) )?PRIVATE KEY-----|glpat-[A-Za-z0-9_-]{20,}|ghp_[A-Za-z0-9_]{20,}|gho_[A-Za-z0-9_]{20,}|sk-[A-Za-z0-9_-]{30,}|xox[baprs]-[A-Za-z0-9-]{20,}|AKIA[0-9A-Z]{16}'
 danger_files="$(
-  LC_ALL=C grep -R -I -l -E -e "$DANGEROUS" "$BUNDLE" 2>/dev/null || true
+  env LC_ALL=C grep -R -I -l -E -e "$DANGEROUS" "$BUNDLE" 2>/dev/null || true
 )"
 
 if [ -n "$danger_files" ]; then
