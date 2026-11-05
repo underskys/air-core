@@ -1,0 +1,13 @@
+module mig_vlocal
+capabilities { }
+
+func g() -> void {
+entry:
+  return
+}
+
+export func f(x: i32) -> i32 {
+entry:
+  @g()
+  return %x
+}

@@ -1,0 +1,7 @@
+module mig_negz
+capabilities { }
+
+export func f() -> i32 {
+entry:
+  return -0
+}

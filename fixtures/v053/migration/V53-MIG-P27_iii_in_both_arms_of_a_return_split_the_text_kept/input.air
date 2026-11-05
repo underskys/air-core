@@ -1,0 +1,11 @@
+module mig_f64arm
+capabilities { }
+
+export func f(c: bool) -> f64 {
+entry:
+  br_if %c, a, b
+a:
+  return 1.50
+b:
+  return -1.5
+}

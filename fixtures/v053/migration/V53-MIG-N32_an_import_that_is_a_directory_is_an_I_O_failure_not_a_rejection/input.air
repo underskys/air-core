@@ -1,0 +1,8 @@
+module mig_iodir
+use "./adir" as a
+capabilities { }
+
+export func f(x: i32) -> i32 {
+entry:
+  return %x
+}

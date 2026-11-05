@@ -1,0 +1,17 @@
+module mig_tworand
+capabilities { random }
+effects { random.u32 <= 2 }
+
+extern random.u32() -> i32
+
+export func f() -> i32 {
+entry:
+  %x:i32 = @random.u32()
+  return %x
+}
+
+export func g() -> i32 {
+entry:
+  %x:i32 = @random.u32()
+  return %x
+}

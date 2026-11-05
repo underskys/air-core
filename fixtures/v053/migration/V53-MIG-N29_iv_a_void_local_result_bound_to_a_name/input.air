@@ -1,0 +1,13 @@
+module mig_vbindl
+capabilities { }
+
+func g() -> void {
+entry:
+  return
+}
+
+export func f(x: i32) -> i32 {
+entry:
+  %v:void = @g()
+  return %x
+}

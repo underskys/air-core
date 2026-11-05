@@ -1,0 +1,11 @@
+module mig_longval
+capabilities { random }
+demand { random.u32 <= 1 }
+
+extern random.u32() -> i32
+
+export func f() -> i32 {
+  %r: i32 = call @random.u32()
+  %s: i32 = i32.wrapping_add %r, 1
+  return %s
+}

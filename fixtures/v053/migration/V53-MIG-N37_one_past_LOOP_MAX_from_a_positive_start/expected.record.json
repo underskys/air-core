@@ -1,0 +1,1 @@
+{"entries":[],"from":"legacy-v0.50","imports":[],"increment":"I3","input_sha256":"370b3213eabc9685d4009d7cb53d15edeba4ca77c30c47e2328a2f83f2b74d68","options":{},"rejection":{"code":"air.migration.unsupported_construct","construct":"phi-loop","line":9,"origin":null,"reason":"not_admitted"},"schema":"air.migration-record/1","to":"typed-v0.53"}

@@ -1,0 +1,10 @@
+module mig_rand
+capabilities { random }
+demand { random.u32 <= 1 }
+
+extern random.u32() -> i32
+
+export func f() -> i32 {
+  %r: i32 = call @random.u32()
+  return %r
+}

@@ -1,0 +1,9 @@
+module mig_vmerge
+capabilities { }
+
+export func f() -> void {
+entry:
+  br done
+done:
+  return
+}

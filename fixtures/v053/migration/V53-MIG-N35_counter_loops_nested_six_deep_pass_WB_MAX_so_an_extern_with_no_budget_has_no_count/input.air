@@ -1,0 +1,118 @@
+module mig_deep
+capabilities { debug }
+
+extern debug.metric(id: i32, value: i32) -> void
+
+func f0() -> i32 {
+entry:
+  %zero:i32 = 0
+  br loop
+loop:
+  %i:i32 = phi.i32 entry:%zero, body:%next
+  %limit:i32 = 4096
+  %done:bool = i32.ge_s %i, %limit
+  br_if %done, exit, body
+body:
+  %v:i32 = @f1()
+  %one:i32 = 1
+  %next:i32 = add %i, %one
+  br loop
+exit:
+  return %i
+}
+
+func f1() -> i32 {
+entry:
+  %zero:i32 = 0
+  br loop
+loop:
+  %i:i32 = phi.i32 entry:%zero, body:%next
+  %limit:i32 = 4096
+  %done:bool = i32.ge_s %i, %limit
+  br_if %done, exit, body
+body:
+  %v:i32 = @f2()
+  %one:i32 = 1
+  %next:i32 = add %i, %one
+  br loop
+exit:
+  return %i
+}
+
+func f2() -> i32 {
+entry:
+  %zero:i32 = 0
+  br loop
+loop:
+  %i:i32 = phi.i32 entry:%zero, body:%next
+  %limit:i32 = 4096
+  %done:bool = i32.ge_s %i, %limit
+  br_if %done, exit, body
+body:
+  %v:i32 = @f3()
+  %one:i32 = 1
+  %next:i32 = add %i, %one
+  br loop
+exit:
+  return %i
+}
+
+func f3() -> i32 {
+entry:
+  %zero:i32 = 0
+  br loop
+loop:
+  %i:i32 = phi.i32 entry:%zero, body:%next
+  %limit:i32 = 4096
+  %done:bool = i32.ge_s %i, %limit
+  br_if %done, exit, body
+body:
+  %v:i32 = @f4()
+  %one:i32 = 1
+  %next:i32 = add %i, %one
+  br loop
+exit:
+  return %i
+}
+
+func f4() -> i32 {
+entry:
+  %zero:i32 = 0
+  br loop
+loop:
+  %i:i32 = phi.i32 entry:%zero, body:%next
+  %limit:i32 = 4096
+  %done:bool = i32.ge_s %i, %limit
+  br_if %done, exit, body
+body:
+  %v:i32 = @f5()
+  %one:i32 = 1
+  %next:i32 = add %i, %one
+  br loop
+exit:
+  return %i
+}
+
+func f5() -> i32 {
+entry:
+  %zero:i32 = 0
+  br loop
+loop:
+  %i:i32 = phi.i32 entry:%zero, body:%next
+  %limit:i32 = 4096
+  %done:bool = i32.ge_s %i, %limit
+  br_if %done, exit, body
+body:
+  @debug.metric(1, %i)
+  %one:i32 = 1
+  %next:i32 = add %i, %one
+  br loop
+exit:
+  return %i
+}
+
+export func f() -> i32 {
+entry:
+  %r:i32 = @f0()
+  return %r
+}

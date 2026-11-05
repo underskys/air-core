@@ -1,0 +1,14 @@
+# P0-11 import paths in a record (P11-R45), checked with path.win32 and path.posix
+# api	input	import	absolute	record path	why
+win32	C:\w\input.air	C:\w\lib.air	no	lib.air	beside the input
+win32	C:\w\input.air	C:\w\sub\lib.air	no	sub/lib.air	the separator is the whole change
+win32	C:\w\input.air	C:\w\sub\deep\lib.air	no	sub/deep/lib.air	every separator
+win32	C:\w\sub\input.air	C:\w\lib.air	no	../lib.air	a parent segment stays
+win32	C:\w\input.air	C:\x\lib.air	yes	C:/x/lib.air	an absolute use keeps its drive and takes /
+win32	C:\w\input.air	D:\lib.air	no	D:/lib.air	another drive has no relative path; legacy resolves it there
+posix	/w/input.air	/w/lib.air	no	lib.air	beside the input
+posix	/w/input.air	/w/sub/lib.air	no	sub/lib.air	the same record as win32's
+posix	/w/sub/input.air	/w/lib.air	no	../lib.air	the same record as win32's
+posix	/w/input.air	/x/lib.air	yes	/x/lib.air	an absolute use stays as it is
+posix	/w/input.air	/w/a\b.air	no	a\b.air	NOT canonicalized: on POSIX a backslash is a file name's own character
+posix	/w/input.air	/w/Sub/Lib.air	no	Sub/Lib.air	NOT canonicalized: case stays

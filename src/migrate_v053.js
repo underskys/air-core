@@ -1,7 +1,7 @@
 "use strict";
 
 // typed-v0.53 P0-11: M(), the deterministic legacy-v0.50 -> typed-v0.53
-// migration, increment I2 (slice text R3.2; card AIR-0053-P0-11-0001;
+// migration, increment I3 (slice text R4.8; card AIR-0053-P0-11-0001;
 // docs/v0.53/MIGRATION.md). M() is a tool: it reads the legacy parser and
 // verifier and the typed-v0.53 parser, verifier and formatter, and changes no
 // profile's result (P11-R26). A record holds no host path, no clock and no
@@ -11,10 +11,14 @@
 const crypto = require("crypto");
 const fs = require("fs");
 const path = require("path");
-const { applyUseBundles } = require("./bundles");
+const { BUNDLES, applyUseBundles } = require("./bundles");
+const { BOUNDED_FILE_MAX_BYTES } = require("./bounded_file");
+const { HOST_SIGNATURES } = require("./host_abi");
 const { resolveSourceImports } = require("./imports");
 const { parseAir, parseV051TypedAir } = require("./parser");
 const { formatSource, parseSource, verifySource } = require("./source_profile");
+const { typedV053 } = require("./verifier");
+const { WB_MAX, analyzeVerifiedTypedModule } = require("./workbound");
 
 const CODE = "air.migration.unsupported_construct";
 const GATED = Object.freeze({ allowCandidateProfile: true, sourceProfile: "typed-v0.53" });
@@ -68,7 +72,8 @@ const NEVER_OPS = new Set(["f32.sin", "f32.cos", "f32.sqrt", "f32.convert_i32_s"
   "table.get.i16"]);
 const NEVER_OP_FAMILIES = Object.freeze(["vec3.", "mat4.", "quat.", "physics.", "collision.", "ray.", "fixed.", "state.", SHARED_RECORD_FAMILY, TABLE_GROUP_FAMILY]);
 const NEVER_FORMS = Object.freeze(["globals", "states", "pools", "flowDeclarations", TABLE_GROUPS]);
-const LATER_FORMS = Object.freeze(["constants", "structs", "externs", "effects"]);
+const LATER_FORMS = Object.freeze(["constants", "structs"]);
+const HOST_FAMILIES = new Set([...HOST_SIGNATURES.keys()].filter((name) => typedV053.hostImport(name)).map((name) => name.split(".")[0]));
 const COMPACT_TABLE_TYPES = new Set(["u8", "u16", "i16"]);
 
 const LITERAL_OPS = new Map([["const.i32", "i32"], ["const.i64", "i64"], ["const.f32", "f32"], ["const.f64", "f64"], ["const.bool", "bool"]]);
@@ -196,15 +201,34 @@ function isTypedSource(text, file) {
 }
 
 // A Node I/O error says nothing about the program (P11-R2 step 4): no record.
+function isImportReadFailure(error) {
+  return Boolean(error && (error.syscall !== undefined || ["ERR_STRING_TOO_LONG", "ERR_FS_FILE_TOO_LARGE"].includes(error.code)));
+}
+
 function rethrowIoFailure(error) {
-  if (error && error.syscall !== undefined) throw error;
+  if (isImportReadFailure(error)) throw error;
+}
+
+function inspectImport(file) {
+  try {
+    const stat = fs.statSync(file);
+    if (!stat.isFile() || stat.size > BOUNDED_FILE_MAX_BYTES) {
+      const error = new Error("import file could not be read");
+      error.syscall = "stat";
+      throw error;
+    }
+    fs.accessSync(file, fs.constants.R_OK);
+  } catch (error) {
+    if (["ENOENT", "ENOTDIR", "ERR_INVALID_ARG_VALUE"].includes(error.code)) return;
+    throw error;
+  }
 }
 
 // G-13: the parser resolves imports while it parses, so a refusal in an import
 // leaves no list of what it read. This pass runs legacy's own resolver with an
 // observing parse function, and gives the files read, each module's own AST (a
 // merged function is not the input's own, P11-R5) and the `use` graph. Legacy's
-// plain parse, run first, stays the authority on the verdict.
+// plain parse stays the authority on the verdict. The look precedes its reads.
 function observeLegacyImports(text, file) {
   const stdlibDir = path.resolve(__dirname, "..", "stdlib");
   const graph = { absolute: new Set(), file, nodes: new Map(), reads: new Set(), stdlibPrefix: `${stdlibDir}${path.sep}` };
@@ -224,6 +248,7 @@ function observeLegacyImports(text, file) {
       return { line: use.loc.line, name: use.name, target };
     });
     graph.nodes.set(nodeFile, { ast, externs: externs.slice(), file: nodeFile, text: source, uses });
+    for (const use of uses) if (use.target) inspectImport(use.target);
     return applyUseBundles(resolveSourceImports(ast, observe, { ...options, file: nodeFile }));
   };
   try {
@@ -238,10 +263,14 @@ function observeLegacyImports(text, file) {
 
 // P11-R3: `std:<module>` for the base's stdlib; a file an absolute `use` reaches
 // keeps its path, which the input's bytes spell; else the path from the input's folder.
+function canonicalImportPath(spelled, pathApi = path) {
+  return spelled.split(pathApi.sep).join("/");
+}
+
 function importKey(graph, absoluteFile) {
   if (absoluteFile.startsWith(graph.stdlibPrefix)) return `std:${absoluteFile.slice(graph.stdlibPrefix.length).replace(/\.air$/, "")}`;
-  if (graph.absolute.has(absoluteFile)) return absoluteFile;
-  return path.relative(path.dirname(graph.file), absoluteFile);
+  if (graph.absolute.has(absoluteFile)) return canonicalImportPath(absoluteFile);
+  return canonicalImportPath(path.relative(path.dirname(graph.file), absoluteFile));
 }
 
 function importsOf(graph) {
@@ -432,6 +461,33 @@ function moduleLines(text) {
 
 const CAPABILITIES_LINE = /^capabilities\s*\{\s*([^}]*)\s*\}$/;
 
+function hostCallsOf(ast) {
+  const externs = new Set(ast.externs.map((ex) => ex.name));
+  const calls = new Map();
+  for (const fn of ast.functions) for (const block of fn.blocks) for (const ins of block.instructions) {
+    if (ins.op !== "call" || !externs.has(ins.callee)) continue;
+    if (!calls.has(ins.callee) || ins.loc.line < calls.get(ins.callee).loc.line) calls.set(ins.callee, ins);
+  }
+  return calls;
+}
+
+// The AST's Number loses bounds above 2^53; budgets must retain their spelling.
+function budgetsOf(node) {
+  return moduleLines(node.text).flatMap(({ line, text }) => {
+    const match = /^effects\s*\{(.*)\}$/.exec(text);
+    if (!match || !match[1].trim()) return [];
+    return match[1].split(",").map((item) => item.trim()).filter(Boolean).map((from) => {
+      const [, key, op, raw] = /^(\S+)\s*(<=|>=|==)\s*([0-9]+)$/.exec(from);
+      return { from, key, line, op, raw, value: BigInt(raw) };
+    });
+  });
+}
+
+function budgetReason(budget) {
+  const wildcard = budget.key.endsWith(".*") && HOST_FAMILIES.has(budget.key.slice(0, -2));
+  return budget.op === "<=" && (budget.key === "cpu.instructions" || typedV053.hostImport(budget.key) || wildcard) ? null : "not_admitted";
+}
+
 function opReason(op) {
   if (NEVER_OPS.has(op) || NEVER_OP_FAMILIES.some((family) => op.startsWith(family))) return "not_admitted";
   return "later_increment";
@@ -455,8 +511,8 @@ function contractBound(contract, lines) {
 }
 
 function contractReason(contract, keyword, fn, lines) {
-  if (contract.kind === "export") return null;
-  if (["capability", "no-capability", "metric"].includes(contract.kind)) return "later_increment";
+  if (["export", "capability", "no-capability"].includes(contract.kind)) return null;
+  if (contract.kind === "metric") return "later_increment";
   if (!fn) return "not_admitted";
   if (contract.kind === "checked_borrow_length" ||
       (contract.kind === "checked_param" && fn.params.some((parameter) => parameter.type === "borrowed_slice"))) return "later_increment";
@@ -478,6 +534,17 @@ function ownConstructs(node, graph, moduleId, verdicts) {
   for (const form of LATER_FORMS) {
     for (const item of form === "externs" ? node.externs : ast[form]) add(item.loc.line, form, "later_increment");
   }
+  for (const ex of node.externs) {
+    if (!typedV053.hostImport(ex.name)) add(ex.loc.line, "externs", "not_admitted");
+    else for (const type of [...ex.params.map((parameter) => parameter.type), ...(ex.returnType === "void" ? [] : [ex.returnType])]) {
+      const unmapped = typeConstruct(type);
+      if (unmapped) add(ex.loc.line, unmapped.construct, unmapped.reason);
+    }
+  }
+  for (const budget of budgetsOf(node)) {
+    const reason = budgetReason(budget) || (!ast.functions.some((fn) => fn.exported) ? "later_increment" : null);
+    if (reason) add(budget.line, "effects", reason);
+  }
   const sourceLines = node.text.split(/\r?\n/).map(withoutComment);
   const contracts = (holder, fn) => {
     for (const keyword of ["requires", "ensures"]) for (const item of holder[keyword]) {
@@ -489,6 +556,17 @@ function ownConstructs(node, graph, moduleId, verdicts) {
   for (const table of ast.tables) add(table.loc.line, "tables", COMPACT_TABLE_TYPES.has(table.type) ? "not_admitted" : "later_increment");
 
   for (const use of node.uses) {
+    if (!use.target && BUNDLES[use.name] && use.name.startsWith("utility.")) {
+      const calls = hostCallsOf(ast);
+      for (const name of BUNDLES[use.name].externs.filter((name) => calls.has(name))) {
+        const signature = typedV053.hostImport(name);
+        if (!signature) add(use.line, "uses", "not_admitted");
+        else if ([...signature.params, ...(signature.returnType === "void" ? [] : [signature.returnType])].some((type) => typeConstruct(type))) {
+          add(use.line, "uses", "later_increment");
+        }
+      }
+      continue;
+    }
     let reason = !use.target && use.name.startsWith("math.") ? "not_admitted" : "later_increment";
     let origin = null;
     if (use.target && graph.nodes.has(use.target)) {
@@ -501,17 +579,12 @@ function ownConstructs(node, graph, moduleId, verdicts) {
     add(use.line, "uses", reason, origin);
   }
 
-  for (const item of lines) {
-    const capabilities = CAPABILITIES_LINE.exec(item.text);
-    if (capabilities && capabilities[1].split(",").some((part) => part.trim())) add(item.line, "capabilities", "later_increment");
-  }
-
   for (const fn of ast.functions) {
-    for (const typeName of [...fn.params.map((parameter) => parameter.type), fn.returnType]) {
+    for (const typeName of [...fn.params.map((parameter) => parameter.type), ...(fn.returnType === "void" ? [] : [fn.returnType])]) {
       const unmapped = typeConstruct(typeName);
       if (unmapped) add(fn.loc.line, unmapped.construct, unmapped.reason);
     }
-    for (const item of fn.effects) add(item.loc.line, "effects", "later_increment");
+    for (const item of fn.effects) add(item.loc.line, "effects", "not_admitted");
     contracts(fn, fn);
     for (const block of fn.blocks) {
       for (const ins of block.instructions) {
@@ -524,7 +597,9 @@ function ownConstructs(node, graph, moduleId, verdicts) {
         }
       }
     }
-    for (const item of controlFlowOf(fn).unmapped || []) add(item.line, item.construct, "not_admitted");
+    const flow = controlFlowOf(fn);
+    if (fn.returnType === "void" && !["straight", "br-merge"].includes(flow.shape)) add(fn.loc.line, "unstructured-cfg", "later_increment");
+    else for (const item of flow.unmapped || []) add(item.line, item.construct, "not_admitted");
   }
   return found;
 }
@@ -559,11 +634,12 @@ function entry(line, construct, from, to, rule, entryClass = "EXACT", ledger = n
 }
 
 class FunctionMapper {
-  constructor(fn, lines, entries, returnType) {
+  constructor(fn, lines, entries, returnType, hostCalls) {
     this.fn = fn;
     this.sourceLines = lines;
     this.entries = entries;
     this.returnType = returnType;
+    this.hostCalls = hostCalls;
     this.names = new Set(fn.params.map((parameter) => `%${parameter.name}`));
     for (const block of fn.blocks) for (const ins of block.instructions) if (ins.result) this.names.add(ins.result);
   }
@@ -600,7 +676,7 @@ class FunctionMapper {
     const steps = HELPERS.get(ins.op);
     const slots = new Map([[0, ins.result]]);
     for (const step of steps) if (step[0] !== 0) slots.set(step[0], this.freshName(ins.result));
-    const operand = (item) => (typeof item === "number" ? atomText(ins.args[item]) : slots.get(item.slot));
+    const operand = (item) => (typeof item === "number" ? this.atom(ins.args[item]) : slots.get(item.slot));
     const typeText = declaredOf(ins);
     this.entries.push(entry(ins.loc.line, ins.op, written, steps.map((step) => step[1]).join(", "), "P11-R9"));
     return steps.map(([slot, what, operands]) => `${slots.get(slot)}: ${typeText} = ${what}${operands ? ` ${operands.map(operand).join(", ")}` : ""}`);
@@ -608,14 +684,16 @@ class FunctionMapper {
 
   instructionLines(ins) {
     if (LITERAL_OPS.has(ins.op)) return [this.literalLine(ins)];
-    const args = (ins.args || []).map(atomText);
+    this.immediateEntries(ins);
+    const args = (ins.args || []).map((atom) => this.atom(atom));
     if (ins.op === "call") {
       const typed = `call @${ins.callee}(${args.join(", ")})`;
-      if (ins.compact === "call") {
-        const written = /@[^\s(]+\(.*\)$/.exec(this.sourceLines[ins.loc.line - 1])[0];
-        this.entries.push(entry(ins.loc.line, "call", written, typed, "P11-R9"));
+      const host = this.hostCalls.has(ins.callee);
+      if (ins.compact === "call" || host) {
+        const written = /(?:call\s+)?@[^\s(]+\(.*\)$/.exec(this.sourceLines[ins.loc.line - 1])[0];
+        this.entries.push(entry(ins.loc.line, "call", written, typed, host ? "P11-R36" : "P11-R9", host ? "EXACT_ON_SUCCESS" : "EXACT"));
       }
-      return [`${ins.result}: ${declaredOf(ins)} = ${typed}`];
+      return [ins.result ? `${ins.result}: ${declaredOf(ins)} = ${typed}` : typed];
     }
     const written = ins.compact === "alias" ? ins.op.slice(ins.op.indexOf(".") + 1) : ins.op;
     if (HELPERS.has(ins.op)) return this.helperLines(ins, written);
@@ -634,10 +712,25 @@ class FunctionMapper {
     const lines = [];
     for (const ins of block.instructions) {
       if (ins.op === "br" || ins.op === "br_if") continue;
-      if (ins.op === "return") lines.push(`${terminator} ${atomText(ins.args[0])}`);
+      if (ins.op === "return") {
+        this.immediateEntries(ins);
+        lines.push(ins.args.length ? `${terminator} ${this.atom(ins.args[0])}` : terminator);
+      }
       else lines.push(...this.instructionLines(ins));
     }
     return lines;
+  }
+
+  atom(atom) {
+    return atom.kind === "number" && atom.raw === "-0" ? "0" : atomText(atom);
+  }
+
+  immediateEntries(ins) {
+    for (const atom of ins.args || []) {
+      if (atom.kind !== "number") continue;
+      if (atom.raw === "-0") this.entries.push(entry(ins.loc.line, "literal", "-0", "0", "P11-R8"));
+      else if (!Number.isInteger(atom.value)) this.entries.push(entry(ins.loc.line, "immediate", atom.raw, atom.raw, "P11-R44", "LEGACY_DEFECT_CORRECTED", "X-VL-01"));
+    }
   }
 
   branchText(ins) {
@@ -704,8 +797,8 @@ function signatureLine(fn, entries, lines) {
   const result = typeOf(fn.returnDeclaredType, fn.returnType, fn.ensures.filter((item) => item.kind === "return"));
   for (const keyword of ["requires", "ensures"]) for (const contract of fn[keyword]) {
     const written = lines[contract.loc.line - 1];
-    if (contract.kind === "export") {
-      entries.push(entry(contract.loc.line, keyword, written, null, "P11-R27"));
+    if (["export", "capability", "no-capability"].includes(contract.kind)) {
+      entries.push(entry(contract.loc.line, keyword, written, null, contract.kind === "export" ? "P11-R27" : "P11-R39"));
     } else {
       const parameter = contract.name || contract.parameter;
       const to = keyword === "requires" ? `${parameter}: ${params.find((item) => item.name === parameter).type}` : `-> ${result}`;
@@ -723,7 +816,7 @@ function mappedFunctions(ast, text, entries) {
   const functions = [];
   for (const fn of ast.functions) {
     const signature = signatureLine(fn, entries, sourceLines);
-    const mapper = new FunctionMapper(fn, sourceLines, entries, signature.result);
+    const mapper = new FunctionMapper(fn, sourceLines, entries, signature.result, hostCallsOf(ast));
     const flow = controlFlowOf(fn);
     mapper.labelEntry();
     let lines;
@@ -750,6 +843,82 @@ function mappedFunctions(ast, text, entries) {
   return functions;
 }
 
+function mappedModule(node, functions, entries, moduleName) {
+  const { ast } = node;
+  const calls = hostCallsOf(ast);
+  const keys = [...calls.keys()].sort(compareCodeUnits);
+  const sourceLines = node.text.split(/\r?\n/).map(withoutComment);
+  const explicit = new Set(node.externs.map((ex) => ex.name));
+  const keptExterns = ast.externs.filter((ex) => explicit.has(ex.name) || calls.has(ex.name));
+  const externText = (ex) => `extern ${ex.name}(${ex.params.map((p) => `${p.name}: ${p.type}`).join(", ")}) -> ${ex.returnType}`;
+  const caps = new Set(ast.explicitCapabilities);
+  for (const use of node.uses) {
+    const bundle = BUNDLES[use.name];
+    if (!bundle) continue;
+    const kept = keptExterns.filter((ex) => bundle.externs.includes(ex.name) && calls.has(ex.name)).sort((a, b) => compareCodeUnits(a.name, b.name));
+    for (const cap of kept.length ? bundle.capabilities : []) caps.add(cap);
+    const to = kept.length ? [...(bundle.capabilities.length ? [`capabilities { ${bundle.capabilities.slice().sort().join(", ")} }`] : []), ...kept.map(externText)].join("; ") : null;
+    entries.push(entry(use.line, "uses", sourceLines[use.line - 1], to, "P11-R40", "LEGACY_DEFECT_CORRECTED", "X-AUTH-01"));
+  }
+  const capLine = caps.size ? `capabilities { ${[...caps].sort(compareCodeUnits).join(", ")} }` : "";
+  for (const item of moduleLines(node.text)) {
+    const match = CAPABILITIES_LINE.exec(item.text);
+    if (match) entries.push(entry(item.line, "capabilities", item.text, match[1].trim() ? capLine : null, match[1].trim() ? "P11-R34" : "P11-R6"));
+  }
+  for (const ex of node.externs) entries.push(entry(ex.loc.line, "extern", sourceLines[ex.loc.line - 1], externText(ex), "P11-R35"));
+  sourceLines.forEach((line, index) => {
+    if (/^effects\s*\{\s*\}$/.test(line)) entries.push(entry(index + 1, "effects", line, null, "P11-R37"));
+  });
+
+  const budgets = budgetsOf(node);
+  const bounds = new Map();
+  for (const budget of budgets.filter((item) => !item.key.endsWith(".*"))) {
+    if (!bounds.has(budget.key) || budget.value < bounds.get(budget.key).value) bounds.set(budget.key, budget);
+  }
+  const demand = new Map([...bounds].filter(([key]) => key !== "cpu.instructions").map(([key, budget]) => [key, budget.raw]));
+  const render = () => {
+    const work = bounds.has("cpu.instructions") ? `work { steps <= ${bounds.get("cpu.instructions").raw} }` : "";
+    const demandLine = demand.size ? `demand { ${[...demand].sort(([a], [b]) => compareCodeUnits(a, b)).map(([key, raw]) => `${key} <= ${raw}`).join(", ")} }` : "";
+    return [`module ${moduleName}`, capLine, work, demandLine, ...keptExterns.map(externText), ...functions].filter(Boolean).join("\n\n") + "\n";
+  };
+
+  const counts = new Map(keys.map((key) => [key, 0n]));
+  if (keys.length) {
+    // Analyze only verified typed syntax. Temporary maximal demands permit the
+    // base analyzer to derive counts; the exact final demands are verified again.
+    for (const key of keys) if (!demand.has(key)) demand.set(key, String(WB_MAX));
+    const provisional = parseSource(render(), "<migrated>", GATED);
+    verifySource(provisional, GATED);
+    const analysis = analyzeVerifiedTypedModule(provisional);
+    if (analysis.status !== "ok") throw Object.assign(new Error("no typed host count"), { code: analysis.failure && analysis.failure.code });
+    for (const result of analysis.entries.values()) {
+      if (!result.ok) throw Object.assign(new Error("no typed host count"), { code: result.failure && result.failure.code });
+      for (const key of keys) if ((result.value.effects.get(key) || 0n) > counts.get(key)) counts.set(key, result.value.effects.get(key));
+    }
+    for (const key of keys) if (!bounds.has(key)) demand.set(key, String(counts.get(key)));
+  }
+  const wildcardKeys = new Set();
+  for (const budget of budgets) {
+    let to;
+    if (budget.key.endsWith(".*")) {
+      const matching = keys.filter((key) => key.startsWith(budget.key.slice(0, -1)));
+      if (matching.reduce((sum, key) => sum + counts.get(key), 0n) > budget.value) {
+        return { rejection: { construct: "effects", line: budget.line, origin: null, reason: "not_admitted" } };
+      }
+      const derived = matching.filter((key) => !bounds.has(key));
+      for (const key of derived) wildcardKeys.add(key);
+      to = derived.map((key) => `${key} <= ${demand.get(key)}`).join(", ") || null;
+    } else {
+      to = `${budget.key === "cpu.instructions" ? "steps" : budget.key} <= ${bounds.get(budget.key).raw}`;
+    }
+    entries.push(entry(budget.line, "effects", budget.from, to, "P11-R37"));
+  }
+  for (const key of keys) if (!bounds.has(key) && !wildcardKeys.has(key)) {
+    entries.push(entry(calls.get(key).loc.line, "demand", key, `${key} <= ${demand.get(key)}`, "P11-R38"));
+  }
+  return { text: render() };
+}
+
 // P11-R19: the output parses, verifies and formats to itself, or it is no output.
 function checkedOutput(typedText) {
   const canonical = formatSource(parseSource(typedText, "<migrated>", GATED), GATED);
@@ -769,7 +938,7 @@ function migrateV053(source, options = {}) {
   const common = {
     from: "legacy-v0.50",
     imports: [],
-    increment: "I2",
+    increment: "I3",
     input_sha256: sha256(bytes),
     options: moduleId === null ? {} : { module_id: moduleId },
     schema: "air.migration-record/1",
@@ -786,6 +955,7 @@ function migrateV053(source, options = {}) {
 
   if (isTypedSource(text, file)) return rejected({ construct: "source-profile", line: 1, origin: null, reason: "not_admitted" });
 
+  const graph = observeLegacyImports(text, file);
   let ast;
   let refusal = null;
   try {
@@ -796,7 +966,6 @@ function migrateV053(source, options = {}) {
     rethrowIoFailure(error);
     refusal = error;
   }
-  const graph = observeLegacyImports(text, file);
   const imports = importsOf(graph);
   if (refusal) return rejected({ construct: "legacy-invalid", reason: "legacy_invalid", ...legacyRefusal(refusal, graph) }, imports);
 
@@ -808,20 +977,21 @@ function migrateV053(source, options = {}) {
   const lines = moduleLines(text);
   const moduleLine = lines.find((item) => item.text.startsWith("module")).line;
   if (moduleId !== null) entries.push(entry(moduleLine, "module-identity", node.ast.name, moduleId, "P11-R7"));
-  for (const item of lines) if (CAPABILITIES_LINE.test(item.text)) entries.push(entry(item.line, "capabilities", item.text, null, "P11-R6"));
   const sourceLines = text.split(/\r?\n/).map(withoutComment);
   for (const keyword of ["requires", "ensures"]) for (const contract of node.ast[keyword]) {
-    entries.push(entry(contract.loc.line, keyword, sourceLines[contract.loc.line - 1], null, "P11-R27"));
+    entries.push(entry(contract.loc.line, keyword, sourceLines[contract.loc.line - 1], null, contract.kind === "export" ? "P11-R27" : "P11-R39"));
   }
   const functions = mappedFunctions(node.ast, text, entries);
-  entries.sort((left, right) => left.line - right.line);
 
   let output;
   try {
-    output = checkedOutput(`module ${moduleId === null ? node.ast.name : moduleId}\n\n${functions.join("\n\n")}\n`);
+    const mapped = mappedModule(node, functions, entries, moduleId === null ? node.ast.name : moduleId);
+    if (mapped.rejection) return rejected(mapped.rejection, imports);
+    output = checkedOutput(mapped.text);
   } catch (error) {
     return rejected({ construct: "typed-verification", line: 1, origin: null, reason: "not_admitted", typed_code: error && error.code ? error.code : null }, imports);
   }
+  entries.sort((left, right) => left.line - right.line);
   const moduleClass = CLASS_ORDER[highestClass(entries)];
   return {
     class: moduleClass,
@@ -831,4 +1001,4 @@ function migrateV053(source, options = {}) {
   };
 }
 
-module.exports = { MIGRATION_CODE: CODE, migrateV053 };
+module.exports = { MIGRATION_CODE: CODE, canonicalImportPath, isImportReadFailure, migrateV053 };

@@ -1,0 +1,5 @@
+setup: chmod 000 lock.air; skip when running as root
+exit: 1
+stdout:
+stderr: air.cli.file_read_failed: import file could not be read
+files: none

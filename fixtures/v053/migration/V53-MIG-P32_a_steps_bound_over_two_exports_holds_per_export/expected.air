@@ -1,0 +1,12 @@
+module mig_two
+work { steps <= 4 }
+
+export func f(a: i32) -> i32 {
+  %x: i32 = 1
+  return %x
+}
+
+export func g(a: i32) -> i32 {
+  %x: i32 = 2
+  return %x
+}

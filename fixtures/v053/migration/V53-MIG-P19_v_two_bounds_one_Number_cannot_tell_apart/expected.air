@@ -1,0 +1,10 @@
+module mig_big2
+capabilities { debug }
+demand { debug.metric <= 9007199254740992 }
+
+extern debug.metric(id: i32, value: i32) -> void
+
+export func f(x: i32) -> i32 {
+  call @debug.metric(1, %x)
+  return %x
+}

@@ -1,0 +1,8 @@
+module mig_iofam
+capabilities { debug }
+effects { io.* <= 1 }
+
+export func f(x: i32) -> i32 {
+entry:
+  return %x
+}

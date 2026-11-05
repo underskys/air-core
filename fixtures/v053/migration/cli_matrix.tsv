@@ -1,0 +1,11 @@
+# V53-MIG-P34: where airc migrate writes on a normal result (P11-R22). human is the refusal's lines, record the record's exact bytes, absent a file not created, and - a flag not given.
+# row	package	flags	exit	stdout	stderr	-o file	--record file
+migrated_no_flags	V53-MIG-P01_	none	0	output	record	-	-
+migrated_o	V53-MIG-P01_	-o	0	empty	record	output	-
+migrated_record	V53-MIG-P01_	--record	0	output	empty	-	record
+migrated_both	V53-MIG-P01_	-o --record	0	empty	empty	output	record
+rejected_no_flags	V53-MIG-N15_ii_	none	1	empty	human+record	-	-
+rejected_o	V53-MIG-N15_ii_	-o	1	empty	human+record	absent	-
+rejected_record	V53-MIG-N15_ii_	--record	1	empty	human	-	record
+rejected_both	V53-MIG-N15_ii_	-o --record	1	empty	human	absent	record
+rejected_null_line	V53-MIG-N39_	none	1	empty	human+record	-	-

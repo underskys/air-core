@@ -1,0 +1,9 @@
+module mig_dupext
+capabilities { debug }
+
+extern debug.metric(a: i32, a: i32) -> void
+
+export func f(x: i32) -> i32 {
+entry:
+  return %x
+}

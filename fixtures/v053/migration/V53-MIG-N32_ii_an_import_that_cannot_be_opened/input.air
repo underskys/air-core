@@ -1,0 +1,8 @@
+module mig_iolock
+use "./lock.air" as a
+capabilities { }
+
+export func f(x: i32) -> i32 {
+entry:
+  return %x
+}

@@ -1,0 +1,11 @@
+module mig_vsplit
+capabilities { }
+
+export func f(c: bool) -> void {
+entry:
+  br_if %c, a, b
+a:
+  return
+b:
+  return
+}

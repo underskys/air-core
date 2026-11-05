@@ -1,0 +1,11 @@
+module mig_wbmax
+capabilities { debug }
+effects { debug.metric <= 9223372036854775808 }
+
+extern debug.metric(id: i32, value: i32) -> void
+
+export func f(x: i32) -> i32 {
+entry:
+  @debug.metric(1, %x)
+  return %x
+}

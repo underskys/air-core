@@ -1,0 +1,14 @@
+module mig_dead
+capabilities { debug }
+demand { debug.metric <= 0 }
+
+extern debug.metric(id: i32, value: i32) -> void
+
+export func f(x: i32) -> i32 {
+  return %x
+}
+
+func g(x: i32) -> i32 {
+  call @debug.metric(1, %x)
+  return %x
+}

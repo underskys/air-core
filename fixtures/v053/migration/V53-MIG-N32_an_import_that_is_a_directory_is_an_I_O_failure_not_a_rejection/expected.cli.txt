@@ -1,0 +1,5 @@
+setup: mkdir adir beside input.air (git keeps no empty folder, so the test makes it)
+exit: 1
+stdout:
+stderr: air.cli.file_read_failed: import file could not be read
+files: none

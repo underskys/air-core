@@ -1,0 +1,24 @@
+# V53-MIG-N34: an import, what M()'s look at it says, and what airc migrate must do (P11-R42). A test builds each row in a new folder: links, modes, FIFOs and sparse files cannot live in a fixture tree.
+# A row whose setup holds chmod is skipped when running as root, as V53-MIG-N32 (ii) is: root reads a mode-000 file, so the row would fail for a reason that has nothing to do with M().
+# row	use (JSON: one path, or a list of paths in line order)	setup	the look says	outcome	legacy_message (JSON, for a refusal)
+missing	"./absent.air"	none	ENOENT	refusal	"AIR import './absent.air' not found at absent.air"
+missing_parent	"./nodir/absent.air"	none	ENOENT	refusal	"AIR import './nodir/absent.air' not found at nodir/absent.air"
+dangling_link	"./q.air"	symlink q.air -> gone	ENOENT	refusal	"AIR import './q.air' not found at q.air"
+under_a_file	"./input.air/q.air"	none	ENOTDIR	refusal	"AIR import './input.air/q.air' not found at input.air/q.air"
+nul_byte	"./a\u0000b.air"	none	ERR_INVALID_ARG_VALUE	refusal	"AIR import './a\u0000b.air' not found at a\u0000b.air"
+directory	"./adir"	mkdir adir	directory	read-failure	-
+unreadable_file	"./q.air"	write q.air; chmod 000 q.air	regular file, EACCES from access	read-failure	-
+unreadable_nested	"./mid.air"	write mid.air using ./q.air; write q.air; chmod 000 q.air	regular file, EACCES from access	read-failure	-
+absent_then_unreadable	["./absent.air", "./q.air"]	write q.air; chmod 000 q.air	ENOENT, then EACCES from access	read-failure	-
+unreadable_then_absent	["./q.air", "./absent.air"]	write q.air; chmod 000 q.air	EACCES from access, then ENOENT	read-failure	-
+locked_parent	"./locked/q.air"	mkdir locked; write locked/q.air; chmod 000 locked	EACCES	read-failure	-
+link_loop	"./a"	symlink a -> b; symlink b -> a	ELOOP	read-failure	-
+long_name	"./<300 a>.air"	none	ENAMETOOLONG	read-failure	-
+long_path	"./<300 times abcdefgh/>q.air"	none	ENAMETOOLONG	read-failure	-
+oversized	"./q.air"	sparse q.air of 600 MiB	regular file above the bound	read-failure	-
+above_the_bound	"./q.air"	valid q.air of 4 MiB + 1 byte	regular file above the bound	read-failure	-
+at_the_bound	"./q.air"	valid q.air of 4 MiB	regular file at the bound	later-increment	-
+fifo	"./pipe"	mkfifo pipe	FIFO	read-failure	-
+fifo_nested	"./mid.air"	write mid.air using ./pipe; mkfifo pipe	FIFO	read-failure	-
+dev_zero	"/dev/zero"	none	character device	read-failure	-
+dev_null	"/dev/null"	none	character device	read-failure	-

@@ -1,0 +1,10 @@
+module mig_gain
+capabilities { audio }
+demand { audio.set_gain <= 1 }
+
+extern audio.set_gain(arg0: f32) -> void
+
+export func f(x: f32) -> f32 {
+  call @audio.set_gain(%x)
+  return %x
+}

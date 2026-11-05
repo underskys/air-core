@@ -1,0 +1,8 @@
+module mig_gpukey
+capabilities { debug }
+effects { gpu.calls <= 3 }
+
+export func f(x: i32) -> i32 {
+entry:
+  return %x
+}

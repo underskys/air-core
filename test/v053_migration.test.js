@@ -1,14 +1,14 @@
 #!/usr/bin/env node
 "use strict";
 
-// typed-v0.53 P0-11 (card AIR-0053-P0-11-0001), increment I2: M(), the
+// typed-v0.53 P0-11 (card AIR-0053-P0-11-0001), increment I3: M(), the
 // deterministic legacy-v0.50 -> typed-v0.53 migration. Every expected value
-// comes from R3.1 VECTORS.md and the admitted frozen slice text R3.2
-// (P0_11_SLICE_RFC.md, VECTORS_ADDITIONS.md, fixtures/; SHA256SUMS 13669695...),
+// comes from R3.1 VECTORS.md and the admitted frozen slice text R4.8
+// (P0_11_SLICE_RFC.md, VECTORS_ADDITIONS.md, fixtures/; SHA256SUMS 16fd09f9...),
 // never from M(). The vectors' packages and the
 // corpus are checked in under fixtures/v053/migration/, pinned by
 // FIXTURES_TREE_SHA256 (the slice text's own digests). The corpus's values come
-// from the evaluator below, which interprets the legacy I2 subset with
+// from the evaluator below, which interprets the legacy I3 subset with
 // typed-v0.53's normative semantics and shares no code with src/migrate_v053.js
 // or the lowerer (P11-R17, OD-P11-5 (a)). witness.json is read, never produced
 // here: legacy at H52_BASELINE, outside every defect domain (P11-R18, OD-P11-8
@@ -23,7 +23,8 @@ const crypto = require("node:crypto");
 const fs = require("node:fs");
 const path = require("node:path");
 
-const { migrateV053 } = require("../src/migrate_v053");
+const { canonicalImportPath, isImportReadFailure, migrateV053 } = require("../src/migrate_v053");
+const { admitTypedV053Artifact } = require("../src/sdk");
 const { repairHintForDiagnosticCode } = require("../src/diagnostics");
 const parser = require("../src/parser");
 const sp = require("../src/source_profile");
@@ -34,15 +35,15 @@ const FIXTURES = path.join(ROOT, "fixtures", "v053", "migration");
 const GATED = Object.freeze({ allowCandidateProfile: true, sourceProfile: "typed-v0.53" });
 const CODE = "air.migration.unsupported_construct";
 // sha256 over the sorted lines "<sha256>  <path>" of the slice text's SHA256SUMS `fixtures/` rows.
-const FIXTURES_TREE_SHA256 = "2c58fe30df0928be1df54291ea250f0efec9d1d38039733a90cad2255b3fb347";
-const CORPUS_SHA256 = "388e1def4d255a7fe5545dddd8859ce33bb3a46a1eac19ddca1ece61ed8dba86";
-const WITNESS_SHA256 = "408203f0d0bef8f2f1a565c239a340ac452a1754dd9bea3613b35ae32cd54876";
+const FIXTURES_TREE_SHA256 = "5db615a4e3db9fe485b881ed82d92e27faa322f02c4b9fe02be11d1579d2278c";
+const CORPUS_SHA256 = "c6d429dd62c9c189109613d0a3d5e2ebbf2c68ec90f2286a0c3428477dfdb7bb";
+const WITNESS_SHA256 = "e4f6c5feaa3f847a83751b75401139a96afe133db225315101e83fb3015401d6";
 const H52_DEV = "94001cd1c822ccd914874c85543aa99e91d6ae4e";
 const H52_PUBLIC = "9c2b1788a42f747bf6d61f2517c8348a7d519159";
 // AD-P11-1 (a): the projection comes from package.json's name.
 const PROJECTIONS = Object.freeze({
-  "@underskys/air-core": Object.freeze({ label: "public", migrated: 36, rows: 157 }),
-  "airlang-dev-workspace": Object.freeze({ label: "dev", migrated: 40, rows: 165 })
+  "@underskys/air-core": Object.freeze({ label: "public", migrated: 59, rows: 157 }),
+  "airlang-dev-workspace": Object.freeze({ label: "dev", migrated: 63, rows: 165 })
 });
 
 const results = [];
@@ -72,7 +73,7 @@ function resultRecord(vectorId, status, value) {
 async function vector(id, action) {
   try {
     const outcome = (await action()) || {};
-    results.push(resultRecord(id, "PASS", outcome.value));
+    results.push(resultRecord(id, outcome.skip ? "SKIP" : "PASS", outcome.value));
   } catch (error) {
     failures.push(`${id}: ${error && error.stack || error}`);
     results.push(resultRecord(id, "FAIL", { error: String(error && error.message || error) }));
@@ -104,7 +105,7 @@ function pkgOf(prefix) {
   return {
     dir,
     expectedOutput: fs.existsSync(expectedOutput) ? fs.readFileSync(expectedOutput, "utf8") : null,
-    expectedRecord: fs.readFileSync(path.join(dir, "expected.record.json"), "utf8"),
+    expectedRecord: fs.existsSync(path.join(dir, "expected.record.json")) ? fs.readFileSync(path.join(dir, "expected.record.json"), "utf8") : null,
     input: path.join(dir, "input.air"),
     label: names[0]
   };
@@ -120,11 +121,11 @@ function walkFiles(dir, base = dir) {
 const VECTOR_PACKAGES = Object.freeze(fs.readFileSync(path.join(FIXTURES, "MANIFEST.tsv"), "utf8").trimEnd().split("\n").map((line) => {
   const [name, disposition, moduleId] = line.split("\t");
   const match = /^(V53-MIG-[PN][0-9]{2})_(?:([ivx]+)_)?/.exec(name);
-  assert(match && ["MIGRATED", "REJECTED"].includes(disposition), "a normative package row");
-  return [match[1] + (match[2] ? ` (${match[2]})` : ""), name, moduleId || undefined];
+  assert(match && ["MIGRATED", "REJECTED", "CLI"].includes(disposition), "a normative package row");
+  return [match[1] + (match[2] ? ` (${match[2]})` : ""), name, moduleId || undefined, disposition];
 }));
-assert.equal(VECTOR_PACKAGES.length, 70);
-assert.equal(new Set(VECTOR_PACKAGES.map(([id]) => id)).size, 70);
+assert.equal(VECTOR_PACKAGES.length, 153);
+assert.equal(new Set(VECTOR_PACKAGES.map(([id]) => id)).size, 153);
 assert.deepEqual(VECTOR_PACKAGES.map(([, name]) => name).sort(), packageNames());
 
 // ---------------------------------------------------------------------------
@@ -134,6 +135,7 @@ assert.deepEqual(VECTOR_PACKAGES.map(([, name]) => name).sort(), packageNames())
 const f32Hex = (value) => { const b = Buffer.alloc(4); b.writeFloatBE(value, 0); return b.toString("hex"); };
 const f64Hex = (value) => { const b = Buffer.alloc(8); b.writeDoubleBE(value, 0); return b.toString("hex"); };
 function valueKey(type, value) {
+  if (type === "void") return "void";
   if (type === "f32") return Number.isNaN(value) ? "nan" : f32Hex(value);
   if (type === "f64") return Number.isNaN(value) ? "nan" : f64Hex(value);
   return String(value);
@@ -193,7 +195,7 @@ function combinations(fn) {
 }
 
 // ---------------------------------------------------------------------------
-// The evaluator (P11-R17): the legacy I2 subset, with typed-v0.53's normative
+// The evaluator (P11-R17): the legacy I3 subset, with typed-v0.53's normative
 // semantics: wrapping and checked i32, IEEE f32, entry checks. It reads the
 // legacy AST and nothing else: no src/migrate_v053.js, no lowerer.
 
@@ -208,6 +210,11 @@ const INT_MIN = -2147483648;
 const fr = Math.fround;
 
 const EVAL_OPS = Object.freeze({
+  "f32.clamp": (x, lo, hi) => Math.min(Math.max(x, lo), hi),
+  "f32.lerp": (a, b, t) => fr(fr(fr(b - a) * t) + a),
+  "f32.inverse_lerp": (a, b, x) => fr(fr(x - a) / fr(b - a)),
+  "ease.out_quad": (t) => fr(1 - fr(fr(1 - t) * fr(1 - t))),
+  "ease.smoothstep": (t) => fr(fr(t * t) * fr(3 - fr(2 * t))),
   "bool.and": (a, b) => a && b,
   "bool.not": (a) => !a,
   "bool.or": (a, b) => a || b,
@@ -268,12 +275,13 @@ function assertRange(range, value, failure) {
   if (range && (value < range.lo || value > range.hi)) throw new EvaluatorFailure(failure);
 }
 
-function evaluate(mod, name, args, ingress = true) {
+function evaluate(mod, name, args, ingress = true, host = null) {
   const fn = mod.functions.find((item) => item.name === name);
   const env = new Map();
   fn.params.forEach((parameter, index) => {
-    assertRange(parameterRange(fn, parameter), args[index], ingress ? INGRESS : ASSIGNMENT);
-    env.set(`%${parameter.name}`, args[index]);
+    const value = parameter.type === "f32" ? fr(args[index]) : args[index];
+    assertRange(parameterRange(fn, parameter), value, ingress ? INGRESS : ASSIGNMENT);
+    env.set(`%${parameter.name}`, value);
   });
   const read = (atom) => (atom.kind === "value" ? env.get(atom.name) : atom.kind === "bool" ? atom.value : Number(atom.raw));
   let block = fn.blocks[0];
@@ -286,9 +294,12 @@ function evaluate(mod, name, args, ingress = true) {
       } else if (ins.op.startsWith("const.")) {
         env.set(ins.result, literalValue(ins.op, ins.args[0]));
       } else if (ins.op === "call") {
-        env.set(ins.result, evaluate(mod, ins.callee, ins.args.map(read), false));
+        const values = ins.args.map(read);
+        const ex = mod.externs.find((item) => item.name === ins.callee);
+        const value = ex ? host.handlers[ins.callee](...values) : evaluate(mod, ins.callee, values, false, host);
+        env.set(ins.result, ex && ex.returnType === "bool" ? Boolean(value) : value);
       } else if (ins.op === "return") {
-        const value = read(ins.args[0]);
+        const value = ins.args.length ? read(ins.args[0]) : undefined;
         assertRange(effectiveRange(fn.returnDeclaredType, fn.ensures.filter((item) => item.kind === "return")), value, ASSIGNMENT);
         return value;
       } else if (ins.op === "br") {
@@ -297,7 +308,7 @@ function evaluate(mod, name, args, ingress = true) {
         next = ins.labels[read(ins.args[0]) ? 0 : 1];
       } else {
         const operation = EVAL_OPS[ins.op];
-        assert(operation, `the evaluator has no '${ins.op}' (I2 maps none)`);
+        assert(operation, `the evaluator has no '${ins.op}' (I3 maps none)`);
         env.set(ins.result, operation(...ins.args.map(read)));
       }
       if (ins.result) assertRange(refinementOf(ins.declaredType), env.get(ins.result), ASSIGNMENT);
@@ -308,9 +319,9 @@ function evaluate(mod, name, args, ingress = true) {
   throw new Error(`${name}: the evaluator did not finish`);
 }
 
-function reference(mod, fn, args) {
+function reference(mod, fn, args, host = null) {
   try {
-    return valueKey(fn.returnType, evaluate(mod, fn.name, args));
+    return valueKey(fn.returnType, evaluate(mod, fn.name, args, true, host));
   } catch (error) {
     if (error instanceof EvaluatorFailure) return error.key;
     throw error;
@@ -318,25 +329,188 @@ function reference(mod, fn, args) {
 }
 
 // The typed side: M()'s output, built and invoked through the verified builder.
+const BUILT_MODULES = new WeakMap();
 async function typedBuild(source) {
   const mod = sp.parseSource(source, "<typed>", GATED);
   // P0-03: the descriptor image of `i32<a..b>` is `i32`.
   const image = (type) => (refinementOf(type) ? "i32" : type);
-  const descriptor = {
+  const descriptor = (mod.externs || []).length ? {
+    airAbi: "0.13", feature: "typed-memory-v1", lengthUnit: "bytes", memoryDomains: ["wasm-linear"],
+    schema: "air.borrowed-slice-interface.v2", transferModeRequired: true,
+    exports: mod.functions.filter((fn) => fn.exported).map((fn) => ({ entryContracts: [], name: fn.name,
+      params: fn.params.map((parameter) => ({ kind: "value", name: parameter.name, type: parameter.type })) }))
+  } : {
     air_abi_lane: "0.12", exports: mod.functions.filter((fn) => fn.exported).map((fn) => ({
       function: fn.name, name: fn.name, parameters: fn.params.map((parameter) => ({ name: parameter.name, type: image(parameter.type) })), return_type: image(fn.returnType)
     })), module_id: mod.name, schema: "air.typed-interface/0.12-candidate.1", types: []
   };
-  return buildVerifiedTypedModule({ ...GATED, descriptor, source });
+  const built = await buildVerifiedTypedModule({ ...GATED, descriptor, source });
+  BUILT_MODULES.set(built, mod);
+  return built;
 }
 async function typedOutcome(build, fn, args) {
   try {
     const invoked = await invokeVerifiedTypedExport(build, fn.name, args.map((value, index) => typedArgument(fn.params[index].type, value)));
-    return typedResultKey(invoked.value);
+    return fn.returnType === "void" ? "void" : typedResultKey(invoked.value);
   } catch (error) {
     assert(error && error.code, `${fn.name}: a failure with a code: ${error && error.stack}`);
     return `FAIL ${error.code}${error.reason ? `: ${error.reason}` : ""}`;
   }
+}
+
+// P11-R21: a fixed type-correct host script, shared only as test input. The
+// reference and runtime independently record every ordered call and argument.
+function scriptedHost(mod, overrides = {}) {
+  const log = [];
+  const handlers = {};
+  const fixed = { bool: 1, f32: 0.5, f64: 0.5, i32: 7, i64: 7n, void: undefined };
+  for (const ex of mod.externs) handlers[ex.name] = (...args) => {
+    log.push([ex.name, ...args.map((value, index) => {
+      const type = ex.params[index].type;
+      return valueKey(type, type === "f32" ? fr(value) : type === "bool" ? Boolean(value) : value);
+    })]);
+    return Object.hasOwn(overrides, ex.name) ? overrides[ex.name](...args) : fixed[ex.returnType];
+  };
+  return { handlers, log };
+}
+function referencePoint(mod, fn, args) {
+  const host = scriptedHost(mod);
+  return { result: reference(mod, fn, args, host), log: host.log };
+}
+async function typedPoint(build, mod, fn, args, overrides = {}) {
+  const typed = BUILT_MODULES.get(build);
+  if (!(typed.externs || []).length) return { result: await typedOutcome(build, fn, args), log: [] };
+  const host = scriptedHost(typed, overrides);
+  const admission = await admitTypedV053Artifact({ record: build, wasmBytes: build.wasmBytes, handlers: host.handlers });
+  const instance = await admission.instantiate();
+  let result;
+  try {
+    const out = instance.invokeRaw(fn.name, args.map((value, index) => fn.params[index].type === "bool" ? Number(value) : value));
+    result = out.diagnostics && out.diagnostics.length ? `FAIL ${out.diagnostics[0].code}` : valueKey(fn.returnType, fn.returnType === "bool" ? Boolean(out.result) : out.result);
+  } catch (error) {
+    assert(error.code, `host call must fail with a code: ${error.stack}`);
+    result = `FAIL ${error.code}`;
+  }
+  return { result, log: host.log };
+}
+
+function table(name) {
+  return fs.readFileSync(path.join(FIXTURES, name), "utf8").split("\n").filter((line) => line && !line.startsWith("#")).map((line) => line.split("\t"));
+}
+
+function refusalText(file, record) {
+  const r = JSON.parse(record).rejection;
+  return [`${file}${r.line === null ? "" : `:${r.line}`}: ${r.code}: ${r.construct} (${r.reason})`,
+    ...(r.legacy_message === undefined ? [] : [r.legacy_message]),
+    ...(r.origin ? [`origin: ${r.origin.file}${r.origin.line === null ? "" : `:${r.origin.line}`} ${r.origin.construct}`] : [])].join("\n") + "\n";
+}
+
+async function sectionClosureCli() {
+  await vector("V53-MIG-P29", async () => {
+    for (const [api, input, imported, absolute, expected] of table("import_keys.tsv")) {
+      const paths = path[api];
+      const spelled = absolute === "yes" ? imported : paths.relative(paths.dirname(input), imported);
+      assert.equal(canonicalImportPath(spelled, paths), expected);
+    }
+    for (const error of [{ syscall: "read" }, { syscall: null }, { code: "ERR_STRING_TOO_LONG" }, { code: "ERR_FS_FILE_TOO_LARGE" }]) assert.equal(isImportReadFailure(error), true);
+    for (const error of [null, {}, { code: "ENOENT" }, { message: "read failed" }]) assert.equal(isImportReadFailure(error), false);
+    return { value: { path_rows: 12, error_predicate_cases: 8 } };
+  });
+  for (const [id, prefix, flags, exit, stdout, stderr, outputFile, recordFile] of table("cli_matrix.tsv")) await vector(`V53-MIG-P34 ${id}`, async () => {
+    const pkg = pkgOf(prefix);
+    const dir = fs.mkdtempSync(path.join(scratch, "channels-"));
+    const output = path.join(dir, "out.air");
+    const record = path.join(dir, "out.json");
+    const args = ["migrate", pkg.input, ...(flags.includes("-o") ? ["-o", output] : []), ...(flags.includes("--record") ? ["--record", record] : [])];
+    const out = runCli(args);
+    assert.equal(out.status, Number(exit));
+    assert.equal(out.stdout, stdout === "output" ? pkg.expectedOutput : "");
+    const expectedError = (stderr.includes("human") ? refusalText(pkg.input, pkg.expectedRecord) : "") + (stderr.includes("record") ? pkg.expectedRecord : "");
+    assert.equal(out.stderr, expectedError);
+    if (outputFile === "output") assert.equal(fs.readFileSync(output, "utf8"), pkg.expectedOutput);
+    else assert.equal(fs.existsSync(output), false);
+    if (recordFile === "record") assert.equal(fs.readFileSync(record, "utf8"), pkg.expectedRecord);
+    else assert.equal(fs.existsSync(record), false);
+  });
+  for (const [id, prefix, flags, setup, what, left] of table("write_failures.tsv")) await vector(`V53-MIG-N40 ${id}`, async () => {
+    const dir = fs.mkdtempSync(path.join(scratch, "writes-"));
+    const pkg = pkgOf(prefix);
+    if (setup === "mkdir adir") fs.mkdirSync(path.join(dir, "adir"));
+    const out = runCli(["migrate", pkg.input, ...flags.split(" ")], dir);
+    assert.equal(out.status, 1);
+    assert.equal(out.stdout, "");
+    assert.equal(out.stderr, `air.cli.file_write_failed: ${what} file could not be written\n`);
+    if (left !== "-") assert.equal(fs.readFileSync(path.join(dir, left), "utf8"), pkg.expectedRecord);
+    else assert.equal(fs.existsSync(path.join(dir, "out.json")), false);
+  });
+  const leaf = "module leaf\ncapabilities { }\nfunc f() -> i32 {\nentry:\nreturn 1\n}\n";
+  const importer = (uses) => `module input\n${uses.map((name, i) => `use "${name}" as a${i}`).join("\n")}\ncapabilities { }\nexport func f() -> i32 {\nentry:\nreturn 1\n}\n`;
+  for (const [id, paths, setup, , outcome, message] of table("import_failures.tsv")) await vector(`V53-MIG-N34 ${id}`, async () => {
+    if (setup.includes("chmod") && process.getuid && process.getuid() === 0) return { skip: true, value: "root can read mode-000 files" };
+    const dir = fs.mkdtempSync(path.join(scratch, "reads-"));
+    const at = (name) => path.join(dir, name);
+    const write = (name, text = leaf) => fs.writeFileSync(at(name), text);
+    const restore = [];
+    let used = JSON.parse(paths);
+    if (!Array.isArray(used)) used = [used];
+    used = used.map((p) => p.replace("<300 a>", "a".repeat(300)).replace("<300 times abcdefgh/>", "abcdefgh/".repeat(300)));
+    try {
+      if (id === "dangling_link") fs.symlinkSync("gone", at("q.air"));
+      if (id === "directory") fs.mkdirSync(at("adir"));
+      if (id === "link_loop") { fs.symlinkSync("b", at("a")); fs.symlinkSync("a", at("b")); }
+      if (setup.includes("write q.air")) write("q.air");
+      if (id === "locked_parent") { fs.mkdirSync(at("locked")); write("locked/q.air"); }
+      if (id === "unreadable_nested" || id === "fifo_nested") write("mid.air", importer([id === "fifo_nested" ? "./pipe" : "./q.air"]).replace("export ", ""));
+      if (setup.includes("chmod")) {
+        const locked = at(id === "locked_parent" ? "locked" : "q.air");
+        restore.push(locked);
+        fs.chmodSync(locked, 0);
+      }
+      if (id === "oversized") { const fd = fs.openSync(at("q.air"), "w"); try { fs.ftruncateSync(fd, 600 * 1024 * 1024); } finally { fs.closeSync(fd); } }
+      if (id === "above_the_bound" || id === "at_the_bound") {
+        const length = 4 * 1024 * 1024 + (id === "above_the_bound" ? 1 : 0);
+        write("q.air", leaf + "#" + " ".repeat(length - Buffer.byteLength(leaf) - 1));
+      }
+      if (setup.includes("mkfifo")) {
+        const made = childProcess.spawnSync("mkfifo", [at("pipe")], { encoding: "utf8", timeout: 5000 });
+        assert.equal(made.status, 0, `mkfifo setup: ${made.stderr}`);
+      }
+      write("input.air", importer(used));
+      const out = runCli(["migrate", "input.air", "-o", "out.air", "--record", "out.json"], dir);
+      assert.equal(out.status, 1, id);
+      assert.equal(out.stdout, "", id);
+      assert.equal(fs.existsSync(at("out.air")), false);
+      if (outcome === "read-failure") {
+        assert.equal(out.stderr, "air.cli.file_read_failed: import file could not be read\n");
+        assert.equal(fs.existsSync(at("out.json")), false);
+      } else {
+        const record = fs.readFileSync(at("out.json"), "utf8");
+        const r = JSON.parse(record).rejection;
+        assert.equal(r.reason, outcome === "refusal" ? "legacy_invalid" : "later_increment");
+        if (message !== "-") assert.equal(r.legacy_message, JSON.parse(message));
+        assert.equal(out.stderr, refusalText("input.air", record));
+      }
+    } finally {
+      for (const file of restore) fs.chmodSync(file, fs.statSync(file).isDirectory() ? 0o700 : 0o600);
+    }
+  });
+  for (const [id, prefix] of VECTOR_PACKAGES.filter((row) => row[3] === "CLI")) await vector(id, async () => {
+    if (id.includes("(ii)") && process.getuid && process.getuid() === 0) return { skip: true, value: "root can read mode-000 files" };
+    const dir = fs.mkdtempSync(path.join(scratch, "io-vector-"));
+    const pkg = pkgOf(prefix);
+    fs.cpSync(pkg.dir, dir, { recursive: true });
+    const locked = path.join(dir, "lock.air");
+    if (id.includes("(ii)")) fs.chmodSync(locked, 0);
+    else fs.mkdirSync(path.join(dir, "adir"));
+    try {
+      const out = runCli(["migrate", "input.air", "-o", "out.air", "--record", "out.json"], dir);
+      assert.equal(out.status, 1);
+      assert.equal(out.stdout, "");
+      assert.equal(out.stderr, "air.cli.file_read_failed: import file could not be read\n");
+      assert.equal(fs.existsSync(path.join(dir, "out.air")), false);
+      assert.equal(fs.existsSync(path.join(dir, "out.json")), false);
+    } finally { if (id.includes("(ii)")) fs.chmodSync(locked, 0o600); }
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -388,6 +562,98 @@ function readWitness() {
   assert.equal(hexOf(bytes), WITNESS_SHA256, "witness.json is the pinned H52 table");
   return JSON.parse(bytes.toString("utf8"));
 }
+
+function closurePlan() {
+  const covered = new Set(DIFFERENTIAL.map(([id]) => id));
+  return VECTOR_PACKAGES.filter(([id, , , disposition]) => disposition === "MIGRATED" && !covered.has(id)).map(([id, prefix]) => {
+    const pkg = pkgOf(prefix);
+    const mod = parser.parseAir(fs.readFileSync(pkg.input, "utf8"), pkg.input);
+    const record = JSON.parse(pkg.expectedRecord);
+    const domain = record.entries.find((item) => ["X-SND-01", "X-SND-08", "X-VL-01"].includes(item.ledger));
+    const points = mod.functions.filter((fn) => fn.exported && fn.params.every((p) => POINTS[p.type])).flatMap((fn) => combinations(fn).map((args) => {
+      const point = referencePoint(mod, fn, args);
+      return { args, expected: point.result, log: point.log, name: fn.name };
+    }));
+    return { domain: domain ? domain.ledger : null, file: pkg.input, id, points, sha256: hexOf(fs.readFileSync(pkg.input)) };
+  });
+}
+
+async function sectionClosureRuntime(witness) {
+  await vector("P0-11-CHECK-I3-WITNESS-PROVENANCE", async () => {
+    assert.equal(witness.provenance.dev_commit, H52_DEV);
+    assert.equal(witness.provenance.public_commit, H52_PUBLIC);
+    assert.equal(witness.provenance.public_checked_rows, 59);
+    const extension = witness.provenance.i3_extension;
+    assert.equal(extension.corpus_rows, 63);
+    assert.equal(extension.public_checked_rows, 59);
+    assert.equal(extension.closure_vectors, 51);
+    assert.equal(extension.independent_qa, false);
+    assert.equal(extension.executions, extension.counts.dev + extension.counts.public);
+    for (const [id, prefix, , disposition] of VECTOR_PACKAGES) {
+      if (disposition !== "MIGRATED" || !witness.closure[id]) continue;
+      assert.equal(witness.closure[id].package, prefix);
+      assert.equal(witness.closure[id].sha256, hexOf(fs.readFileSync(pkgOf(prefix).input)));
+    }
+  });
+  await vector("V53-MIG-I3-DIFFERENTIAL", async () => {
+    let points = 0;
+    let witnessed = 0;
+    for (const row of closurePlan()) {
+      const [, prefix] = VECTOR_PACKAGES.find(([id]) => id === row.id);
+      const pkg = pkgOf(prefix);
+      const mod = parser.parseAir(fs.readFileSync(pkg.input, "utf8"), pkg.input);
+      const evidence = witness.closure[row.id];
+      assert.equal(evidence.sha256, row.sha256);
+      assert.equal(evidence.domain, row.domain);
+      if (!row.points.length) { assert.deepEqual(evidence.exports, {}); continue; }
+      const built = await typedBuild(pkg.expectedOutput);
+      for (const point of row.points) {
+        const fn = mod.functions.find((item) => item.name === point.name);
+        const argsKey = point.args.map((value, index) => valueKey(fn.params[index].type, value)).join(",");
+        assert.deepEqual(await typedPoint(built, mod, fn, point.args), { result: point.expected, log: point.log }, `${row.id} ${point.name}(${argsKey})`);
+        points++;
+        if (row.domain || [INGRESS, ASSIGNMENT].includes(point.expected)) continue;
+        assertWitness(row.id, evidence.exports[point.name][argsKey], point.expected);
+        assert.deepEqual(evidence.host_logs[point.name][argsKey], point.log, `${row.id}: H52 host log`);
+        witnessed++;
+      }
+      if (row.domain) assert.deepEqual(evidence.exports, {});
+    }
+    return { value: { points, witnessed } };
+  });
+  await vector("V53-MIG-I3-HOST-FAILURES", async () => {
+    const pkg = pkgOf("V53-MIG-P19_a_");
+    const mod = parser.parseAir(fs.readFileSync(pkg.input, "utf8"), pkg.input);
+    const fn = mod.functions.find((item) => item.exported);
+    const built = await typedBuild(pkg.expectedOutput);
+    const badHost = Object.fromEntries(mod.externs.map((ex) => [ex.name, () => { throw new Error("scripted host failure"); }]));
+    const thrown = await typedPoint(built, mod, fn, [7], badHost);
+    assert.equal(thrown.result, "FAIL air.host.import_failed");
+    assert.equal(thrown.log.length, 1);
+    for (const [name, params, call, resultType, invalid] of [
+      ["random.f32", "", "", "f32", 0.1], ["fs.exists", "arg0: i32, arg1: i32", "1, 1", "bool", true]
+    ]) {
+      const text = moduleOf(fnOf(`f() -> ${resultType}`, [`%r:${resultType} = @${name}(${call})`, "return %r"]),
+        `capabilities { ${name.split(".")[0]} }\neffects { ${name} <= 1 }\nextern ${name}(${params}) -> ${resultType}`);
+      const result = run(text);
+      assert.equal(result.kind, "MIGRATED");
+      const legacy = parser.parseAir(text);
+      const out = await typedPoint(await typedBuild(result.output), legacy, legacy.functions[0], [], { [name]: () => invalid });
+      assert.equal(out.result, "FAIL air.host.result_invalid");
+      assert.equal(out.log.length, 1);
+    }
+    const voidPkg = pkgOf("V53-MIG-P24_an_");
+    const voidMod = parser.parseAir(fs.readFileSync(voidPkg.input, "utf8"), voidPkg.input);
+    const voidBuild = await typedBuild(voidPkg.expectedOutput);
+    const host = scriptedHost(BUILT_MODULES.get(voidBuild));
+    const admission = await admitTypedV053Artifact({ record: voidBuild, wasmBytes: voidBuild.wasmBytes, handlers: host.handlers });
+    const target = voidMod.functions.find((item) => item.exported);
+    const result = await admission.invoke({ arguments: {}, bindings: {}, entrypoint: target.name });
+    assert.equal(result.diagnostics[0].code, "air.borrow.interface_invalid");
+    assert.deepEqual(host.log, [], "typed void refusal precedes any host call");
+    return { value: { throws: 1, invalid_results: 2, void_typed_refusal: 1 } };
+  });
+}
 // A witness never sets a value: it is compared with the reference, and a trap agrees with a FAIL.
 function assertWitness(label, witnessed, expected) {
   assert.equal(witnessed, expected.startsWith("FAIL ") ? "trap" : expected, `${label}: the witness and the reference disagree (a finding to triage, P11-R18)`);
@@ -395,9 +661,10 @@ function assertWitness(label, witnessed, expected) {
 
 async function sectionVectors(witness) {
   const packages = new Map();
-  for (const [id, prefix, moduleId] of VECTOR_PACKAGES) {
+  for (const [id, prefix, moduleId, disposition] of VECTOR_PACKAGES) {
     const pkg = pkgOf(prefix);
     packages.set(id, pkg);
+    if (disposition === "CLI") continue;
     await vector(id, async () => {
       const bytes = fs.readFileSync(pkg.input);
       const options = { path: pkg.input, ...(moduleId ? { moduleId } : {}) };
@@ -417,7 +684,7 @@ async function sectionVectors(witness) {
         assert.equal(cli.status, 1, "REJECTED exits 1");
         assert.equal(fs.existsSync(cliOutput), false, "a rejection writes no output");
         const lines = cli.stderr.trimEnd().split("\n");
-        assert.equal(lines[0], `input.air:${rejection.line}: ${CODE}: ${rejection.construct} (${rejection.reason})`, "the CLI's refusal line");
+        assert.equal(lines[0], `input.air${rejection.line === null ? "" : `:${rejection.line}`}: ${CODE}: ${rejection.construct} (${rejection.reason})`, "the CLI's refusal line");
         if (rejection.legacy_message !== undefined) assert.equal(lines[1], rejection.legacy_message, "legacy's message follows");
         if (rejection.origin) assert(lines.at(-1).includes(`${rejection.origin.file}:${rejection.origin.line}`), "the origin follows");
         assertNoRawError(cli.stderr, id);
@@ -470,8 +737,8 @@ async function sectionVectors(witness) {
 // The corpus (P11-R20; AD-P11-1 (a)).
 
 function readCorpus() {
-  const bytes = fs.readFileSync(path.join(FIXTURES, "corpus_I2.tsv"));
-  assert.equal(hexOf(bytes), CORPUS_SHA256, "corpus_I2.tsv is the slice text's file");
+  const bytes = fs.readFileSync(path.join(FIXTURES, "corpus_I3.tsv"));
+  assert.equal(hexOf(bytes), CORPUS_SHA256, "corpus_I3.tsv is the slice text's file");
   return bytes.toString("utf8").split("\n").filter((line) => line && !line.startsWith("#")).map((line) => {
     const cells = line.split("\t");
     assert.equal(cells.length, 9, `${cells[0]}: nine columns`);
@@ -581,9 +848,10 @@ async function sectionCorpus(witness, projection) {
       for (const fn of exported) {
         if (!fn.params.every((parameter) => POINTS[parameter.type])) continue;
         for (const args of combinations(fn)) {
-          const expected = reference(mod, fn, args);
+          const point = referencePoint(mod, fn, args);
+          const expected = point.result;
           const label = `${row.file} ${fn.name}(${args.map(String).join(", ")})`;
-          assert.equal(await typedOutcome(build, fn, args), expected, label);
+          assert.deepEqual(await typedPoint(build, mod, fn, args), point, label);
           points += 1;
           const argsKey = args.map((value, index) => valueKey(fn.params[index].type, value)).join(",");
           const witnessedValue = entry.exports[fn.name] && entry.exports[fn.name][argsKey];
@@ -593,6 +861,7 @@ async function sectionCorpus(witness, projection) {
             continue;
           }
           assertWitness(label, witnessedValue, expected);
+          if (mod.externs.length) assert.deepEqual(entry.host_logs[fn.name][argsKey], point.log, `${label}: H52 ordered host log`);
           witnessed += 1;
         }
       }
@@ -604,7 +873,7 @@ async function sectionCorpus(witness, projection) {
 // V53-MIG-P04: every MIG input, twice.
 async function sectionProperty(packages) {
   await vector("V53-MIG-P04", async () => {
-    const inputs = VECTOR_PACKAGES.map(([id, , moduleId]) => ({ file: packages.get(id).input, key: id, moduleId }));
+    const inputs = VECTOR_PACKAGES.filter((row) => row[3] !== "CLI").map(([id, , moduleId]) => ({ file: packages.get(id).input, key: id, moduleId }));
     const second = new Map(secondRun(inputs).map((item) => [item.key, item]));
     const recordsDir = process.env.AIR_P011_MIGRATION_RECORDS_DIR;
     let migrated = 0;
@@ -638,6 +907,18 @@ const COUNTER = (entry, header, body, exit = ["return %i"], returnType = "i32") 
 const STEP = ["  %one:i32 = 1", "  %next:i32 = add %i, %one"];
 
 async function sectionRules() {
+  await vector("P0-11-CHECK-BUDGET-TRAILING-COMMA", async () => {
+    const source = (budget) => moduleOf(fnOf("f() -> i32", ["return 1"]), `effects { ${budget} }`);
+    const ordinary = run(source("cpu.instructions <= 2"));
+    const trailing = run(source("cpu.instructions <= 2,"));
+    assert.equal(trailing.kind, "MIGRATED");
+    assert.equal(trailing.output, ordinary.output);
+    assert.deepEqual(trailing.parsed.entries, ordinary.parsed.entries);
+    const duplicates = run(source("cpu.instructions <= 3, cpu.instructions <= 2, "));
+    assert.equal(duplicates.kind, "MIGRATED");
+    assert.equal(duplicates.output, ordinary.output);
+    assert.equal(run(source("cpu.instructions <= 2,, cpu.instructions <= 3")).kind, "REJECTED");
+  });
   await vector("P0-11-CHECK-POSITIONAL-PARAMETERS", async () => {
     for (const [signature, contract] of [
       ["f(n: i32, n: i32) -> i32", ""],
@@ -680,7 +961,7 @@ async function sectionRules() {
     assert.equal(entryOf(tautology, "requires")[0].class, "LEGACY_DEFECT_CORRECTED");
     const equal = run(source(["requires param n == 5"], "f(n: i32) -> i32"));
     assert.match(equal.output, /n: i32<5\.\.5>/u);
-    assert.equal(one.parsed.increment, "I2");
+    assert.equal(one.parsed.increment, "I3");
   });
 
   await vector("P0-11-CHECK-CONTRACT-REFERENCE", async () => {
@@ -809,7 +1090,7 @@ async function sectionRules() {
     // P11-R23: a function line with two unmapped types reports the first in reading order.
     const types = run(moduleOf("func f(a: vec3, b: quat) -> i32 {\nentry:\n  %x:i32 = 1\n  return %x\n}\n\nexport func g() -> i32 {\nentry:\n  %x:i32 = 1\n  return %x\n}"));
     assert.deepEqual([types.construct, types.reason], ["type vec3", "not_admitted"]);
-    assert.equal(run(moduleOf("export func f(a: i32) -> void {\nentry:\n  return\n}")).construct, "type void");
+    assert.equal(run(moduleOf("export func f(a: i32) -> void {\nentry:\n  return\n}")).kind, "MIGRATED");
   });
 
   await vector("P0-11-CHECK-MODULE-IDENTITY", async () => {
@@ -825,7 +1106,8 @@ async function sectionRules() {
     const twice = run(moduleOf(fnOf("f() -> i32", ["%x:i32 = 1", "return %x"]), "capabilities { }\ncapabilities {}"));
     assert.deepEqual(entryOf(twice, "capabilities").map((item) => [item.line, item.from]), [[2, "capabilities { }"], [3, "capabilities {}"]]);
     const caps = run(moduleOf(fnOf("f() -> i32", ["%x:i32 = 1", "return %x"]), "capabilities { debug }"));
-    assert.deepEqual([caps.construct, caps.line, caps.reason], ["capabilities", 2, "later_increment"]);
+    assert.equal(caps.kind, "MIGRATED");
+    assert.equal(entryOf(caps, "capabilities")[0].to, "capabilities { debug }");
   });
 
   await vector("P0-11-CHECK-IMPORTS", async () => {
@@ -923,7 +1205,7 @@ async function sectionRules() {
   await vector("P0-11-CHECK-FIXTURES", async () => {
     const listed = walkFiles(FIXTURES).filter((name) => name !== "witness.json");
     const text = listed.sort((a, b) => (a < b ? -1 : 1)).map((name) => `${hexOf(fs.readFileSync(path.join(FIXTURES, name)))}  ${name}\n`).join("");
-    assert.equal(hexOf(text), FIXTURES_TREE_SHA256, "fixtures/v053/migration/** are the slice text's 180 files, plus witness.json");
+    assert.equal(hexOf(text), FIXTURES_TREE_SHA256, "fixtures/v053/migration/** are the slice text's 402 files, plus witness.json");
     return { value: { files: listed.length } };
   });
 }
@@ -942,6 +1224,8 @@ async function main() {
   const packages = await sectionVectors(witness);
   await sectionProperty(packages);
   await sectionCorpus(witness, projection);
+  await sectionClosureRuntime(witness);
+  await sectionClosureCli();
   await sectionRules();
   fs.rmSync(scratch, { force: true, recursive: true });
   const outDir = process.env.AIR_P011_VECTOR_RESULTS_DIR;
@@ -973,13 +1257,13 @@ function witnessPlan() {
     const file = path.join(ROOT, row.file);
     const mod = parser.parseAir(fs.readFileSync(file, "utf8"), file);
     const points = mod.functions.filter((fn) => fn.exported && fn.params.every((parameter) => POINTS[parameter.type])).flatMap((fn) =>
-      combinations(fn).map((args) => ({ args, expected: reference(mod, fn, args), name: fn.name })));
+      combinations(fn).map((args) => ({ args, ...referencePoint(mod, fn, args), expected: referencePoint(mod, fn, args).result, name: fn.name })));
     return { ...row, points };
   });
-  return { corpus, vectors };
+  return { corpus, vectors, closure: closurePlan() };
 }
 
-module.exports = { reference, valueKey, witnessPlan };
+module.exports = { reference, valueKey, witnessPlan, scriptedHost };
 if (require.main === module) main().catch((error) => {
   console.error(error && error.stack || error);
   process.exit(1);

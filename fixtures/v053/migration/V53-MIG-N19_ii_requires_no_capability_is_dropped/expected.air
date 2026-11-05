@@ -1,0 +1,5 @@
+module mig_nocap
+
+export func f(n: i32) -> i32 {
+  return %n
+}

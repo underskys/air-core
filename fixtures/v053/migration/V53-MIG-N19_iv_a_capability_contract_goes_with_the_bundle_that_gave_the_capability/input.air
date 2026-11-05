@@ -1,0 +1,8 @@
+module mig_bundlecap
+use utility.random
+requires capability random
+
+export func f(x: i32) -> i32 {
+entry:
+  return %x
+}

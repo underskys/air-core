@@ -1,0 +1,9 @@
+# V53-MIG-N40: a failed write of -o or --record (P11-R22). Each row exits 1, with stdout empty and one stderr line, air.cli.file_write_failed: <what> file could not be written, and no stack or host path. The last column names a record that stays: the record is written first, and nothing is removed.
+# row	package	flags	setup	what	record left
+o_missing_folder	V53-MIG-P01_	-o nodir/out.air	none	output	-
+record_missing_folder	V53-MIG-P01_	--record nodir/out.json	none	record	-
+o_is_a_directory	V53-MIG-P01_	-o adir	mkdir adir	output	-
+record_on_a_refusal	V53-MIG-N15_ii_	--record nodir/out.json	none	record	-
+o_after_a_good_record	V53-MIG-P01_	-o nodir/out.air --record out.json	none	output	out.json
+record_on_a_directory	V53-MIG-P01_	--record adir	mkdir adir	record	-
+both_writes_fail	V53-MIG-P01_	-o nodir/out.air --record nodir/out.json	none	record	-

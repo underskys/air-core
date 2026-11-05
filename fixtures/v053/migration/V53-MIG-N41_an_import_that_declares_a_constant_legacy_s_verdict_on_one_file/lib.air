@@ -1,0 +1,9 @@
+module lib
+capabilities { }
+const LIMIT:i32 = 7
+
+export func twice(x: i32) -> i32 {
+entry:
+  %y:i32 = add %x, %x
+  return %y
+}

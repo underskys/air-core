@@ -1,0 +1,1287 @@
+module mig_manyfns
+flow policy required
+
+func f0() -> i32 {
+entry:
+  return 0
+}
+
+func f1() -> i32 {
+entry:
+  return 1
+}
+
+func f2() -> i32 {
+entry:
+  return 2
+}
+
+func f3() -> i32 {
+entry:
+  return 3
+}
+
+func f4() -> i32 {
+entry:
+  return 4
+}
+
+func f5() -> i32 {
+entry:
+  return 5
+}
+
+func f6() -> i32 {
+entry:
+  return 6
+}
+
+func f7() -> i32 {
+entry:
+  return 7
+}
+
+func f8() -> i32 {
+entry:
+  return 8
+}
+
+func f9() -> i32 {
+entry:
+  return 9
+}
+
+func f10() -> i32 {
+entry:
+  return 10
+}
+
+func f11() -> i32 {
+entry:
+  return 11
+}
+
+func f12() -> i32 {
+entry:
+  return 12
+}
+
+func f13() -> i32 {
+entry:
+  return 13
+}
+
+func f14() -> i32 {
+entry:
+  return 14
+}
+
+func f15() -> i32 {
+entry:
+  return 15
+}
+
+func f16() -> i32 {
+entry:
+  return 16
+}
+
+func f17() -> i32 {
+entry:
+  return 17
+}
+
+func f18() -> i32 {
+entry:
+  return 18
+}
+
+func f19() -> i32 {
+entry:
+  return 19
+}
+
+func f20() -> i32 {
+entry:
+  return 20
+}
+
+func f21() -> i32 {
+entry:
+  return 21
+}
+
+func f22() -> i32 {
+entry:
+  return 22
+}
+
+func f23() -> i32 {
+entry:
+  return 23
+}
+
+func f24() -> i32 {
+entry:
+  return 24
+}
+
+func f25() -> i32 {
+entry:
+  return 25
+}
+
+func f26() -> i32 {
+entry:
+  return 26
+}
+
+func f27() -> i32 {
+entry:
+  return 27
+}
+
+func f28() -> i32 {
+entry:
+  return 28
+}
+
+func f29() -> i32 {
+entry:
+  return 29
+}
+
+func f30() -> i32 {
+entry:
+  return 30
+}
+
+func f31() -> i32 {
+entry:
+  return 31
+}
+
+func f32() -> i32 {
+entry:
+  return 32
+}
+
+func f33() -> i32 {
+entry:
+  return 33
+}
+
+func f34() -> i32 {
+entry:
+  return 34
+}
+
+func f35() -> i32 {
+entry:
+  return 35
+}
+
+func f36() -> i32 {
+entry:
+  return 36
+}
+
+func f37() -> i32 {
+entry:
+  return 37
+}
+
+func f38() -> i32 {
+entry:
+  return 38
+}
+
+func f39() -> i32 {
+entry:
+  return 39
+}
+
+func f40() -> i32 {
+entry:
+  return 40
+}
+
+func f41() -> i32 {
+entry:
+  return 41
+}
+
+func f42() -> i32 {
+entry:
+  return 42
+}
+
+func f43() -> i32 {
+entry:
+  return 43
+}
+
+func f44() -> i32 {
+entry:
+  return 44
+}
+
+func f45() -> i32 {
+entry:
+  return 45
+}
+
+func f46() -> i32 {
+entry:
+  return 46
+}
+
+func f47() -> i32 {
+entry:
+  return 47
+}
+
+func f48() -> i32 {
+entry:
+  return 48
+}
+
+func f49() -> i32 {
+entry:
+  return 49
+}
+
+func f50() -> i32 {
+entry:
+  return 50
+}
+
+func f51() -> i32 {
+entry:
+  return 51
+}
+
+func f52() -> i32 {
+entry:
+  return 52
+}
+
+func f53() -> i32 {
+entry:
+  return 53
+}
+
+func f54() -> i32 {
+entry:
+  return 54
+}
+
+func f55() -> i32 {
+entry:
+  return 55
+}
+
+func f56() -> i32 {
+entry:
+  return 56
+}
+
+func f57() -> i32 {
+entry:
+  return 57
+}
+
+func f58() -> i32 {
+entry:
+  return 58
+}
+
+func f59() -> i32 {
+entry:
+  return 59
+}
+
+func f60() -> i32 {
+entry:
+  return 60
+}
+
+func f61() -> i32 {
+entry:
+  return 61
+}
+
+func f62() -> i32 {
+entry:
+  return 62
+}
+
+func f63() -> i32 {
+entry:
+  return 63
+}
+
+func f64() -> i32 {
+entry:
+  return 64
+}
+
+func f65() -> i32 {
+entry:
+  return 65
+}
+
+func f66() -> i32 {
+entry:
+  return 66
+}
+
+func f67() -> i32 {
+entry:
+  return 67
+}
+
+func f68() -> i32 {
+entry:
+  return 68
+}
+
+func f69() -> i32 {
+entry:
+  return 69
+}
+
+func f70() -> i32 {
+entry:
+  return 70
+}
+
+func f71() -> i32 {
+entry:
+  return 71
+}
+
+func f72() -> i32 {
+entry:
+  return 72
+}
+
+func f73() -> i32 {
+entry:
+  return 73
+}
+
+func f74() -> i32 {
+entry:
+  return 74
+}
+
+func f75() -> i32 {
+entry:
+  return 75
+}
+
+func f76() -> i32 {
+entry:
+  return 76
+}
+
+func f77() -> i32 {
+entry:
+  return 77
+}
+
+func f78() -> i32 {
+entry:
+  return 78
+}
+
+func f79() -> i32 {
+entry:
+  return 79
+}
+
+func f80() -> i32 {
+entry:
+  return 80
+}
+
+func f81() -> i32 {
+entry:
+  return 81
+}
+
+func f82() -> i32 {
+entry:
+  return 82
+}
+
+func f83() -> i32 {
+entry:
+  return 83
+}
+
+func f84() -> i32 {
+entry:
+  return 84
+}
+
+func f85() -> i32 {
+entry:
+  return 85
+}
+
+func f86() -> i32 {
+entry:
+  return 86
+}
+
+func f87() -> i32 {
+entry:
+  return 87
+}
+
+func f88() -> i32 {
+entry:
+  return 88
+}
+
+func f89() -> i32 {
+entry:
+  return 89
+}
+
+func f90() -> i32 {
+entry:
+  return 90
+}
+
+func f91() -> i32 {
+entry:
+  return 91
+}
+
+func f92() -> i32 {
+entry:
+  return 92
+}
+
+func f93() -> i32 {
+entry:
+  return 93
+}
+
+func f94() -> i32 {
+entry:
+  return 94
+}
+
+func f95() -> i32 {
+entry:
+  return 95
+}
+
+func f96() -> i32 {
+entry:
+  return 96
+}
+
+func f97() -> i32 {
+entry:
+  return 97
+}
+
+func f98() -> i32 {
+entry:
+  return 98
+}
+
+func f99() -> i32 {
+entry:
+  return 99
+}
+
+func f100() -> i32 {
+entry:
+  return 100
+}
+
+func f101() -> i32 {
+entry:
+  return 101
+}
+
+func f102() -> i32 {
+entry:
+  return 102
+}
+
+func f103() -> i32 {
+entry:
+  return 103
+}
+
+func f104() -> i32 {
+entry:
+  return 104
+}
+
+func f105() -> i32 {
+entry:
+  return 105
+}
+
+func f106() -> i32 {
+entry:
+  return 106
+}
+
+func f107() -> i32 {
+entry:
+  return 107
+}
+
+func f108() -> i32 {
+entry:
+  return 108
+}
+
+func f109() -> i32 {
+entry:
+  return 109
+}
+
+func f110() -> i32 {
+entry:
+  return 110
+}
+
+func f111() -> i32 {
+entry:
+  return 111
+}
+
+func f112() -> i32 {
+entry:
+  return 112
+}
+
+func f113() -> i32 {
+entry:
+  return 113
+}
+
+func f114() -> i32 {
+entry:
+  return 114
+}
+
+func f115() -> i32 {
+entry:
+  return 115
+}
+
+func f116() -> i32 {
+entry:
+  return 116
+}
+
+func f117() -> i32 {
+entry:
+  return 117
+}
+
+func f118() -> i32 {
+entry:
+  return 118
+}
+
+func f119() -> i32 {
+entry:
+  return 119
+}
+
+func f120() -> i32 {
+entry:
+  return 120
+}
+
+func f121() -> i32 {
+entry:
+  return 121
+}
+
+func f122() -> i32 {
+entry:
+  return 122
+}
+
+func f123() -> i32 {
+entry:
+  return 123
+}
+
+func f124() -> i32 {
+entry:
+  return 124
+}
+
+func f125() -> i32 {
+entry:
+  return 125
+}
+
+func f126() -> i32 {
+entry:
+  return 126
+}
+
+func f127() -> i32 {
+entry:
+  return 127
+}
+
+func f128() -> i32 {
+entry:
+  return 128
+}
+
+func f129() -> i32 {
+entry:
+  return 129
+}
+
+func f130() -> i32 {
+entry:
+  return 130
+}
+
+func f131() -> i32 {
+entry:
+  return 131
+}
+
+func f132() -> i32 {
+entry:
+  return 132
+}
+
+func f133() -> i32 {
+entry:
+  return 133
+}
+
+func f134() -> i32 {
+entry:
+  return 134
+}
+
+func f135() -> i32 {
+entry:
+  return 135
+}
+
+func f136() -> i32 {
+entry:
+  return 136
+}
+
+func f137() -> i32 {
+entry:
+  return 137
+}
+
+func f138() -> i32 {
+entry:
+  return 138
+}
+
+func f139() -> i32 {
+entry:
+  return 139
+}
+
+func f140() -> i32 {
+entry:
+  return 140
+}
+
+func f141() -> i32 {
+entry:
+  return 141
+}
+
+func f142() -> i32 {
+entry:
+  return 142
+}
+
+func f143() -> i32 {
+entry:
+  return 143
+}
+
+func f144() -> i32 {
+entry:
+  return 144
+}
+
+func f145() -> i32 {
+entry:
+  return 145
+}
+
+func f146() -> i32 {
+entry:
+  return 146
+}
+
+func f147() -> i32 {
+entry:
+  return 147
+}
+
+func f148() -> i32 {
+entry:
+  return 148
+}
+
+func f149() -> i32 {
+entry:
+  return 149
+}
+
+func f150() -> i32 {
+entry:
+  return 150
+}
+
+func f151() -> i32 {
+entry:
+  return 151
+}
+
+func f152() -> i32 {
+entry:
+  return 152
+}
+
+func f153() -> i32 {
+entry:
+  return 153
+}
+
+func f154() -> i32 {
+entry:
+  return 154
+}
+
+func f155() -> i32 {
+entry:
+  return 155
+}
+
+func f156() -> i32 {
+entry:
+  return 156
+}
+
+func f157() -> i32 {
+entry:
+  return 157
+}
+
+func f158() -> i32 {
+entry:
+  return 158
+}
+
+func f159() -> i32 {
+entry:
+  return 159
+}
+
+func f160() -> i32 {
+entry:
+  return 160
+}
+
+func f161() -> i32 {
+entry:
+  return 161
+}
+
+func f162() -> i32 {
+entry:
+  return 162
+}
+
+func f163() -> i32 {
+entry:
+  return 163
+}
+
+func f164() -> i32 {
+entry:
+  return 164
+}
+
+func f165() -> i32 {
+entry:
+  return 165
+}
+
+func f166() -> i32 {
+entry:
+  return 166
+}
+
+func f167() -> i32 {
+entry:
+  return 167
+}
+
+func f168() -> i32 {
+entry:
+  return 168
+}
+
+func f169() -> i32 {
+entry:
+  return 169
+}
+
+func f170() -> i32 {
+entry:
+  return 170
+}
+
+func f171() -> i32 {
+entry:
+  return 171
+}
+
+func f172() -> i32 {
+entry:
+  return 172
+}
+
+func f173() -> i32 {
+entry:
+  return 173
+}
+
+func f174() -> i32 {
+entry:
+  return 174
+}
+
+func f175() -> i32 {
+entry:
+  return 175
+}
+
+func f176() -> i32 {
+entry:
+  return 176
+}
+
+func f177() -> i32 {
+entry:
+  return 177
+}
+
+func f178() -> i32 {
+entry:
+  return 178
+}
+
+func f179() -> i32 {
+entry:
+  return 179
+}
+
+func f180() -> i32 {
+entry:
+  return 180
+}
+
+func f181() -> i32 {
+entry:
+  return 181
+}
+
+func f182() -> i32 {
+entry:
+  return 182
+}
+
+func f183() -> i32 {
+entry:
+  return 183
+}
+
+func f184() -> i32 {
+entry:
+  return 184
+}
+
+func f185() -> i32 {
+entry:
+  return 185
+}
+
+func f186() -> i32 {
+entry:
+  return 186
+}
+
+func f187() -> i32 {
+entry:
+  return 187
+}
+
+func f188() -> i32 {
+entry:
+  return 188
+}
+
+func f189() -> i32 {
+entry:
+  return 189
+}
+
+func f190() -> i32 {
+entry:
+  return 190
+}
+
+func f191() -> i32 {
+entry:
+  return 191
+}
+
+func f192() -> i32 {
+entry:
+  return 192
+}
+
+func f193() -> i32 {
+entry:
+  return 193
+}
+
+func f194() -> i32 {
+entry:
+  return 194
+}
+
+func f195() -> i32 {
+entry:
+  return 195
+}
+
+func f196() -> i32 {
+entry:
+  return 196
+}
+
+func f197() -> i32 {
+entry:
+  return 197
+}
+
+func f198() -> i32 {
+entry:
+  return 198
+}
+
+func f199() -> i32 {
+entry:
+  return 199
+}
+
+func f200() -> i32 {
+entry:
+  return 200
+}
+
+func f201() -> i32 {
+entry:
+  return 201
+}
+
+func f202() -> i32 {
+entry:
+  return 202
+}
+
+func f203() -> i32 {
+entry:
+  return 203
+}
+
+func f204() -> i32 {
+entry:
+  return 204
+}
+
+func f205() -> i32 {
+entry:
+  return 205
+}
+
+func f206() -> i32 {
+entry:
+  return 206
+}
+
+func f207() -> i32 {
+entry:
+  return 207
+}
+
+func f208() -> i32 {
+entry:
+  return 208
+}
+
+func f209() -> i32 {
+entry:
+  return 209
+}
+
+func f210() -> i32 {
+entry:
+  return 210
+}
+
+func f211() -> i32 {
+entry:
+  return 211
+}
+
+func f212() -> i32 {
+entry:
+  return 212
+}
+
+func f213() -> i32 {
+entry:
+  return 213
+}
+
+func f214() -> i32 {
+entry:
+  return 214
+}
+
+func f215() -> i32 {
+entry:
+  return 215
+}
+
+func f216() -> i32 {
+entry:
+  return 216
+}
+
+func f217() -> i32 {
+entry:
+  return 217
+}
+
+func f218() -> i32 {
+entry:
+  return 218
+}
+
+func f219() -> i32 {
+entry:
+  return 219
+}
+
+func f220() -> i32 {
+entry:
+  return 220
+}
+
+func f221() -> i32 {
+entry:
+  return 221
+}
+
+func f222() -> i32 {
+entry:
+  return 222
+}
+
+func f223() -> i32 {
+entry:
+  return 223
+}
+
+func f224() -> i32 {
+entry:
+  return 224
+}
+
+func f225() -> i32 {
+entry:
+  return 225
+}
+
+func f226() -> i32 {
+entry:
+  return 226
+}
+
+func f227() -> i32 {
+entry:
+  return 227
+}
+
+func f228() -> i32 {
+entry:
+  return 228
+}
+
+func f229() -> i32 {
+entry:
+  return 229
+}
+
+func f230() -> i32 {
+entry:
+  return 230
+}
+
+func f231() -> i32 {
+entry:
+  return 231
+}
+
+func f232() -> i32 {
+entry:
+  return 232
+}
+
+func f233() -> i32 {
+entry:
+  return 233
+}
+
+func f234() -> i32 {
+entry:
+  return 234
+}
+
+func f235() -> i32 {
+entry:
+  return 235
+}
+
+func f236() -> i32 {
+entry:
+  return 236
+}
+
+func f237() -> i32 {
+entry:
+  return 237
+}
+
+func f238() -> i32 {
+entry:
+  return 238
+}
+
+func f239() -> i32 {
+entry:
+  return 239
+}
+
+func f240() -> i32 {
+entry:
+  return 240
+}
+
+func f241() -> i32 {
+entry:
+  return 241
+}
+
+func f242() -> i32 {
+entry:
+  return 242
+}
+
+func f243() -> i32 {
+entry:
+  return 243
+}
+
+func f244() -> i32 {
+entry:
+  return 244
+}
+
+func f245() -> i32 {
+entry:
+  return 245
+}
+
+func f246() -> i32 {
+entry:
+  return 246
+}
+
+func f247() -> i32 {
+entry:
+  return 247
+}
+
+func f248() -> i32 {
+entry:
+  return 248
+}
+
+func f249() -> i32 {
+entry:
+  return 249
+}
+
+func f250() -> i32 {
+entry:
+  return 250
+}
+
+func f251() -> i32 {
+entry:
+  return 251
+}
+
+func f252() -> i32 {
+entry:
+  return 252
+}
+
+func f253() -> i32 {
+entry:
+  return 253
+}
+
+func f254() -> i32 {
+entry:
+  return 254
+}
+
+func f255() -> i32 {
+entry:
+  return 255
+}
+
+export func e() -> i32 {
+entry:
+  return 0
+}

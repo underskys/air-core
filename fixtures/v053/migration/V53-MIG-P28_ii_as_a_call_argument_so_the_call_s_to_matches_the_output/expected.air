@@ -1,0 +1,10 @@
+module mig_negzarg
+
+export func f() -> i32 {
+  %r: i32 = call @g(0)
+  return %r
+}
+
+func g(x: i32) -> i32 {
+  return %x
+}

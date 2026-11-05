@@ -1,0 +1,7 @@
+module mig_mainonly
+effects { cpu.instructions <= 40 }
+
+func main(args: slice) -> i32 {
+entry:
+  return 1
+}

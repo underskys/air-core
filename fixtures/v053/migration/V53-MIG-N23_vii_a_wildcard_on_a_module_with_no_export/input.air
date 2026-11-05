@@ -1,0 +1,11 @@
+module mig_uilib
+capabilities { ui }
+effects { ui.* <= 2 }
+
+extern ui.end_frame() -> void
+
+func f(x: i32) -> i32 {
+entry:
+  @ui.end_frame()
+  return %x
+}

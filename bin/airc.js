@@ -1007,15 +1007,34 @@ function runMigrateCommand(args) {
   };
   const [moduleId, outputFile, recordFile] = [option("--module-id"), option("-o"), option("--record")];
   readSourceFile(file);
-  const { migrateV053 } = require("../src/migrate_v053");
-  const result = migrateV053(fs.readFileSync(file), { moduleId, path: file });
-  if (recordFile !== undefined) fs.writeFileSync(recordFile, result.record);
+  const { isImportReadFailure, migrateV053 } = require("../src/migrate_v053");
+  let result;
+  try {
+    result = migrateV053(fs.readFileSync(file), { moduleId, path: file });
+  } catch (error) {
+    if (!isImportReadFailure(error)) throw error;
+    console.error("air.cli.file_read_failed: import file could not be read");
+    return 1;
+  }
+  if (recordFile !== undefined) {
+    try {
+      fs.writeFileSync(recordFile, result.record);
+    } catch (_) {
+      console.error("air.cli.file_write_failed: record file could not be written");
+      return 1;
+    }
+  }
   if (result.kind === "REJECTED") {
     console.error(`${file}${result.line === null ? "" : `:${result.line}`}: ${result.code}: ${result.construct} (${result.reason})`);
     if (result.legacy_message !== undefined) console.error(result.legacy_message);
     if (result.origin) console.error(`origin: ${result.origin.file}${result.origin.line === null ? "" : `:${result.origin.line}`} ${result.origin.construct}`);
   } else if (outputFile !== undefined) {
-    fs.writeFileSync(outputFile, result.output);
+    try {
+      fs.writeFileSync(outputFile, result.output);
+    } catch (_) {
+      console.error("air.cli.file_write_failed: output file could not be written");
+      return 1;
+    }
   } else {
     process.stdout.write(result.output);
   }

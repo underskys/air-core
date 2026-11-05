@@ -1,0 +1,7 @@
+module mig_f64imm
+capabilities { }
+
+export func f() -> f64 {
+entry:
+  return 1.5
+}

@@ -1,0 +1,10 @@
+module mig_fncap
+capabilities { debug }
+
+export func f(n: i32) -> i32 {
+  requires capability debug
+  requires no capability net
+  ensures capability debug
+entry:
+  return %n
+}

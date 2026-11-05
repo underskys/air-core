@@ -1,0 +1,10 @@
+module mig_host
+capabilities { debug }
+demand { debug.metric <= 2 }
+
+extern debug.metric(id: i32, value: i32) -> void
+
+export func f(x: i32) -> i32 {
+  call @debug.metric(1, %x)
+  return %x
+}

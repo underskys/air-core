@@ -1,0 +1,9 @@
+module mig_stepslib
+capabilities { }
+effects { cpu.instructions <= 2 }
+
+func f(x: f32, y: f32, t: f32) -> f32 {
+entry:
+  %r:f32 = f32.lerp %x, %y, %t
+  return %r
+}

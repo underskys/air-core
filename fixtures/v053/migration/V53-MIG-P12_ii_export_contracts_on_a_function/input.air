@@ -1,0 +1,9 @@
+module mig_fnexp
+capabilities { }
+
+export func run(x: i32) -> i32 {
+  requires export run
+  ensures export run
+entry:
+  return %x
+}

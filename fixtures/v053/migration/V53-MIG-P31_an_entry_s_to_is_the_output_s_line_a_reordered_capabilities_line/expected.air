@@ -1,0 +1,6 @@
+module mig_order
+capabilities { debug, random }
+
+export func f(x: i32) -> i32 {
+  return %x
+}

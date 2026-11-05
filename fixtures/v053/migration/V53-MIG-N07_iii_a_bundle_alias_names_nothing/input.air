@@ -1,0 +1,8 @@
+module mig_randas
+use utility.random as rr
+
+export func f() -> i32 {
+entry:
+  %r:i32 = @random.u32()
+  return %r
+}

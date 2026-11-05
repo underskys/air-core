@@ -1,0 +1,6 @@
+module mig_negzop
+
+export func f(x: i32) -> i32 {
+  %r: i32 = i32.wrapping_add %x, 0
+  return %r
+}

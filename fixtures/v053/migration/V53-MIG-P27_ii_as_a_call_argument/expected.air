@@ -1,0 +1,10 @@
+module mig_f64arg
+
+export func f() -> f64 {
+  %r: f64 = call @g(0.1)
+  return %r
+}
+
+func g(x: f64) -> f64 {
+  return %x
+}

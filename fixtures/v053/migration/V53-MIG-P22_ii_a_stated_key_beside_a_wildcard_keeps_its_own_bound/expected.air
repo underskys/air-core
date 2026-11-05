@@ -1,0 +1,12 @@
+module mig_wild2
+capabilities { ui }
+demand { ui.begin_frame <= 1, ui.end_frame <= 2 }
+
+extern ui.begin_frame(width: i32, height: i32, time_ms: i32) -> void
+extern ui.end_frame() -> void
+
+export func f(x: i32) -> i32 {
+  call @ui.begin_frame(1, 2, %x)
+  call @ui.end_frame()
+  return %x
+}

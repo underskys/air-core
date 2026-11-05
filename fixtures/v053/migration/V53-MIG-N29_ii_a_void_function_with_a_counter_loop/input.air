@@ -1,0 +1,18 @@
+module mig_vloop
+capabilities { }
+
+export func f() -> void {
+entry:
+  %zero:i32 = 0
+  br loop
+loop:
+  %i:i32 = phi.i32 entry:%zero, body:%next
+  %limit:i32 = 5
+  %done:bool = i32.ge_s %i, %limit
+  br_if %done, exit, body
+body:
+  %next:i32 = i32.add %i, 1
+  br loop
+exit:
+  return
+}

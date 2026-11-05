@@ -1,0 +1,10 @@
+module mig_f64arm
+
+export func f(c: bool) -> f64 {
+  %ret: f64 = if %c {
+    yield 1.50
+  } else {
+    yield -1.5
+  }
+  return %ret
+}

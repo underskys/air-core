@@ -1,0 +1,5 @@
+module mig_vmerge
+
+export func f() -> void {
+  return
+}

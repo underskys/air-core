@@ -1,0 +1,15 @@
+module mig_lines
+flow policy required
+flow source param a.secret sensitive
+flow sink return a public
+flow source param b.hidden sensitive
+flow sink return b public
+export func a(secret: i32) -> i32 {
+entry:
+  return %secret
+}
+
+export func b(hidden: i32) -> i32 {
+entry:
+  return %hidden
+}

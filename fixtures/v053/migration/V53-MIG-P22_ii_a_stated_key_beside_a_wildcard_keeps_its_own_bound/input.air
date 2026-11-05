@@ -1,0 +1,13 @@
+module mig_wild2
+capabilities { ui }
+effects { ui.* <= 3, ui.end_frame <= 2 }
+
+extern ui.begin_frame(width: i32, height: i32, time_ms: i32) -> void
+extern ui.end_frame() -> void
+
+export func f(x: i32) -> i32 {
+entry:
+  @ui.begin_frame(1, 2, %x)
+  @ui.end_frame()
+  return %x
+}

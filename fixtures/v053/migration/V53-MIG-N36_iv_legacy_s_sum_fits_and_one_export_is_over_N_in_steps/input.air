@@ -1,0 +1,13 @@
+module mig_overone
+effects { cpu.instructions <= 3 }
+
+export func f(a: f32, b: f32, t: f32) -> f32 {
+entry:
+  %o:f32 = f32.lerp %a, %b, %t
+  return %o
+}
+
+export func g() -> i32 {
+entry:
+  return 2
+}

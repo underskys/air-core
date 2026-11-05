@@ -1,0 +1,12 @@
+module mig_frame
+capabilities { gfx }
+demand { gfx.begin_frame <= 1, gfx.end_frame <= 1 }
+
+extern gfx.begin_frame(t: i32) -> void
+extern gfx.end_frame() -> void
+
+export func frame(t: i32) -> void {
+  call @gfx.begin_frame(%t)
+  call @gfx.end_frame()
+  return
+}

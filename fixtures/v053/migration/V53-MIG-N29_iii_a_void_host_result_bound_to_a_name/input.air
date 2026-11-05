@@ -1,0 +1,10 @@
+module mig_vbind
+capabilities { debug }
+
+extern debug.metric(id: i32, value: i32) -> void
+
+export func f(x: i32) -> i32 {
+entry:
+  %v:void = @debug.metric(1, %x)
+  return %x
+}
