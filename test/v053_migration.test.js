@@ -4,7 +4,8 @@
 // typed-v0.53 P0-11 (card AIR-0053-P0-11-0001), increment I3: M(), the
 // deterministic legacy-v0.50 -> typed-v0.53 migration. Every expected value
 // comes from R3.1 VECTORS.md and the admitted frozen slice text R4.8
-// (P0_11_SLICE_RFC.md, VECTORS_ADDITIONS.md, fixtures/; SHA256SUMS 16fd09f9...),
+// (P0_11_SLICE_RFC.md, VECTORS_ADDITIONS.md, fixtures/; SHA256SUMS 16fd09f9...)
+// with its erratum 1 for N34's long_path row (AIR_V053_P0_11_SLICE_RFC_R4_8_ERRATUM_1_2026_11_07/),
 // never from M(). The vectors' packages and the
 // corpus are checked in under fixtures/v053/migration/, pinned by
 // FIXTURES_TREE_SHA256 (the slice text's own digests). The corpus's values come
@@ -35,7 +36,7 @@ const FIXTURES = path.join(ROOT, "fixtures", "v053", "migration");
 const GATED = Object.freeze({ allowCandidateProfile: true, sourceProfile: "typed-v0.53" });
 const CODE = "air.migration.unsupported_construct";
 // sha256 over the sorted lines "<sha256>  <path>" of the slice text's SHA256SUMS `fixtures/` rows.
-const FIXTURES_TREE_SHA256 = "5db615a4e3db9fe485b881ed82d92e27faa322f02c4b9fe02be11d1579d2278c";
+const FIXTURES_TREE_SHA256 = "9c001019ef43119073d587c56acf91869f01214e109884705297830dbfcd60a3";
 const CORPUS_SHA256 = "c6d429dd62c9c189109613d0a3d5e2ebbf2c68ec90f2286a0c3428477dfdb7bb";
 const WITNESS_SHA256 = "e4f6c5feaa3f847a83751b75401139a96afe133db225315101e83fb3015401d6";
 const H52_DEV = "94001cd1c822ccd914874c85543aa99e91d6ae4e";
@@ -453,7 +454,7 @@ async function sectionClosureCli() {
     const restore = [];
     let used = JSON.parse(paths);
     if (!Array.isArray(used)) used = [used];
-    used = used.map((p) => p.replace("<300 a>", "a".repeat(300)).replace("<300 times abcdefgh/>", "abcdefgh/".repeat(300)));
+    used = used.map((p) => p.replace("<300 a>", "a".repeat(300)).replace("<1000 times abcdefgh/>", "abcdefgh/".repeat(1000)));
     try {
       if (id === "dangling_link") fs.symlinkSync("gone", at("q.air"));
       if (id === "directory") fs.mkdirSync(at("adir"));

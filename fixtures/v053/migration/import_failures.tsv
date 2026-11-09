@@ -14,7 +14,7 @@ unreadable_then_absent	["./q.air", "./absent.air"]	write q.air; chmod 000 q.air	
 locked_parent	"./locked/q.air"	mkdir locked; write locked/q.air; chmod 000 locked	EACCES	read-failure	-
 link_loop	"./a"	symlink a -> b; symlink b -> a	ELOOP	read-failure	-
 long_name	"./<300 a>.air"	none	ENAMETOOLONG	read-failure	-
-long_path	"./<300 times abcdefgh/>q.air"	none	ENAMETOOLONG	read-failure	-
+long_path	"./<1000 times abcdefgh/>q.air"	none	ENAMETOOLONG	read-failure	-
 oversized	"./q.air"	sparse q.air of 600 MiB	regular file above the bound	read-failure	-
 above_the_bound	"./q.air"	valid q.air of 4 MiB + 1 byte	regular file above the bound	read-failure	-
 at_the_bound	"./q.air"	valid q.air of 4 MiB	regular file at the bound	later-increment	-
