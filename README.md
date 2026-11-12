@@ -227,6 +227,8 @@ Current active milestone:
 - `run` and `runPackage` remain the legacy package-execution facade. The v0.52
   `createVerifiedTypedRuntime` API is a separate pure typed-module runtime; its
   host `admit` callback is rechecked and is not an AIR grant/effect mediator.
+- `instantiateVerifiedAirModule` is the verified entry for borrowed-slice modules; raw instantiation moved to
+  `@underskys/air-core/raw` as `instantiateRawWasm`.
 - Active roadmap:
   [docs/V0_45_RELEASE_PLAN.md](https://gitlab.com/fd.skyrealm/air-core/-/blob/main/docs/V0_45_RELEASE_PLAN.md)
 - Feature status:

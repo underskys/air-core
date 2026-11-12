@@ -173,8 +173,8 @@ if (!files.some((p) => p.startsWith("spec/"))) {
   failures.push("spec/: missing spec surface");
 }
 // SCALAR F-1: the exports map is exactly the documented entry points, and no packed src/ file names the test-only seam.
-if (!require("node:util").isDeepStrictEqual(manifest.exports, { ".": "./src/index.js", "./package.json": "./package.json" })) {
-  failures.push("package.json exports: must be exactly { \".\": \"./src/index.js\", \"./package.json\": \"./package.json\" } (SCALAR F-1)");
+if (!require("node:util").isDeepStrictEqual(manifest.exports, { ".": "./src/index.js", "./package.json": "./package.json", "./raw": "./src/raw.js" })) {
+  failures.push("package.json exports: must be exactly { \".\": \"./src/index.js\", \"./package.json\": \"./package.json\", \"./raw\": \"./src/raw.js\" } (SCALAR F-1, SEC53-02)");
 }
 for (const p of files.filter((file) => file.startsWith("src/"))) {
   if (/mintHarnessRecord|HARNESS_RECORDS/.test(fs.readFileSync(path.join(root, p), "latin1"))) {

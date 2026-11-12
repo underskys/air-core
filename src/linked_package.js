@@ -11,27 +11,8 @@ const { reportPackageDir } = require("./sdk");
 const LINKED_PACKAGE_SCHEMA_VERSION = "0.16";
 
 async function buildLinkedPackage(packageDir, output, options = {}) {
-  const base = path.resolve(packageDir);
-  const manifest = validatePackageManifest(base, { built: false });
-  const metadata = normalizePackageMetadata(manifest);
+  const { metadata, linkPlan, merged, wat } = linkedPackageLowering(packageDir, options);
   const profile = options.profile;
-  const linkPlan = createPackageLinkPlan(base, { profile, releaseCandidate: options.releaseCandidate });
-  if (linkPlan.status === "fail") {
-    const err = new Error("cannot build linked package: link plan failed");
-    err.report = linkedBuildReport(linkPlan, null, null, { status: "fail" });
-    throw err;
-  }
-
-  const packageReport = reportPackageDir(base, {
-    profile,
-    releaseCandidate: options.releaseCandidate
-  });
-  // QA52 P1-2: lower the module ASTs package-check verified, with their
-  // region slot, region bounds and host (ptr, capacity) facts, instead of
-  // re-parsed sources that carry none of them.
-  const verifiedModules = verifiedPackageModuleAsts(base, metadata.entry);
-  const merged = mergePackageModules(base, metadata, packageReport, linkPlan, verifiedModules);
-  const wat = withPackageExportWrappers(lowerToWat(merged.module), merged.exportWrappers);
   const linkedWatHash = fingerprintText(wat);
   const emit = options.emit || (String(output).endsWith(".wat") ? "wat" : "wasm");
   const outPath = path.resolve(output);
@@ -40,7 +21,7 @@ async function buildLinkedPackage(packageDir, output, options = {}) {
   if (emit === "wat") {
     fs.writeFileSync(outPath, wat);
   } else if (emit === "wasm") {
-    const wasm = await watToWasm(wat, `${metadata.name || "package"}.linked.wat`);
+    const wasm = await linkedPackageWatToWasm(wat, metadata);
     linkedWasmHash = fingerprintBuffer(wasm);
     fs.writeFileSync(outPath, wasm);
   } else {
@@ -62,6 +43,41 @@ async function buildLinkedPackage(packageDir, output, options = {}) {
   });
   fs.writeFileSync(sidecar, `${stableStringify(report)}\n`);
   return { output: outPath, sidecar, wat, report };
+}
+
+// SEC53-02 R3 (OD-S2-5 (a)): the deterministic linked lowering, in memory. The build writes it; conformance replay binds prebuilt bytes to it.
+function linkedPackageLowering(packageDir, options = {}) {
+  const base = path.resolve(packageDir);
+  const manifest = validatePackageManifest(base, { built: false });
+  const metadata = normalizePackageMetadata(manifest);
+  const profile = options.profile;
+  const linkPlan = createPackageLinkPlan(base, { profile, releaseCandidate: options.releaseCandidate });
+  if (linkPlan.status === "fail") {
+    const err = new Error("cannot build linked package: link plan failed");
+    err.report = linkedBuildReport(linkPlan, null, null, { status: "fail" });
+    throw err;
+  }
+
+  const packageReport = reportPackageDir(base, {
+    profile,
+    releaseCandidate: options.releaseCandidate
+  });
+  // QA52 P1-2: lower the module ASTs package-check verified, with their
+  // region slot, region bounds and host (ptr, capacity) facts, instead of
+  // re-parsed sources that carry none of them.
+  const verifiedModules = verifiedPackageModuleAsts(base, metadata.entry);
+  const merged = mergePackageModules(base, metadata, packageReport, linkPlan, verifiedModules);
+  const wat = withPackageExportWrappers(lowerToWat(merged.module), merged.exportWrappers);
+  return { metadata, linkPlan, merged, wat };
+}
+
+function linkedPackageWatToWasm(wat, metadata) {
+  return watToWasm(wat, `${metadata.name || "package"}.linked.wat`);
+}
+
+async function linkedPackageWasm(packageDir, options = {}) {
+  const lowering = linkedPackageLowering(packageDir, options);
+  return { ...lowering, wasm: await linkedPackageWatToWasm(lowering.wat, lowering.metadata) };
 }
 
 function mergePackageModules(base, metadata, packageReport, linkPlan, verifiedModules) {
@@ -403,3 +419,5 @@ module.exports = {
   buildLinkedPackage,
   linkedBuildReport
 };
+// Internal, for conformance replay's binding; not part of the enumerable exports that the public index spreads.
+Object.defineProperty(module.exports, "linkedPackageWasm", { enumerable: false, value: linkedPackageWasm });

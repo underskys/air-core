@@ -9,6 +9,14 @@ compact format:
 - Security
 - Breaking / Migration
 
+## v0.53.0 - Unreleased
+
+### Breaking / Migration
+
+- `instantiateAirModule` left the package root. Callers that verify their own source use `instantiateVerifiedAirModule({ source, sourceName, imports, packageDigest, library })`, with the same result and evidence; callers with prebuilt or crafted bytes use `require("@underskys/air-core/raw").instantiateRawWasm`.
+- The root's borrowed lane (`invokeBorrowedMemory`, `prepareBorrowedMemoryInvocation`) takes verified instances only; raw instances use `invokeRawBorrowedMemory` and `prepareRawBorrowedMemoryInvocation` from `@underskys/air-core/raw`. An export whose result is not exactly one `i32`, `f32` or `f64`, or whose Wasm parameters are not the lanes its descriptor entry names, is refused before it runs.
+- Conformance replay binds `metadata.wasm` to the deterministic lowering of the verified source, single-entry or linked, and refuses other bytes with `air.conformance.wasm_source_mismatch`. The benchmark runs only the bytes it built.
+
 ## v0.52.1 - Bounded Soundness Maintenance
 
 First public release candidate of the 0.52 line; the 0.52.0 candidate below was

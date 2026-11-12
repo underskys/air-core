@@ -34,7 +34,7 @@ const parser = require("../src/parser");
 const wb = require("../src/workbound");
 const { measureTypedModule } = require("../src/analysis_capacity");
 const { AirLspSession } = require("../src/lsp_server");
-const { instantiateAirModule } = require("../src/sdk");
+const { instantiateRawWasm } = require("../src/raw");
 const {
   buildVerifiedTypedModule,
   createVerifiedTypedRuntime,
@@ -1032,9 +1032,9 @@ async function main() {
       // instance per invocation.
       assert(p01Built, "V53-STATE-P01 ran first");
       const wasmBytes = inspectVerifiedTypedBuild(p01Built).wasmBytes;
-      const one = await instantiateAirModule({ wasmBytes });
+      const one = await instantiateRawWasm({ wasmBytes });
       const sameInstance = [one.exports.bump(), one.exports.bump()];
-      const twoInstances = [(await instantiateAirModule({ wasmBytes })).exports.bump(), (await instantiateAirModule({ wasmBytes })).exports.bump()];
+      const twoInstances = [(await instantiateRawWasm({ wasmBytes })).exports.bump(), (await instantiateRawWasm({ wasmBytes })).exports.bump()];
       assert.deepEqual(sameInstance, [1, 2], "one instance: 1, 2");
       assert.deepEqual(twoInstances, [1, 1], "two instances: 1, 1");
       return { value: { one_instance: sameInstance, two_instances: twoInstances } };

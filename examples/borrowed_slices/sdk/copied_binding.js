@@ -12,11 +12,11 @@ async function main() {
   const mod = air.parseAir(source, sourcePath, {
     resolveSourceImports: false
   });
-  air.verifyModule(mod, { library: true });
-  const wasm = await air.watToWasm(air.lowerToWat(mod), sourcePath);
   const packageDigest = digest(Buffer.from(source, "utf8"));
-  const instance = await air.instantiateAirModule({
-    wasmBytes: wasm,
+  const instance = await air.instantiateVerifiedAirModule({
+    source,
+    sourceName: sourcePath,
+    library: true,
     packageDigest
   });
   const src = new Uint8Array(8);
@@ -26,7 +26,6 @@ async function main() {
   const invocation = air.invokeBorrowedMemory({
     instance,
     interfaceDescriptor: air.borrowedSliceInterfaceDescriptor(mod),
-    moduleDigest: digest(wasm),
     packageDigest,
     entrypoint: "copy_final",
     bindings: {

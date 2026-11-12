@@ -37,9 +37,19 @@ class BorrowedMemoryBindingError extends Error {
   }
 }
 
+const BORROWED_RESULT_LANES = Object.freeze(["i32", "f32", "f64"]);
+
 function invokeBorrowedMemory(options) {
+  return invokeWith(options, false);
+}
+
+function invokeRawBorrowedMemory(options) {
+  return invokeWith(options, true);
+}
+
+function invokeWith(options, allowRaw) {
   try {
-    return prepareBorrowedMemoryInvocation(options).invoke();
+    return prepareWith(options, allowRaw).invoke();
   } catch (error) {
     if (error instanceof BorrowedMemoryBindingError) {
       return createRejectedInvocationResult(error, options);
@@ -49,6 +59,14 @@ function invokeBorrowedMemory(options) {
 }
 
 function prepareBorrowedMemoryInvocation(options = {}) {
+  return prepareWith(options, false);
+}
+
+function prepareRawBorrowedMemoryInvocation(options = {}) {
+  return prepareWith(options, true);
+}
+
+function prepareWith(options, allowRaw) {
   requirePlainObject(options, "options");
   const instance = requireInstance(options.instance);
   const memory = requireMemory(instance);
@@ -57,6 +75,19 @@ function prepareBorrowedMemoryInvocation(options = {}) {
   const bindings = normalizeBindings(options.bindings, entry);
   const scalarArguments = normalizeScalarArguments(options.arguments, entry);
   const identity = resolveInstanceIdentity(instance, options);
+  if (!identity.verified && !allowRaw) {
+    bindingFail("air.borrow.instance_unverified", "this instance is raw: instantiate it with instantiateVerifiedAirModule, or use @underskys/air-core/raw");
+  }
+  const resultLanes = identity.exportResults && identity.exportResults.get(entry.name);
+  if (!resultLanes || resultLanes.length !== 1 || !BORROWED_RESULT_LANES.includes(resultLanes[0])) {
+    bindingFail("air.borrow.result_unsupported", `export '${entry.name}' must return exactly one i32, f32 or f64 on the borrowed lane`);
+  }
+  // SEC53-02 R4 (OD-S2-6 (a)): the export's Wasm parameter lanes must be the ones its descriptor entry flattens to;
+  // otherwise the call boundary throws a raw TypeError (an i64 lane given a Number).
+  const paramLanes = identity.exportParams && identity.exportParams.get(entry.name);
+  if (!paramLanes || paramLanes.join() !== borrowedParamLanes(entry).join()) {
+    bindingFail("air.borrow.interface_invalid", `export '${entry.name}' does not take the Wasm parameter lanes its descriptor entry names`);
+  }
   const moduleDigest = identity.moduleDigest;
   const packageDigest = identity.packageDigest;
   const resourceCertificateDigest = normalizeCertificateDigest(options.resourceCertificate, packageDigest);
@@ -795,7 +826,37 @@ function registerBorrowedMemoryInstanceIdentity(instance, identity = {}) {
   const packageDigest = identity.packageDigest == null
     ? null
     : normalizeIdentityDigest(identity.packageDigest, "packageDigest");
-  instanceIdentities.set(instance, Object.freeze({ moduleDigest, packageDigest }));
+  instanceIdentities.set(instance, Object.freeze({
+    moduleDigest,
+    packageDigest,
+    verified: identity.verified === true,
+    exportResults: identity.exportResults || null,
+    exportParams: identity.exportParams || null
+  }));
+}
+
+// SEC53-02 R4 (OD-S2-6 (a)): the Wasm lanes a descriptor entry's parameters flatten to, on both lanes. A borrowed slice is
+// (ptr, len); argument checks have already refused every scalar type but the i32 forms and f32.
+function borrowedParamLanes(entry) {
+  return (entry.params || []).flatMap((param) => (param.kind === "borrowed_slice" ? ["i32", "i32"] : [param.type === "f32" ? "f32" : "i32"]));
+}
+
+// SEC53-02: the one place an instance for the borrowed lane is made. The
+// verified entry (sdk.js) and the verified session pass verified: true; the
+// raw path (raw.js) passes false. The result lanes are read from the bytes.
+async function instantiateRegisteredWasm(bytes, imports, identity = {}) {
+  const source = Buffer.from(bytes);
+  const loaded = await WebAssembly.instantiate(source, imports || {});
+  const instance = loaded.instance || loaded;
+  const sections = typedWasmSections(source);
+  registerBorrowedMemoryInstanceIdentity(instance, {
+    moduleDigest: `sha256:${crypto.createHash("sha256").update(source).digest("hex")}`,
+    packageDigest: identity.packageDigest || null,
+    verified: identity.verified === true,
+    exportResults: sections ? sections.exportResults : null,
+    exportParams: sections ? sections.exportParams : null
+  });
+  return instance;
 }
 
 function resolveInstanceIdentity(instance, options) {
@@ -803,7 +864,7 @@ function resolveInstanceIdentity(instance, options) {
   if (!registered) {
     bindingFail(
       "air.borrow.instance_identity_unavailable",
-      "instantiate the module through instantiateAirModule before borrowed invocation"
+      "instantiate the module through instantiateVerifiedAirModule (or the raw path) before borrowed invocation"
     );
   }
   const packageDigest = normalizeIdentityDigest(options.packageDigest, "packageDigest");
@@ -1048,6 +1109,7 @@ function typedWasmSections(bytes) {
     const imports = [];
     const functionTypes = [];
     const exportResults = new Map();
+    const exportParams = new Map();
     let readOnly = [];
     while (offset < bytes.length) {
       const id = byte();
@@ -1080,7 +1142,10 @@ function typedWasmSections(bytes) {
       } else if (id === 7) {
         for (let count = unsigned(); count > 0; count -= 1) {
           const exported = name(); const kind = byte(); const index = unsigned();
-          if (kind === 0 && functionTypes[index]) exportResults.set(exported, functionTypes[index].results);
+          if (kind === 0 && functionTypes[index]) {
+            exportResults.set(exported, functionTypes[index].results);
+            exportParams.set(exported, functionTypes[index].params);
+          }
         }
       } else if (id === 11 && readOnly) {
         for (let count = unsigned(); count > 0 && readOnly; count -= 1) {
@@ -1098,7 +1163,7 @@ function typedWasmSections(bytes) {
       }
       offset = end;
     }
-    return { exportResults, imports, readOnly };
+    return { exportParams, exportResults, imports, readOnly };
   } catch (_) {
     return null;
   }
@@ -1260,7 +1325,7 @@ async function typedAdmissionStep1(admission) {
   }
   const sections = typedWasmSections(admission.bytes);
   const capabilities = typedCapabilityImports(sections, imports);
-  return { capabilities, digest, exportResults: sections.exportResults, module, readOnly: sections.readOnly };
+  return { capabilities, digest, exportParams: sections.exportParams, exportResults: sections.exportResults, module, readOnly: sections.readOnly };
 }
 
 // Steps 2 and 3: a fresh contract function and import object for this
@@ -1308,7 +1373,7 @@ function typedAdmissionInstantiate(admission, module, checked) {
   const memory = instance.exports.memory;
   if (!(memory instanceof WebAssembly.Memory)) admissionFail(3, "air.borrow.memory_missing", "the instance does not export its memory");
   host.state.memory = memory;
-  return { exportResults: checked.exportResults, host: host.state, instance, memory, owned: recorded || owned };
+  return { exportParams: checked.exportParams, exportResults: checked.exportResults, host: host.state, instance, memory, owned: recorded || owned };
 }
 
 function normalizeTypedInterfaceEntry(descriptor, entrypointName) {
@@ -1460,7 +1525,7 @@ async function admitTypedV053ArtifactCopy(options, bytes, trace) {
 }
 
 function createAdmittedInstance(admitted, descriptor, digest, trace, guard) {
-  const { exportResults, host, instance, memory, owned } = admitted;
+  const { exportParams, exportResults, host, instance, memory, owned } = admitted;
   let used = false;
   const claim = () => {
     if (used) bindingFail("air.borrow.invocation_reused", "an admitted typed-v0.53 instance runs one invocation");
@@ -1516,6 +1581,11 @@ function createAdmittedInstance(admitted, descriptor, digest, trace, guard) {
         if (typeof entrypoint !== "function" || entrypoint.length !== flattened) {
           bindingFail("air.borrow.interface_invalid", `export '${entry.name}' does not match the canonical flattened parameter count`);
         }
+        // SEC53-02 R4 (OD-S2-6 (a)): the same lane check as the borrowed lane's, before the export runs.
+        const paramLanes = exportParams && exportParams.get(entry.name);
+        if (!paramLanes || paramLanes.join() !== borrowedParamLanes(entry).join()) {
+          bindingFail("air.borrow.interface_invalid", `export '${entry.name}' does not take the Wasm parameter lanes its descriptor entry names`);
+        }
         const wasmArguments = flattenArguments(entry, prepared.bindings, scalarArguments);
         const evidence = { bindings: prepared.bindings, copiedIn: true, entry, interfaceDescriptor: descriptor, moduleDigest: digest, packageDigest: null, resourceCertificateDigest: null };
         let inputDigests = emptyDigestMap(prepared.bindings);
@@ -1568,8 +1638,11 @@ module.exports = {
   BORROWED_MEMORY_EVIDENCE_KIND,
   BORROWED_MEMORY_EVIDENCE_SCHEMA_VERSION,
   BorrowedMemoryBindingError,
+  instantiateRegisteredWasm,
   invokeBorrowedMemory,
+  invokeRawBorrowedMemory,
   prepareBorrowedMemoryInvocation,
+  prepareRawBorrowedMemoryInvocation,
   registerBorrowedMemoryInstanceIdentity
 };
 // P0-08 typed-v0.53 admission; public through src/sdk.js only.

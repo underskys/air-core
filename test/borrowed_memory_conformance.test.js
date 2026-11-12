@@ -8,6 +8,7 @@ const os = require("os");
 const path = require("path");
 const { execFileSync } = require("child_process");
 const air = require("../src");
+const raw = require("../src/raw");
 const { borrowedSliceInterfaceDescriptor } = require("../src/borrowed_slices");
 const { lowerToWat, watToWasm } = require("../src/lower_wasm");
 const { parseAir } = require("../src/parser");
@@ -88,7 +89,7 @@ async function buildPackage(relativeDir) {
 }
 
 async function instantiate(pkg) {
-  return air.instantiateAirModule({
+  return raw.instantiateRawWasm({
     wasmBytes: pkg.wasm,
     packageDigest: pkg.certificate.package.digest
   });
@@ -106,7 +107,7 @@ async function runAffine(pkg, transferMode) {
     dst = new Float32Array(instance.exports.memory.buffer, 64, 4);
     src.set([1, 2, 3, 4]);
   }
-  const result = air.invokeBorrowedMemory({
+  const result = raw.invokeRawBorrowedMemory({
     instance,
     packageDigest: pkg.certificate.package.digest,
     interfaceDescriptor: pkg.descriptor,
@@ -142,7 +143,7 @@ async function runChecksum(pkg, transferMode) {
     input.set(Uint8Array.from({ length: 16 }, (_, index) => index + 1));
   }
   writeI32(state, 10);
-  const result = air.invokeBorrowedMemory({
+  const result = raw.invokeRawBorrowedMemory({
     instance,
     packageDigest: pkg.certificate.package.digest,
     interfaceDescriptor: pkg.descriptor,
@@ -183,7 +184,7 @@ async function runHostileCases(pkg) {
       ...options
     });
 
-  const zero = air.invokeBorrowedMemory({
+  const zero = raw.invokeRawBorrowedMemory({
     ...await makeBase("affine_empty"),
     bindings: {
       src: valid(new Uint8Array(0), "readonly", { maxLength: 0 }),
@@ -193,7 +194,7 @@ async function runHostileCases(pkg) {
   assert.strictEqual(zero.result, 0);
   assert.deepStrictEqual(zero.diagnostics, []);
 
-  const negative = air.invokeBorrowedMemory({
+  const negative = raw.invokeRawBorrowedMemory({
     ...await makeBase(),
     bindings: {
       src: valid(new Uint8Array(16), "readonly", { actualLength: -1 }),
@@ -202,7 +203,7 @@ async function runHostileCases(pkg) {
   });
   expectDiagnostic(negative, "air.borrow.length_out_of_range");
 
-  const oversized = air.invokeBorrowedMemory({
+  const oversized = raw.invokeRawBorrowedMemory({
     ...await makeBase(),
     bindings: {
       src: valid(new Uint8Array(17), "readonly", { actualLength: 17 }),
@@ -213,7 +214,7 @@ async function runHostileCases(pkg) {
 
   const relationBase = await makeBase();
   relationBase.arguments = { count: 5, scale: 2, bias: 0.5 };
-  const relation = air.invokeBorrowedMemory({
+  const relation = raw.invokeRawBorrowedMemory({
     ...relationBase,
     bindings: {
       src: valid(new Uint8Array(16), "readonly"),
@@ -222,7 +223,7 @@ async function runHostileCases(pkg) {
   });
   expectDiagnostic(relation, "air.borrow.entry_relation_failed");
 
-  const permission = air.invokeBorrowedMemory({
+  const permission = raw.invokeRawBorrowedMemory({
     ...await makeBase("affine_empty"),
     bindings: {
       src: valid(new Uint8Array(0), "readwrite", { maxLength: 0 }),
@@ -232,7 +233,7 @@ async function runHostileCases(pkg) {
   expectDiagnostic(permission, "air.borrow.access_mismatch");
 
   const overlapBuffer = new ArrayBuffer(24);
-  const overlap = air.invokeBorrowedMemory({
+  const overlap = raw.invokeRawBorrowedMemory({
     ...await makeBase(),
     bindings: {
       src: valid(new Uint8Array(overlapBuffer, 0, 16), "readonly"),
@@ -241,7 +242,7 @@ async function runHostileCases(pkg) {
   });
   expectDiagnostic(overlap, "air.borrow.mutable_overlap");
 
-  const alignment = air.invokeBorrowedMemory({
+  const alignment = raw.invokeRawBorrowedMemory({
     ...await makeBase(),
     bindings: {
       src: valid(new Uint8Array(new ArrayBuffer(17), 1, 16), "readonly"),
@@ -252,7 +253,7 @@ async function runHostileCases(pkg) {
 
   const stale = new Uint8Array(16);
   structuredClone(stale, { transfer: [stale.buffer] });
-  const detached = air.invokeBorrowedMemory({
+  const detached = raw.invokeRawBorrowedMemory({
     ...await makeBase(),
     bindings: {
       src: valid(stale, "readonly"),
@@ -361,7 +362,7 @@ entry:
   fs.writeFileSync(path.join(dir, "module.wasm"), wasm);
   const report = air.checkPackageDir(dir, { built: true });
   assert.notStrictEqual(report.status, "fail");
-  const instance = await air.instantiateAirModule({ wasmBytes: wasm });
+  const instance = await raw.instantiateRawWasm({ wasmBytes: wasm });
   assert.strictEqual(instance.exports.identity(37), 37);
   return true;
 }

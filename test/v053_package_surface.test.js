@@ -20,7 +20,7 @@ const { loadSeamedCopy } = require("./support/harness_seam");
 const ROOT = path.resolve(__dirname, "..");
 const GATED = Object.freeze({ allowCandidateProfile: true, sourceProfile: "typed-v0.53" });
 const T2 = "module v53.vec\nexport func f(a: i32, b: i32) -> i32 {\n%o: i32 = i32.checked_add %a, %b\nreturn %o\n}\n";
-const EXPORTS = { ".": "./src/index.js", "./package.json": "./package.json" };
+const EXPORTS = { ".": "./src/index.js", "./package.json": "./package.json", "./raw": "./src/raw.js" };
 
 const results = [];
 const failures = [];

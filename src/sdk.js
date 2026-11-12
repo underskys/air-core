@@ -35,7 +35,7 @@ const {
 const {
   invokeBorrowedMemory,
   prepareBorrowedMemoryInvocation,
-  registerBorrowedMemoryInstanceIdentity,
+  instantiateRegisteredWasm,
   typedV053: typedBorrowedAdmission
 } = require("./borrowed_memory_binding");
 const { borrowedSliceInterfaceDescriptor } = require("./borrowed_slices");
@@ -116,21 +116,28 @@ function loadPackage(packageDir) {
 // typed-v0.53 borrowed-lane artifact for direct-export hosts. It takes the
 // artifact bytes and a trust root (`record`: the verified build object, T1;
 // or `pinnedDigest`, T2), and resolves to a handle whose `instantiate()` runs
-// the admission steps for one invocation. instantiateAirModule never admits a
-// typed-v0.53 artifact (it does not supply the contract import).
+// the admission steps for one invocation. Neither instantiateVerifiedAirModule
+// nor the raw path admits a typed-v0.53 artifact (no contract import).
 function admitTypedV053Artifact(options) {
   return typedBorrowedAdmission.admitTypedV053Artifact(options);
 }
 
-async function instantiateAirModule(options) {
-  const source = options.wasmBytes || fs.readFileSync(options.wasmPath);
-  const instance = await WebAssembly.instantiate(source, options.imports || {});
-  const resolved = instance.instance || instance;
-  registerBorrowedMemoryInstanceIdentity(resolved, {
-    moduleDigest: `sha256:${sha256(source)}`,
-    packageDigest: options.packageDigest || null
+// SEC53-02: the verified instantiation entry. It takes AIR source, never
+// bytes, and parses, verifies and lowers it in this call. The raw entry is
+// instantiateRawWasm in src/raw.js (@underskys/air-core/raw).
+async function instantiateVerifiedAirModule(options = {}) {
+  if (!options || typeof options !== "object" || typeof options.source !== "string" ||
+      options.wasmBytes !== undefined || options.wasmPath !== undefined) {
+    throw new Error("air.instantiate.source_required: instantiateVerifiedAirModule takes AIR source text, never Wasm bytes");
+  }
+  const sourceName = options.sourceName || "module.air";
+  const mod = parseAir(options.source, sourceName, { resolveSourceImports: false });
+  verifyModule(mod, { library: options.library === true });
+  const wasm = await watToWasm(lowerToWat(mod), sourceName);
+  return instantiateRegisteredWasm(wasm, options.imports || {}, {
+    packageDigest: options.packageDigest || null,
+    verified: true
   });
-  return resolved;
 }
 
 function createGpuImports(host) {
@@ -2961,7 +2968,7 @@ module.exports = {
   normalizePackageMetadata,
   run,
   verifyPackageDir,
-  instantiateAirModule,
+  instantiateVerifiedAirModule,
   admitTypedV053Artifact,
   borrowedSliceInterfaceDescriptor,
   invokeBorrowedMemory,

@@ -5,6 +5,7 @@ const assert = require("assert");
 const fs = require("fs");
 const path = require("path");
 const air = require("../src");
+const raw = require("../src/raw");
 const { parseAir } = require("../src/parser");
 const { borrowedSliceInterfaceDescriptor } = require("../src/borrowed_slices");
 const { lowerToWat, watToWasm } = require("../src/lower_wasm");
@@ -19,7 +20,7 @@ async function compile(source, file = "<borrowed-memory-binding>") {
   const wasm = await watToWasm(lowerToWat(mod), file);
   return {
     descriptor: borrowedSliceInterfaceDescriptor(mod),
-    instance: await air.instantiateAirModule({
+    instance: await raw.instantiateRawWasm({
       wasmBytes: wasm,
       packageDigest: PACKAGE_DIGEST
     }),
@@ -62,14 +63,14 @@ function expectDiagnostic(result, code) {
 }
 
 function invoke(options) {
-  return air.invokeBorrowedMemory({
+  return raw.invokeRawBorrowedMemory({
     packageDigest: PACKAGE_DIGEST,
     ...options
   });
 }
 
 function prepare(options) {
-  return air.prepareBorrowedMemoryInvocation({
+  return raw.prepareRawBorrowedMemoryInvocation({
     packageDigest: PACKAGE_DIGEST,
     ...options
   });
@@ -293,14 +294,14 @@ entry:
       dst: fixedDescriptor(goodDst, "writeonly", "copied_into_wasm")
     }
   }), "air.borrow.buffer_detached");
-  expectDiagnostic(air.invokeBorrowedMemory({
+  expectDiagnostic(raw.invokeRawBorrowedMemory({
     ...baseOptions,
     bindings: {
       src: fixedDescriptor(goodSrc, "readonly", "copied_into_wasm"),
       dst: fixedDescriptor(goodDst, "writeonly", "copied_into_wasm")
     }
   }), "air.borrow.identity_digest_invalid");
-  expectDiagnostic(air.invokeBorrowedMemory({
+  expectDiagnostic(raw.invokeRawBorrowedMemory({
     ...baseOptions,
     moduleDigest: `sha256:${"f".repeat(64)}`,
     packageDigest: PACKAGE_DIGEST,

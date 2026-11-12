@@ -40,6 +40,8 @@ intents are safe to execute.
 
 AIR's checks run inside the host's JavaScript process. They are not a boundary against other code in that process, which can load any file of the package by path, call internal functions or change objects. Non-enumerable properties and the package's `exports` map shape the supported API. They are not access control.
 
+Raw execution. Every Wasm execution entry on the package root runs only bytes AIR verified, lowered from verified source, matched to that lowering, or admitted. `@underskys/air-core/raw` (`instantiateRawWasm`, `invokeRawBorrowedMemory`, `prepareRawBorrowedMemoryInvocation`) runs caller bytes with caller imports and no admission; its results carry no AIR assurance. Neither is a sandbox against code in the same process.
+
 ## Review Boundary
 
 Evidence reports are review tools. They help humans inspect capabilities,

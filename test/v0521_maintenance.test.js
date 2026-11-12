@@ -12,6 +12,7 @@ const os = require("node:os");
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
 const air = require("../src");
+const raw = require("../src/raw");
 const { lowerToWat, watToWasm } = require("../src/lower_wasm");
 
 const ROOT = path.resolve(__dirname, "..");
@@ -446,10 +447,10 @@ entry:
   const mod = legacy(source);
   const wasm = await watToWasm(lowerToWat(mod), "<alias>");
   const packageDigest = sha(Buffer.from("m1-alias"));
-  const instance = await air.instantiateAirModule({ wasmBytes: wasm, packageDigest });
+  const instance = await raw.instantiateRawWasm({ wasmBytes: wasm, packageDigest });
   assert.ok(instance.exports.__air_owned_memory_end instanceof WebAssembly.Global);
   const memory = instance.exports.memory;
-  const invoke = (offset) => air.invokeBorrowedMemory({
+  const invoke = (offset) => raw.invokeRawBorrowedMemory({
     instance,
     interfaceDescriptor: air.borrowedSliceInterfaceDescriptor(mod),
     moduleDigest: sha(wasm),

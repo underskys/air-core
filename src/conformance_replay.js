@@ -4,6 +4,9 @@ const path = require("path");
 const { checkPackageDir } = require("./sdk");
 const { normalizePackageMetadata, validatePackageManifest } = require("./package_manifest");
 const { parseAir } = require("./parser");
+const { verifyModule } = require("./verifier");
+const { lowerToWat, watToWasm } = require("./lower_wasm");
+const { linkedPackageWasm } = require("./linked_package");
 const { analyzeObservationOnlyFunctions, observationSafetyDiagnostics } = require("./observation_safety");
 
 const CONFORMANCE_SCHEMA_VERSION = "0.16";
@@ -81,7 +84,34 @@ async function createConformanceReplayReport(packageDir, options = {}) {
   let instance = null;
   try {
     const wasmPath = path.join(base, metadata.wasm);
-    const loaded = await WebAssembly.instantiate(fs.readFileSync(wasmPath), {});
+    const wasm = fs.readFileSync(wasmPath);
+    const sourcePath = path.join(base, metadata.entry);
+    // SEC53-02 R3 (OD-S2-5 (a)): the bytes bind to the lowering of the verified entry, or else to the deterministic
+    // linked lowering of the package's verified modules. An entry that does not stand alone has no single-entry lowering.
+    let mod = null;
+    let single = null;
+    try {
+      mod = parseAir(fs.readFileSync(sourcePath, "utf8"), sourcePath);
+      verifyModule(mod);
+      single = Buffer.from(await watToWasm(lowerToWat(mod), sourcePath));
+    } catch (_) {
+      mod = null;
+    }
+    let linked = null;
+    if (!single || !single.equals(wasm)) {
+      linked = await linkedPackageWasm(base, { profile }).catch(() => null);
+      if (!linked || !Buffer.from(linked.wasm).equals(wasm)) {
+        addMismatch(report, {
+          step: null,
+          kind: "wasm-source-mismatch",
+          message: single || linked
+            ? "air.conformance.wasm_source_mismatch: package Wasm does not match deterministic lowering of the verified source"
+            : "air.conformance.wasm_source_mismatch: no verified lowering could be made"
+        });
+        return finalizeReport(report);
+      }
+    }
+    const loaded = await WebAssembly.instantiate(wasm, {});
     instance = loaded.instance || loaded;
   } catch (err) {
     addMismatch(report, {

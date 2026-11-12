@@ -95,7 +95,8 @@ async function createVerifiedExecutionSession(options) {
   if (options.entrypoint !== undefined && options.entrypoint !== metadata.executionProfile.entrypoint) {
     sessionFail("air.realtime.entrypoint_mismatch", "requested entrypoint does not match the verified profile");
   }
-  const { checkPackageDir, instantiateAirModule } = require("./sdk");
+  const { checkPackageDir } = require("./sdk");
+  const { instantiateRegisteredWasm } = require("./borrowed_memory_binding");
   const packageReport = checkPackageDir(base, {
     built: true,
     certificateRequired: true
@@ -143,10 +144,9 @@ async function createVerifiedExecutionSession(options) {
       "package Wasm does not match deterministic lowering of the verified source"
     );
   }
-  const instance = await instantiateAirModule({
-    wasmBytes: wasm,
+  const instance = await instantiateRegisteredWasm(wasm, {}, {
     packageDigest: suppliedCertificate.package.digest,
-    imports: {}
+    verified: true
   });
   const memory = requireExportedMemory(instance);
   const interfaceDescriptor = borrowedSliceInterfaceDescriptor(mod);

@@ -92,6 +92,7 @@ async function createBenchmarkReport(benchmarkDir, options = {}) {
   }
 
   const buildWasm = Boolean(config.buildWasm || config.runtime || config.traceRequiresWasm);
+  let builtWasm = null;
   if (buildWasm) {
     workingPackageDir = path.join(workRoot, "package");
     fs.cpSync(packageDir, workingPackageDir, { recursive: true });
@@ -102,6 +103,7 @@ async function createBenchmarkReport(benchmarkDir, options = {}) {
       diagnostics.push(diagnostic("air.benchmark.wasm_build_failed", "fail", built.error.message, {}));
     } else {
       metrics.wasmSizeBytes = built.value.wasmSizeBytes;
+      builtWasm = built.value.wasm;
     }
   }
 
@@ -161,7 +163,7 @@ async function createBenchmarkReport(benchmarkDir, options = {}) {
   }
 
   if (config.runtime) {
-    const runtime = await measureAsync(() => runRuntimeBenchmark(packageDir, config));
+    const runtime = await measureAsync(() => runRuntimeBenchmark(packageDir, config, builtWasm));
     metrics.wasmExecutionMs = runtime.ms;
     if (runtime.error) {
       diagnostics.push(diagnostic("air.benchmark.runtime_unavailable", "warn", runtime.error.message, {}));
@@ -302,22 +304,22 @@ async function buildPackageWasm(packageDir, config) {
   const wasmPath = path.join(packageDir, wasmName);
   fs.writeFileSync(wasmPath, wasm);
   return {
+    wasm,
     wasmPath,
     wasmSizeBytes: wasm.length,
     benchmarkId: config.benchmarkId
   };
 }
 
-async function runRuntimeBenchmark(packageDir, config) {
+async function runRuntimeBenchmark(packageDir, config, builtWasm) {
   const manifest = validatePackageManifest(packageDir, { built: false });
   const metadata = normalizePackageMetadata(manifest);
   const runtime = config.runtime || {};
   if (!runtime.export || typeof runtime.export !== "string") throw new Error("runtime.export is required");
   const repeat = config.repeat || 1;
-  const wasmPath = path.join(packageDir, metadata.wasm || "module.wasm");
-  if (!fs.existsSync(wasmPath)) throw new Error(`missing wasm for runtime execution: ${metadata.wasm || "module.wasm"}`);
+  if (!builtWasm) throw new Error("air.benchmark.wasm_unbuilt: the runtime runs only the Wasm this benchmark built from the verified source");
   const imports = runtime.imports === "output" ? createOutputImports({ emit: () => 0 }) : {};
-  const loaded = await WebAssembly.instantiate(fs.readFileSync(wasmPath), imports);
+  const loaded = await WebAssembly.instantiate(builtWasm, imports);
   const instance = loaded.instance || loaded;
   const fn = instance.exports[runtime.export];
   if (typeof fn !== "function") throw new Error(`missing runtime export ${runtime.export}`);

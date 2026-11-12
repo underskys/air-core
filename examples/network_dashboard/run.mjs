@@ -5,7 +5,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const require = createRequire(import.meta.url);
-const { buildPackage, loadPackage, instantiateAirModule, parseAir, createConformanceReport } = require("../../src");
+const { buildPackage, loadPackage, instantiateVerifiedAirModule, parseAir, createConformanceReport } = require("../../src");
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const demoDir = __dirname;
@@ -40,8 +40,9 @@ await buildPackage({
   out: outDir
 });
 const pkg = loadPackage(outDir);
-const instance = await instantiateAirModule({
-  wasmBytes: pkg.wasmBytes,
+const instance = await instantiateVerifiedAirModule({
+  source: fs.readFileSync(airFile, "utf8"),
+  sourceName: airFile,
   imports: {
     ui: {
       begin_frame: (width, height, timeMs) => calls.push({ op: "begin_frame", width, height, timeMs }),

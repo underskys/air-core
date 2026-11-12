@@ -17,7 +17,6 @@ const {
   watToWasm,
   buildPackage,
   loadPackage,
-  instantiateAirModule,
   createGpuImports,
   createInputImports,
   createIoImports,
@@ -38,6 +37,7 @@ const {
   createAudioAuthorityReport
 } = require("../src");
 const { diagnosticHintsFromMessage, normalizeDiagnostic } = require("../src/diagnostics");
+const { instantiateRawWasm } = require("../src/raw");
 const { compileSceneLayout } = require("../tools/scene-compiler");
 
 const root = path.resolve(__dirname, "..");
@@ -149,7 +149,7 @@ entry:
     assert.match(wat, /i32\.const 3/);
     assert.match(wat, /i32\.const 1/);
     const wasm = await watToWasm(wat, "constants_demo.air");
-    const instance = await instantiateAirModule({
+    const instance = await instantiateRawWasm({
       wasmBytes: wasm,
       imports: { debug: { metric() {} } }
     });
@@ -3326,7 +3326,7 @@ entry:
     assert.strictEqual(checked.abi, AIR_ABI_VERSION);
     const pkg = loadPackage(out);
     assert.strictEqual(pkg.metadata.compiler, `airc ${AIR_VERSION}`);
-    const instance = await instantiateAirModule({ wasmBytes: pkg.wasmBytes, imports: {} });
+    const instance = await instantiateRawWasm({ wasmBytes: pkg.wasmBytes, imports: {} });
     assert.strictEqual(instance.exports.run(), 9);
   });
 

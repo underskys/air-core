@@ -5,6 +5,7 @@ const assert = require("assert");
 const fs = require("fs");
 const path = require("path");
 const air = require("../src");
+const raw = require("../src/raw");
 const { borrowedSliceInterfaceDescriptor } = require("../src/borrowed_slices");
 const { lowerToWat, watToWasm } = require("../src/lower_wasm");
 const { parseAir } = require("../src/parser");
@@ -113,11 +114,11 @@ function assertExpansion(patch, classification, category) {
 async function invocationEvidence(text) {
   const mod = moduleFor(text);
   const wasmBytes = await watToWasm(lowerToWat(mod), "<borrowed-certificate>");
-  const instance = await air.instantiateAirModule({ wasmBytes, packageDigest });
+  const instance = await raw.instantiateRawWasm({ wasmBytes, packageDigest });
   const src = new Uint8Array(16);
   const dst = new Uint8Array(16);
   new DataView(src.buffer).setInt32(0, 27, true);
-  return air.invokeBorrowedMemory({
+  return raw.invokeRawBorrowedMemory({
     instance,
     interfaceDescriptor: borrowedSliceInterfaceDescriptor(mod),
     packageDigest,

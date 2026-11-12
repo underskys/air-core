@@ -35,7 +35,9 @@ const wb = require("../src/workbound");
 const air = require("../src/index");
 const { measureTypedModule } = require("../src/analysis_capacity");
 const { AirLspSession } = require("../src/lsp_server");
-const { instantiateAirModule, invokeBorrowedMemory, admitTypedV053Artifact } = require("../src/sdk");
+const { admitTypedV053Artifact } = require("../src/sdk");
+const raw = require("../src/raw");
+const { instantiateRawWasm } = raw;
 const {
   buildVerifiedTypedModule,
   createVerifiedTypedRuntime,
@@ -1234,7 +1236,7 @@ async function sectionRegions() {
   await vector("V53-MEM-N09", async () => {
     const r = await accepted(pinned("N09"), [["run", [], v(0)], ["run", [], v(0)]], "n09");
     // (ii) R2: one SDK instance, two calls (P8-R24): zeroing does not depend on freshness.
-    const instance = await instantiateAirModule({ wasmBytes: inspectVerifiedTypedBuild(r.built).wasmBytes });
+    const instance = await instantiateRawWasm({ wasmBytes: inspectVerifiedTypedBuild(r.built).wasmBytes });
     const twice = [instance.exports.run(), instance.exports.run()];
     assert.deepEqual(twice, [0, 0], "N09 (ii): one instantiateAirModule instance, two calls");
     ctx.n09 = r;
@@ -1582,7 +1584,7 @@ async function sectionBorrowed() {
     for (const [tag, expected, summary] of [["i", 1, [22, 2, 2]], ["ii", 0, [18, 2, 0]]]) {
       const r = await accepted(pinned(`N42${tag}`), [["run", [], v(expected)]], `n42${tag}`);
       // Both hold on a reused instance too (P8-R24).
-      const instance = await instantiateAirModule({ wasmBytes: inspectVerifiedTypedBuild(r.built).wasmBytes });
+      const instance = await instantiateRawWasm({ wasmBytes: inspectVerifiedTypedBuild(r.built).wasmBytes });
       const reused = [instance.exports.run(), instance.exports.run()];
       assert.deepEqual(reused, [expected, expected], `N42 (${tag}): one instance, two calls`);
       value[tag] = { "E(run)": expectE(r.built, "run", ...summary, 16), backing: expectBacking(r.built, 16, 16), invocations: r.invocations, measures: expectMeasures(`N42${tag}`), reused };
@@ -1612,7 +1614,7 @@ async function sectionBorrowed() {
   await vector("V53-MEM-P11 (ii)", async () => {
     // AD-8: carrier A of OD-P7-6 (a) (P0-07 exact-SHA QA F-1).
     const r = await accepted(pinned("P11ii"), [["run", [], v(7)], ["run", [], v(7)]], "p11ii");
-    const instance = await instantiateAirModule({ wasmBytes: inspectVerifiedTypedBuild(r.built).wasmBytes });
+    const instance = await instantiateRawWasm({ wasmBytes: inspectVerifiedTypedBuild(r.built).wasmBytes });
     const reused = [instance.exports.run(), instance.exports.run()];
     assert.deepEqual(reused, [7, 7], "one instantiateAirModule instance, two calls");
     return { value: { "E(run)": expectE(r.built, "run", 24, 0, 0, 100), backing: expectBacking(r.built, 160, 112), invocations: r.invocations, measures: expectMeasures("P11ii"), reused } };
@@ -1979,7 +1981,7 @@ const LEGACY_CASE = `
 const legacyCaseHere = new Function("sdk", "input", `return (async () => {${LEGACY_CASE}})();`);
 async function legacyCase(where, bytes, descriptor, options = {}) {
   const input = { descriptor, mode: options.mode || "wasm_memory_view", moduleDigest: options.moduleDigest, offset: options.offset === undefined ? 1024 : options.offset, pkg: PKG };
-  if (where === "H-NEW") return legacyCaseHere(air, { ...input, bytes: Buffer.from(bytes) });
+  if (where === "H-NEW") return legacyCaseHere({ instantiateAirModule: raw.instantiateRawWasm, invokeBorrowedMemory: raw.invokeRawBorrowedMemory }, { ...input, bytes: Buffer.from(bytes) });
   return runOld(where, `const sdk = src("sdk.js");${LEGACY_CASE}`, { ...input, bytesHex: hexBytes(bytes) }).out;
 }
 
@@ -2609,10 +2611,12 @@ const src = (m) => require(path.join(process.argv[2], "src", m));
   });
   await vector("V53-ABI-67", async () => {
     const sdkModule = require("../src/sdk");
-    const original = { checkPackageDir: sdkModule.checkPackageDir, instantiateAirModule: sdkModule.instantiateAirModule };
+    const bindingModule = require("../src/borrowed_memory_binding");
+    const original = { checkPackageDir: sdkModule.checkPackageDir };
+    const originalRegistered = bindingModule.instantiateRegisteredWasm;
     const reached = [];
     sdkModule.checkPackageDir = () => { reached.push("checkPackageDir"); throw new Error("reached checkPackageDir"); };
-    sdkModule.instantiateAirModule = async () => { reached.push("instantiateAirModule"); throw new Error("reached instantiation"); };
+    bindingModule.instantiateRegisteredWasm = async () => { reached.push("instantiateRegisteredWasm"); throw new Error("reached instantiation"); };
     const value = {};
     try {
       for (const [label, source] of [["a", F.T53], ["b", fs.readFileSync(path.join(ROOT, "examples", "realtime_safe", "module.air"), "utf8")]]) {
@@ -2624,6 +2628,7 @@ const src = (m) => require(path.join(process.argv[2], "src", m));
       }
     } finally {
       Object.assign(sdkModule, original);
+      bindingModule.instantiateRegisteredWasm = originalRegistered;
     }
     assert.deepEqual(reached, [], "refused before checkPackageDir, the legacy parser and instantiation");
     const profile = JSON.parse(fs.readFileSync(path.join(ROOT, "examples", "realtime_safe", "air.package.json"), "utf8")).executionProfile;

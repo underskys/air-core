@@ -3,6 +3,7 @@
 
 const assert = require("assert");
 const air = require("../src");
+const raw = require("../src/raw");
 const { parseAir } = require("../src/parser");
 const {
   BORROWED_SLICE_LENGTH_MAX,
@@ -40,7 +41,7 @@ function expectReject(source, code) {
 async function compile(source) {
   const mod = verify(source);
   const wasmBytes = await watToWasm(lowerToWat(mod), "<borrowed-adversarial>");
-  const instance = await air.instantiateAirModule({
+  const instance = await raw.instantiateRawWasm({
     wasmBytes,
     packageDigest: PACKAGE_DIGEST
   });
@@ -64,7 +65,7 @@ function descriptor(buffer, access, options = {}) {
 }
 
 function invoke(compiled, entrypoint, bindings, args = {}) {
-  return air.invokeBorrowedMemory({
+  return raw.invokeRawBorrowedMemory({
     instance: compiled.instance,
     interfaceDescriptor: compiled.descriptor,
     packageDigest: PACKAGE_DIGEST,
@@ -75,7 +76,7 @@ function invoke(compiled, entrypoint, bindings, args = {}) {
 }
 
 function prepare(compiled, entrypoint, bindings, args = {}) {
-  return air.prepareBorrowedMemoryInvocation({
+  return raw.prepareRawBorrowedMemoryInvocation({
     instance: compiled.instance,
     interfaceDescriptor: compiled.descriptor,
     packageDigest: PACKAGE_DIGEST,
