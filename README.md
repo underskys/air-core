@@ -224,7 +224,7 @@ Current active milestone:
   Host ABI.
 - Source profiles: omitted profile selects `legacy-v0.50`; typed source requires
   explicit `typed-v0.51`. Unsupported profile values fail closed.
-- `run` and `runPackage` remain the legacy package-execution facade. The v0.52
+- `run` and `runPackage` remain the legacy package-execution facade; grants, limits, the package descriptor and host-state facts come from `hostAuthority`, and a request carrying them is refused. The v0.52
   `createVerifiedTypedRuntime` API is a separate pure typed-module runtime; its
   host `admit` callback is rechecked and is not an AIR grant/effect mediator.
 - `instantiateVerifiedAirModule` is the verified entry for borrowed-slice modules; raw instantiation moved to

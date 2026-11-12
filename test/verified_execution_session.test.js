@@ -259,7 +259,7 @@ function expectCode(fn, code) {
     },
     adapters: { "output.emit": "capture" }
   };
-  const legacy = await air.run(legacyRequest);
+  const legacy = await air.runHostConstructed(legacyRequest);
   assert.strictEqual(legacy.decision.status, "allow");
 
   console.log(JSON.stringify({

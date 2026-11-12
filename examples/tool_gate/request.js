@@ -1,39 +1,13 @@
 const path = require("path");
+const air = require("../../src");
 
-function createToolGateRequest(options = {}) {
-  const facts = {
-    amount: 25,
-    quotaUsed: 1,
-    rateUsed: 1,
-    targetId: 7,
-    requiresRedaction: true,
-    ...(options.facts || {})
-  };
-  const grant = {
-    id: "agent.tool.invoke",
-    decision: "allow",
-    capability: "output",
-    effects: ["output.emit"],
-    targetId: 7,
-    maxAmount: 100,
-    quotaLimit: 3,
-    rateLimit: 4,
-    expiresAt: 2000,
-    redaction: "required",
-    ...(options.grant || {})
-  };
-  const limits = {
-    maxAmount: 80,
-    quotaLimit: 2,
-    rateLimit: 3,
-    now: 1000,
-    maxOutputs: 1,
-    maxHostCalls: 1,
-    ...(options.limits || {})
-  };
-  return {
+const REQUEST_FACT_KEYS = ["amount", "targetId"];
+
+// Host side. Everything here comes from the host's own configuration, clock and counters, never from a request.
+function createToolGateAuthority(hostState = {}) {
+  return air.hostAuthority({
     package: {
-      directory: options.directory || path.resolve(__dirname),
+      directory: hostState.directory || path.resolve(__dirname),
       profile: "mock-output-v011",
       entrypoint: "decide",
       requiredGrant: "agent.tool.invoke",
@@ -51,13 +25,51 @@ function createToolGateRequest(options = {}) {
         { from: "effective", key: "redactionFlag" }
       ]
     },
-    facts,
-    grants: options.grants !== undefined ? options.grants : [grant],
-    limits,
-    adapters: options.adapters !== undefined
-      ? options.adapters
-      : { "output.emit": "capture" }
-  };
+    grants: hostState.grants !== undefined ? hostState.grants : [{
+      id: "agent.tool.invoke",
+      decision: "allow",
+      capability: "output",
+      effects: ["output.emit"],
+      targetId: 7,
+      maxAmount: 100,
+      quotaLimit: 3,
+      rateLimit: 4,
+      expiresAt: 2000,
+      redaction: "required",
+      ...(hostState.grant || {})
+    }],
+    limits: {
+      maxAmount: 80,
+      quotaLimit: 2,
+      rateLimit: 3,
+      now: 1000,
+      maxOutputs: 1,
+      maxHostCalls: 1,
+      ...(hostState.limits || {})
+    },
+    adapters: hostState.adapters !== undefined ? hostState.adapters : { "output.emit": "capture" },
+    hostFacts: {
+      quotaUsed: 1,
+      rateUsed: 1,
+      requiresRedaction: true,
+      ...(hostState.hostFacts || {})
+    }
+  });
 }
 
-module.exports = { createToolGateRequest };
+// Request side. Only the two values a client may ask for, checked before AIR sees them.
+function toolGateRequestFacts(untrusted) {
+  if (!untrusted || typeof untrusted !== "object" || Array.isArray(untrusted)) throw new Error("tool request must be an object");
+  const extra = Object.keys(untrusted).filter((key) => !REQUEST_FACT_KEYS.includes(key)).sort();
+  if (extra.length) throw new Error(`tool request field ${extra[0]} is not accepted`);
+  for (const key of REQUEST_FACT_KEYS) {
+    if (!Number.isSafeInteger(untrusted[key]) || untrusted[key] < 0) throw new Error(`tool request ${key} must be a non-negative safe integer`);
+  }
+  return { amount: untrusted.amount, targetId: untrusted.targetId };
+}
+
+function createToolGateRequest(authority = createToolGateAuthority(), untrusted = { amount: 25, targetId: 7 }) {
+  return { authority, facts: toolGateRequestFacts(untrusted) };
+}
+
+module.exports = { createToolGateAuthority, createToolGateRequest, toolGateRequestFacts };

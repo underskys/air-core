@@ -7,13 +7,8 @@ The v0.49 facade is a bounded, host-neutral JavaScript entrypoint:
 ```js
 const air = require("./src");
 
-const result = await air.run({
-  package,
-  facts,
-  grants,
-  limits,
-  adapters
-});
+const authority = air.hostAuthority({ package, grants, limits, adapters, hostFacts });
+const result = await air.run({ authority, facts });
 ```
 
 The stable result shape is:
@@ -64,6 +59,8 @@ Limits must explicitly include:
 - maximum host calls.
 
 Logical time is supplied by the host. The facade does not read wall-clock time.
+
+Grants, limits, the package descriptor, adapters and `hostFacts` are host state, which the host passes to `air.hostAuthority(...)`. `facts` in the request are request data; `air.run` refuses a request that carries host state, or `quotaUsed`, `rateUsed` or `requiresRedaction` among its facts, before anything runs. `air.runHostConstructed(...)` is the named single-object form, for a host that builds the whole request itself.
 
 ## Adapters
 

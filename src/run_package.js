@@ -46,6 +46,11 @@ const GRANT_KEYS = new Set([
   "expiresAt",
   "redaction"
 ]);
+const AUTHORITY_REQUEST_KEYS = new Set(["authority", "facts"]);
+const AUTHORITY_MATERIAL_KEYS = new Set(["package", "grants", "limits", "adapters"]);
+const AUTHORITY_CONFIG_KEYS = new Set(["package", "grants", "limits", "adapters", "hostFacts"]);
+const HOST_STATE_FACT_KEYS = Object.freeze(["quotaUsed", "rateUsed", "requiresRedaction"]);
+const HOST_AUTHORITY = new WeakMap();
 const LIMIT_KEYS = new Set([
   "maxAmount",
   "quotaLimit",
@@ -62,20 +67,27 @@ const ADMISSION_BOUND_DIAGNOSTICS = Object.freeze({
 });
 const ARGUMENT_SOURCES = new Set(["facts", "grant", "limits", "effective", "literal"]);
 
-async function run(request = {}) {
+async function runRequest(request, mode) {
   const diagnostics = [];
   let descriptor = null;
   let packageReport = null;
   let resourceCertificate = null;
+  let authority = null;
 
   try {
     requirePlainObject(request, "request");
-    rejectUnknownKeys(request, REQUEST_KEYS, "request");
-    descriptor = normalizePackageDescriptor(request.package);
+    if (mode === "authority") {
+      authority = authorityOf(request);
+      descriptor = authority.descriptor;
+    } else {
+      rejectUnknownKeys(request, REQUEST_KEYS, "request");
+      descriptor = normalizePackageDescriptor(request.package);
+    }
   } catch (err) {
-    diagnostics.push(runDiagnostic("air.run.request_invalid", "fail", safeMessage(err)));
+    const code = err && err.airRunCode || "air.run.request_invalid";
+    diagnostics.push(runDiagnostic(code, "fail", safeMessage(err)));
     return finalizeRunResult({
-      decision: denyDecision("request_invalid"),
+      decision: denyDecision(code === "air.run.authority_unbranded" ? "authority_unbranded" : "request_invalid"),
       diagnostics,
       execution: executionRecord("not_run"),
       resourceCertificate
@@ -154,10 +166,15 @@ async function run(request = {}) {
   let limits;
   let adapters;
   try {
-    facts = normalizeFacts(request.facts);
-    grants = normalizeGrants(request.grants);
-    limits = normalizeLimits(request.limits);
-    adapters = normalizeAdapters(request.adapters);
+    if (authority) {
+      facts = mergeRequestFacts(normalizeFacts(request.facts), authority.hostFacts);
+      ({ grants, limits, adapters } = authority);
+    } else {
+      facts = normalizeFacts(request.facts);
+      grants = normalizeGrants(request.grants);
+      limits = normalizeLimits(request.limits);
+      adapters = normalizeAdapters(request.adapters);
+    }
   } catch (err) {
     diagnostics.push(runDiagnostic("air.run.input_invalid", "fail", safeMessage(err)));
     return finalizeRunResult({
@@ -319,6 +336,56 @@ async function run(request = {}) {
       resourceCertificate
     });
   }
+}
+
+async function run(request = {}) {
+  return runRequest(request, "authority");
+}
+
+async function runHostConstructed(request = {}) {
+  return runRequest(request, "host-constructed");
+}
+
+function hostAuthority(config) {
+  try {
+    requirePlainObject(config, "authority");
+    rejectUnknownKeys(config, AUTHORITY_CONFIG_KEYS, "authority");
+    const snapshot = Object.freeze({
+      descriptor: normalizePackageDescriptor(config.package),
+      grants: normalizeGrants(config.grants),
+      limits: normalizeLimits(config.limits),
+      adapters: normalizeAdapters(config.adapters),
+      hostFacts: normalizeFacts(config.hostFacts === undefined ? {} : config.hostFacts)
+    });
+    const token = Object.freeze(Object.create(null));
+    HOST_AUTHORITY.set(token, snapshot);
+    return token;
+  } catch (err) {
+    throw new Error(`air.run.authority_invalid: ${safeMessage(err)}`);
+  }
+}
+
+function authorityOf(request) {
+  const carried = Object.keys(request).filter((key) => AUTHORITY_MATERIAL_KEYS.has(key)).sort();
+  const snapshot = Object.prototype.hasOwnProperty.call(request, "authority") ? HOST_AUTHORITY.get(request.authority) : undefined;
+  if (carried.length || !snapshot) {
+    const err = new Error(carried.length
+      ? `request.${carried[0]} is host authority: build it with hostAuthority(), or call runHostConstructed() when the host builds the whole request`
+      : "request.authority must come from hostAuthority()");
+    err.airRunCode = "air.run.authority_unbranded";
+    throw err;
+  }
+  rejectUnknownKeys(request, AUTHORITY_REQUEST_KEYS, "request");
+  return snapshot;
+}
+
+function mergeRequestFacts(requestFacts, hostFacts) {
+  for (const key of Object.keys(requestFacts)) {
+    if (HOST_STATE_FACT_KEYS.includes(key) || Object.prototype.hasOwnProperty.call(hostFacts, key)) {
+      throw new Error(`facts.${key} is host state: supply it in hostAuthority({ hostFacts })`);
+    }
+  }
+  return normalizeFacts({ ...requestFacts, ...hostFacts });
 }
 
 const runPackage = run;
@@ -953,7 +1020,9 @@ module.exports = {
   RUN_PACKAGE_KIND,
   RUN_PACKAGE_SCHEMA_VERSION,
   certifiedAdmissionBound,
+  hostAuthority,
   run,
+  runHostConstructed,
   runPackage,
   stableRunStringify: stableStringify
 };

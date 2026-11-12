@@ -42,6 +42,8 @@ AIR's checks run inside the host's JavaScript process. They are not a boundary a
 
 Raw execution. Every Wasm execution entry on the package root runs only bytes AIR verified, lowered from verified source, matched to that lowering, or admitted. `@underskys/air-core/raw` (`instantiateRawWasm`, `invokeRawBorrowedMemory`, `prepareRawBorrowedMemoryInvocation`) runs caller bytes with caller imports and no admission; its results carry no AIR assurance. Neither is a sandbox against code in the same process.
 
+Host authority. The embedding host is trusted; what it receives while serving (a client's request, a message, an AI model's tool call) is not. `air.run` takes the package descriptor, grants, limits with logical `now`, adapters and host-state facts only from `air.hostAuthority(...)`, and refuses a request that carries them, or carries `quotaUsed`, `rateUsed` or `requiresRedaction` among its facts. `air.runHostConstructed` keeps the single-object form for hosts that build the whole request; request data passed to it, or to `hostAuthority`, gets the host's authority, and AIR cannot detect that. Selecting among host-made authorities by request data hands that choice to the request.
+
 ## Review Boundary
 
 Evidence reports are review tools. They help humans inspect capabilities,

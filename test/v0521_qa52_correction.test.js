@@ -79,7 +79,7 @@ function writePackage(dir, files, manifest = {}) {
 // ---------------------------------------------------------------------------
 
 const toolGate = path.join(root, "examples", "tool_gate");
-const { createToolGateRequest } = require(path.join(toolGate, "request.js"));
+const { createToolGateAuthority, createToolGateRequest } = require(path.join(toolGate, "request.js"));
 
 const phiFn = (name, bodyLine) => `
 func ${name}(n: i32) -> i32 {
@@ -146,7 +146,7 @@ async function runToolGate({ source, requiredBounds = null, limits = {}, files =
     const manifest = JSON.parse(fs.readFileSync(path.join(dir, "air.package.json"), "utf8"));
     if (requiredBounds) manifest.resourceCertificate.requiredBounds = requiredBounds;
     fs.writeFileSync(path.join(dir, "air.package.json"), `${JSON.stringify(manifest, null, 2)}\n`);
-    return await air.run(createToolGateRequest({ directory: dir, limits }));
+    return await air.run(createToolGateRequest(createToolGateAuthority({ directory: dir, limits })));
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }
@@ -177,7 +177,7 @@ test("P1-1.1 finite zero host-call bound is admitted when the limit permits", as
     manifest.capabilities = [];
     delete manifest.outputContracts;
     fs.writeFileSync(path.join(dir, "air.package.json"), `${JSON.stringify(manifest, null, 2)}\n`);
-    const result = await air.run(createToolGateRequest({ directory: dir, adapters: {}, grant: { effects: [] }, limits: { maxOutputs: 1, maxHostCalls: 1 } }));
+    const result = await air.run(createToolGateRequest(createToolGateAuthority({ directory: dir, adapters: {}, grant: { effects: [] }, limits: { maxOutputs: 1, maxHostCalls: 1 } })));
     assert.strictEqual(result.resourceCertificate.bounds.hostCalls.status, "verified");
     assert.strictEqual(result.resourceCertificate.bounds.hostCalls.totalUpperBound, 0);
     assert.deepStrictEqual(result.decision, { code: 1, reasonCode: "allowed", status: "allow" });

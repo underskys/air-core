@@ -70,7 +70,7 @@ function diagnosticCodes(result) {
 }
 
 async function expectDenied(options, reasonCode, diagnosticCode) {
-  const result = await air.run(createToolGateRequest(options));
+  const result = await air.runHostConstructed(createToolGateRequest(options));
   assert.strictEqual(result.decision.status, "deny");
   assert.strictEqual(result.decision.reasonCode, reasonCode);
   assert.strictEqual(result.outputs.length, 0);
@@ -80,7 +80,7 @@ async function expectDenied(options, reasonCode, diagnosticCode) {
 }
 
 async function main() {
-  const allowed = await air.run(createToolGateRequest());
+  const allowed = await air.runHostConstructed(createToolGateRequest());
   assert.strictEqual(allowed.decision.status, "allow");
   assert.deepStrictEqual(allowed.outputs[0].scalarArgs, [7, 25, 1, 1]);
   assert.strictEqual(allowed.outputs[0].display, "[REDACTED]");
@@ -121,7 +121,7 @@ async function main() {
     "air.run.redaction_required"
   );
 
-  const noSensitiveOutput = await air.run(createToolGateRequest({
+  const noSensitiveOutput = await air.runHostConstructed(createToolGateRequest({
     facts: { requiresRedaction: false },
     grant: { redaction: "none" }
   }));
@@ -129,7 +129,7 @@ async function main() {
   assert.strictEqual(noSensitiveOutput.outputs[0].redactionApplied, false);
   assert.strictEqual(noSensitiveOutput.outputs[0].display, "not_provided");
 
-  const repeat = await air.run(createToolGateRequest());
+  const repeat = await air.runHostConstructed(createToolGateRequest());
   assert.deepStrictEqual(repeat, allowed);
 
   const publicExampleResult = await air.run(createPublicToolGateRequest());
