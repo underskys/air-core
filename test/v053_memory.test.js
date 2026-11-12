@@ -48,6 +48,7 @@ const borrowedSlices = require("../src/borrowed_slices");
 const { typedV053FailureIdentity } = require("../src/v052_numeric_diagnostic");
 const { createVerifiedExecutionSession } = require("../src/verified_execution_session");
 const { assertRealtimeSafeProfile } = require("../src/verifier");
+const { loadSeamedCopy } = require("./support/harness_seam");
 
 const ROOT = path.resolve(__dirname, "..");
 const V053 = "typed-v0.53";
@@ -672,7 +673,7 @@ async function invocationOutcome(invoke) {
 // by its vector (the plain verified paths refuse it, P8-R24).
 async function accepted(source, invocations, label, buildInput = {}) {
   const ast = typedV053(source, `${label}.air`);
-  const wat = lowerToWat(ast, { maxWatBytes: MAX_WAT });
+  const wat = lowerToWat(ast, { allowCandidateProfile: true, maxWatBytes: MAX_WAT });
   const file = path.join(tmp, `${label}.air`);
   fs.writeFileSync(file, source);
   const cli = runCli(["verify", file, "--source-profile", V053, "--allow-candidate-profile"]);
@@ -966,7 +967,7 @@ function outcome(entry, mode) {
       unchangedAsts += 1;
     }
     let wat;
-    try { wat = lowerToWat(mod, { maxWatBytes: 4194304 }); } catch (error) { wat = "LOWERING FAILED: " + String(error.code || error.message); }
+    try { wat = lowerToWat(mod, { allowCandidateProfile: true, maxWatBytes: 4194304 }); } catch (error) { wat = "LOWERING FAILED: " + String(error.code || error.message); }
     return { result: { verdict: "VERIFIED" }, wat };
   } catch (error) {
     return { result: { code: error.code || null, cyclePath: error.cyclePath || null, disposition: error.disposition || null, line: error.loc && error.loc.line || null, message: String(error.message), verdict: "REJECTED" }, wat: null };
@@ -1080,6 +1081,32 @@ function forgeWat(wat, kind) {
   return assert.fail(`unknown forgery ${kind}`);
 }
 const forge = async (wat, kind) => Buffer.from(await watToWasm(forgeWat(wat, kind), `${kind}.air`));
+
+// SCALAR F-1 (SPEC R4 section 5.3 item 2; reading note 2): src/ has no
+// builder-defect seam. A seam vector builds its borrowed-lane module, mints
+// the harness record and admits it inside one seamed copy of src/
+// (test/support/harness_seam.js). Only source text, a plain descriptor and
+// bytes enter the copy, never a build record of the real src/.
+const seamedBuilds = new Map();
+async function seamed(key) {
+  const seam = loadSeamedCopy();
+  if (!seamedBuilds.has(key)) {
+    const source = pinned(key);
+    const ast = seam.index.parseSource(source, `${key.toLowerCase()}.air`, GATED);
+    seam.index.verifySource(ast, GATED);
+    seamedBuilds.set(key, {
+      built: await seam.verifiedBuild.buildVerifiedTypedModule({ ...GATED, descriptor: structuredClone(descriptorFor(source)), source }),
+      wat: seam.index.lowerToWat(ast, { allowCandidateProfile: true, maxWatBytes: MAX_WAT })
+    });
+  }
+  const { built, wat } = seamedBuilds.get(key);
+  return {
+    admit: (request) => seam.sdk.admitTypedV053Artifact(request),
+    built,
+    forge: async (kind) => Buffer.from(await seam.index.watToWasm(forgeWat(wat, kind), `${kind}.air`)),
+    mint: (options) => seam.verifiedBuild.typedV053.mintHarnessRecord(options)
+  };
+}
 
 // ---------------------------------------------------------------------------
 // Old hosts and compilers from git objects (V53-ABI-01..-16, -28, -29),
@@ -1470,13 +1497,13 @@ async function sectionBorrowed() {
     return { value: { "E(peek)": expectE(r.built, "peek", 3), measures: expectMeasures("N39"), o12: twelve.outcome, o13: thirteen.outcome, raw_trap: raw } };
   });
   await vector("V53-MEM-N23", async () => {
-    // The N38 harness: a verified build record and a module with matching digests (builder-defect seam).
-    const n08 = ctx.n08.built;
+    // The N38 harness: a verified build record and a module with matching digests (builder-defect seam, on the seamed copy).
+    const n08 = await seamed("N08");
     const out = {};
     for (const [label, kind] of [["a", "F-NORANGE"], ["b", "F-ENDLOW"]]) {
-      const bytes = await forge(ctx.n08.wat, kind);
-      const record = verifiedBuild.typedV053.mintHarnessRecord({ from: n08, wasmBytes: bytes });
-      const handle = await admitTypedV053Artifact({ record, wasmBytes: bytes });
+      const bytes = await n08.forge(kind);
+      const record = n08.mint({ from: n08.built, wasmBytes: bytes });
+      const handle = await n08.admit({ record, wasmBytes: bytes });
       const error = await captureAsync(() => handle.instantiate());
       assert(error && error.code === "air.borrow.air_memory_layout_unknown" && error.step === 3, String(error && error.message));
       observedFailures.push({ code: error.code, kind: "BINDING" });
@@ -1494,10 +1521,11 @@ async function sectionBorrowed() {
     });
   }
   await vector("V53-MEM-N38", async () => {
-    const n08 = ctx.n08.built;
-    const a = await captureAsync(async () => (await admitTypedV053Artifact({ record: verifiedBuild.typedV053.mintHarnessRecord({ from: n08, ownedRange: { end: 24, start: 16 } }), wasmBytes: n08.wasmBytes })).instantiate());
-    const emptyBytes = await forge(ctx.n08.wat, "F-EMPTY");
-    const b = await captureAsync(async () => (await admitTypedV053Artifact({ record: verifiedBuild.typedV053.mintHarnessRecord({ from: n08, ownedRange: { end: 32, start: 16 }, wasmBytes: emptyBytes }), wasmBytes: emptyBytes })).instantiate());
+    // (a) and (b): the builder-defect seam, on the seamed copy.
+    const n08 = await seamed("N08");
+    const a = await captureAsync(async () => (await n08.admit({ record: n08.mint({ from: n08.built, ownedRange: { end: 24, start: 16 } }), wasmBytes: n08.built.wasmBytes })).instantiate());
+    const emptyBytes = await n08.forge("F-EMPTY");
+    const b = await captureAsync(async () => (await n08.admit({ record: n08.mint({ from: n08.built, ownedRange: { end: 32, start: 16 }, wasmBytes: emptyBytes }), wasmBytes: emptyBytes })).instantiate());
     for (const error of [a, b]) assert(error && error.code === "air.borrow.air_memory_layout_unknown" && error.step === 3, String(error && error.message));
     // (c) V53-MEM-N39's module: recorded and exported ranges both empty: accepted.
     const n39 = acceptedSources.get("n39").built;
@@ -1645,7 +1673,7 @@ async function sectionBorrowed() {
     };
     const unchanged = {};
     for (const [key, [text, base]] of Object.entries(controls)) {
-      unchanged[key] = hexOf(lowerToWat(typedV053(text, `${key}.air`), { maxWatBytes: MAX_WAT }));
+      unchanged[key] = hexOf(lowerToWat(typedV053(text, `${key}.air`), { allowCandidateProfile: true, maxWatBytes: MAX_WAT }));
       assert.equal(unchanged[key], base, `control ${key}: WAT byte-identical to the base`);
     }
     return { value: { "E(run)": expectE(r.built, "run", 1), exports: exported, imports: 0, invocations: r.invocations, source_sha256: hexOf(source), unchanged_control_wat_sha256: unchanged }, sourceDigest: sha256(source) };
@@ -1657,7 +1685,7 @@ async function sectionBorrowed() {
     // is first executable here (V53-MEM-N26's f(13) through the adapter),
     // part 64 too (V53-ABI-36's guard trap).
     // The raw parts need no descriptor: the verified AST's own lowering.
-    const T = async (items) => ({ wasmBytes: Buffer.from(await watToWasm(lowerToWat(typedV053(mod(M, ...items)), { maxWatBytes: MAX_WAT }), "ref.air")) });
+    const T = async (items) => ({ wasmBytes: Buffer.from(await watToWasm(lowerToWat(typedV053(mod(M, ...items)), { allowCandidateProfile: true, maxWatBytes: MAX_WAT }), "ref.air")) });
     const fx = (header, body) => func(header, body);
     const parts = {
       1: direct(await T([fx("export func f(a: i32, b: i32) -> i32", ["%o: i32 = i32.checked_add %a, %b", "return %o"])]), "f", [2147483647, 1]),
@@ -1765,7 +1793,7 @@ async function sectionChecks(checkMem) {
     assert(classifyZeroing(noFill).length > 0, "control fill_removed must be rejected");
     rejected.fill_removed = classifyZeroing(noFill)[0];
     // The fill removed in the artifact: N42 (i) 100, (ii) 99, N09 (ii) 41 on its second call.
-    const unfilled = async (key) => rawInstance(Buffer.from(await watToWasm(removeFill(lowerToWat(typedV053(F[key]), { maxWatBytes: MAX_WAT })), `${key}.air`)));
+    const unfilled = async (key) => rawInstance(Buffer.from(await watToWasm(removeFill(lowerToWat(typedV053(F[key]), { allowCandidateProfile: true, maxWatBytes: MAX_WAT })), `${key}.air`)));
     const behaviour = { n09_ii: [], n42_i: (await unfilled("N42i")).exports.run(), n42_ii: (await unfilled("N42ii")).exports.run() };
     const n09 = await unfilled("N09");
     behaviour.n09_ii = [n09.exports.run(), n09.exports.run()];
@@ -2055,8 +2083,10 @@ async function sectionAbi(matrix) {
   await vector("V53-ABI-04", async () => {
     const l = legacyBuild("0.52.1");
     const t2 = await admissionRefusal(() => admitTypedV053Artifact({ pinnedDigest: pinOf(l.wasm), wasmBytes: l.wasm }), "air.abi.contract_unsupported", 1);
-    const record = verifiedBuild.typedV053.mintHarnessRecord({ from: t53.built, wasmBytes: l.wasm });
-    const t1 = await admissionRefusal(() => admitTypedV053Artifact({ record, wasmBytes: l.wasm }), "air.abi.contract_unsupported", 1);
+    // t1: the builder-defect seam, on the seamed copy.
+    const s53 = await seamed("T53");
+    const record = s53.mint({ from: s53.built, wasmBytes: l.wasm });
+    const t1 = await admissionRefusal(() => s53.admit({ record, wasmBytes: l.wasm }), "air.abi.contract_unsupported", 1);
     cell("V53-ABI-04", "ART-L521", "H-NEW typed admission", { t1, t2 });
     return { value: { t1_harness: t1, t2 } };
   });
@@ -2385,9 +2415,11 @@ async function sectionAbi(matrix) {
     });
   }
   await vector("V53-ABI-42", async () => {
-    const a = await admissionRefusal(async () => (await admitTypedV053Artifact({ record: verifiedBuild.typedV053.mintHarnessRecord({ from: t53.built, ownedRange: { end: 24, start: 16 } }), wasmBytes: bytes })).instantiate(), "air.borrow.air_memory_layout_unknown", 3);
-    const empty = await forge(t53.wat, "F-EMPTY");
-    const b = await admissionRefusal(async () => (await admitTypedV053Artifact({ record: verifiedBuild.typedV053.mintHarnessRecord({ from: t53.built, ownedRange: { end: 32, start: 16 }, wasmBytes: empty }), wasmBytes: empty })).instantiate(), "air.borrow.air_memory_layout_unknown", 3);
+    // (a) and (b): the builder-defect seam, on the seamed copy.
+    const s53 = await seamed("T53");
+    const a = await admissionRefusal(async () => (await s53.admit({ record: s53.mint({ from: s53.built, ownedRange: { end: 24, start: 16 } }), wasmBytes: s53.built.wasmBytes })).instantiate(), "air.borrow.air_memory_layout_unknown", 3);
+    const empty = await s53.forge("F-EMPTY");
+    const b = await admissionRefusal(async () => (await s53.admit({ record: s53.mint({ from: s53.built, ownedRange: { end: 32, start: 16 }, wasmBytes: empty }), wasmBytes: empty })).instantiate(), "air.borrow.air_memory_layout_unknown", 3);
     const c = await (await admitTypedV053Artifact({ record: ln.built, wasmBytes: ln.built.wasmBytes })).instantiate();
     return { value: { a, b, c: { accepted: Boolean(c && c.memory) } } };
   });
@@ -2515,9 +2547,11 @@ const src = (m) => require(path.join(process.argv[2], "src", m));
     return { value: { trace } };
   });
   await vector("V53-ABI-58", async () => {
-    const a = await admissionRefusal(async () => (await admitTypedV053Artifact({ record: verifiedBuild.typedV053.mintHarnessRecord({ from: t53.built, ownedRange: { end: 24, start: 16 } }), wasmBytes: bytes })).instantiate(), "air.borrow.air_memory_layout_unknown", 3);
-    const noMarker = await forge(t53.wat, "F-NOMARKER");
-    const b = await admissionRefusal(async () => (await admitTypedV053Artifact({ record: verifiedBuild.typedV053.mintHarnessRecord({ from: t53.built, wasmBytes: noMarker }), wasmBytes: noMarker })).instantiate(), "air.borrow.interface_invalid", 3);
+    // The builder-defect seam, on the seamed copy.
+    const s53 = await seamed("T53");
+    const a = await admissionRefusal(async () => (await s53.admit({ record: s53.mint({ from: s53.built, ownedRange: { end: 24, start: 16 } }), wasmBytes: s53.built.wasmBytes })).instantiate(), "air.borrow.air_memory_layout_unknown", 3);
+    const noMarker = await s53.forge("F-NOMARKER");
+    const b = await admissionRefusal(async () => (await s53.admit({ record: s53.mint({ from: s53.built, wasmBytes: noMarker }), wasmBytes: noMarker })).instantiate(), "air.borrow.interface_invalid", 3);
     return { value: { a, b, instance: "discarded; the caller never receives it; no handler armed (the set is empty at P0-08)" } };
   });
   await vector("V53-ABI-59", () => ({ status: "DEFERRED", value: { first_executable: "P0-10", reason: "F-STARTFX needs a capability import" } }));
@@ -2791,7 +2825,7 @@ async function sectionEachSlice() {
         assert(!/wabt|\n\s+at /iu.test(String(error.message)));
         continue;
       }
-      const wat = lowerToWat(ast, { maxWatBytes: MAX_WAT });
+      const wat = lowerToWat(ast, { allowCandidateProfile: true, maxWatBytes: MAX_WAT });
       new WebAssembly.Module(await watToWasm(wat, "fuzz.air"));
       assembled += 1;
     }
@@ -2813,7 +2847,7 @@ async function sectionEachSlice() {
         assert(typeof error.code === "string" && inRegistry(error.code), `unregistered or missing code ${error && error.code}: ${error && error.message}\n${source}`);
         continue;
       }
-      const wat = lowerToWat(ast, { maxWatBytes: MAX_WAT });
+      const wat = lowerToWat(ast, { allowCandidateProfile: true, maxWatBytes: MAX_WAT });
       new WebAssembly.Module(await watToWasm(wat, "fuzz_b1.air"));
       b1.assembled += 1;
     }

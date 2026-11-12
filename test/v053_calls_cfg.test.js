@@ -422,7 +422,7 @@ async function regVerifiedEverywhere(source, cases, label) {
   const file = path.join(tmp, `${label}.air`);
   fs.writeFileSync(file, source);
   const mod = typedV053(source, `${label}.air`);
-  assert.match(lowerToWat(mod, { maxWatBytes: MAX_WAT }), /\(func \$f \(export "f"\)/u, `${label}: lowerToWat`);
+  assert.match(lowerToWat(mod, { allowCandidateProfile: true, maxWatBytes: MAX_WAT }), /\(func \$f \(export "f"\)/u, `${label}: lowerToWat`);
   const verify = runCliBounded(["verify", file, "--source-profile", V053, "--allow-candidate-profile"]);
   assert.equal(verify.status, 0, `${label}: CLI verify ${verify.stderr}`);
   const check = runCliBounded(["check", file, "--source-profile", V053, "--allow-candidate-profile", "--lsp-json"]);
@@ -451,7 +451,7 @@ async function regRefusedEverywhere(source, label) {
   const refused = (error, where) => assertAnalysisRefused(error, ...expected, `${label}: ${where}`);
   const outcomes = {};
   outcomes.sdk_verify = refused(capture(() => sp.parseSource(source, `${label}.air`, GATED)), "SDK");
-  outcomes.lowerToWat = refused(capture(() => lowerToWat(parser.typedV053.parse(source, `${label}.air`), { maxWatBytes: MAX_WAT })), "lowerToWat");
+  outcomes.lowerToWat = refused(capture(() => lowerToWat(parser.typedV053.parse(source, `${label}.air`), { allowCandidateProfile: true, maxWatBytes: MAX_WAT })), "lowerToWat");
   const file = path.join(tmp, `${label}.air`);
   fs.writeFileSync(file, source);
   const verify = runCliBounded(["verify", file, "--source-profile", V053, "--allow-candidate-profile"]);
@@ -691,7 +691,7 @@ async function main() {
     const cfgP03 = M("v53.cfg", fn("export func f() -> void", ["return"]));
     await vector("V53-CFG-P03", async () => {
       const built = await build(cfgP03, descriptor("v53.cfg", [["f", [], "void"]]));
-      const wat = lowerToWat(typedV053(cfgP03), { maxWatBytes: MAX_WAT });
+      const wat = lowerToWat(typedV053(cfgP03), { allowCandidateProfile: true, maxWatBytes: MAX_WAT });
       assert.match(wat, /\(func \$f \(export "f"\)$/mu, "lowers to a function without a result");
       assert.deepEqual(await call(built, "f", []), { value: null });
       return { value: { lowers: true, runs: true, value: null }, sourceDigest: sha256(cfgP03) };
@@ -796,7 +796,7 @@ async function main() {
       const outcome = await call(built, "run", [11]);
       assert.deepEqual(outcome, { code: "air.refinement.assignment_out_of_range", failureReason: 17 }, "at the call site, before h runs");
       // The call-site check precedes the call (P4-R6): h's entry check never runs.
-      const wat = lowerToWat(typedV053(refP05), { maxWatBytes: MAX_WAT });
+      const wat = lowerToWat(typedV053(refP05), { allowCandidateProfile: true, maxWatBytes: MAX_WAT });
       const runBody = wat.slice(wat.indexOf("(func $run"));
       assert(runBody.indexOf("call $__air_v053_refinement_assignment_out_of_range") < runBody.indexOf("call $h"), "checked before the call");
       return { value: outcome, sourceDigest: sha256(refP05) };
@@ -1015,7 +1015,7 @@ async function main() {
           assert(!/wabt|\n\s+at /iu.test(String(error.message)));
           continue;
         }
-        const wat = lowerToWat(mod, { maxWatBytes: MAX_WAT });
+        const wat = lowerToWat(mod, { allowCandidateProfile: true, maxWatBytes: MAX_WAT });
         new WebAssembly.Module(await watToWasm(wat, "fuzz.air"));
         assembled += 1;
       }

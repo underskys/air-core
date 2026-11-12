@@ -905,7 +905,7 @@ async function buildTypedV053(mod, file, rest) {
   try {
     lowerWasmModule.typedV053.checkEngineLimits(mod);
     if (emit === "wasm") createToolchainGuard(path.join(__dirname, "..", "src")).snapshot();
-    wat = lowerToWat(mod, { maxWatBytes: VERIFIED_TYPED_RUNTIME_LIMITS.maxWatBytes });
+    wat = lowerToWat(mod, { allowCandidateProfile: true, maxWatBytes: VERIFIED_TYPED_RUNTIME_LIMITS.maxWatBytes });
     enforceVerifiedTypedBuildLimit("watBytes", Buffer.byteLength(wat, "utf8"));
     if (emit === "wasm") {
       wasm = await watToWasm(wat, file);

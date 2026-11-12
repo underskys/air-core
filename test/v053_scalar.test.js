@@ -276,7 +276,7 @@ function registryCodes() {
     await vector("V53-PROF-P01", async () => {
       // decide(0)=0, decide(1)=1; option_identity(1,42)=[1,42]; identical to typed-v0.51 (FROZEN D11).
       const run = async (mod) => {
-        const wasm = await watToWasm(lowerToWat(mod, { maxWatBytes: 4194304 }), "typed_decide.air");
+        const wasm = await watToWasm(lowerToWat(mod, { allowCandidateProfile: true, maxWatBytes: 4194304 }), "typed_decide.air");
         const { instance } = await WebAssembly.instantiate(wasm, {});
         return {
           decide: [instance.exports.decide(0), instance.exports.decide(1)],
@@ -547,7 +547,7 @@ catch (error) { process.stdout.write(String(error.code)); }
     await vector("V53-SCL-N18", async () => {
       // R-5: the frozen N32 code on the lane-level reference path, and the same
       // code through the verified runtime for the value 2 in the bool parameter.
-      const wasm = await watToWasm(lowerToWat(typedV053(matchSrc), { maxWatBytes: 4194304 }), "n18.air");
+      const wasm = await watToWasm(lowerToWat(typedV053(matchSrc), { allowCandidateProfile: true, maxWatBytes: 4194304 }), "n18.air");
       const { instance } = await WebAssembly.instantiate(wasm, {});
       const lane = captureFailure(() => invokeV051TypedExport(instance, "f", [2], { airReason: "air.v051.typed_value_invalid" }));
       assert.equal(lane && lane.code, "air.v051.typed_value_invalid");
@@ -711,7 +711,7 @@ catch (error) { process.stdout.write(String(error.code)); }
           assert(!/wabt|\n\s+at /iu.test(String(error.message)));
           continue;
         }
-        const wat = lowerToWat(mod, { maxWatBytes: 4194304 });
+        const wat = lowerToWat(mod, { allowCandidateProfile: true, maxWatBytes: 4194304 });
         await WebAssembly.compile(await watToWasm(wat, "fuzz.air"));
         assembled += 1;
       }

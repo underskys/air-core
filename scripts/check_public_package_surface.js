@@ -172,6 +172,15 @@ if (!files.some((p) => p.startsWith("src/"))) {
 if (!files.some((p) => p.startsWith("spec/"))) {
   failures.push("spec/: missing spec surface");
 }
+// SCALAR F-1: the exports map is exactly the documented entry points, and no packed src/ file names the test-only seam.
+if (!require("node:util").isDeepStrictEqual(manifest.exports, { ".": "./src/index.js", "./package.json": "./package.json" })) {
+  failures.push("package.json exports: must be exactly { \".\": \"./src/index.js\", \"./package.json\": \"./package.json\" } (SCALAR F-1)");
+}
+for (const p of files.filter((file) => file.startsWith("src/"))) {
+  if (/mintHarnessRecord|HARNESS_RECORDS/.test(fs.readFileSync(path.join(root, p), "latin1"))) {
+    failures.push(`${p}: names the test-only builder-defect seam (SCALAR F-1)`);
+  }
+}
 if (!files.some((p) => p.startsWith("test/fixtures/conformance_"))) {
   failures.push("test/fixtures/conformance_*: missing conformance fixtures");
 }

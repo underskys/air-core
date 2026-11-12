@@ -723,7 +723,7 @@ async function buildVerifiedTypedV053Internal(input, controls = {}) {
   lowerWasmModule.typedV053.checkEngineLimits(mod);
   enforceMemoryBackingLimit(layout, memoryBackingLimit);
   const toolchain = currentToolchainIdentity();
-  const wat = lowerToWat(mod, limits ? { analysisCapacity, maxWatBytes: limits.maxWatBytes } : { analysisCapacity });
+  const wat = lowerToWat(mod, limits ? { allowCandidateProfile: true, analysisCapacity, maxWatBytes: limits.maxWatBytes } : { allowCandidateProfile: true, analysisCapacity });
   if (limits) enforceWorkLimit("air.v052.work_limit_wat_bytes", Buffer.byteLength(wat, "utf8"), limits.maxWatBytes, "lowered WAT bytes");
   let wasmBytes;
   try {
@@ -1501,31 +1501,7 @@ function readBorrowedLaneRecord(candidate) {
   if (!candidate || (typeof candidate !== "object" && typeof candidate !== "function")) return null;
   const state = BUILDS.get(candidate);
   if (state) return state.borrowedLane || null;
-  return HARNESS_RECORDS.get(candidate) || null;
-}
-
-// Test-only builder-defect seam (docs/v0.53/TYPED_MEMORY.md; V53-MEM-N23,
-// N38, V53-ABI-42, -58, -64 (c)): mints a T1 record that a defective builder
-// could have produced, from a real borrowed-lane build, with the artifact
-// bytes and/or the owned range replaced. Non-enumerable, never in index.js.
-const HARNESS_RECORDS = new WeakMap();
-
-function mintHarnessRecord(options = {}) {
-  const base = readBorrowedLaneRecord(options.from);
-  if (!base || !BUILDS.has(options.from)) fail("air.v052.runtime_input_invalid", "harness record requires a borrowed-lane build");
-  const wasmBytes = options.wasmBytes === undefined ? base.wasmBytes : Buffer.from(options.wasmBytes);
-  const range = options.ownedRange === undefined ? base.ownedRange : options.ownedRange;
-  if (!range || !Number.isSafeInteger(range.start) || !Number.isSafeInteger(range.end)) {
-    fail("air.v052.runtime_input_invalid", "harness ownedRange must have integer start and end");
-  }
-  const token = Object.freeze({ kind: "air.v053.harnessRecord" });
-  HARNESS_RECORDS.set(token, Object.freeze({
-    ...base,
-    ownedRange: Object.freeze({ end: range.end, start: range.start }),
-    wasmBytes: Buffer.from(wasmBytes),
-    wasmDigest: digestBytes(wasmBytes)
-  }));
-  return token;
+  return null;
 }
 
 function inspectVerifiedTypedBuild(build) {
@@ -1598,7 +1574,7 @@ function typedHostWindowOut(memory, pointer, capacity, bytes) {
   new Uint8Array(memory.buffer, pointer, capacity).set(bytes);
 }
 
-// P0-08 typed borrowed lane (T1 reader, test seam, backing limit); not part
+// P0-08 typed borrowed lane (T1 reader, backing limit); not part
 // of the enumerable exports that src/index.js spreads.
 Object.defineProperty(module.exports, "typedV053", {
   enumerable: false,
@@ -1607,7 +1583,6 @@ Object.defineProperty(module.exports, "typedV053", {
     hostResult: typedHostResult,
     hostWindowIn: typedHostWindowIn,
     hostWindowOut: typedHostWindowOut,
-    mintHarnessRecord,
     readBorrowedLaneRecord
   })
 });

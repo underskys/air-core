@@ -528,7 +528,7 @@ async function invocationOutcome(invoke) {
 async function accepted(source, invocations, label) {
   const ast = typedV053(source, `${label}.air`);
   acceptedSources.add(source);
-  const wat = lowerToWat(ast, { maxWatBytes: MAX_WAT });
+  const wat = lowerToWat(ast, { allowCandidateProfile: true, maxWatBytes: MAX_WAT });
   const file = path.join(tmp, `${label}.air`);
   fs.writeFileSync(file, source);
   const cli = runCli(["verify", file, "--source-profile", V053, "--allow-candidate-profile"]);
@@ -1197,7 +1197,7 @@ async function main() {
         flags[label] = { data_segments: segments, exports: exportsOf.map((item) => `${item.kind}:${item.name}`), imports: 0 };
       }
       // A module without a table or an aggregate declares no memory: its WAT is the base's.
-      assert.doesNotMatch(lowerToWat(typedV053(mod(RUN)), { maxWatBytes: MAX_WAT }), /\(memory |\(data /u, "a table-free, aggregate-free module has no memory");
+      assert.doesNotMatch(lowerToWat(typedV053(mod(RUN)), { allowCandidateProfile: true, maxWatBytes: MAX_WAT }), /\(memory |\(data /u, "a table-free, aggregate-free module has no memory");
       return { value: { EXPORTED_MEMORY: false, QA_STATUS: "AWAITING_EXACT_SHA_QA", modules: flags } };
     });
     await vector("P0-06-CHECK-O1 (array.set, informative)", () => {
@@ -1445,7 +1445,7 @@ async function main() {
           assert(!/wabt|\n\s+at /iu.test(String(error.message)));
           continue;
         }
-        const wat = lowerToWat(ast, { maxWatBytes: MAX_WAT });
+        const wat = lowerToWat(ast, { allowCandidateProfile: true, maxWatBytes: MAX_WAT });
         new WebAssembly.Module(await watToWasm(wat, "fuzz.air"));
         assembled += 1;
       }

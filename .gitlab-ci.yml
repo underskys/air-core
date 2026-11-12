@@ -67,10 +67,12 @@ pack:smoke:
     - npm pack --json > npm-pack.json
     - node -e "const fs=require('fs'); const pack=JSON.parse(fs.readFileSync('npm-pack.json','utf8'))[0]; fs.writeFileSync('npm-pack-file.txt', pack.filename)"
     - test -f "$(cat npm-pack-file.txt)"
+    - sha256sum "$(cat npm-pack-file.txt)" > npm-pack-sha256.txt
     - mkdir -p /tmp/air-core-smoke
     - cd /tmp/air-core-smoke
     - npm init -y
     - npm install "$CI_PROJECT_DIR/$(cat "$CI_PROJECT_DIR/npm-pack-file.txt")"
+    - node "$CI_PROJECT_DIR/scripts/v053_installed_surface_gate.js" /tmp/air-core-smoke
     - ./node_modules/.bin/airc version --json
     - ./node_modules/.bin/airc --help
   artifacts:
@@ -80,6 +82,7 @@ pack:smoke:
       - npm-pack-dry-run.json
       - npm-pack.json
       - npm-pack-file.txt
+      - npm-pack-sha256.txt
       - "*.tgz"
   rules:
     - if: '$CI_COMMIT_BRANCH'

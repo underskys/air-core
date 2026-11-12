@@ -145,6 +145,10 @@ airc version --json
 
 Check `npm view @underskys/air-core dist-tags` for the current tags.
 
+## Package entry points
+
+The supported entry points are the package root (`require("@underskys/air-core")` or `import`), `@underskys/air-core/package.json` and the `airc` command. The package's `exports` map refuses every other `@underskys/air-core/...` path. Files under `src/` are internal and can change in any release. The `exports` map limits imports by package name only. It is not isolation: code in the same process that loads files by path can reach anything in the package.
+
 ## What AIR Rejects
 
 AIR's current public surface rejects or keeps out of scope:

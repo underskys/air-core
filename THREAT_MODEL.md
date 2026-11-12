@@ -38,6 +38,8 @@ The verifier enforces the AIR module boundary under AIR's model. The host owns
 real platform authority and is responsible for deciding whether AIR output
 intents are safe to execute.
 
+AIR's checks run inside the host's JavaScript process. They are not a boundary against other code in that process, which can load any file of the package by path, call internal functions or change objects. Non-enumerable properties and the package's `exports` map shape the supported API. They are not access control.
+
 ## Review Boundary
 
 Evidence reports are review tools. They help humans inspect capabilities,

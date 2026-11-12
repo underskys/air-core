@@ -6,7 +6,7 @@ const {
   REGION_BOUNDS_FAILURE_FUNCTION,
   REGION_BOUNDS_RUNTIME_CODE
 } = require("./region_bounds");
-const { AirError, isTypedV053Ast } = require("./errors");
+const { AirError, SOURCE_PROFILE_TYPED_V053, isTypedV053Ast } = require("./errors");
 const verifierModule = require("./verifier");
 const { STRUCTURED_PHI_LOOP_FUEL_LIMIT, assertWasmTargetSupport, verifyV051Air } = verifierModule;
 const parserModule = require("./parser");
@@ -38,7 +38,11 @@ const BORROW_FAILURE = Object.freeze({
 });
 
 function lowerToWat(mod, options = {}) {
-  if (isTypedV053Ast(mod)) return lowerV053TypedToWat(mod, options);
+  if (isTypedV053Ast(mod)) {
+    // SCALAR F-1 (R-PROF-1): a typed-v0.53 AST is lowered only under the candidate opt-in, as verifySource and formatSource require.
+    require("./source_profile").normalizeSourceProfile(SOURCE_PROFILE_TYPED_V053, options);
+    return lowerV053TypedToWat(mod, options);
+  }
   if (mod && mod.v051TypedAst) return lowerV051TypedToWat(mod, options);
   assertWasmTargetSupport(mod);
   const borrowedDescriptor = borrowedSliceInterfaceDescriptor(mod);

@@ -585,7 +585,7 @@ async function accept(pkg, invocations) {
   onDisk(pkg);
   const sdk = sdkOutcome(pkg);
   assert.equal(sdk.verdict, "VERIFIED", `${pkg.label} SDK: ${JSON.stringify(sdk)}`);
-  const wat = lowerToWat(sdk.ast, { maxWatBytes: MAX_WAT });
+  const wat = lowerToWat(sdk.ast, { allowCandidateProfile: true, maxWatBytes: MAX_WAT });
   assert.equal(cliOutcome(pkg).verdict, "VERIFIED", `${pkg.label} CLI verify`);
   const builder = await builderOutcome(pkg);
   assert.equal(builder.verdict, "VERIFIED", `${pkg.label} builder: ${JSON.stringify(builder)}`);
@@ -1061,7 +1061,7 @@ function outcome(entry, mode) {
     const mod = sp.parseSource(fs.readFileSync(entry.root, "utf8"), entry.root, entry.options);
     sp.verifySource(mod, entry.options);
     let wat;
-    try { wat = lowerToWat(mod, { maxWatBytes: 4194304 }); } catch (error) { wat = "LOWERING FAILED: " + String(error.code || error.message); }
+    try { wat = lowerToWat(mod, { allowCandidateProfile: true, maxWatBytes: 4194304 }); } catch (error) { wat = "LOWERING FAILED: " + String(error.code || error.message); }
     return { result: { verdict: "VERIFIED" }, wat };
   } catch (error) {
     return { result: { code: error.code || null, disposition: error.disposition || null, file: error.loc ? path.basename(error.loc.file) : null, line: error.loc && error.loc.line || null, verdict: "REJECTED" }, wat: null };
@@ -1154,7 +1154,7 @@ const options = { allowCandidateProfile: true, sourceProfile: "typed-v0.53" };
 const mod = sp.parseSource(fs.readFileSync(rootPath, "utf8"), rootPath, options);
 sp.verifySource(mod, options);
 // The lowering verifies its input again, outside the closure counters.
-require(path.join(srcDir, "lower_wasm.js")).lowerToWat(mod, {});
+require(path.join(srcDir, "lower_wasm.js")).lowerToWat(mod, { allowCandidateProfile: true });
 const closure = tc.closureOf(mod);
 process.stdout.write(JSON.stringify({ counters: tc.closureCounters(mod), totals: closure.totals }));
 `;
@@ -1294,7 +1294,7 @@ async function sectionChecks(counterEvidence) {
       onDisk(pkg);
       const ast = sp.parseSource(pkg.files[pkg.root], pkg.rootPath, GATED);
       sp.verifySource(ast, GATED);
-      const wat = lowerToWat(ast, { maxWatBytes: MAX_WAT });
+      const wat = lowerToWat(ast, { allowCandidateProfile: true, maxWatBytes: MAX_WAT });
       const built = await buildVerifiedTypedModule(buildInput(pkg));
       const artifact = exportsOf(built.wasmBytes);
       const rootExports = parser.typedV053.parse(pkg.files[pkg.root], "root.air").functions.filter((fn) => fn.exported).map((fn) => `function:${fn.name}`);
@@ -1418,7 +1418,7 @@ async function sectionEachSlice() {
         assert(!/wabt|\n\s+at /iu.test(String(error.message)));
         continue;
       }
-      const wat = lowerToWat(ast, { maxWatBytes: MAX_WAT });
+      const wat = lowerToWat(ast, { allowCandidateProfile: true, maxWatBytes: MAX_WAT });
       new WebAssembly.Module(await watToWasm(wat, "fuzz.air"));
       assembled += 1;
     }

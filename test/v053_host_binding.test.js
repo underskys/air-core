@@ -28,7 +28,7 @@ const borrowedSlices = require("../src/borrowed_slices");
 const reference = require("../src/v051_reference");
 const { admitTypedV053Artifact } = require("../src/sdk");
 const { buildVerifiedTypedModule, createVerifiedTypedRuntime, invokeVerifiedTypedExport } = require("../src/v052_verified_build");
-const verifiedBuild = require("../src/v052_verified_build");
+const { loadSeamedCopy } = require("./support/harness_seam");
 const { lowerToWat, watToWasm } = require("../src/lower_wasm");
 
 const ROOT = path.resolve(__dirname, "..");
@@ -283,7 +283,7 @@ async function accepted(pkg) {
   if (builds.has(pkg.label)) return builds.get(pkg.label);
   const sdk = sdkOutcome(pkg);
   assert.equal(sdk.verdict, "VERIFIED", `${pkg.label} SDK: ${JSON.stringify(sdk)}`);
-  lowerToWat(sdk.ast, { maxWatBytes: MAX_WAT });
+  lowerToWat(sdk.ast, { allowCandidateProfile: true, maxWatBytes: MAX_WAT });
   assert.equal(cliOutcome(pkg).verdict, "VERIFIED", `${pkg.label} CLI verify`);
   const builder = await builderOutcome(pkg);
   assert.equal(builder.verdict, "VERIFIED", `${pkg.label} builder: ${JSON.stringify(builder)}`);
@@ -356,7 +356,7 @@ const borrowedBind = (buffer, access, maxLength, alignment) => ({ access, aliasG
 // V53-EFF-P01's artifact rebuilt from its own WAT with one change (V53-EFF-N20
 // (vi), (vii); V53-ABI-59, -65's F-STARTFX, VECTORS_ADDITIONS.md §5).
 async function variantBytes(ast, from, to) {
-  const wat = lowerToWat(ast, { maxWatBytes: MAX_WAT });
+  const wat = lowerToWat(ast, { allowCandidateProfile: true, maxWatBytes: MAX_WAT });
   assert.equal(wat.split(from).length, 2, `the WAT has '${from}' once`);
   return Buffer.from(await watToWasm(wat.replace(from, to), "variant.air"));
 }
@@ -541,7 +541,7 @@ async function sectionHost() {
       let called = 0;
       const renamed = await variantBytes(ast, "(import \"output\" \"emit\"", "(import \"output\" \"notify\"");
       value.vi = await refusal(() => admitTypedV053Artifact({ handlers: { "output.notify": () => { called += 1; return 0; } }, interfaceDescriptor: built.descriptor, pinnedDigest: sha256(renamed), wasmBytes: renamed }), "air.abi.contract_unsupported", 1);
-      const fixed = Buffer.from(await watToWasm(lowerToWat(ast, { maxWatBytes: MAX_WAT })
+      const fixed = Buffer.from(await watToWasm(lowerToWat(ast, { allowCandidateProfile: true, maxWatBytes: MAX_WAT })
         .replace("(func $__air_host.output.emit (param i32 i32 i32 i32 i32) (result i32))", "(func $__air_host.output.emit (param i32 i32 i32 i32 i32) (result f32))")
         .replace("call $__air_host.output.emit\n", "call $__air_host.output.emit\n    i32.reinterpret_f32\n"), "retyped.air"));
       value.vii = await refusal(() => admitTypedV053Artifact({ handlers: { [EMIT]: () => { called += 1; return 0; } }, interfaceDescriptor: built.descriptor, pinnedDigest: sha256(fixed), wasmBytes: fixed }), "air.abi.contract_unsupported", 1);
@@ -807,11 +807,31 @@ async function sectionInherited() {
     assert.equal(signature, "intentInput, grantsInput, context = {}", "no demand input");
     return { value: { demand_of_artifact: { [EMIT]: "1" }, outcome: derived.outcome, reason: derived.reason, signature, wasm: sha256(built.wasmBytes) } };
   });
+  const fstartfxLine = START_LINE.replace("(func $__air_v053_contract_start ", `(func $__air_v053_contract_start i32.const 1 i32.const 0 i32.const 0 i32.const 0 i32.const 0 call $__air_host.${EMIT} drop `);
   const fstartfx = async () => {
     const pkg = pkgOf("V53-EFF-P01_one_emit");
     const { ast, built } = await accepted(pkg);
-    const bytes = await variantBytes(ast, START_LINE, START_LINE.replace("(func $__air_v053_contract_start ", `(func $__air_v053_contract_start i32.const 1 i32.const 0 i32.const 0 i32.const 0 i32.const 0 call $__air_host.${EMIT} drop `));
+    const bytes = await variantBytes(ast, START_LINE, fstartfxLine);
     return { built, bytes };
+  };
+  // SCALAR F-1 (SPEC R4 section 5.3 item 2; reading note 2): src/ has no
+  // builder-defect seam. fstartfx() for the seam vector V53-ABI-65, built,
+  // minted and admitted inside one seamed copy of src/
+  // (test/support/harness_seam.js); only source text, a plain build input
+  // and bytes enter the copy.
+  const seamedFstartfx = async () => {
+    const seam = loadSeamedCopy();
+    const pkg = pkgOf("V53-EFF-P01_one_emit");
+    const ast = seam.index.parseSource(pkg.files[pkg.root], pkg.rootPath, GATED);
+    seam.index.verifySource(ast, GATED);
+    const wat = seam.index.lowerToWat(ast, { allowCandidateProfile: true, maxWatBytes: MAX_WAT });
+    assert.equal(wat.split(START_LINE).length, 2, `the WAT has '${START_LINE}' once`);
+    return {
+      admit: (request) => seam.sdk.admitTypedV053Artifact(request),
+      built: await seam.verifiedBuild.buildVerifiedTypedModule(structuredClone(buildInput(pkg))),
+      bytes: Buffer.from(await seam.index.watToWasm(wat.replace(START_LINE, fstartfxLine), "variant.air")),
+      mint: (options) => seam.verifiedBuild.typedV053.mintHarnessRecord(options)
+    };
   };
   await vector("V53-ABI-59", async () => {
     const { built, bytes } = await fstartfx();
@@ -824,15 +844,16 @@ async function sectionInherited() {
     return { value: { a, b, handler_calls: called } };
   });
   await vector("V53-ABI-65", async () => {
-    const { built, bytes } = await fstartfx();
+    // The builder-defect seam, on the seamed copy.
+    const { admit, built, bytes, mint } = await seamedFstartfx();
     // E-6 (characterization): without arming, the start function would run the import once.
     let raw = 0;
     const module = new WebAssembly.Module(bytes);
     try { new WebAssembly.Instance(module, { "air:contract": { "typed-v0.53.v1": () => 1095324209 }, output: { emit: () => { raw += 1; return 0; } } }); } catch (_) { /* characterization only */ }
     assert.equal(raw, 1, "E-6: an unarmed import runs once");
     let called = 0;
-    const record = verifiedBuild.typedV053.mintHarnessRecord({ from: built, wasmBytes: bytes });
-    const admission = await admitTypedV053Artifact({ handlers: { [EMIT]: () => { called += 1; return 0; } }, record, wasmBytes: bytes });
+    const record = mint({ from: built, wasmBytes: bytes });
+    const admission = await admit({ handlers: { [EMIT]: () => { called += 1; return 0; } }, record, wasmBytes: bytes });
     const refused = await refusal(() => admission.instantiate(), "air.host.call_before_admission", 2);
     assert.equal(called, 0, "the disarmed wrapper refuses; the handler function never runs");
     return { value: { ...refused, e6_unarmed_calls: raw, handler_calls: called } };

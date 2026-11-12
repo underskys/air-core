@@ -268,10 +268,10 @@ Promise.resolve().then(run).then(() => process.stdout.write(JSON.stringify({ ok:
       for (const [id, source] of Object.entries(ACCEPT)) {
         const mod = typedV053(source, `${id}.air`);
         const descriptor = descriptorFromAst(mod);
-        const wat = lowerToWat(mod, { maxWatBytes: MAX_WAT });
+        const wat = lowerToWat(mod, { allowCandidateProfile: true, maxWatBytes: MAX_WAT });
         const L = Buffer.byteLength(wat, "utf8");
-        assert.equal(Buffer.byteLength(lowerToWat(mod, { maxWatBytes: L }), "utf8"), L, `${id}: E4 with maxWatBytes = L returns exactly L bytes`);
-        assert.throws(() => lowerToWat(mod, { maxWatBytes: L - 1 }), (error) => error.code === "air.v052.work_limit_wat_bytes", `${id}: E4 L-1`);
+        assert.equal(Buffer.byteLength(lowerToWat(mod, { allowCandidateProfile: true, maxWatBytes: L }), "utf8"), L, `${id}: E4 with maxWatBytes = L returns exactly L bytes`);
+        assert.throws(() => lowerToWat(mod, { allowCandidateProfile: true, maxWatBytes: L - 1 }), (error) => error.code === "air.v052.work_limit_wat_bytes", `${id}: E4 L-1`);
         const refusedRuntime = createVerifiedTypedRuntime({ admit: async () => true, limits: { maxWatBytes: L - 1 } });
         const refused = await outcome(() => refusedRuntime.build({ ...GATED, descriptor, source }));
         assert.equal(refused.code, "air.v052.work_limit_wat_bytes", `${id}: E3 L-1`);
@@ -394,7 +394,7 @@ Promise.resolve().then(run).then(() => process.stdout.write(JSON.stringify({ ok:
     };
     const emissionBuilds = async (profileOptions, mod) => {
       const builds = {};
-      builds.E4 = assertBoundedOrOk(await outcome(() => lowerToWat(mod, { maxWatBytes: MAX_WAT })), "E4");
+      builds.E4 = assertBoundedOrOk(await outcome(() => lowerToWat(mod, { allowCandidateProfile: true, maxWatBytes: MAX_WAT })), "E4");
       builds.E2 = assertBoundedOrOk(await outcome(() => buildVerifiedTypedModule({ ...profileOptions, descriptor: emissionDescriptor, source: EMISSION_SOURCE })), "E2");
       builds.E3 = assertBoundedOrOk(await outcome(() => runtime.build({ ...profileOptions, descriptor: emissionDescriptor, source: EMISSION_SOURCE })), "E3");
       const file = path.join(tmp, "h10_emission_source.air");

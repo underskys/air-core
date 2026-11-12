@@ -539,7 +539,7 @@ const out = {};
 for (const [label, rootPath] of JSON.parse(fs.readFileSync(listFile, "utf8"))) {
   const mod = sp.parseSource(fs.readFileSync(rootPath, "utf8"), rootPath, options);
   sp.verifySource(mod, options);
-  const lines = lowerToWat(mod, {}).split("\\n").map((line) => line.trim());
+  const lines = lowerToWat(mod, { allowCandidateProfile: true }).split("\\n").map((line) => line.trim());
   const imports = lines.filter((line) => line.startsWith("(import ")).map((line) => { const m = /^\\(import "([^"]+)" "([^"]+)"/.exec(line); return m[1] + "." + m[2]; });
   const calls = [];
   let window = [];
@@ -823,7 +823,7 @@ sp.verifySource(a, options);
 const ii = tc.closureCounters(a)["main.air"].verify;
 const b = fresh();
 sp.verifySource(b, options);
-lowerToWat(b, {});
+lowerToWat(b, { allowCandidateProfile: true });
 const iii = tc.closureCounters(b)["main.air"].verify;
 process.stdout.write(JSON.stringify({ counts: { i, ii, iii }, math: tc.closureCounters(b)["math.air"].verify }));
 `;
@@ -923,7 +923,7 @@ async function sectionEachSlice() {
         assert(!/wabt|\n\s+at /iu.test(String(error.message)));
         continue;
       }
-      const wat = lowerToWat(ast, { maxWatBytes: MAX_WAT });
+      const wat = lowerToWat(ast, { allowCandidateProfile: true, maxWatBytes: MAX_WAT });
       new WebAssembly.Module(await watToWasm(wat, "fuzz.air"));
       assembled += 1;
     }

@@ -495,7 +495,7 @@ async function invocationOutcome(invoke) {
 async function accepted(source, invocations, label) {
   const ast = typedV053(source, `${label}.air`);
   acceptedSources.add(source);
-  const wat = lowerToWat(ast, { maxWatBytes: MAX_WAT });
+  const wat = lowerToWat(ast, { allowCandidateProfile: true, maxWatBytes: MAX_WAT });
   const file = path.join(tmp, `${label}.air`);
   fs.writeFileSync(file, source);
   const cli = runCli(["verify", file, "--source-profile", V053, "--allow-candidate-profile"]);
@@ -702,7 +702,7 @@ process.stdout.write(JSON.stringify(out));
 async function regF1Rejected(count) {
   const source = signedCount(count);
   const rejected = await staticReject(source, "air.workbound.invalid_bound", 9);
-  const lowered = capture(() => lowerToWat(parser.typedV053.parse(source, "reg.air"), { maxWatBytes: MAX_WAT }));
+  const lowered = capture(() => lowerToWat(parser.typedV053.parse(source, "reg.air"), { allowCandidateProfile: true, maxWatBytes: MAX_WAT }));
   assert(lowered && lowered.code === "air.workbound.invalid_bound" && lowered.loc && lowered.loc.line === 9, `lowerToWat: ${lowered && lowered.message}`);
   const runtime = createVerifiedTypedRuntime({ admit: async () => true });
   await runtime.build({ ...GATED, descriptor: descriptorOf(source), source }).then(() => assert.fail("runtime: no artifact"), () => null);
@@ -1026,7 +1026,7 @@ async function main() {
       // lowers to one Wasm `loop` whose size does not depend on n, with no
       // other counter, budget or fuel check.
       assert(p01Run && p06Run, "V53-LOOP-P01 and P06 ran first");
-      const literal = (count) => lowerToWat(typedV053(mod(STEP, run("seed: i32", "i32", [FOLD("step", "%seed", count), "return %r"]))), { maxWatBytes: MAX_WAT });
+      const literal = (count) => lowerToWat(typedV053(mod(STEP, run("seed: i32", "i32", [FOLD("step", "%seed", count), "return %r"]))), { allowCandidateProfile: true, maxWatBytes: MAX_WAT });
       const [w0, w5, w4096] = [literal("0"), literal("5"), literal("4096")];
       assert.equal(w5, p01Run.wat);
       assert.equal(w0.replace("i32.const 0\n    i32.ge_s", "i32.const N\n    i32.ge_s"), w5.replace("i32.const 5\n    i32.ge_s", "i32.const N\n    i32.ge_s"), "count 0 and 5 differ only in the count literal");
@@ -1213,7 +1213,7 @@ async function main() {
           assert(!/wabt|\n\s+at /iu.test(String(error.message)));
           continue;
         }
-        const wat = lowerToWat(ast, { maxWatBytes: MAX_WAT });
+        const wat = lowerToWat(ast, { allowCandidateProfile: true, maxWatBytes: MAX_WAT });
         new WebAssembly.Module(await watToWasm(wat, "fuzz.air"));
         assembled += 1;
       }

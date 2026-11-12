@@ -562,7 +562,7 @@ async function invocationOutcome(invoke) {
 // stated value or failure through both, in order (one invocation each).
 async function accepted(source, invocations, label) {
   const ast = typedV053(source, `${label}.air`);
-  const wat = lowerToWat(ast, { maxWatBytes: MAX_WAT });
+  const wat = lowerToWat(ast, { allowCandidateProfile: true, maxWatBytes: MAX_WAT });
   const file = path.join(tmp, `${label}.air`);
   fs.writeFileSync(file, source);
   const cli = runCli(["verify", file, "--source-profile", V053, "--allow-candidate-profile"]);
@@ -809,7 +809,7 @@ function outcome(entry, mode) {
       unchangedAsts += 1;
     }
     let wat;
-    try { wat = lowerToWat(mod, { maxWatBytes: 4194304 }); } catch (error) { wat = "LOWERING FAILED: " + String(error.code || error.message); }
+    try { wat = lowerToWat(mod, { allowCandidateProfile: true, maxWatBytes: 4194304 }); } catch (error) { wat = "LOWERING FAILED: " + String(error.code || error.message); }
     return { result: { verdict: "VERIFIED" }, wat };
   } catch (error) {
     return { result: { code: error.code || null, cyclePath: error.cyclePath || null, disposition: error.disposition || null, line: error.loc && error.loc.line || null, message: String(error.message), verdict: "REJECTED" }, wat: null };
@@ -1573,7 +1573,7 @@ async function main() {
           assert(!/wabt|\n\s+at /iu.test(String(error.message)));
           continue;
         }
-        const wat = lowerToWat(ast, { maxWatBytes: MAX_WAT });
+        const wat = lowerToWat(ast, { allowCandidateProfile: true, maxWatBytes: MAX_WAT });
         new WebAssembly.Module(await watToWasm(wat, "fuzz.air"));
         assembled += 1;
       }

@@ -863,7 +863,7 @@ async function main() {
         assert.equal(exports.filter((item) => item.kind === "global").length, 1, "exactly one failure-reason export");
       }
       // T-4: the exhaustive-match fall-through is a bare trap that sets no value.
-      const wat = lowerToWat(typedV053(SRC.n14), { maxWatBytes: MAX_WAT });
+      const wat = lowerToWat(typedV053(SRC.n14), { allowCandidateProfile: true, maxWatBytes: MAX_WAT });
       assert.match(wat, /^ {2}\(func \$__air_v053_match_unreachable unreachable\)$/mu);
       assert.match(wat, /call \$__air_v053_match_unreachable\n {4}end/u);
       assert.doesNotMatch(wat, /call \$__air_v051_invalid_tag/u, "a bool match never calls the tag-ingress path");
@@ -956,7 +956,7 @@ async function main() {
           assert(!/wabt|\n\s+at /iu.test(String(error.message)));
           continue;
         }
-        const wat = lowerToWat(mod, { maxWatBytes: MAX_WAT });
+        const wat = lowerToWat(mod, { allowCandidateProfile: true, maxWatBytes: MAX_WAT });
         const wasm = await watToWasm(wat, "fuzz.air");
         new WebAssembly.Module(wasm);
         assembled += 1;
