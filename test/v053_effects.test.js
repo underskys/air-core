@@ -746,6 +746,47 @@ async function sectionChecks() {
     }
     return { value: { controls, real } };
   });
+  await vector("SEC53-04-CHECK-INVOKE-SHAPES", () => {
+    // SEC53-04 (spec R3 §5 T3): every VECTORS.md row, the decoy and import
+    // rows included, has its specified outcome on the real src/; then each of
+    // G1-G20 and R1 (§7) is applied, ran and caught, on exactly its rows.
+    const sourceOf = (source) => ({ descriptor: descriptorOf({ files: { "main.air": source }, label: "sec53-04", root: "main.air" }), source });
+    const cases = path.join(tmp, "invoke-shapes-cases.json");
+    fs.writeFileSync(cases, JSON.stringify({ import: sourceOf(SHAPES_IMPORT_SOURCE), qa: sourceOf(SHAPES_QA_SOURCE), vectors: sourceOf(SHAPES_SOURCE) }));
+    const probe = path.join(tmp, "invoke-shapes-probe.js");
+    fs.writeFileSync(probe, INVOKE_SHAPES_PROBE);
+    const real = spawnJson(probe, [path.join(ROOT, "src"), cases, "qa"]);
+    assert.equal(Object.keys(real.results).length, 33, "VECTORS.md §4: 33 rows");
+    assert.equal(Object.keys(real.qa.shapes).length, 26, "VECTORS.md §3: 26 shape rows");
+    assert.equal(Object.keys(real.qa.imports).length, 3, "VECTORS.md §3: 3 import rows");
+    assert.deepEqual(invokeShapesProblems(real), [], "every row has its specified outcome on the real src/");
+    const step1Rows = [...SHAPES_STEP1_ROWS, ...Object.keys(real.qa.shapes).map((row) => `shapes ${row}`), ...Object.keys(real.qa.imports).map((row) => `imports ${row}`)];
+    const mutants = {};
+    for (const [name, mutant] of Object.entries(SHAPES_MUTANTS)) {
+      const { applied, scratch } = shapesScratch(name, mutant);
+      let failing = null;
+      let ran = false;
+      if (applied) {
+        const out = childProcess.spawnSync(process.execPath, [probe, scratch, cases, ...(mutant.qa ? ["qa"] : [])], {
+          cwd: tmp, encoding: "utf8", env: { ...process.env, NODE_PATH: path.join(ROOT, "node_modules") }, killSignal: "SIGKILL", maxBuffer: 256 * 1024 * 1024, timeout: 900000
+        });
+        ran = !out.error && out.signal === null && out.status === 0;
+        if (ran) failing = invokeShapesProblems(JSON.parse(out.stdout));
+      }
+      fs.rmSync(scratch, { force: true, recursive: true });
+      const expected = mutant.caught === "every step-1 row" ? step1Rows : mutant.caught;
+      mutants[name] = { applied, caught: Boolean(failing && failing.length), description: mutant.description, expected_rows: expected.length, failing_rows: failing, ran };
+    }
+    const entries = Object.values(mutants);
+    const totals = { applied: entries.filter((item) => item.applied).length, caught: entries.filter((item) => item.caught).length, mutants: entries.length, ran: entries.filter((item) => item.ran).length };
+    for (const [name, item] of Object.entries(mutants)) {
+      const expected = SHAPES_MUTANTS[name].caught === "every step-1 row" ? step1Rows : SHAPES_MUTANTS[name].caught;
+      assert(item.applied && item.ran && item.caught, `${name} (${item.description}): applied ${item.applied}, ran ${item.ran}, caught ${item.caught}`);
+      assert.deepEqual([...item.failing_rows].sort(), [...expected].sort(), `${name} (${item.description}) must fail exactly on ${expected.join(", ")}`);
+    }
+    assert.deepEqual(totals, { applied: 21, caught: 21, mutants: 21, ran: 21 }, "21 mutants applied, ran and caught");
+    return { value: { built_wasm_sha256: real.builtWasmSha256, crafted_sha256: real.craftedSha256, mutants, qa_artifacts: real.qa.artifacts, real: { qa: { imports: real.qa.imports, shapes: real.qa.shapes }, results: real.results }, totals } };
+  });
 }
 
 // The typed invoke's facts of each export, in a child process on a given src/:
@@ -800,12 +841,358 @@ function invokeResultProblems(facts, label, rawResult) {
   if (raw.host_calls !== 1 || raw.result !== rawResult) problems.push(`${label} invokeRaw: ${JSON.stringify(raw)}`);
   return problems;
 }
-const GUARD = "        if (resultLanes && (resultLanes.length === 0 || resultLanes.includes(\"i64\"))) {";
+const GUARD = "        if (!Array.isArray(resultLanes) || !TYPED_INVOKE_RESULT_SHAPES.includes(resultLanes.join(\",\"))) {";
+// SEC53-04: the allow-list's line in src/borrowed_memory_binding.js, and that line with shapes added.
+const SHAPES = ["i32", "f32", "f64", "i32,i32", "i32,f32", "i32,f64", "i32,i32,i32", "i32,f32,i32", "i32,f64,i32"];
+const shapesLine = (shapes) => `const TYPED_INVOKE_RESULT_SHAPES = Object.freeze([${shapes.map((shape) => JSON.stringify(shape)).join(", ")}]);`;
+const SHAPES_LINE = shapesLine(SHAPES);
 const INVOKE_RESULT_MUTANTS = Object.freeze({
-  G1: { caught: ["i64", "void"], description: "the guard removed", edits: [["borrowed_memory_binding.js", GUARD, "        if (resultLanes && false) {"]] },
-  G2: { caught: ["void"], description: "the void clause removed", edits: [["borrowed_memory_binding.js", GUARD, "        if (resultLanes && resultLanes.includes(\"i64\")) {"]] },
-  G3: { caught: ["i64"], description: "the i64 clause removed", edits: [["borrowed_memory_binding.js", GUARD, "        if (resultLanes && resultLanes.length === 0) {"]] }
+  G1: { caught: ["i64", "void"], description: "the guard removed", edits: [["borrowed_memory_binding.js", GUARD, "        if (false) {"]] },
+  G2: { caught: ["void"], description: "the empty shape (void) added to the allow-list", edits: [["borrowed_memory_binding.js", SHAPES_LINE, shapesLine([...SHAPES, ""])]] },
+  G3: { caught: ["i64"], description: "i64 added to the allow-list", edits: [["borrowed_memory_binding.js", SHAPES_LINE, shapesLine([...SHAPES, "i64"])]] }
 });
+
+// SEC53-04-CHECK-INVOKE-SHAPES (SEC53-04 spec R3 §5 T3, its VECTORS.md): the
+// typed invoke runs only the nine result shapes, and the type reader fails
+// closed on any value type but i32, i64, f32 and f64. A child process on a
+// given src/ runs VECTORS.md §4's rows: §1's typed source through T1 and T2,
+// crafted artifact A (numeric shapes the allow-list refuses) and one artifact
+// per reference or v128 result (refused at admission step 1). With "qa" it
+// also runs VECTORS.md §3's decoy and import rows, built as QA's
+// own_shapes.js and own_imports.js build them. Every export calls the host
+// import debug.metric once before it returns, so the host log shows whether a
+// host call ran.
+const SHAPES_SOURCE = [
+  "module v53.q", "capabilities { debug }", "demand { debug.metric <= 1 }", "", "extern debug.metric(id: i32, value: i32) -> void", "", "error enum ParseError {", "  malformed = 0,", "}", "",
+  "export func i(x: i32) -> i32 {", "  call @debug.metric(1, %x)", "  return %x", "}", "",
+  "export func g(x: f32) -> f32 {", "  call @debug.metric(2, 0)", "  return %x", "}", "",
+  "export func d(x: f32) -> f64 {", "  call @debug.metric(3, 0)", "  %r: f64 = f32.to_f64 %x", "  return %r", "}", "",
+  "export func b(x: i32) -> bool {", "  call @debug.metric(4, %x)", "  return true", "}", "",
+  "export func oi(x: i32) -> option<i32> {", "  call @debug.metric(5, %x)", "  %o: option<i32> = option.some<i32> %x", "  return %o", "}", "",
+  "export func of(x: f32) -> option<f32> {", "  call @debug.metric(6, 0)", "  %o: option<f32> = option.some<f32> %x", "  return %o", "}", "",
+  "export func od(x: f32) -> option<f64> {", "  call @debug.metric(7, 0)", "  %r: f64 = f32.to_f64 %x", "  %o: option<f64> = option.some<f64> %r", "  return %o", "}", "",
+  "export func oq(x: i32) -> option<i64> {", "  call @debug.metric(8, %x)", "  %v: i64 = i32.to_i64 %x", "  %o: option<i64> = option.some<i64> %v", "  return %o", "}", "",
+  "export func ri(x: i32) -> result<i32,ParseError> {", "  call @debug.metric(9, %x)", "  %o: result<i32,ParseError> = result.ok<i32,ParseError> %x", "  return %o", "}", "",
+  "export func rb(x: i32) -> result<bool,ParseError> {", "  call @debug.metric(10, %x)", "  %o: result<bool,ParseError> = result.ok<bool,ParseError> true", "  return %o", "}", "",
+  "export func rf(x: f32) -> result<f32,ParseError> {", "  call @debug.metric(11, 0)", "  %o: result<f32,ParseError> = result.ok<f32,ParseError> %x", "  return %o", "}", "",
+  "export func rd(x: f32) -> result<f64,ParseError> {", "  call @debug.metric(12, 0)", "  %r: f64 = f32.to_f64 %x", "  %o: result<f64,ParseError> = result.ok<f64,ParseError> %r", "  return %o", "}", "",
+  "export func rq(x: i32) -> result<i64,ParseError> {", "  call @debug.metric(13, %x)", "  %v: i64 = i32.to_i64 %x", "  %o: result<i64,ParseError> = result.ok<i64,ParseError> %v", "  return %o", "}", ""
+].join("\n");
+// QA's own_shapes.js source (one export that calls the host), and its
+// own_imports.js source (one export that does not, so the import can be retyped).
+const SHAPES_QA_SOURCE = ["module v53.q", "capabilities { debug }", "demand { debug.metric <= 1 }", "", "extern debug.metric(id: i32, value: i32) -> void", "",
+  "export func i(x: i32) -> i32 {", "  call @debug.metric(1, %x)", "  return %x", "}", ""].join("\n");
+const SHAPES_IMPORT_SOURCE = ["module v53.q", "capabilities { debug }", "demand { debug.metric <= 1 }", "", "extern debug.metric(id: i32, value: i32) -> void", "",
+  "export func i(x: i32) -> i32 {", "  return %x", "}", ""].join("\n");
+
+// The child process: `node <probe> <src dir> <cases file> [qa]`. It is this
+// function's own text, so its regular expressions are written once.
+async function invokeShapesProbe() {
+  const crypto = require("crypto");
+  const fs = require("fs");
+  const path = require("path");
+  const [srcDir, casesFile, mode] = process.argv.slice(2);
+  const cases = JSON.parse(fs.readFileSync(casesFile, "utf8"));
+  const sp = require(path.join(srcDir, "source_profile.js"));
+  const { lowerToWat } = require(path.join(srcDir, "lower_wasm.js"));
+  const { buildVerifiedTypedModule } = require(path.join(srcDir, "v052_verified_build.js"));
+  const { admitTypedV053Artifact } = require(path.join(srcDir, "sdk.js"));
+  const wabt = await require("wabt")();
+  const G = { allowCandidateProfile: true, sourceProfile: "typed-v0.53" };
+  const FEATURES = { bulk_memory: true, multi_value: true, reference_types: true, simd: true };
+  const sha = (bytes) => `sha256:${crypto.createHash("sha256").update(bytes).digest("hex")}`;
+  const build = (item) => buildVerifiedTypedModule({ ...G, descriptor: item.descriptor, source: item.source, sourceName: "main.air" });
+  const watOf = (source) => lowerToWat(sp.parseSource(source, "main.air", G), { allowCandidateProfile: true, maxWatBytes: 4194304 });
+  const binary = (text) => Buffer.from(wabt.parseWat("crafted.wat", text, FEATURES).toBinary({}).buffer);
+  const withExtra = (wat, extra) => wat.replace(/\)\s*$/, `\n${extra}\n)\n`);
+  const importId = (wat) => {
+    const found = /\(import "debug" "metric" \(func (\$[^\s)]+)/.exec(wat);
+    if (!found) throw new Error("no debug.metric import id in the WAT");
+    return found[1];
+  };
+  // One invocation through a fresh admission. Admission step 1 refuses inside
+  // admitTypedV053Artifact itself: its promise rejects with the coded error.
+  const invokeOnce = async (admit, entrypoint, args) => {
+    const log = [];
+    const trace = [];
+    let admission;
+    try {
+      admission = await admit(log, trace);
+    } catch (error) {
+      return { code: error.code || null, error: error.name, hostArgs: log, hostCalls: log.length, invokeTrace: trace.slice(), kind: "admission_refused" };
+    }
+    try {
+      const result = await admission.invoke({ arguments: args, bindings: {}, entrypoint });
+      const codes = (result.diagnostics || []).map((item) => item.code);
+      if (codes.length) return { codes, hostArgs: log, hostCalls: log.length, invokeTrace: trace.slice(), kind: "refused" };
+      return { hostArgs: log, hostCalls: log.length, invokeTrace: trace.slice(), kind: "passed",
+        result: typeof result.result === "number" || Array.isArray(result.result) ? result.result : String(result.result), status: result.evidence && result.evidence.status };
+    } catch (error) {
+      return { code: error.code || null, error: `${error.name}: ${String(error.message).slice(0, 90)}`, hostArgs: log, hostCalls: log.length, invokeTrace: trace.slice(), kind: "thrown" };
+    }
+  };
+  const handlers = (log) => ({ "debug.metric": (...args) => { log.push(args.map((value) => (typeof value === "function" ? "[function]" : value))); } });
+  const t1 = (built) => (log, trace) => admitTypedV053Artifact({ handlers: handlers(log), record: built, trace, wasmBytes: built.wasmBytes });
+  const t2 = (bytes, descriptor) => (log, trace) => admitTypedV053Artifact({ handlers: handlers(log), interfaceDescriptor: descriptor, pinnedDigest: sha(bytes), trace, wasmBytes: bytes });
+  const plusExports = (built, names) => {
+    const entry = built.descriptor.exports.find((item) => item.name === "i");
+    return { ...built.descriptor, exports: [...built.descriptor.exports, ...names.map((name) => ({ ...entry, name, params: [] }))] };
+  };
+
+  // VECTORS.md §1, §2 and §4.
+  const CRAFTED_A = {
+    n_void: "(func (export \"n_void\") (call $IMP (i32.const 9) (i32.const 9)))",
+    n_i64: "(func (export \"n_i64\") (result i64) (call $IMP (i32.const 9) (i32.const 9)) (i64.const 5))",
+    n_multi_4: "(func (export \"n_multi_4\") (result i32 i32 i32 i32) (call $IMP (i32.const 9) (i32.const 9)) (i32.const 1) (i32.const 2) (i32.const 3) (i32.const 4))",
+    n_multi_f64: "(func (export \"n_multi_f64\") (result f64 f64) (call $IMP (i32.const 9) (i32.const 9)) (f64.const 1) (f64.const 2))",
+    n_global: "(global (export \"n_global\") i32 (i32.const 7))"
+  };
+  const CRAFTED_B = {
+    n_funcref: "(elem declare func $qa_fr)\n  (func $qa_fr (export \"n_funcref\") (result funcref) (call $IMP (i32.const 9) (i32.const 9)) (ref.func $qa_fr))",
+    n_externref: "(func (export \"n_externref\") (result externref) (call $IMP (i32.const 9) (i32.const 9)) (ref.null extern))",
+    n_v128: "(func (export \"n_v128\") (result v128) (call $IMP (i32.const 9) (i32.const 9)) (v128.const i32x4 0 0 0 0))"
+  };
+  const out = { craftedSha256: {}, results: {} };
+  const built = await build(cases.vectors);
+  out.builtWasmSha256 = sha(Buffer.from(built.wasmBytes));
+  const positive = { i: { x: 7 }, g: { x: 1.5 }, d: { x: -2.25 }, b: { x: 7 }, oi: { x: 7 }, of: { x: 1.5 }, od: { x: -2.25 }, ri: { x: 7 }, rb: { x: 7 }, rf: { x: 1.5 }, rd: { x: -2.25 } };
+  for (const [name, args] of Object.entries(positive)) {
+    out.results[`P-${name} T1`] = await invokeOnce(t1(built), name, args);
+    out.results[`P-${name} T2`] = await invokeOnce(t2(Buffer.from(built.wasmBytes), built.descriptor), name, args);
+  }
+  out.results["N-oq T1"] = await invokeOnce(t1(built), "oq", { x: 7 });
+  out.results["N-rq T1"] = await invokeOnce(t1(built), "rq", { x: 7 });
+  const wat = watOf(cases.vectors.source);
+  const imp = importId(wat);
+  const crafted = (exports) => ({
+    bytes: binary(withExtra(wat, Object.values(exports).map((text) => `  ${text.split("$IMP").join(imp)}`).join("\n"))),
+    descriptor: plusExports(built, Object.keys(exports))
+  });
+  const A = crafted(CRAFTED_A);
+  out.craftedSha256.A = sha(A.bytes);
+  for (const name of Object.keys(CRAFTED_A)) out.results[`N-${name} T2`] = await invokeOnce(t2(A.bytes, A.descriptor), name, {});
+  out.results["P-i T2 on crafted artifact A"] = await invokeOnce(t2(A.bytes, A.descriptor), "i", { x: 7 });
+  for (const [name, text] of Object.entries(CRAFTED_B)) {
+    const B = crafted({ [name]: text });
+    out.craftedSha256[name] = sha(B.bytes);
+    out.results[`S1-${name} T2`] = await invokeOnce(t2(B.bytes, B.descriptor), name, {});
+  }
+
+  if (mode === "qa") {
+    // VECTORS.md §3, as QA's own_shapes.js and own_imports.js build it. Group A:
+    // one artifact with plain WAT shapes. Group B: binary-patched artifacts that
+    // append the decoy D = (func (param (ref null 0)) (result 96 lanes)) and the
+    // export's real type to the end of the type section. Imports: debug.metric
+    // repointed at a real type that is not the registry's, behind the same decoy.
+    out.qa = { artifacts: {}, imports: {}, shapes: {} };
+    const leb = (n) => { const bytes = []; do { let b = n & 0x7f; n >>>= 7; if (n) b |= 0x80; bytes.push(b); } while (n); return bytes; };
+    const readLeb = (buf, at) => { let r = 0; let s = 0; let b; do { b = buf[at++]; r += (b & 0x7f) * 2 ** s; s += 7; } while (b & 0x80); return [r, at]; };
+    const sections = (buf) => { const list = []; let at = 8; while (at < buf.length) { const id = buf[at]; const [size, p] = readLeb(buf, at + 1); list.push({ id, payload: buf.subarray(p, p + size) }); at = p + size; } return list; };
+    const assemble = (list) => { const parts = [Buffer.from([0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00])]; for (const s of list) parts.push(Buffer.from([s.id, ...leb(s.payload.length)]), Buffer.from(s.payload)); return Buffer.concat(parts); };
+    const decoy = () => {
+      const R = [0x63, 0x00];
+      for (let k = 0; k < 4; k += 1) R.push(0x63, 0x00);
+      for (let k = 0; k < 89; k += 1) R.push(0x7f);
+      R.push(0x63, 0x01, 0x7f);
+      if (R.length !== 102) throw new Error(`R is ${R.length} bytes`);
+      return [0x60, 0x01, 0x63, 0x00, 0x60, ...R];
+    };
+    const appendTypes = (list, appended) => {
+      const typeS = list.find((s) => s.id === 1); const [typeCount, tAt] = readLeb(typeS.payload, 0);
+      typeS.payload = Buffer.concat([Buffer.from(leb(typeCount + appended.length)), typeS.payload.subarray(tAt), ...appended.map((t) => Buffer.from(t))]);
+      return typeCount + appended.length - 1;
+    };
+    const patchExport = (bytes, exportName, appended) => {
+      const list = sections(bytes);
+      const last = appendTypes(list, appended);
+      const imps = list.find((s) => s.id === 2); let importedFuncs = 0;
+      { let [n, at] = readLeb(imps.payload, 0); for (; n > 0; n -= 1) { let len; [len, at] = readLeb(imps.payload, at); at += len; [len, at] = readLeb(imps.payload, at); at += len;
+        const kind = imps.payload[at++]; if (kind === 0) { importedFuncs += 1; [, at] = readLeb(imps.payload, at); } else throw new Error("non-function import"); } }
+      const exps = list.find((s) => s.id === 7); let funcIndex = -1;
+      { let [n, at] = readLeb(exps.payload, 0); for (; n > 0; n -= 1) { let len; [len, at] = readLeb(exps.payload, at); const nm = exps.payload.subarray(at, at + len).toString(); at += len;
+        const kind = exps.payload[at++]; let idx; [idx, at] = readLeb(exps.payload, at); if (kind === 0 && nm === exportName) funcIndex = idx; } }
+      const fnS = list.find((s) => s.id === 3); let [fnCount, fAt] = readLeb(fnS.payload, 0); const idxs = [];
+      for (let k = 0; k < fnCount; k += 1) { let v; [v, fAt] = readLeb(fnS.payload, fAt); idxs.push(v); }
+      idxs[funcIndex - importedFuncs] = last;
+      fnS.payload = Buffer.from([...leb(fnCount), ...idxs.flatMap(leb)]);
+      return assemble(list);
+    };
+    const patchImport = (bytes, module, field, appended) => {
+      const list = sections(bytes);
+      const last = appendTypes(list, appended);
+      const imps = list.find((s) => s.id === 2); const rebuilt = [];
+      let [n, at] = readLeb(imps.payload, 0); rebuilt.push(...leb(n));
+      for (; n > 0; n -= 1) {
+        let len; [len, at] = readLeb(imps.payload, at); const mod = imps.payload.subarray(at, at + len).toString(); rebuilt.push(...leb(len), ...imps.payload.subarray(at, at + len)); at += len;
+        [len, at] = readLeb(imps.payload, at); const fld = imps.payload.subarray(at, at + len).toString(); rebuilt.push(...leb(len), ...imps.payload.subarray(at, at + len)); at += len;
+        const kind = imps.payload[at++]; rebuilt.push(kind); if (kind !== 0) throw new Error("non-function import");
+        let ti; [ti, at] = readLeb(imps.payload, at);
+        if (mod === module && fld === field) ti = last;
+        rebuilt.push(...leb(ti));
+      }
+      imps.payload = Buffer.from(rebuilt);
+      return assemble(list);
+    };
+    const CALL = "(call $IMP (i32.const 9) (i32.const 9))";
+    const GROUP_A = {
+      a_ext_i32: `(func (export "a_ext_i32") (result externref i32) ${CALL} (ref.null extern) (i32.const 1))`,
+      a_i32_ext: `(func (export "a_i32_ext") (result i32 externref) ${CALL} (i32.const 1) (ref.null extern))`,
+      a_f32_f32: `(func (export "a_f32_f32") (result f32 f32) ${CALL} (f32.const 1) (f32.const 2))`,
+      a_f32_i32: `(func (export "a_f32_i32") (result f32 i32) ${CALL} (f32.const 1) (i32.const 2))`,
+      a_i64_i32: `(func (export "a_i64_i32") (result i64 i32) ${CALL} (i64.const 1) (i32.const 2))`,
+      a_i32_v128: `(func (export "a_i32_v128") (result i32 v128) ${CALL} (i32.const 1) (v128.const i32x4 0 0 0 0))`,
+      a_i32x4: `(func (export "a_i32x4") (result i32 i32 i32 i32) ${CALL} (i32.const 1) (i32.const 2) (i32.const 3) (i32.const 4))`,
+      a_i32_i32_f64: `(func (export "a_i32_i32_f64") (result i32 i32 f64) ${CALL} (i32.const 1) (i32.const 2) (f64.const 3))`,
+      a_table: "(table (export \"a_table\") 1 funcref)"
+    };
+    const GROUP_B = {
+      b_ref0: { decoy: false, real: [0x60, 0x00, 0x01, 0x63, 0x00], wat: `(func (export "b_ref0") ${CALL} unreachable)` },
+      b_dx_externref: { decoy: true, real: [0x60, 0x00, 0x01, 0x6f], wat: `(func (export "b_dx_externref") (result externref) ${CALL} (ref.null extern))` },
+      b_dx_funcref: { decoy: true, real: [0x60, 0x00, 0x01, 0x70], wat: `(func $qa_fr2 (export "b_dx_funcref") (result funcref) ${CALL} (ref.func $qa_fr2))` },
+      b_dx_v128: { decoy: true, real: [0x60, 0x00, 0x01, 0x7b], wat: `(func (export "b_dx_v128") (result v128) ${CALL} (v128.const i32x4 0 0 0 0))` },
+      b_dx_i64: { decoy: true, real: [0x60, 0x00, 0x01, 0x7e], wat: `(func (export "b_dx_i64") (result i64) ${CALL} (i64.const 5))` },
+      b_dx_multi3: { decoy: true, real: [0x60, 0x00, 0x03, 0x7f, 0x7f, 0x7f], wat: `(func (export "b_dx_multi3") (result i32 i32 i32) ${CALL} (i32.const 1) (i32.const 2) (i32.const 3))` },
+      b_dx_void: { decoy: true, real: [0x60, 0x00, 0x00], wat: `(func (export "b_dx_void") ${CALL})` }
+    };
+    const qaBuilt = await build(cases.qa);
+    const qaWat = watOf(cases.qa.source);
+    const qaImp = importId(qaWat);
+    const qaBinary = (extra) => binary(withExtra(qaWat, extra.split("$IMP").join(qaImp)));
+    const aNames = [...Object.keys(GROUP_A), "a_absent", "memory"];
+    const aBytes = qaBinary(`  (elem declare func $qa_fr2)\n  (func $qa_fr2)\n${Object.values(GROUP_A).map((text) => `  ${text}`).join("\n")}`);
+    const aDescriptor = plusExports(qaBuilt, aNames);
+    out.qa.artifacts.groupA = sha(aBytes);
+    for (const name of aNames) out.qa.shapes[`A-${name}`] = await invokeOnce(t2(aBytes, aDescriptor), name, {});
+    out.qa.shapes["A-control P-i on the group A artifact"] = await invokeOnce(t2(aBytes, aDescriptor), "i", { x: 7 });
+    for (const [name, item] of Object.entries(GROUP_B)) {
+      const declare = name === "b_dx_funcref" ? "  (elem declare func $qa_fr2)\n" : "  (elem declare func $qa_fr2)\n  (func $qa_fr2)\n";
+      const bytes = patchExport(qaBinary(`${declare}  ${item.wat}`), name, item.decoy ? [decoy(), item.real] : [item.real]);
+      const descriptor = plusExports(qaBuilt, [name]);
+      out.qa.artifacts[name] = sha(bytes);
+      out.qa.shapes[`B-${name}`] = await invokeOnce(t2(bytes, descriptor), name, {});
+      out.qa.shapes[`B-${name} control P-i on the same artifact`] = await invokeOnce(t2(bytes, descriptor), "i", { x: 7 });
+    }
+    const VARIANTS = {
+      f64_f64: { call: "(f64.const 1.5) (f64.const nan)", sig: "(param f64 f64)", y: [0x60, 0x02, 0x7c, 0x7c, 0x00] },
+      funcref_funcref: { call: "(ref.func $qa_fr2) (ref.null func)", sig: "(param funcref funcref)", y: [0x60, 0x02, 0x70, 0x70, 0x00] },
+      i32_i32_to_i32: { call: "(i32.const 1) (i32.const 2)", drop: true, sig: "(param i32 i32) (result i32)", y: [0x60, 0x02, 0x7f, 0x7f, 0x01, 0x7f] }
+    };
+    const impBuilt = await build(cases.import);
+    const impWat = watOf(cases.import.source);
+    const impLine = /\(import "debug" "metric" \(func (\$[^\s)]+) \(param i32 i32\)\)\)/.exec(impWat);
+    if (!impLine) throw new Error("no debug.metric import line in the WAT");
+    const impDescriptor = plusExports(impBuilt, ["c_imp"]);
+    for (const [name, variant] of Object.entries(VARIANTS)) {
+      const text = impWat.replace(impLine[0], `(import "debug" "metric" (func ${impLine[1]} ${variant.sig}))`).replace(/\)\s*$/,
+        `\n  (elem declare func $qa_fr2)\n  (func $qa_fr2)\n  (func (export "c_imp") (result i32) (call ${impLine[1]} ${variant.call})${variant.drop ? " (drop)" : ""} (i32.const 7))\n)\n`);
+      const bytes = patchImport(binary(text), "debug", "metric", [decoy(), [0x60, 0x02, 0x7f, 0x7f, 0x00], variant.y]);
+      out.qa.artifacts[`import ${name}`] = sha(bytes);
+      out.qa.imports[name] = await invokeOnce(t2(bytes, impDescriptor), "c_imp", {});
+    }
+  }
+  process.stdout.write(JSON.stringify(out));
+}
+const INVOKE_SHAPES_PROBE = `"use strict";\n(${invokeShapesProbe})().catch((error) => { console.error(error && error.stack || error); process.exit(1); });\n`;
+
+// The specified outcomes (VECTORS.md §4). A positive row passes with exactly
+// one host call and I3's result; a guard row is refused with
+// air.borrow.interface_invalid, no host call, before step4.bind; a step-1 row
+// is refused by admitTypedV053Artifact with air.abi.contract_unsupported, no
+// host call and no step2.instantiate. No row may throw.
+const SHAPES_PASS = Object.freeze({
+  "P-i T1": 7, "P-i T2": 7, "P-g T1": 1.5, "P-g T2": 1.5, "P-d T1": -2.25, "P-d T2": -2.25, "P-b T1": 1, "P-b T2": 1,
+  "P-oi T1": [1, 7], "P-oi T2": [1, 7], "P-of T1": [1, 1.5], "P-of T2": [1, 1.5], "P-od T1": [1, -2.25], "P-od T2": [1, -2.25],
+  "P-ri T1": [0, 7, 0], "P-ri T2": [0, 7, 0], "P-rb T1": [0, 1, 0], "P-rb T2": [0, 1, 0],
+  "P-rf T1": [0, 1.5, 0], "P-rf T2": [0, 1.5, 0], "P-rd T1": [0, -2.25, 0], "P-rd T2": [0, -2.25, 0],
+  "P-i T2 on crafted artifact A": 7
+});
+const SHAPES_GUARD_ROWS = Object.freeze(["N-oq T1", "N-rq T1", "N-n_void T2", "N-n_i64 T2", "N-n_multi_4 T2", "N-n_multi_f64 T2", "N-n_global T2"]);
+const SHAPES_STEP1_ROWS = Object.freeze(["S1-n_funcref T2", "S1-n_externref T2", "S1-n_v128 T2"]);
+const shapesStep1 = (item) => Boolean(item) && item.kind === "admission_refused" && item.code === "air.abi.contract_unsupported" &&
+  item.hostCalls === 0 && !item.invokeTrace.includes("step2.instantiate");
+function invokeShapesProblems(facts) {
+  const bad = [];
+  for (const [row, value] of Object.entries(SHAPES_PASS)) {
+    const item = facts.results[row];
+    if (!item || item.kind !== "passed" || item.hostCalls !== 1 || JSON.stringify(item.result) !== JSON.stringify(value) || !item.invokeTrace.includes("step4.invoke")) bad.push(row);
+  }
+  for (const row of SHAPES_GUARD_ROWS) {
+    const item = facts.results[row];
+    if (!item || item.kind !== "refused" || JSON.stringify(item.codes) !== JSON.stringify(["air.borrow.interface_invalid"]) || item.hostCalls !== 0 ||
+      item.invokeTrace.includes("step4.bind") || item.invokeTrace.includes("step4.invoke")) bad.push(row);
+  }
+  for (const row of SHAPES_STEP1_ROWS) if (!shapesStep1(facts.results[row])) bad.push(row);
+  if (facts.qa) {
+    for (const [row, item] of Object.entries(facts.qa.shapes)) if (!shapesStep1(item)) bad.push(`shapes ${row}`);
+    for (const [row, item] of Object.entries(facts.qa.imports)) if (!shapesStep1(item)) bad.push(`imports ${row}`);
+  }
+  return bad;
+}
+
+// SEC53-04 spec R3 §7: G1-G20 and R1, each on a scratch copy of src/, with the
+// rows it must fail. R1 runs the decoy and import rows too.
+const SHAPES_FAIL = "          bindingFail(\"air.borrow.interface_invalid\", `export '${entry.name}' has a result shape outside";
+const SHAPES_GUARD_START = "        const resultLanes = exportResults.get(entry.name);\n";
+const SHAPES_BIND = "        const bindings = normalizeBindings(request.bindings, entry);\n";
+const SHAPES_VALUE_TYPE = "const lane = TYPED_WASM_VALTYPES[byte()]; if (!lane) throw new RangeError(\"value type\"); return lane;";
+// G15: the guard block moved after step4.bind and the bindings.
+function moveGuardAfterBindings(text) {
+  const start = text.indexOf(SHAPES_GUARD_START);
+  const end = start < 0 ? -1 : text.indexOf("        }\n", start);
+  if (start < 0 || end < 0) return null;
+  const block = text.slice(start, end + "        }\n".length);
+  if (text.split(block).length !== 2 || text.split(SHAPES_BIND).length !== 2) return null;
+  return text.replace(block, "").replace(SHAPES_BIND, () => SHAPES_BIND + block);
+}
+const shapesWithout = (shape) => shapesLine(SHAPES.filter((item) => item !== shape));
+const SHAPES_MUTANTS = Object.freeze({
+  G1: { caught: [...SHAPES_GUARD_ROWS], description: "the guard removed", edits: [[GUARD, "        if (false) {"]] },
+  G2: { caught: ["N-n_global T2"], description: "a name the reader did not see is let through",
+    edits: [[GUARD, "        if (Array.isArray(resultLanes) && !TYPED_INVOKE_RESULT_SHAPES.includes(resultLanes.join(\",\"))) {"]] },
+  G3: { caught: ["N-oq T1", "N-rq T1", "N-n_multi_4 T2", "N-n_multi_f64 T2"], description: "the shape judged by its first lane only",
+    edits: [[GUARD, "        if (!Array.isArray(resultLanes) || !TYPED_INVOKE_RESULT_SHAPES.includes(String(resultLanes[0]))) {"]] },
+  G4: { caught: ["N-n_i64 T2"], description: "i64 added", edits: [[SHAPES_LINE, shapesLine([...SHAPES, "i64"])]] },
+  G5: { caught: ["N-oq T1"], description: "i32,i64 (option<i64>) added", edits: [[SHAPES_LINE, shapesLine([...SHAPES, "i32,i64"])]] },
+  G6: { caught: ["N-n_multi_f64 T2"], description: "f64,f64 added", edits: [[SHAPES_LINE, shapesLine([...SHAPES, "f64,f64"])]] },
+  G7: { caught: ["N-n_void T2"], description: "the empty shape (void) added", edits: [[SHAPES_LINE, shapesLine([...SHAPES, ""])]] },
+  G8: { caught: ["P-i T1", "P-i T2", "P-b T1", "P-b T2", "P-i T2 on crafted artifact A"], description: "i32 removed", edits: [[SHAPES_LINE, shapesWithout("i32")]] },
+  G9: { caught: ["P-g T1", "P-g T2"], description: "f32 removed", edits: [[SHAPES_LINE, shapesWithout("f32")]] },
+  G10: { caught: ["P-d T1", "P-d T2"], description: "f64 removed", edits: [[SHAPES_LINE, shapesWithout("f64")]] },
+  G11: { caught: ["P-oi T1", "P-oi T2"], description: "i32,i32 removed", edits: [[SHAPES_LINE, shapesWithout("i32,i32")]] },
+  G12: { caught: ["P-of T1", "P-of T2"], description: "i32,f32 removed", edits: [[SHAPES_LINE, shapesWithout("i32,f32")]] },
+  G13: { caught: ["P-od T1", "P-od T2"], description: "i32,f64 removed", edits: [[SHAPES_LINE, shapesWithout("i32,f64")]] },
+  G14: { caught: [...SHAPES_GUARD_ROWS], description: "the refusal thrown uncoded",
+    edits: [[SHAPES_FAIL, "          throw new Error(`export '${entry.name}' has a result shape outside"]] },
+  G15: { caught: [...SHAPES_GUARD_ROWS], description: "the guard moved after step4.bind and the bindings", move: moveGuardAfterBindings },
+  G16: { caught: ["P-ri T1", "P-ri T2", "P-rb T1", "P-rb T2"], description: "i32,i32,i32 removed", edits: [[SHAPES_LINE, shapesWithout("i32,i32,i32")]] },
+  G17: { caught: ["P-rf T1", "P-rf T2"], description: "i32,f32,i32 removed", edits: [[SHAPES_LINE, shapesWithout("i32,f32,i32")]] },
+  G18: { caught: ["P-rd T1", "P-rd T2"], description: "i32,f64,i32 removed", edits: [[SHAPES_LINE, shapesWithout("i32,f64,i32")]] },
+  G19: { caught: ["N-n_multi_4 T2"], description: "i32,i32,i32,i32 added", edits: [[SHAPES_LINE, shapesLine([...SHAPES, "i32,i32,i32,i32"])]] },
+  G20: { caught: ["N-rq T1"], description: "i32,i64,i32 (result<i64,E>) added", edits: [[SHAPES_LINE, shapesLine([...SHAPES, "i32,i64,i32"])]] },
+  R1: { caught: "every step-1 row", description: "the reader's fail-closed value type reverted (any other byte read as one lane)", qa: true,
+    edits: [[SHAPES_VALUE_TYPE, "return TYPED_WASM_VALTYPES[byte()] || \"other\";"]] }
+});
+// A mutant's scratch copy of src/: `applied` is false when an anchor is
+// missing or repeated, and then nothing is written.
+function shapesScratch(name, mutant) {
+  const scratch = path.join(tmp, `src-s4-${name}`);
+  fs.cpSync(path.join(ROOT, "src"), scratch, { recursive: true });
+  const file = path.join(scratch, "borrowed_memory_binding.js");
+  let text = fs.readFileSync(file, "utf8");
+  let applied = true;
+  if (mutant.move) {
+    const moved = mutant.move(text);
+    applied = moved !== null;
+    if (applied) text = moved;
+  } else {
+    for (const [anchor, replacement] of mutant.edits) {
+      if (text.split(anchor).length !== 2) applied = false;
+      else text = text.replace(anchor, () => replacement);
+    }
+  }
+  if (applied) fs.writeFileSync(file, text);
+  return { applied, scratch };
+}
 
 const ROOTVERIFY_PROBE = `"use strict";
 const path = require("path");

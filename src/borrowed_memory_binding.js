@@ -1007,9 +1007,13 @@ function typedDigest(bytes) {
 // tables and states), into which a window is never written back; `readOnly`
 // is null when a segment's offset is not a constant (then nothing is written
 // back). `exportResults` gives each exported function's Wasm result lanes (the
-// v2 descriptor names none; OD-P10-10 (A)). A module the reader cannot follow
-// returns null.
+// v2 descriptor names none; OD-P10-10 (A)). A module the reader cannot follow,
+// or whose types use any value type but i32, i64, f32 and f64, returns null
+// (SEC53-04: fail closed; step 1 then refuses it).
 const TYPED_WASM_VALTYPES = Object.freeze({ 0x7c: "f64", 0x7d: "f32", 0x7e: "i64", 0x7f: "i32" });
+// SEC53-04: the Wasm result shapes the typed invoke runs: what the typed-v0.53
+// compiler emits for i32 and bool, f32, f64, option<…> and result<…, E> of them.
+const TYPED_INVOKE_RESULT_SHAPES = Object.freeze(["i32", "f32", "f64", "i32,i32", "i32,f32", "i32,f64", "i32,i32,i32", "i32,f32,i32", "i32,f64,i32"]);
 
 function typedWasmSections(bytes) {
   let offset = 8;
@@ -1037,6 +1041,7 @@ function typedWasmSections(bytes) {
     return text;
   };
   const limits = () => { const flags = unsigned(); unsigned(); if (flags & 1) unsigned(); };
+  const valueType = () => { const lane = TYPED_WASM_VALTYPES[byte()]; if (!lane) throw new RangeError("value type"); return lane; };
   try {
     if (bytes.length < 8 || bytes.readUInt32LE(0) !== 0x6d736100 || bytes.readUInt32LE(4) !== 1) return null;
     const types = [];
@@ -1053,8 +1058,8 @@ function typedWasmSections(bytes) {
         for (let count = unsigned(); count > 0; count -= 1) {
           if (byte() !== 0x60) return null;
           const params = []; const results = [];
-          for (let n = unsigned(); n > 0; n -= 1) params.push(TYPED_WASM_VALTYPES[byte()] || "other");
-          for (let n = unsigned(); n > 0; n -= 1) results.push(TYPED_WASM_VALTYPES[byte()] || "other");
+          for (let n = unsigned(); n > 0; n -= 1) params.push(valueType());
+          for (let n = unsigned(); n > 0; n -= 1) results.push(valueType());
           types.push({ params, results });
         }
       } else if (id === 2) {
@@ -1488,13 +1493,13 @@ function createAdmittedInstance(admitted, descriptor, digest, trace, guard) {
         requirePlainObject(request, "request");
         claim();
         const entry = normalizeTypedInterfaceEntry(descriptor, request.entrypoint);
-        // P0-10 (OD-P10-10 (A), OD-P10-11 (B)): the invocation evidence hashes
-        // the result and cannot carry a BigInt or undefined, so an export with
-        // an i64 result lane or a void result is refused here, before any host
-        // call. invokeRaw still runs it.
+        // P0-10 (OD-P10-10 (A), OD-P10-11 (B)) and SEC53-04: an allow-list of
+        // result shapes. Any other shape (void, i64, other multi-value), or a
+        // name the reader did not see as an exported function, is refused
+        // here, before any binding or host call. invokeRaw still runs it.
         const resultLanes = exportResults.get(entry.name);
-        if (resultLanes && (resultLanes.length === 0 || resultLanes.includes("i64"))) {
-          bindingFail("air.borrow.interface_invalid", `export '${entry.name}' has ${resultLanes.length ? "an i64" : "a void"} result, which the typed invoke's evidence cannot carry; nothing ran (invokeRaw runs it)`);
+        if (!Array.isArray(resultLanes) || !TYPED_INVOKE_RESULT_SHAPES.includes(resultLanes.join(","))) {
+          bindingFail("air.borrow.interface_invalid", `export '${entry.name}' has a result shape outside the typed invoke's allow-list; nothing ran (invokeRaw runs it)`);
         }
         typedTrace(trace, "step4.bind");
         const bindings = normalizeBindings(request.bindings, entry);
