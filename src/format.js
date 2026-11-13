@@ -11,6 +11,9 @@ function rejectTypedV053Ast(mod, requested) {
 
 function formatModule(mod) {
   rejectTypedV053Ast(mod, "legacy-v0.50");
+  if (mod && mod.v051TypedAst) {
+    throw new AirError("air.source_profile.ast_mismatch: the AST was parsed as 'typed-v0.51' and cannot be processed as 'legacy-v0.50'");
+  }
   const out = [];
   out.push(`module ${mod.name}`);
   for (const use of mod.uses || []) out.push(`use ${formatUseName(use.name)}${use.alias ? ` as ${use.alias}` : ""}`);

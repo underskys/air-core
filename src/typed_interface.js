@@ -78,19 +78,26 @@ function splitTopLevel(text) {
   return items;
 }
 
+// SEC53-06 (G-2): the nesting scan, shared by parseTypeReference (limit 64, as
+// before) and the typed-v0.51 source canonicalizer (src/parser.js), which
+// recurses before parseTypeReference runs.
+function assertTypeNesting(value, limit) {
+  let nesting = 0;
+  for (let index = 0; index < value.length; index += 1) {
+    if (value[index] === "<" && ++nesting > limit) {
+      fail("air.decision.payload_type_unsupported", "type nesting exceeds the supported flat-sum surface");
+    }
+    if (value[index] === ">") nesting -= 1;
+  }
+}
+
 function parseTypeReference(value, { allowVoid = false } = {}) {
   if (typeof value !== "string" || value !== value.trim() || !value) fail("air.v051.type_reference_invalid", "type reference must be canonical text");
   // Admitted ABI 0.12 types contain only flat sums. This ceiling is an
   // implementation guard for already-invalid input, not a new type rule.
   // Reject before recursive descent can turn a small hostile descriptor into
   // a native RangeError. Existing shallow diagnostics remain unchanged.
-  let nesting = 0;
-  for (let index = 0; index < value.length; index += 1) {
-    if (value[index] === "<" && ++nesting > 64) {
-      fail("air.decision.payload_type_unsupported", "type nesting exceeds the supported flat-sum surface");
-    }
-    if (value[index] === ">") nesting -= 1;
-  }
+  assertTypeNesting(value, 64);
   if (allowVoid && value === "void") return { kind: "void", canonical: "void" };
   if (PRIMITIVES.has(value)) return { kind: "primitive", canonical: value };
   const enumMatch = value.match(/^([a-z][a-z0-9._-]{0,127})::([A-Z][A-Za-z0-9_]{0,127})$/);
@@ -382,6 +389,7 @@ module.exports = {
   TYPED_INTERFACE_SCHEMA,
   HOST_CONTRACT_VERSION,
   TypedInterfaceError,
+  assertTypeNesting,
   parseTypeReference,
   normalizeTypedInterfaceDescriptor,
   descriptorDigest,

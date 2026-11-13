@@ -868,6 +868,9 @@ async function main(argv) {
         wat = lowerToWat(mod);
       }
       if (emit === "wasm") {
+        // SEC53-06 (G-7): a WABT that does not resolve from src (watToWasm's own
+        // lookup) is a coded refusal, where the raw module error used to surface.
+        if (typed) assertWabtResolves();
         wasm = await watToWasm(wat, file);
         if (typed) enforceVerifiedTypedBuildLimit("wasmBytes", wasm.length);
       }
@@ -1040,6 +1043,15 @@ function runMigrateCommand(args) {
   }
   if (recordFile === undefined) process.stderr.write(result.record);
   return result.kind === "REJECTED" ? 1 : 0;
+}
+
+// SEC53-06 (G-7): the typed-v0.51 build's only WABT check.
+function assertWabtResolves() {
+  try {
+    require.resolve("wabt", { paths: [path.join(__dirname, "..", "src")] });
+  } catch {
+    throw new AirError("air.v052.toolchain_input_unavailable: installed WABT identity is unavailable");
+  }
 }
 
 // Shared bounded regular-file reader (src/bounded_file.js).

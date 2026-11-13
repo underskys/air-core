@@ -34,10 +34,25 @@ function assertType(type, loc) {
   if (borrowed) return borrowed;
   const refinement = parseRefinementType(type, loc);
   if (refinement) return refinement;
+  assertLegacyTypeNesting(String(type), loc);
   if (!isTypeSyntax(type)) {
     throw new AirError(`unknown type '${type}'`, loc);
   }
   return { base: type, canonical: type, refinement: null };
+}
+
+// SEC53-06 (P2-4): isTypeSyntax recurses once per array level. Above this depth
+// it refuses before recursing, with typed-v0.53's located refusal for the same input.
+const LEGACY_TYPE_NESTING_LIMIT = 1024;
+function assertLegacyTypeNesting(type, loc) {
+  let nesting = 0;
+  for (let index = 0; index < type.length; index += 1) {
+    if (type[index] === "<" && ++nesting > LEGACY_TYPE_NESTING_LIMIT) {
+      const { AirError } = require("./errors");
+      throw new AirError("air.decision.payload_type_unsupported: type nesting exceeds the supported flat-sum surface", loc);
+    }
+    if (type[index] === ">") nesting -= 1;
+  }
 }
 
 function isTypeSyntax(type) {

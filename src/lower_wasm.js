@@ -211,7 +211,7 @@ function lowerV051TypedToWat(mod, options = {}) {
     const usesCheckedNumeric = (mod.functions || []).some(v051TypedFunctionUsesCheckedNumeric);
     const usesTypedRefinement = (mod.functions || []).some(v051TypedFunctionUsesRefinement);
     const functions = (mod.functions || []).map((fn) => lowerV051TypedFunction(fn, declarations, budget));
-    return [
+    const wat = [
       "(module",
       "  (func $__air_v051_invalid_tag unreachable)",
       "  (func $__air_v051_invalid_enum_discriminant unreachable)",
@@ -227,6 +227,12 @@ function lowerV051TypedToWat(mod, options = {}) {
       ...functions,
       ")"
     ].join("\n");
+    // SEC53-06 (G-5): the per-line charges leave the module frame uncharged, so
+    // the whole WAT is checked once against the cap, with the same code.
+    if (budget && Buffer.byteLength(wat, "utf8") > options.maxWatBytes) {
+      typedLowerFail("air.v052.work_limit_wat_bytes", `lowered WAT exceeds the configured limit of ${options.maxWatBytes}`);
+    }
+    return wat;
   } catch (error) {
     if (error instanceof V051TypedLoweringError) throw error;
     typedLowerFail("air.v051.typed_lowering_unsupported", error && error.message ? error.message : "unsupported typed AST");

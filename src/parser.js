@@ -3,7 +3,11 @@ const { assertType, parseRefinementType } = require("./types");
 const { applyUseBundles } = require("./bundles");
 const { resolveSourceImports } = require("./imports");
 const { parseV051Contract } = require("./v051_reference");
-const { parseTypeReference } = require("./typed_interface");
+const { assertTypeNesting, parseTypeReference } = require("./typed_interface");
+// SEC53-06 (G-2): typed-v0.51 type canonicalization recurses once per `<`. Above
+// this depth it refuses with the code every depth above 64 already gets, before
+// the recursion can exhaust the host stack. Depths up to it behave as before.
+const V051_TYPE_RECURSION_LIMIT = 1024;
 const { parseBorrowedSliceType } = require("./borrowed_slices");
 
 function parseAir(source, file = "<input>", options = {}) {
@@ -567,6 +571,28 @@ function parseV051TypedType(value, moduleId, allowVoid, loc) {
 }
 
 function canonicalizeV051SourceType(value, moduleId, allowVoid, loc) {
+  const text = String(value || "").trim();
+  assertTypeNesting(text, V051_TYPE_RECURSION_LIMIT);
+  return canonicalizeV051SourceTypeChecked(text, moduleId, allowVoid, loc);
+}
+
+// SEC53-06 (P2-3): what /^NAME\s*<\s*(.+)\s*>$/ matched, found in one pass with
+// no backtracking. It returns the capture trimmed, which is all either caller
+// uses (the recursion trims it; splitComma gives the same parts), or null when
+// the expression would not match: `.` admits no line terminator inside the core.
+function matchV051TypeConstructor(value, name) {
+  if (!value.startsWith(name)) return null;
+  let index = name.length;
+  while (index < value.length && /\s/.test(value[index])) index += 1;
+  if (value[index] !== "<" || index >= value.length - 1 || value[value.length - 1] !== ">") return null;
+  const inner = value.slice(index + 1, -1);
+  const core = inner.trim();
+  if (core) return /[\n\r\u2028\u2029]/.test(core) ? null : core;
+  return /[^\n\r\u2028\u2029]/.test(inner) ? "" : null;
+}
+
+// The recursion, below the one nesting check above (one scan per type, not per level).
+function canonicalizeV051SourceTypeChecked(value, moduleId, allowVoid, loc) {
   value = String(value || "").trim();
   if (allowVoid && value === "void") return "void";
   // v0.51 reuses the existing i32 refinement grammar. The refinement remains
@@ -579,13 +605,13 @@ function canonicalizeV051SourceType(value, moduleId, allowVoid, loc) {
     return refinement.canonical;
   }
   if (/^[A-Z][A-Za-z0-9_]{0,127}$/.test(value)) return `${moduleId}::${value}`;
-  const option = value.match(/^option\s*<\s*(.+)\s*>$/);
-  if (option) return `option<${canonicalizeV051SourceType(option[1], moduleId, false, loc)}>`;
-  const result = value.match(/^result\s*<\s*(.+)\s*>$/);
-  if (result) {
-    const parts = splitComma(result[1]);
+  const option = matchV051TypeConstructor(value, "option");
+  if (option !== null) return `option<${canonicalizeV051SourceTypeChecked(option, moduleId, false, loc)}>`;
+  const result = matchV051TypeConstructor(value, "result");
+  if (result !== null) {
+    const parts = splitComma(result);
     if (parts.length !== 2) throw new AirError("air.v051.type_reference_invalid: result requires exactly two type parameters", loc);
-    return `result<${canonicalizeV051SourceType(parts[0], moduleId, false, loc)},${canonicalizeV051SourceType(parts[1], moduleId, false, loc)}>`;
+    return `result<${canonicalizeV051SourceTypeChecked(parts[0], moduleId, false, loc)},${canonicalizeV051SourceTypeChecked(parts[1], moduleId, false, loc)}>`;
   }
   try { return parseTypeReference(value, { allowVoid }).canonical; } catch (err) {
     throw new AirError(err.message, loc);
@@ -1114,16 +1140,17 @@ function parseStringAtom(text) {
   }
 }
 
+// SEC53-06 (P2-3): the part is text.slice(start, i), so indexing it no longer
+// flattens a string built one character at a time. The parts are the same.
 function splitComma(text) {
   const parts = [];
-  let current = "";
+  let start = 0;
   let inString = false;
   let escape = false;
   let angleDepth = 0;
   for (let i = 0; i < text.length; i += 1) {
     const ch = text[i];
     if (inString) {
-      current += ch;
       if (escape) {
         escape = false;
       } else if (ch === "\\") {
@@ -1135,19 +1162,17 @@ function splitComma(text) {
     }
     if (ch === '"') {
       inString = true;
-      current += ch;
       continue;
     }
-    if (ch === "<" && text[i + 1] !== "=" && current[current.length - 1] && !/\s/.test(current[current.length - 1])) angleDepth += 1;
+    if (ch === "<" && text[i + 1] !== "=" && i > start && !/\s/.test(text[i - 1])) angleDepth += 1;
     if (ch === ">") angleDepth = Math.max(0, angleDepth - 1);
     if (ch === "," && angleDepth === 0) {
-      parts.push(current.trim());
-      current = "";
-      continue;
+      parts.push(text.slice(start, i).trim());
+      start = i + 1;
     }
-    current += ch;
   }
-  if (current.trim()) parts.push(current.trim());
+  const last = text.slice(start).trim();
+  if (last) parts.push(last);
   return parts;
 }
 
