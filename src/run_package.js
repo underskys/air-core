@@ -630,6 +630,12 @@ function validateEntrypoint(mod, name, args) {
   for (const param of fn.params || []) {
     if (param.type !== "i32") throw new Error("embedding v1 supports i32 entrypoint parameters only");
   }
+  // SEC53-08: an i32 parameter applies ToInt32, so a value outside the signed i32 range would reach AIR changed.
+  args.forEach((value, index) => {
+    if (!Number.isInteger(value) || value < -2147483648 || value > 2147483647) {
+      throw new Error(`air.run.argument_invalid: embedding argument ${index} must be a signed i32`);
+    }
+  });
 }
 
 function createExplicitImports({ mod, adapters, grant, limits, packageReport }) {

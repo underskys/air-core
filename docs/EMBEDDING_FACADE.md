@@ -33,7 +33,7 @@ The facade:
 4. validates bounded facts, grants, limits, and adapter declarations;
 5. checks certified host-call and output bounds against supplied limits;
 6. compiles and instantiates only the verified source module;
-7. invokes one declared exported i32 decision entrypoint;
+7. invokes one declared exported i32 decision entrypoint, with every argument a signed i32; a value outside that range is refused before the call;
 8. captures bounded scalar output intents;
 9. returns deterministic digest-bound evidence.
 
