@@ -306,12 +306,18 @@ function validateTypedPackageBinding(manifest, packageDir, options = {}) {
   if (manifest.typedInterface === undefined) fail("air.v051.abi_descriptor_missing", "AIR ABI 0.12 requires typedInterface");
   exactKeys(manifest.typedInterface, ["descriptor", "descriptorDigest", "entryExport", "hostContractVersion"], "typedInterface");
   if (typeof manifest.typedInterface.descriptor !== "string" || !manifest.typedInterface.descriptor || path.isAbsolute(manifest.typedInterface.descriptor) || manifest.typedInterface.descriptor.includes("\\") || manifest.typedInterface.descriptor.split("/").includes("..")) fail("air.v051.typed_manifest_invalid", "typedInterface.descriptor must be a safe package-local path");
-  const packageRoot = fs.realpathSync(packageDir);
+  // SEC53-01 (§4.2, §4.3): the descriptor and the entry are admitted from the
+  // real root, in place of realpath plus startsWith, and read through their
+  // descriptors. A link is refused (air.package.path_uncontained).
+  const packagePaths = require("./package_paths");
+  const packageRoot = packagePaths.packageRealRoot(packageDir);
   const descriptorPath = path.resolve(packageRoot, manifest.typedInterface.descriptor);
-  if (!descriptorPath.startsWith(`${packageRoot}${path.sep}`) || !fs.existsSync(descriptorPath) || !fs.statSync(descriptorPath).isFile()) fail("air.v051.typed_manifest_invalid", "typedInterface descriptor file is unavailable");
-  if (!fs.realpathSync(descriptorPath).startsWith(`${packageRoot}${path.sep}`)) fail("air.v051.typed_manifest_invalid", "typedInterface descriptor must resolve inside package directory");
+  if (!descriptorPath.startsWith(`${packageRoot}${path.sep}`)) fail("air.v051.typed_manifest_invalid", "typedInterface descriptor file is unavailable");
+  const descriptorRef = packagePaths.admitPackagePath(packageRoot, path.relative(packageRoot, descriptorPath).split(path.sep).join("/"), "typedInterface.descriptor", { optional: true });
+  if (!descriptorRef.exists) fail("air.v051.typed_manifest_invalid", "typedInterface descriptor file is unavailable");
+  const descriptorText = packagePaths.readAdmittedPackageFile(descriptorRef, { encoding: "utf8" });
   let source;
-  try { source = JSON.parse(fs.readFileSync(descriptorPath, "utf8")); } catch { fail("air.v051.typed_manifest_invalid", "typedInterface descriptor is not JSON"); }
+  try { source = JSON.parse(descriptorText); } catch { fail("air.v051.typed_manifest_invalid", "typedInterface descriptor is not JSON"); }
   const descriptor = normalizeTypedInterfaceDescriptor(source);
   const actualDigest = descriptorDigest(descriptor);
   if (manifest.typedInterface.descriptorDigest !== actualDigest) fail("air.v051.typed_manifest_invalid", "typedInterface descriptor digest mismatch");
@@ -328,10 +334,12 @@ function validateTypedPackageBinding(manifest, packageDir, options = {}) {
   let sourceModule = options.sourceModule || null;
   if (!sourceModule && options.loadSource !== false) {
     const entryPath = path.resolve(packageRoot, manifest.entry || "");
-    if (!manifest.entry || !entryPath.startsWith(`${packageRoot}${path.sep}`) || !fs.existsSync(entryPath) || !fs.statSync(entryPath).isFile() || !fs.realpathSync(entryPath).startsWith(`${packageRoot}${path.sep}`)) fail("air.v051.typed_manifest_invalid", "candidate package entry source is unavailable");
+    if (!manifest.entry || !entryPath.startsWith(`${packageRoot}${path.sep}`)) fail("air.v051.typed_manifest_invalid", "candidate package entry source is unavailable");
+    const entryRef = packagePaths.admitPackagePath(packageRoot, path.relative(packageRoot, entryPath).split(path.sep).join("/"), "entry", { optional: true });
+    if (!entryRef.exists) fail("air.v051.typed_manifest_invalid", "candidate package entry source is unavailable");
     const { parseV051Air } = require("./parser");
     const { verifyV051Air } = require("./verifier");
-    sourceModule = parseV051Air(fs.readFileSync(entryPath, "utf8"), entryPath);
+    sourceModule = parseV051Air(packagePaths.readAdmittedPackageFile(entryRef, { encoding: "utf8" }), entryPath);
     verifyV051Air(sourceModule);
   }
   if (sourceModule) validateDescriptorAgainstSource(descriptor, sourceModule);

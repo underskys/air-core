@@ -22,16 +22,37 @@ function resolveSourceImports(mod, parseAir, options = {}) {
   const functionNames = new Set(merged.functions.map((fn) => fn.name));
 
   for (const use of sourceUses) {
-    const importFile = resolveImportPath(use, baseFile, stdlibDir);
+    // SEC53-01 (§4.4, OD-S1-4 (a)): in package mode a non-std import resolves
+    // against the package root plus the importing file's folder (a relative
+    // base file counts as relative to the root, so labels stay unchanged), must
+    // stay inside the root, and is admitted and read through its descriptor.
+    // Without packageRoot nothing changes (single-file airc, M() of P0-11).
+    // SEC53-01 R4 (OD-S1-6 (a)): in package mode only a stdlib module name, std.<identifier>(.<identifier>)*, is exempt.
+    if (options.packageRoot && use.name.startsWith("std.") && !/^std\.[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*$/.test(use.name)) {
+      const packagePaths = require("./package_paths");
+      throw new packagePaths.PackagePathError(packagePaths.PATH_UNCONTAINED, `AIR import '${use.name}' is not a stdlib module name`);
+    }
+    const inPackage = Boolean(options.packageRoot) && !use.name.startsWith("std.");
+    const packageRoot = inPackage ? path.resolve(options.packageRoot) : null;
+    const importFile = inPackage ? path.resolve(path.dirname(path.resolve(packageRoot, baseFile)), use.name) : resolveImportPath(use, baseFile, stdlibDir);
     const resolved = path.resolve(importFile);
-    if (stack.includes(resolved)) {
+    if (stack.includes(resolved) || (inPackage && resolved === path.resolve(packageRoot, baseFile))) {
       throw new AirError(`cyclic AIR import '${use.name}'`, use.loc);
     }
-    if (!fs.existsSync(resolved)) {
+    let admitted = null;
+    if (inPackage) {
+      const packagePaths = require("./package_paths");
+      const relative = path.relative(packageRoot, resolved);
+      if (relative === "" || relative === ".." || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) {
+        throw new packagePaths.PackagePathError(packagePaths.PATH_UNCONTAINED, `AIR import '${use.name}' leaves the package root`);
+      }
+      admitted = packagePaths.admitPackagePath(packagePaths.packageRealRoot(packageRoot), relative.split(path.sep).join("/"), `AIR import '${use.name}'`, { optional: true });
+      if (!admitted.exists) throw new AirError(`AIR import '${use.name}' not found at ${resolved}`, use.loc);
+    } else if (!fs.existsSync(resolved)) {
       throw new AirError(`AIR import '${use.name}' not found at ${resolved}`, use.loc);
     }
     const alias = use.alias || defaultAlias(use.name);
-    const source = fs.readFileSync(resolved, "utf8");
+    const source = admitted ? require("./package_paths").readAdmittedPackageFile(admitted, { encoding: "utf8" }) : fs.readFileSync(resolved, "utf8");
     const imported = parseAir(source, resolved, {
       ...options,
       file: resolved,

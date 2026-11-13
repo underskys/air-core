@@ -141,16 +141,28 @@ function analyzePackageModuleGraph(packageRoot, entry, options = {}) {
       return;
     }
     if (modulesByPath.has(ref.relative)) return;
-    if (!fs.existsSync(ref.absolute)) {
+    // SEC53-01 (§4.3): each package module is admitted from the real root and
+    // read through its descriptor; a link or a non-regular file is refused.
+    const packagePaths = require("./package_paths");
+    let admitted;
+    try {
+      admitted = packagePaths.admitPackagePath(rootReal, ref.relative, `AIR import ${ref.relative}`, { optional: true });
+    } catch (err) {
+      errors.push(errorMessage(err));
+      return;
+    }
+    if (!admitted.exists) {
       errors.push(`AIR import missing file: ${ref.relative}`);
       return;
     }
-    if (!fs.statSync(ref.absolute).isFile()) {
-      errors.push(`AIR import is not a file: ${ref.relative}`);
+
+    let source;
+    try {
+      source = packagePaths.readAdmittedPackageFile(admitted, { encoding: "utf8" });
+    } catch (err) {
+      errors.push(errorMessage(err));
       return;
     }
-
-    const source = fs.readFileSync(ref.absolute, "utf8");
     let mod = null;
     try {
       mod = parseAir(source, ref.absolute, { resolveSourceImports: false });
@@ -294,6 +306,12 @@ function analyzePackageModuleGraph(packageRoot, entry, options = {}) {
   }
 
   function resolveStdlibImport(importerRelative, use, importedNames, errors) {
+    // SEC53-01 R4 (OD-S1-6 (a)): only a stdlib module name, std.<identifier>(.<identifier>)*, is looked up in stdlib/.
+    if (!/^std\.[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*$/.test(use.name)) {
+      errors.push(`air.package.path_uncontained: AIR import '${use.name}' in ${importerRelative} is not a stdlib module name`);
+      importClassifications.push({ module: importerRelative, import: use.name, class: "invalid-stdlib", status: "rejected", alias: use.alias || null, resolved: null, belongsTo: null, repairHint: "name a stdlib module as std.<identifier>" });
+      return null;
+    }
     const moduleName = use.name.slice("std.".length);
     const rejected = REJECTED_STDLIB_IMPORTS[moduleName];
     const stdFile = path.join(STDLIB_DIR, `${moduleName}.air`);
@@ -401,7 +419,16 @@ function poolSummaries(mod, modulePath) {
 function modulePublicName(ref) {
   if (!ref || !fs.existsSync(ref.absolute)) return null;
   try {
-    const mod = parseAir(fs.readFileSync(ref.absolute, "utf8"), ref.absolute, { resolveSourceImports: false });
+    // SEC53-01 (§4.3): admitted from the package root (ref.absolute less
+    // ref.relative) and read through its descriptor.
+    const packagePaths = require("./package_paths");
+    // SEC53-01 R4 (QA's F2): the root is taken only when ref.absolute is exactly that root joined with ref.relative. A
+    // backslash, "." or ".." in the import name makes them differ, and then nothing is read.
+    const suffix = path.sep + String(ref.relative).split("/").join(path.sep);
+    if (!String(ref.absolute).endsWith(suffix)) return null;
+    const root = String(ref.absolute).slice(0, -suffix.length);
+    const admitted = packagePaths.admitPackagePath(packagePaths.packageRealRoot(root), ref.relative, `AIR import ${ref.relative}`);
+    const mod = parseAir(packagePaths.readAdmittedPackageFile(admitted, { encoding: "utf8" }), ref.absolute, { resolveSourceImports: false });
     return mod.name;
   } catch (_) {
     return null;
@@ -446,14 +473,14 @@ function resolvePackagePath(root, rootReal, value, importerAbsolute, errors) {
   const absolute = path.resolve(base, value);
   const relativeFromRoot = path.relative(root, absolute).replace(/\\/g, "/");
   if (relativeFromRoot === "" || relativeFromRoot.startsWith("../") || relativeFromRoot === ".." || path.isAbsolute(relativeFromRoot)) {
-    errors.push(`AIR import '${value}' escapes package root`);
+    errors.push(`air.package.path_uncontained: AIR import '${value}' escapes package root`);
     return null;
   }
   if (fs.existsSync(absolute)) {
     const real = fs.realpathSync(absolute);
     const relativeReal = path.relative(rootReal, real);
     if (relativeReal === "" || relativeReal.startsWith("..") || path.isAbsolute(relativeReal)) {
-      errors.push(`AIR import '${value}' resolves outside package root`);
+      errors.push(`air.package.path_uncontained: AIR import '${value}' resolves outside package root`);
       return null;
     }
   }

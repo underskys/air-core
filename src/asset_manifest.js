@@ -64,9 +64,12 @@ class AssetManifestError extends Error {
 
 function validateAssetManifest(packageDir, manifestPath, options = {}) {
   const base = path.resolve(packageDir);
-  const manifestRef = validatePackageLocalPath(base, manifestPath, "asset manifest", []);
-  const manifestAbs = manifestRef ? manifestRef.absolute : path.resolve(base, manifestPath || "");
-  const errors = [];
+  // SEC53-01 (§4.2): the manifest path is admitted with the asset validator;
+  // an unvalidated path is never resolved (the fallback is removed).
+  const manifestErrors = [];
+  const manifestRef = validatePackageLocalPath(base, manifestPath, "asset manifest", manifestErrors);
+  const manifestAbs = manifestRef ? manifestRef.absolute : "";
+  const errors = manifestErrors.filter((message) => /^air\.package\./.test(message));
   const warnings = [];
   const report = {
     ok: false,
@@ -96,7 +99,7 @@ function validateAssetManifest(packageDir, manifestPath, options = {}) {
 
   let manifest = null;
   try {
-    manifest = JSON.parse(fs.readFileSync(manifestAbs, "utf8"));
+    manifest = JSON.parse(require("./package_paths").readAdmittedPackageFile(manifestRef.ref, { encoding: "utf8" }));
   } catch (err) {
     errors.push(`invalid JSON in asset manifest ${report.path}: ${err.message}`);
     return finalize(report);
@@ -374,9 +377,20 @@ function validatePackageLocalPath(base, value, field, errors) {
     errors.push(`${field} must stay inside the package directory`);
     return null;
   }
+  // SEC53-01 (§4.2): then admitted one name at a time from the real root; a
+  // link or a non-regular file is refused with its code.
+  const packagePaths = require("./package_paths");
+  let ref;
+  try {
+    ref = packagePaths.admitPackagePath(packagePaths.packageRealRoot(base), normalized, field, { optional: true });
+  } catch (err) {
+    errors.push(err && err.message ? err.message : String(err));
+    return null;
+  }
   return {
     relative: normalized,
-    absolute
+    absolute,
+    ref
   };
 }
 
@@ -410,9 +424,13 @@ function checkForbiddenRuntimePath(report, field, value, entry) {
 
 function isPlaceholderFile(file, base) {
   const rel = path.relative(base, file).replace(/\\/g, "/");
-  const bundleReport = path.join(base, "BUNDLE_PLACEHOLDER_FILES.jsonl");
-  if (fs.existsSync(bundleReport)) {
-    const lines = fs.readFileSync(bundleReport, "utf8").split(/\r?\n/).filter(Boolean);
+  // SEC53-01 (§4.2, §4.3): the bundle report and the asset are admitted and
+  // read through their descriptors; only the asset's first 512 bytes are read.
+  const packagePaths = require("./package_paths");
+  const realRoot = packagePaths.packageRealRoot(base);
+  const bundleReport = packagePaths.admitPackagePath(realRoot, "BUNDLE_PLACEHOLDER_FILES.jsonl", "BUNDLE_PLACEHOLDER_FILES.jsonl", { optional: true });
+  if (bundleReport.exists) {
+    const lines = packagePaths.readAdmittedPackageFile(bundleReport, { encoding: "utf8" }).split(/\r?\n/).filter(Boolean);
     for (const line of lines) {
       try {
         const item = JSON.parse(line);
@@ -422,7 +440,7 @@ function isPlaceholderFile(file, base) {
       }
     }
   }
-  const sample = fs.readFileSync(file).subarray(0, 512).toString("utf8");
+  const sample = packagePaths.readAdmittedPackageFile(packagePaths.admitPackagePath(realRoot, rel, "asset"), { prefixBytes: 512 }).toString("utf8");
   return /AIR_ASSET_PLACEHOLDER|AIRLANG_ASSET_PLACEHOLDER|review-bundle placeholder|placeholder/i.test(sample);
 }
 

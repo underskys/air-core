@@ -296,7 +296,7 @@ async function buildPackageWasm(packageDir, config) {
   const metadata = normalizePackageMetadata(manifest);
   const entryPath = path.join(packageDir, metadata.entry);
   const source = fs.readFileSync(entryPath, "utf8");
-  const mod = parseAir(source, metadata.entry);
+  const mod = parseAir(source, metadata.entry, { packageRoot: packageDir });
   verifyModule(mod);
   const wat = lowerToWat(mod);
   const wasm = await watToWasm(wat, entryPath);

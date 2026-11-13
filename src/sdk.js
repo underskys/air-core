@@ -86,17 +86,35 @@ function createPackageMetadata(mod, options) {
 
 function loadPackage(packageDir) {
   const base = path.resolve(packageDir);
-  const metadataPath = path.join(base, "air-package.json");
-  if (!fs.existsSync(metadataPath)) throw new Error(`missing air-package.json in ${base}`);
-  const metadata = JSON.parse(fs.readFileSync(metadataPath, "utf8"));
+  // SEC53-01 (§4.2, OD-S1-5 (a)): the legacy air-package.json format gets the
+  // lexical checks of air.package.json paths (thrown as one
+  // PackageManifestError), then admission; each file is read through its
+  // descriptor (§4.3).
+  const packagePaths = require("./package_paths");
+  let realRoot = null;
+  try {
+    realRoot = packagePaths.packageRealRoot(base);
+  } catch (_) {
+    realRoot = null;
+  }
+  const metadataRef = realRoot ? packagePaths.admitPackagePath(realRoot, "air-package.json", "air-package.json", { optional: true }) : null;
+  if (!metadataRef || !metadataRef.exists) throw new Error(`missing air-package.json in ${base}`);
+  const metadata = JSON.parse(packagePaths.readAdmittedPackageFile(metadataRef, { encoding: "utf8" }));
+  const wasmField = metadata.wasm ? "wasm" : "module";
+  const lexicalErrors = [];
+  const wasmLocal = packagePaths.lexicalPackageLocalPath(base, metadata.wasm || `${metadata.module}.wasm`, wasmField, lexicalErrors);
+  const manifestLocal = metadata.manifest ? packagePaths.lexicalPackageLocalPath(base, metadata.manifest, "manifest", lexicalErrors) : null;
+  if (lexicalErrors.length) throw new (require("./package_manifest").PackageManifestError)(lexicalErrors);
   const wasmPath = path.join(base, metadata.wasm || `${metadata.module}.wasm`);
-  if (!fs.existsSync(wasmPath)) throw new Error(`missing wasm: ${metadata.wasm}`);
+  const wasmRef = packagePaths.admitPackagePath(realRoot, wasmLocal.relative, wasmField, { optional: true });
+  if (!wasmRef.exists) throw new Error(`missing wasm: ${metadata.wasm}`);
   let manifest = null;
   let manifestPath = null;
   if (metadata.manifest) {
     manifestPath = path.join(base, metadata.manifest);
-    if (!fs.existsSync(manifestPath)) throw new Error(`missing manifest: ${metadata.manifest}`);
-    const manifestBytes = fs.readFileSync(manifestPath);
+    const manifestRef = packagePaths.admitPackagePath(realRoot, manifestLocal.relative, "manifest", { optional: true });
+    if (!manifestRef.exists) throw new Error(`missing manifest: ${metadata.manifest}`);
+    const manifestBytes = packagePaths.readAdmittedPackageFile(manifestRef);
     if (metadata.manifestHash && sha256(manifestBytes) !== metadata.manifestHash) {
       throw new Error(`manifest hash mismatch for ${metadata.manifest}`);
     }
@@ -106,7 +124,7 @@ function loadPackage(packageDir) {
     base,
     metadata,
     wasmPath,
-    wasmBytes: fs.readFileSync(wasmPath),
+    wasmBytes: packagePaths.readAdmittedPackageFile(wasmRef),
     manifestPath,
     manifest
   };
@@ -243,7 +261,16 @@ function validatePackageDir(packageDir, options = {}) {
   };
   const audioManifestName = audioManifestNameFromMetadata(pkg.metadata);
   if (audioManifestName) {
-    const audioManifest = loadAudioManifest(path.join(pkg.base, audioManifestName));
+    // SEC53-01 (§4.2, OD-S1-5 (a)): the audio manifest gets the lexical checks
+    // under its field name, then admission; it is read through its descriptor
+    // and loadAudioManifest parses the text it is given.
+    const packagePaths = require("./package_paths");
+    const audioField = typeof pkg.metadata.audioManifest === "string" ? "audioManifest" : "audio.manifest";
+    const audioErrors = [];
+    const audioLocal = packagePaths.lexicalPackageLocalPath(pkg.base, audioManifestName, audioField, audioErrors);
+    if (!audioLocal) throw new (require("./package_manifest").PackageManifestError)(audioErrors);
+    const audioRef = packagePaths.admitPackagePath(packagePaths.packageRealRoot(pkg.base), audioLocal.relative, audioField);
+    const audioManifest = loadAudioManifest(audioRef.absolute, { text: packagePaths.readAdmittedPackageFile(audioRef, { encoding: "utf8" }) });
     const audio = createAudioAuthorityReport(packageMetadataToModule(pkg.metadata), { manifest: audioManifest });
     if (audio.status !== "pass") throw new Error(`audio authority check failed: ${audio.errors.join("; ")}`);
     result.audio = audio;
@@ -448,7 +475,8 @@ function checkPackageDir(packageDir, options = {}) {
   }
 
   try {
-    source = fs.readFileSync(path.join(base, metadata.entry), "utf8");
+    // SEC53-01 (§4.3): the entry validatePackageManifest admitted, read through its descriptor.
+    source = require("./package_paths").readAdmittedPackageFile(require("./package_paths").admittedRefsOf(packageManifest).entry, { encoding: "utf8" });
     mod = parseAir(source, metadata.entry, { resolveSourceImports: false });
     if (report.hostImports.used.length === 0) report.hostImports.used = sortedStrings((mod.externs || []).map((ex) => ex.name));
     if (moduleGraphReport && !moduleGraphReport.errors.length) {
@@ -600,7 +628,16 @@ function checkLegacyPackageDir(base, options, report) {
     addCheck(report, "module-graph", "skip", "legacy package metadata has no canonical source entry");
     for (const [kind, manifestRef] of Object.entries(metadata.manifests || {}).sort(([a], [b]) => a.localeCompare(b))) {
       const manifestPath = manifestRef && manifestRef.path;
-      const exists = Boolean(manifestPath && fs.existsSync(path.join(base, manifestPath)));
+      // SEC53-01 (§4.2, OD-S1-5 (a)): the probe is the lexical checks under
+      // manifests.<kind>, then admission; its errors reach the catch below.
+      let exists = false;
+      if (manifestPath) {
+        const packagePaths = require("./package_paths");
+        const probeErrors = [];
+        const local = packagePaths.lexicalPackageLocalPath(base, manifestPath, `manifests.${kind}`, probeErrors);
+        if (!local) throw new (require("./package_manifest").PackageManifestError)(probeErrors);
+        exists = packagePaths.admitPackagePath(packagePaths.packageRealRoot(base), local.relative, `manifests.${kind}`, { optional: true }).exists;
+      }
       report.manifests[kind] = { path: manifestPath, exists };
       addCheck(
         report,
@@ -795,8 +832,9 @@ function reportPackageDir(packageDir, options = {}) {
   });
   if (metadata.executionProfile && metadata.entry) {
     try {
-      const source = fs.readFileSync(path.join(base, metadata.entry), "utf8");
-      const mod = parseAir(source, metadata.entry);
+      // SEC53-01 (§4.3, §4.4): the admitted entry through its descriptor; its imports anchored at the package root.
+      const source = require("./package_paths").readAdmittedPackageFile(require("./package_paths").admittedRefsOf(packageManifest).entry, { encoding: "utf8" });
+      const mod = parseAir(source, metadata.entry, { packageRoot: base });
       verifyModule(mod);
       attachRealtimeExecutionProfile(report, mod, metadata, { checks: false });
     } catch (err) {
@@ -1313,12 +1351,16 @@ function readPackageModulesForOutputEmit(base, metadata, report) {
   if (metadata && metadata.entry) relPaths.add(metadata.entry);
   const modules = [];
   for (const rel of Array.from(relPaths).sort()) {
-    const absolute = path.join(base, rel);
-    if (!fs.existsSync(absolute)) continue;
+    // SEC53-01 R4 (OD-S1-7 (a)): each module admitted from the real root and read through its descriptor. A coded refusal
+    // fails the check instead of being skipped.
     let source;
     try {
-      source = fs.readFileSync(absolute, "utf8");
-    } catch (_err) {
+      const packagePaths = require("./package_paths");
+      const admittedModule = packagePaths.admitPackagePath(packagePaths.packageRealRoot(base), String(rel).replace(/\\/g, "/"), "module", { optional: true });
+      if (!admittedModule.exists) continue;
+      source = packagePaths.readAdmittedPackageFile(admittedModule, { encoding: "utf8" });
+    } catch (err) {
+      if (err && /^air\.package\./.test(String(err.code || ""))) addCheck(report, "output-emit", "fail", errorMessage(err));
       continue;
     }
     if (!source.includes("output.emit")) continue;
@@ -1929,7 +1971,9 @@ function attachPackageAiReview(report, base, metadata, options = {}) {
   for (const moduleInfo of modules.slice().sort((a, b) => a.path.localeCompare(b.path))) {
     const modulePath = moduleInfo.path;
     try {
-      const source = fs.readFileSync(path.join(base, modulePath), "utf8");
+      // SEC53-01 (§4.3): each package module admitted and read through its descriptor.
+      const packagePaths = require("./package_paths");
+      const source = packagePaths.readAdmittedPackageFile(packagePaths.admitPackagePath(packagePaths.packageRealRoot(base), String(modulePath).replace(/\\/g, "/"), "module"), { encoding: "utf8" });
       const mod = parseAir(source, modulePath, { resolveSourceImports: false });
       const policyContext = reviewPolicyContext(metadata.reviewPolicy, modulePath, policyReport);
       const isEntry = modulePath === metadata.entry;
@@ -2557,8 +2601,10 @@ function attachProfileSupport(report, profileReport, profile) {
 
 function hostImportsFromEntry(base, entry) {
   if (!entry) return [];
-  const source = fs.readFileSync(path.join(base, entry), "utf8");
-  const mod = parseAir(source, entry);
+  // SEC53-01 (§4.3, §4.4): the entry admitted and read through its descriptor; its imports anchored at the package root.
+  const packagePaths = require("./package_paths");
+  const source = packagePaths.readAdmittedPackageFile(packagePaths.admitPackagePath(packagePaths.packageRealRoot(base), entry, "entry"), { encoding: "utf8" });
+  const mod = parseAir(source, entry, { packageRoot: base });
   verifyModule(mod);
   return (mod.externs || []).map((ex) => ex.name);
 }
@@ -2608,15 +2654,17 @@ function attachResourceCertificate(report, base, metadata, packageManifest, opti
   try {
     const modules = (report.modules || []).map((item) => {
       const relative = String(item.path || "").replace(/\\/g, "/");
-      const absolute = path.join(base, relative);
-      const source = fs.readFileSync(absolute, "utf8");
+      // SEC53-01 R4 (OD-S1-7 (a)): each module admitted from the real root and read through its descriptor.
+      const packagePaths = require("./package_paths");
+      const source = packagePaths.readAdmittedPackageFile(packagePaths.admitPackagePath(packagePaths.packageRealRoot(base), relative, "module"), { encoding: "utf8" });
       return {
         path: relative,
         mod: parseAir(source, relative, { resolveSourceImports: false }),
         digest: `sha256:${sha256(Buffer.from(source, "utf8"))}`
       };
     }).sort((a, b) => a.path.localeCompare(b.path));
-    const manifestBytes = fs.readFileSync(path.join(base, PACKAGE_MANIFEST_FILE));
+    // SEC53-01 (§4.3): the manifest validatePackageManifest admitted, read through its descriptor.
+    const manifestBytes = require("./package_paths").readAdmittedPackageFile(require("./package_paths").admittedRefsOf(packageManifest).manifest);
     const manifestDigest = `sha256:${sha256(manifestBytes)}`;
     const packageDigest = resourcePackageDigest(manifestDigest, modules);
     const certificate = createVerifiedResourceCertificate(modules, {

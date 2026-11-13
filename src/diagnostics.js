@@ -178,6 +178,10 @@ const REPAIR_HINTS_BY_CODE = Object.freeze({
   "air.output_emit.output_id_invalid": "Declare the output id in Output Contracts or use an existing generated OUTPUT_* handle.",
   "air.output_emit.profile_unsupported": `Choose a host profile that supports bounded ${OUT_EMIT_LABEL} or remove ${OUT_EMIT_LABEL}.`,
   "air.package.host_abi": "Use a compatible host profile or migrate ABI only through the version policy.",
+  // SEC53-01 (spec R3 §4.4): package path containment.
+  "air.package.path_uncontained": "Name package files through real folders inside the package root, with no symbolic link anywhere on the path, the file itself included.",
+  "air.package.file_invalid": "A package file must be a regular file of at most 4 MiB at the listed reads: not a folder, FIFO, socket or device.",
+  "air.package.file_changed": "The package file read is not the one admitted: it, or a folder on its path, changed after admission. Do not modify the package folder while AIR uses it.",
   "air.package.profile_mismatch": "Choose a compatible profile or remove unsupported package requirements.",
   "air.review.debug_metric_event_bus": "Keep debug.metric diagnostic-only; use accepted output contracts or command buffers for host-visible intents.",
   "air.structured_io.field_type_invalid": "Use supported scalar field types: i32 or bool; represent enums, handles, and ids as i32.",

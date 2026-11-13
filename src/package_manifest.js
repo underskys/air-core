@@ -45,11 +45,23 @@ function validatePackageManifest(packageDir, options = {}) {
   const errors = [];
   const warnings = [];
 
-  if (!fs.existsSync(manifestPath)) {
+  // SEC53-01 (§4.2): the real root once; air.package.json is admitted, then
+  // read through its descriptor.
+  const packagePaths = require("./package_paths");
+  let realRoot;
+  let manifestRef;
+  try {
+    realRoot = packagePaths.packageRealRoot(base);
+    manifestRef = packagePaths.admitPackagePath(realRoot, PACKAGE_MANIFEST_FILE, PACKAGE_MANIFEST_FILE, { optional: true });
+  } catch (err) {
+    if (err instanceof packagePaths.PackagePathError) throw new PackageManifestError([err.message]);
+    manifestRef = null;
+  }
+  if (!manifestRef || !manifestRef.exists) {
     throw new PackageManifestError([`missing ${PACKAGE_MANIFEST_FILE} in ${base}`]);
   }
 
-  const manifest = readJson(manifestPath, errors);
+  const manifest = readJson(manifestRef, errors, manifestPath);
   const knownProfiles = options.knownProfiles || loadKnownHostProfiles(options.rootDir);
   const result = {
     ok: false,
@@ -97,19 +109,20 @@ function validatePackageManifest(packageDir, options = {}) {
     errors.push(`unsupported hostAbi ${JSON.stringify(result.hostAbi)}; expected one of ${Array.from(SUPPORTED_HOST_ABI_VERSIONS).sort().join(", ")}`);
   }
 
-  const entry = validatePackageLocalPath(base, manifest.entry, "entry", errors);
+  // SEC53-01 (§4.2): the admission result replaces the existsSync and statSync
+  // checks; the refs travel to the readers off the result (attachAdmittedRefs).
+  packagePaths.attachAdmittedRefs(result, { manifest: manifestRef, realRoot });
+  const entry = validatePackageLocalPath(base, manifest.entry, "entry", errors, { realRoot });
   if (entry) {
     result.entry = entry.relative;
-    if (!fs.existsSync(entry.absolute)) errors.push(`entry does not exist: ${entry.relative}`);
-    else if (!fs.statSync(entry.absolute).isFile()) errors.push(`entry is not a file: ${entry.relative}`);
+    if (entry.ref) packagePaths.attachAdmittedRefs(result, { entry: entry.ref });
   }
 
   if (manifest.wasm !== undefined) {
-    const wasm = validatePackageLocalPath(base, manifest.wasm, "wasm", errors);
+    const wasm = validatePackageLocalPath(base, manifest.wasm, "wasm", errors, { optional: !options.built, realRoot });
     if (wasm) {
       result.wasm = wasm.relative;
-      if (options.built && !fs.existsSync(wasm.absolute)) errors.push(`wasm does not exist: ${wasm.relative}`);
-      else if (options.built && !fs.statSync(wasm.absolute).isFile()) errors.push(`wasm is not a file: ${wasm.relative}`);
+      if (wasm.ref && wasm.ref.exists) packagePaths.attachAdmittedRefs(result, { wasm: wasm.ref });
     }
   } else if (options.built) {
     errors.push("wasm is required in built package-check mode");
@@ -130,11 +143,11 @@ function validatePackageManifest(packageDir, options = {}) {
       errors.push("generatedModules must be an array when present");
     } else {
       for (let i = 0; i < manifest.generatedModules.length; i++) {
-        const generatedRef = validatePackageLocalPath(base, manifest.generatedModules[i], `generatedModules[${i}]`, errors);
+        const generatedRef = validatePackageLocalPath(base, manifest.generatedModules[i], `generatedModules[${i}]`, errors, { optional: true, realRoot });
         if (generatedRef) {
           result.generatedModules.push({
             path: generatedRef.relative,
-            exists: fs.existsSync(generatedRef.absolute)
+            exists: Boolean(generatedRef.ref && generatedRef.ref.exists)
           });
         }
       }
@@ -146,11 +159,11 @@ function validatePackageManifest(packageDir, options = {}) {
       errors.push("factSchemas must be an array when present");
     } else {
       for (let i = 0; i < manifest.factSchemas.length; i++) {
-        const schemaRef = validatePackageLocalPath(base, manifest.factSchemas[i], `factSchemas[${i}]`, errors);
+        const schemaRef = validatePackageLocalPath(base, manifest.factSchemas[i], `factSchemas[${i}]`, errors, { optional: true, realRoot });
         if (schemaRef) {
           result.factSchemas.push({
             path: schemaRef.relative,
-            exists: fs.existsSync(schemaRef.absolute)
+            exists: Boolean(schemaRef.ref && schemaRef.ref.exists)
           });
         }
       }
@@ -162,11 +175,11 @@ function validatePackageManifest(packageDir, options = {}) {
       errors.push("structuredIO must be an array when present");
     } else {
       for (let i = 0; i < manifest.structuredIO.length; i++) {
-        const schemaRef = validatePackageLocalPath(base, manifest.structuredIO[i], `structuredIO[${i}]`, errors);
+        const schemaRef = validatePackageLocalPath(base, manifest.structuredIO[i], `structuredIO[${i}]`, errors, { optional: true, realRoot });
         if (schemaRef) {
           result.structuredIO.push({
             path: schemaRef.relative,
-            exists: fs.existsSync(schemaRef.absolute)
+            exists: Boolean(schemaRef.ref && schemaRef.ref.exists)
           });
         }
       }
@@ -178,11 +191,11 @@ function validatePackageManifest(packageDir, options = {}) {
       errors.push("outputContracts must be an array when present");
     } else {
       for (let i = 0; i < manifest.outputContracts.length; i++) {
-        const contractRef = validatePackageLocalPath(base, manifest.outputContracts[i], `outputContracts[${i}]`, errors);
+        const contractRef = validatePackageLocalPath(base, manifest.outputContracts[i], `outputContracts[${i}]`, errors, { optional: true, realRoot });
         if (contractRef) {
           result.outputContracts.push({
             path: contractRef.relative,
-            exists: fs.existsSync(contractRef.absolute)
+            exists: Boolean(contractRef.ref && contractRef.ref.exists)
           });
         }
       }
@@ -194,11 +207,11 @@ function validatePackageManifest(packageDir, options = {}) {
       errors.push("commandBuffers must be an array when present");
     } else {
       for (let i = 0; i < manifest.commandBuffers.length; i++) {
-        const bufferRef = validatePackageLocalPath(base, manifest.commandBuffers[i], `commandBuffers[${i}]`, errors);
+        const bufferRef = validatePackageLocalPath(base, manifest.commandBuffers[i], `commandBuffers[${i}]`, errors, { optional: true, realRoot });
         if (bufferRef) {
           result.commandBuffers.push({
             path: bufferRef.relative,
-            exists: fs.existsSync(bufferRef.absolute)
+            exists: Boolean(bufferRef.ref && bufferRef.ref.exists)
           });
         }
       }
@@ -239,11 +252,11 @@ function validatePackageManifest(packageDir, options = {}) {
           errors.push(`manifest key ${JSON.stringify(key)} must be a stable identifier`);
           continue;
         }
-        const manifestRef = validatePackageLocalPath(base, value, `manifests.${key}`, errors);
+        const manifestRef = validatePackageLocalPath(base, value, `manifests.${key}`, errors, { optional: true, realRoot });
         if (manifestRef) {
           result.manifests[key] = {
             path: manifestRef.relative,
-            exists: fs.existsSync(manifestRef.absolute)
+            exists: Boolean(manifestRef.ref && manifestRef.ref.exists)
           };
           if (!result.manifests[key].exists) warnings.push(`manifest path does not exist yet: ${manifestRef.relative}`);
         }
@@ -508,7 +521,7 @@ function validatePackageExports(base, value, errors) {
     const fn = validateFunctionIdentifier(item.function, `${label}.function`, errors);
     let modulePath = null;
     if (item.module !== undefined) {
-      const moduleRef = validatePackageLocalPath(base, item.module, `${label}.module`, errors);
+      const moduleRef = validatePackageLocalPath(base, item.module, `${label}.module`, errors, { optional: true, realRoot: require("./package_paths").packageRealRoot(base) });
       if (moduleRef) modulePath = moduleRef.relative;
     }
     if (name) {
@@ -820,11 +833,14 @@ function loadKnownHostProfiles(rootDir = path.resolve(__dirname, "..")) {
   return new Set(listHostProfileIds({ dir: path.join(rootDir, "data", "host_profiles") }));
 }
 
-function readJson(file, errors) {
+function readJson(file, errors, label = file) {
+  const packagePaths = require("./package_paths");
   try {
-    return JSON.parse(fs.readFileSync(file, "utf8"));
+    // SEC53-01 (§4.3): an admitted ref is read through its descriptor.
+    return JSON.parse(typeof file === "string" ? fs.readFileSync(file, "utf8") : packagePaths.readAdmittedPackageFile(file, { encoding: "utf8" }));
   } catch (err) {
-    errors.push(`invalid JSON in ${file}: ${err.message}`);
+    if (err instanceof packagePaths.PackagePathError) throw new PackageManifestError([err.message]);
+    errors.push(`invalid JSON in ${label}: ${err.message}`);
     return null;
   }
 }
@@ -890,38 +906,20 @@ function validateStringArray(value, field, errors) {
   return out;
 }
 
-function validatePackageLocalPath(base, value, field, errors) {
-  if (typeof value !== "string" || value === "") {
-    errors.push(`${field} is required`);
-    return null;
+function validatePackageLocalPath(base, value, field, errors, admission = null) {
+  const packagePaths = require("./package_paths");
+  const local = packagePaths.lexicalPackageLocalPath(base, value, field, errors);
+  if (!local || !admission) return local;
+  // SEC53-01 (§4.2): then admitted one name at a time from the real root
+  // (package_paths.js). A refusal is an error; an optional path that is
+  // missing has exists: false.
+  try {
+    local.ref = packagePaths.admitPackagePath(admission.realRoot, local.relative, field, { optional: Boolean(admission.optional) });
+  } catch (err) {
+    errors.push(err && err.message ? err.message : String(err));
+    local.ref = null;
   }
-  if (value.includes("\0")) {
-    errors.push(`${field} contains a null byte`);
-    return null;
-  }
-  const normalized = value.replace(/\\/g, "/");
-  if (/^[a-z][a-z0-9+.-]*:\/\//i.test(normalized) || /^file:\/\//i.test(normalized)) {
-    errors.push(`${field} must not be a URL or remote path`);
-    return null;
-  }
-  if (path.isAbsolute(value) || path.posix.isAbsolute(normalized)) {
-    errors.push(`${field} must be relative and package-local`);
-    return null;
-  }
-  if (normalized.split("/").includes("..")) {
-    errors.push(`${field} must not contain parent traversal`);
-    return null;
-  }
-  const absolute = path.resolve(base, value);
-  const relativeFromBase = path.relative(base, absolute);
-  if (relativeFromBase === "" || relativeFromBase.startsWith("..") || path.isAbsolute(relativeFromBase)) {
-    errors.push(`${field} must stay inside the package directory`);
-    return null;
-  }
-  return {
-    relative: normalized,
-    absolute
-  };
+  return local;
 }
 
 function throwIfInvalid(result) {

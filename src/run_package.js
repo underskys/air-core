@@ -615,7 +615,8 @@ function loadExecutableModule(descriptor, packageReport) {
   if (!isInside(descriptor.directory, entryPath)) {
     throw new Error("package entry escapes the explicit package directory");
   }
-  const source = fs.readFileSync(entryPath, "utf8");
+  // SEC53-01 (§4.3): the entry validatePackageManifest admitted, read through its descriptor.
+  const source = require("./package_paths").readAdmittedPackageFile(require("./package_paths").admittedRefsOf(manifest).entry, { encoding: "utf8" });
   const mod = parseAir(source, entryRelative, { resolveSourceImports: false });
   verifyModule(mod);
   return { entryPath: entryRelative, mod };

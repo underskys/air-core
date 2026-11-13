@@ -143,7 +143,7 @@ async function executePackage(base, metadata, fixture) {
     validateFacts(row);
     const entryPath = path.join(base, metadata.entry);
     const source = fs.readFileSync(entryPath, "utf8");
-    const mod = parseAir(source, metadata.entry);
+    const mod = parseAir(source, metadata.entry, { packageRoot: base });
     verifyModule(mod);
     const wasm = await watToWasm(lowerToWat(mod), entryPath);
     const loaded = await WebAssembly.instantiate(wasm, {});

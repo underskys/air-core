@@ -4,9 +4,11 @@ const { assuranceProfileUnsupported, isTypedV053Ast } = require("./errors");
 
 const AUDIO_SOURCES = new Set(["host-owned", "module-driven", "direct-import"]);
 
-function loadAudioManifest(file) {
+function loadAudioManifest(file, options = {}) {
   const resolved = path.resolve(file);
-  const manifest = JSON.parse(fs.readFileSync(resolved, "utf8"));
+  // SEC53-01 (§4.2): with options.text, the caller has already read the file
+  // through its admitted descriptor, and this parses that text.
+  const manifest = JSON.parse(typeof options.text === "string" ? options.text : fs.readFileSync(resolved, "utf8"));
   manifest.__file = resolved;
   manifest.__dir = path.dirname(resolved);
   return manifest;

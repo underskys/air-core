@@ -54,7 +54,9 @@ function refuseTypedContractPackage(base, metadata) {
   if (typeof metadata.wasm !== "string") return;
   let imports;
   try {
-    imports = WebAssembly.Module.imports(new WebAssembly.Module(fs.readFileSync(path.join(base, metadata.wasm))));
+    // SEC53-01 (§4.3): the wasm admitted from the real root and read through its descriptor.
+    const packagePaths = require("./package_paths");
+    imports = WebAssembly.Module.imports(new WebAssembly.Module(packagePaths.readAdmittedPackageFile(packagePaths.admitPackagePath(packagePaths.packageRealRoot(base), metadata.wasm, "wasm"))));
   } catch (_) {
     return;
   }
@@ -127,8 +129,9 @@ async function createVerifiedExecutionSession(options) {
     sessionFail("air.realtime.certificate_invalid", "resource certificate validation failed");
   }
   const sourcePath = path.join(base, metadata.entry);
-  const source = fs.readFileSync(sourcePath, "utf8");
-  const mod = parseAir(source, sourcePath);
+  // SEC53-01 (§4.3, §4.4): the admitted entry through its descriptor; its imports anchored at the package root.
+  const source = require("./package_paths").readAdmittedPackageFile(require("./package_paths").admittedRefsOf(packageManifest).entry, { encoding: "utf8" });
+  const mod = parseAir(source, sourcePath, { packageRoot: base });
   verifyModule(mod);
   const profileValidation = assertRealtimeSafeProfile(
     mod,
@@ -136,8 +139,8 @@ async function createVerifiedExecutionSession(options) {
     suppliedCertificate
   );
   const expectedWasm = await watToWasm(lowerToWat(mod), sourcePath);
-  const wasmPath = path.join(base, metadata.wasm);
-  const wasm = fs.readFileSync(wasmPath);
+  // SEC53-01 (§4.3): the admitted wasm through its descriptor.
+  const wasm = require("./package_paths").readAdmittedPackageFile(require("./package_paths").admittedRefsOf(packageManifest).wasm);
   if (!Buffer.from(expectedWasm).equals(wasm)) {
     sessionFail(
       "air.realtime.wasm_source_mismatch",

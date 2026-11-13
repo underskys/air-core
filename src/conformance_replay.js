@@ -83,20 +83,24 @@ async function createConformanceReplayReport(packageDir, options = {}) {
 
   let instance = null;
   try {
-    const wasmPath = path.join(base, metadata.wasm);
-    const wasm = fs.readFileSync(wasmPath);
+    // SEC53-01 (§4.3): the wasm validatePackageManifest admitted, read through its descriptor.
+    const wasm = require("./package_paths").readAdmittedPackageFile(require("./package_paths").admittedRefsOf(manifest).wasm);
     const sourcePath = path.join(base, metadata.entry);
     // SEC53-02 R3 (OD-S2-5 (a)): the bytes bind to the lowering of the verified entry, or else to the deterministic
     // linked lowering of the package's verified modules. An entry that does not stand alone has no single-entry lowering.
     let mod = null;
     let single = null;
+    // SEC53-01 R5 (section 4.3): the entry is read through its admitted ref and parsed in package mode. A containment refusal
+    // is raised with its code after the catch below, which stays as SEC53-02 wrote it.
+    let refusal = null;
     try {
-      mod = parseAir(fs.readFileSync(sourcePath, "utf8"), sourcePath);
+      mod = bindingEntryModule(manifest, sourcePath, base, (err) => { refusal = err; });
       verifyModule(mod);
       single = Buffer.from(await watToWasm(lowerToWat(mod), sourcePath));
     } catch (_) {
       mod = null;
     }
+    if (refusal) throw refusal;
     let linked = null;
     if (!single || !single.equals(wasm)) {
       linked = await linkedPackageWasm(base, { profile }).catch(() => null);
@@ -126,7 +130,7 @@ async function createConformanceReplayReport(packageDir, options = {}) {
     runStep(report, instance, step);
   }
   if (trace.stateDigest) {
-    const safety = loadDigestHelperSafety(base, metadata);
+    const safety = loadDigestHelperSafety(base, metadata, manifest);
     runStateDigest(report, instance, trace.stateDigest, safety);
   }
 
@@ -431,13 +435,27 @@ function runStateDigest(report, instance, stateDigest, safety) {
   report.stateDigest = stableObject(digestReport);
 }
 
-function loadDigestHelperSafety(base, metadata) {
+// SEC53-01 R5 (section 4.3): SEC53-02's binding entry, read through the entry validatePackageManifest admitted and parsed in
+// package mode. A containment refusal (air.package.*) is handed to `refuse` before it is thrown on.
+function bindingEntryModule(manifest, sourcePath, base, refuse) {
+  const packagePaths = require("./package_paths");
+  try {
+    return parseAir(packagePaths.readAdmittedPackageFile(packagePaths.admittedRefsOf(manifest).entry, { encoding: "utf8" }), sourcePath, { packageRoot: base });
+  } catch (err) {
+    if (err && /^air\.package\./.test(String(err.code || ""))) refuse(err);
+    throw err;
+  }
+}
+
+function loadDigestHelperSafety(base, metadata, manifest) {
   const entry = metadata && metadata.entry ? path.join(base, metadata.entry) : null;
   if (!entry || !fs.existsSync(entry)) {
     return { functions: new Map(), externs: new Set(), diagnostics: new Map(), unavailable: "AIR source entry is unavailable" };
   }
   try {
-    const mod = parseAir(fs.readFileSync(entry, "utf8"), entry);
+    // SEC53-01 R4 (OD-S1-8 (a)): the entry validatePackageManifest admitted, read through its descriptor.
+    const packagePaths = require("./package_paths");
+    const mod = parseAir(packagePaths.readAdmittedPackageFile(packagePaths.admittedRefsOf(manifest).entry, { encoding: "utf8" }), entry, { packageRoot: base });
     return analyzeDigestHelperSafety(mod);
   } catch (err) {
     return {

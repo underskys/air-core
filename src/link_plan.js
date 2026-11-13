@@ -81,7 +81,7 @@ function packageIdentity(base, manifest, metadata) {
     name: metadata.name,
     version: metadata.version,
     manifestPath: PACKAGE_MANIFEST_FILE,
-    manifestFingerprint: fileFingerprint(path.join(base, PACKAGE_MANIFEST_FILE))
+    manifestFingerprint: fileFingerprint(require("./package_paths").admittedRefsOf(manifest).manifest)
   };
 }
 
@@ -201,7 +201,9 @@ function collectCrossModuleCalls(base, modules, packageReport, symbolIndex) {
   for (const modInfo of modules) {
     const aliases = importByModule.get(modInfo.path);
     if (!aliases || !aliases.size) continue;
-    const mod = parseAir(fs.readFileSync(path.join(base, modInfo.path), "utf8"), modInfo.path, { resolveSourceImports: false });
+    // SEC53-01 R4 (OD-S1-10 (a)): the module admitted from the real root and read through its descriptor.
+    const packagePaths = require("./package_paths");
+    const mod = parseAir(packagePaths.readAdmittedPackageFile(packagePaths.admitPackagePath(packagePaths.packageRealRoot(base), String(modInfo.path).replace(/\\/g, "/"), "module"), { encoding: "utf8" }), modInfo.path, { resolveSourceImports: false });
     for (const fn of mod.functions || []) {
       for (const block of fn.blocks || []) {
         for (const ins of block.instructions || []) {
@@ -409,8 +411,9 @@ function uniqueStrings(values) {
   return Array.from(new Set((values || []).filter(Boolean))).sort();
 }
 
-function fileFingerprint(file) {
-  return prefixFingerprint(crypto.createHash("sha256").update(fs.readFileSync(file)).digest("hex"));
+// SEC53-01 R4 (OD-S1-10 (a)): the manifest validatePackageManifest admitted, read through its descriptor.
+function fileFingerprint(ref) {
+  return prefixFingerprint(crypto.createHash("sha256").update(require("./package_paths").readAdmittedPackageFile(ref)).digest("hex"));
 }
 
 function objectFingerprint(value) {
