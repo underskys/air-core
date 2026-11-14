@@ -34,6 +34,9 @@ set -euo pipefail
 #                            REVIEW_RESULTS is missing or stale for review/core-rc
 #                            bundles; set to 0 to require a manual RC run
 
+# The fail-closed secret scan, from this script's own folder (bundle_secret_scan.sh).
+. "$(CDPATH= cd -P -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)/bundle_secret_scan.sh"
+
 ROOT="${1:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
 cd "$ROOT"
 
@@ -964,13 +967,34 @@ EOF_NOTES
 find "$BUNDLE" -type f | sed "s#^$BUNDLE/##" | sort > "$BUNDLE/SNAPSHOT_TREE.txt"
 
 # Secret scan: fail on likely real secrets, warn on unexpected labels.
+# Each scan fails closed: it passes only when it also reports every canary,
+# strings its pattern must match, one for each branch (bundle_secret_scan.sh).
+# Each canary is split in two here, so that this file does not match its scan.
 DANGEROUS='-----BEGIN ((RSA|OPENSSH|EC|DSA) )?PRIVATE KEY-----|glpat-[A-Za-z0-9_-]{20,}|ghp_[A-Za-z0-9_]{20,}|gho_[A-Za-z0-9_]{20,}|sk-[A-Za-z0-9_-]{30,}|xox[baprs]-[A-Za-z0-9-]{20,}|AKIA[0-9A-Z]{16}'
 SUSPICIOUS='OPENAI_API_KEY|ANTHROPIC_API_KEY|GITLAB_TOKEN|GITHUB_TOKEN|AWS_SECRET_ACCESS_KEY|AWS_ACCESS_KEY_ID'
-EXPECTED_SECRET_LABEL_FILES='^(scripts/make_review_bundle\.sh|scripts/gitlab_mr_policy\.mjs|scripts/check_api_gates_v0_33\.js|test/ai_authoring_eval\.test\.js)$'
+EXPECTED_SECRET_LABEL_FILES='^(scripts/make_review_bundle\.sh|scripts/gitlab_mr_policy\.mjs|scripts/check_api_gates_v0_33\.js|scripts/check_api_gates_v0_38\.js|test/ai_authoring_eval\.test\.js)$'
+DANGEROUS_CANARIES=(
+  '-----BEGIN ''PRIVATE KEY-----'
+  'glpat-''CANARYcanaryCANARYcanary'
+  'ghp_''CANARYcanaryCANARYcanary'
+  'gho_''CANARYcanaryCANARYcanary'
+  'sk-''CANARYcanaryCANARYcanaryCANARYcanary'
+  'xoxb-''CANARY-canary-CANARY-canary'
+  'AKIA''CANARYCANARY0000'
+)
+SUSPICIOUS_CANARIES=(
+  'OPENAI''_API_KEY'
+  'ANTHROPIC''_API_KEY'
+  'GITLAB''_TOKEN'
+  'GITHUB''_TOKEN'
+  'AWS_SECRET''_ACCESS_KEY'
+  'AWS_ACCESS''_KEY_ID'
+)
 
+danger_status=0
 danger_files="$(
-  env LC_ALL=C grep -R -I -l -E -e "$DANGEROUS" "$BUNDLE" 2>/dev/null || true
-)"
+  bundle_scan_tree "$BUNDLE" "$DANGEROUS" "${DANGEROUS_CANARIES[@]}"
+)" || danger_status=$?
 
 if [ -n "$danger_files" ]; then
   echo "ERROR: likely secrets found in included files:"
@@ -979,17 +1003,31 @@ if [ -n "$danger_files" ]; then
   rm -rf "$TMP"
   exit 1
 fi
+if [ "$danger_status" -ne 0 ]; then
+  echo "ERROR: the secret scan could not show that it ran (status $danger_status)."
+  echo "Bundle was not created."
+  rm -rf "$TMP"
+  exit 1
+fi
 
+label_status=0
 all_label_files="$(
-  env LC_ALL=C grep -R -I -l -E -e "$SUSPICIOUS" "$BUNDLE" 2>/dev/null || true
-)"
+  bundle_scan_tree "$BUNDLE" "$SUSPICIOUS" "${SUSPICIOUS_CANARIES[@]}"
+)" || label_status=$?
+
+if [ "$label_status" -ne 0 ] && [ -z "$all_label_files" ]; then
+  echo "ERROR: the secret label scan could not show that it ran (status $label_status)."
+  echo "Bundle was not created."
+  rm -rf "$TMP"
+  exit 1
+fi
 
 warn_files=""
 allowed_label_files=""
 if [ -n "$all_label_files" ]; then
   while IFS= read -r label_file; do
     rel_label_file="${label_file#"$BUNDLE"/}"
-    if printf '%s\n' "$rel_label_file" | LC_ALL=C grep -E -q "$EXPECTED_SECRET_LABEL_FILES"; then
+    if [[ $rel_label_file =~ $EXPECTED_SECRET_LABEL_FILES ]]; then
       allowed_label_files="${allowed_label_files}${rel_label_file}"$'\n'
     else
       warn_files="${warn_files}${label_file}"$'\n'
@@ -1061,6 +1099,20 @@ cat > "$BUNDLE/SNAPSHOT_MANIFEST.json" <<EOF_MANIFEST
 }
 EOF_MANIFEST
 
+# The archive holds the finished bundle, the files written after the first
+# scan included, so the dangerous-secret scan runs once more on all of it.
+final_status=0
+final_files="$(
+  bundle_scan_tree "$BUNDLE" "$DANGEROUS" "${DANGEROUS_CANARIES[@]}"
+)" || final_status=$?
+if [ "$final_status" -ne 0 ] || [ -n "$final_files" ]; then
+  echo "ERROR: the final secret scan of the finished bundle did not pass (status $final_status)."
+  [ -z "$final_files" ] || echo "$final_files"
+  echo "Bundle was not created."
+  rm -rf "$TMP"
+  exit 1
+fi
+
 if [[ "$OUT_DIR" = /* ]]; then
   ARCHIVE_BASE="$OUT_DIR"
 else
@@ -1071,6 +1123,8 @@ mkdir -p "$ARCHIVE_BASE"
 ARCHIVE="$ARCHIVE_BASE/$NAME.zip"
 
 if command -v zip >/dev/null 2>&1; then
+  # zip adds to an archive that is already there, and its entries were not scanned.
+  rm -f "$ARCHIVE"
   (cd "$TMP" && zip -qr "$ARCHIVE" "$NAME")
 else
   ARCHIVE="$ARCHIVE_BASE/$NAME.tar.gz"

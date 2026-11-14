@@ -9,6 +9,7 @@ rejects(()=>parseArgs(["--project=x"]),"gate.arguments_invalid");
 rejects(()=>parseArgs(["--project","x","--project","y"]),"gate.arguments_invalid");
 assert.equal(secretSignature(Buffer.from(["-----BEGIN","PRIVATE","KEY-----"].join(" "))),"private_key");checks++;
 assert.equal(secretSignature(Buffer.from("ordinary public documentation")),null);checks++;
+assert.equal(secretSignature(Buffer.concat([Buffer.from([0]),Buffer.from(["AKIA","ABCDEFGHIJKLMNOP"].join(""))])),"aws_access_key");checks++;
 const records=Array.from({length:10},(_,i)=>({id:`R${String(i+1).padStart(2,"0")}`,status:"PASS"}));
 assert.equal(aggregate(records),"PASS");checks++;
 for(const status of ["BLOCKED","NOT_RUN","FAIL"]){assert.equal(aggregate(records.map((r,i)=>i===6?{...r,status}:r)),status==="FAIL"?"FAIL":"BLOCKED");checks++;}

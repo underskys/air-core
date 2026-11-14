@@ -14,6 +14,9 @@ ascii_lower() {
 # Usage:
 #   bash scripts/make_consumer_evidence_bundle.sh [repo-root]
 
+# The fail-closed secret scan, from this script's own folder (bundle_secret_scan.sh).
+. "$(CDPATH= cd -P -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)/bundle_secret_scan.sh"
+
 ROOT="${1:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
 cd "$ROOT"
 
@@ -222,6 +225,35 @@ ${bulletList((check.diagnostics || []).map((diagnostic) => `${diagnostic.code}: 
 NODE
 echo "CONSUMER_EVIDENCE_SUMMARY.md" >> "$BUNDLE/INCLUDED_FILES.txt"
 echo "CONSUMER_EVIDENCE_OMITTED_FILES.md" >> "$BUNDLE/INCLUDED_FILES.txt"
+
+# Secret scan of the finished bundle, as in make_review_bundle.sh. It fails
+# closed: it passes only when it also reports every canary, strings its pattern
+# must match, one for each branch (bundle_secret_scan.sh). Each canary is split
+# in two here, so that this file does not match its scan.
+DANGEROUS='-----BEGIN ((RSA|OPENSSH|EC|DSA) )?PRIVATE KEY-----|glpat-[A-Za-z0-9_-]{20,}|ghp_[A-Za-z0-9_]{20,}|gho_[A-Za-z0-9_]{20,}|sk-[A-Za-z0-9_-]{30,}|xox[baprs]-[A-Za-z0-9-]{20,}|AKIA[0-9A-Z]{16}'
+DANGEROUS_CANARIES=(
+  '-----BEGIN ''PRIVATE KEY-----'
+  'glpat-''CANARYcanaryCANARYcanary'
+  'ghp_''CANARYcanaryCANARYcanary'
+  'gho_''CANARYcanaryCANARYcanary'
+  'sk-''CANARYcanaryCANARYcanaryCANARYcanary'
+  'xoxb-''CANARY-canary-CANARY-canary'
+  'AKIA''CANARYCANARY0000'
+)
+danger_status=0
+danger_files="$(
+  bundle_scan_tree "$BUNDLE" "$DANGEROUS" "${DANGEROUS_CANARIES[@]}"
+)" || danger_status=$?
+if [ "$danger_status" -ne 0 ] || [ -n "$danger_files" ]; then
+  if [ -n "$danger_files" ]; then
+    echo "ERROR: likely secrets found in consumer evidence files:" >&2
+    echo "$danger_files" >&2
+  else
+    echo "ERROR: the secret scan could not show that it ran (status $danger_status)." >&2
+  fi
+  echo "Bundle was not created." >&2
+  exit 1
+fi
 
 rm -f "$ARCHIVE"
 (cd "$TMP" && zip -X -q -r "$ARCHIVE" "$NAME")

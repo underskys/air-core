@@ -36,8 +36,7 @@ function parseArgs(argv) {
   return out;
 }
 function secretSignature(bytes) {
-  if(bytes.includes(0)) return null;
-  const text=bytes.toString("utf8");
+  const text=bytes.toString("latin1");
   const signatures=[
     ["private_key",/-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/],
     ["aws_access_key",/\bAKIA[0-9A-Z]{16}\b/],

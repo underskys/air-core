@@ -24,6 +24,9 @@ ascii_lower() {
 #   DEMO_BUNDLE_SELECTION=all    selected demos: 1,2,3,4/all or names
 #   DEMO_BUNDLE_INCLUDE_IMAGES=0 include real image bytes for selected demos
 
+# The fail-closed secret scan, from this script's own folder (bundle_secret_scan.sh).
+. "$(CDPATH= cd -P -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)/bundle_secret_scan.sh"
+
 ROOT="${1:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
 cd "$ROOT"
 
@@ -400,6 +403,16 @@ Placeholders are review scaffolding only. They are not approved demo assets.
 |---|---:|---:|---:|
 EOF_REPLACED
 
+# The check inside the listing below runs in a subshell, where exit ends only
+# the listing. So every selected demo is checked here, in the main shell.
+for demo_name in "${SELECTED_DEMOS[@]}"; do
+  if [ ! -d "demo/$demo_name" ]; then
+    echo "Invalid demo bundle selection: $demo_name. Use 1,2,3,4 or all." >&2
+    rm -rf "$TMP"
+    exit 1
+  fi
+done
+
 while IFS= read -r file; do
   copy_demo_file "$file"
 done < <(
@@ -487,14 +500,33 @@ EOF_NOTES
 
 cp "$BUNDLE/DEMO_BUNDLE_REVIEW_NOTES.md" "$BUNDLE/BUNDLE_REVIEW_NOTES.md"
 
+# Each scan fails closed: it passes only when it also reports every canary,
+# strings its pattern must match, one for each branch (bundle_secret_scan.sh).
+# Each canary is split in two here, so that this file does not match its scan.
 DANGEROUS='-----BEGIN ((RSA|OPENSSH|EC|DSA) )?PRIVATE KEY-----|glpat-[A-Za-z0-9_-]{20,}|ghp_[A-Za-z0-9_]{20,}|gho_[A-Za-z0-9_]{20,}|sk-[A-Za-z0-9_-]{30,}|xox[baprs]-[A-Za-z0-9-]{20,}|AKIA[0-9A-Z]{16}'
+DANGEROUS_CANARIES=(
+  '-----BEGIN ''PRIVATE KEY-----'
+  'glpat-''CANARYcanaryCANARYcanary'
+  'ghp_''CANARYcanaryCANARYcanary'
+  'gho_''CANARYcanaryCANARYcanary'
+  'sk-''CANARYcanaryCANARYcanaryCANARYcanary'
+  'xoxb-''CANARY-canary-CANARY-canary'
+  'AKIA''CANARYCANARY0000'
+)
+danger_status=0
 danger_files="$(
-  env LC_ALL=C grep -R -I -l -E -e "$DANGEROUS" "$BUNDLE" 2>/dev/null || true
-)"
+  bundle_scan_tree "$BUNDLE" "$DANGEROUS" "${DANGEROUS_CANARIES[@]}"
+)" || danger_status=$?
 
 if [ -n "$danger_files" ]; then
   echo "ERROR: likely secrets found in included demo files:"
   echo "$danger_files"
+  echo "Bundle was not created."
+  rm -rf "$TMP"
+  exit 1
+fi
+if [ "$danger_status" -ne 0 ]; then
+  echo "ERROR: the secret scan could not show that it ran (status $danger_status)."
   echo "Bundle was not created."
   rm -rf "$TMP"
   exit 1
@@ -530,6 +562,20 @@ $(selected_demos_json_lines)
 }
 EOF_MANIFEST
 
+# The archive holds the finished bundle, the files written after the first
+# scan included, so the dangerous-secret scan runs once more on all of it.
+final_status=0
+final_files="$(
+  bundle_scan_tree "$BUNDLE" "$DANGEROUS" "${DANGEROUS_CANARIES[@]}"
+)" || final_status=$?
+if [ "$final_status" -ne 0 ] || [ -n "$final_files" ]; then
+  echo "ERROR: the final secret scan of the finished bundle did not pass (status $final_status)."
+  [ -z "$final_files" ] || echo "$final_files"
+  echo "Bundle was not created."
+  rm -rf "$TMP"
+  exit 1
+fi
+
 if [[ "$OUT_DIR" = /* ]]; then
   ARCHIVE_BASE="$OUT_DIR"
 else
@@ -540,6 +586,8 @@ mkdir -p "$ARCHIVE_BASE"
 ARCHIVE="$ARCHIVE_BASE/$NAME.zip"
 
 if command -v zip >/dev/null 2>&1; then
+  # zip adds to an archive that is already there, and its entries were not scanned.
+  rm -f "$ARCHIVE"
   (cd "$TMP" && zip -qr "$ARCHIVE" "$NAME")
 else
   ARCHIVE="$ARCHIVE_BASE/$NAME.tar.gz"

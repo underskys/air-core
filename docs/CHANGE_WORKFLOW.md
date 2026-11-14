@@ -147,6 +147,14 @@ keys and common service tokens. Known scanner/policy environment variable label
 names in review tooling are allowed so clean bundles do not warn every time.
 Unexpected secret-like labels in other files still warn and must be reviewed.
 
+The scan fails closed. It reads every file of the finished bundle, binary
+files included, and passes only when it also reports a set of canary strings
+its patterns must match. So a missing or failing `grep`, `env` or `find`, a
+link or special file in the bundle, or grep options from the environment
+stop the bundle instead of passing it. A pass means only that none of the
+listed patterns occurs in the archived bytes. It does not show that an
+archive is free of secrets.
+
 Dirty review bundles are not allowed unless explicitly marked as dirty
 planning/debug snapshots. Dirty planning/debug snapshots must not be reported as
 Core RC review-ready.
