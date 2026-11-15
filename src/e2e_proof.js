@@ -184,7 +184,7 @@ function firstFixtureRow(fixture) {
 
 function validateFacts(row) {
   for (const key of REQUIRED_FACTS) {
-    if (!Number.isInteger(row[key])) throw new Error(`fixture fact ${key} must be an i32`);
+    if (!Number.isInteger(row[key]) || row[key] < -2147483648 || row[key] > 2147483647) throw new Error(`fixture fact ${key} must be an i32`);
   }
 }
 

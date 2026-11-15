@@ -115,6 +115,17 @@ async function createConformanceReplayReport(packageDir, options = {}) {
         return finalizeReport(report);
       }
     }
+    // SEC53-09: an argument to a parameter that lowers to Wasm i32 must be a boolean or a signed i32, or the call would receive it changed.
+    for (const step of trace.steps || []) {
+      const target = (linked ? linked.merged.exportWrappers : mod.functions.filter((item) => item.exported)).find((item) => item.name === step.call.export);
+      // Arguments go to Wasm lanes: a borrowed slice is two i32 lanes, its pointer and its length (flattenParams in src/lower_wasm.js).
+      const lanes = target ? target.params.flatMap((param) => (param.type === "borrowed_slice" ? ["i32", "i32"] : [["i32", "bool", "ptr", "slice"].includes(param.type) ? "i32" : param.type])) : [];
+      const bad = (step.call.args || []).findIndex((arg, index) => lanes[index] === "i32" && !(typeof arg === "boolean" || (Number.isInteger(arg) && arg >= -2147483648 && arg <= 2147483647)));
+      if (bad >= 0) {
+        addMismatch(report, { step: step.id, kind: "wrong_args", code: "air.conformance.wrong_args", message: `trace step ${step.id} argument ${bad} must be a signed i32` });
+        return finalizeReport(report);
+      }
+    }
     const loaded = await WebAssembly.instantiate(wasm, {});
     instance = loaded.instance || loaded;
   } catch (err) {
@@ -198,7 +209,7 @@ function validateStateDigestTrace(stateDigest, errors) {
     if (typeof helper.export !== "string" || helper.export.trim() === "") errors.push(`trace.stateDigest.helpers[${index}].export is required`);
     if (helper.args !== undefined && !Array.isArray(helper.args)) errors.push(`trace.stateDigest.helpers[${index}].args must be an array`);
     for (const [argIndex, arg] of (helper.args || []).entries()) {
-      if (!Number.isInteger(arg)) errors.push(`trace.stateDigest.helpers[${index}].args[${argIndex}] must be i32`);
+      if (!Number.isInteger(arg) || arg < -2147483648 || arg > 2147483647) errors.push(`trace.stateDigest.helpers[${index}].args[${argIndex}] must be i32`);
     }
   }
 }

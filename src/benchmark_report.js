@@ -93,6 +93,7 @@ async function createBenchmarkReport(benchmarkDir, options = {}) {
 
   const buildWasm = Boolean(config.buildWasm || config.runtime || config.traceRequiresWasm);
   let builtWasm = null;
+  let builtModule = null;
   if (buildWasm) {
     workingPackageDir = path.join(workRoot, "package");
     fs.cpSync(packageDir, workingPackageDir, { recursive: true });
@@ -104,6 +105,7 @@ async function createBenchmarkReport(benchmarkDir, options = {}) {
     } else {
       metrics.wasmSizeBytes = built.value.wasmSizeBytes;
       builtWasm = built.value.wasm;
+      builtModule = built.value.module;
     }
   }
 
@@ -163,7 +165,7 @@ async function createBenchmarkReport(benchmarkDir, options = {}) {
   }
 
   if (config.runtime) {
-    const runtime = await measureAsync(() => runRuntimeBenchmark(packageDir, config, builtWasm));
+    const runtime = await measureAsync(() => runRuntimeBenchmark(packageDir, config, builtWasm, builtModule));
     metrics.wasmExecutionMs = runtime.ms;
     if (runtime.error) {
       diagnostics.push(diagnostic("air.benchmark.runtime_unavailable", "warn", runtime.error.message, {}));
@@ -305,13 +307,14 @@ async function buildPackageWasm(packageDir, config) {
   fs.writeFileSync(wasmPath, wasm);
   return {
     wasm,
+    module: mod,
     wasmPath,
     wasmSizeBytes: wasm.length,
     benchmarkId: config.benchmarkId
   };
 }
 
-async function runRuntimeBenchmark(packageDir, config, builtWasm) {
+async function runRuntimeBenchmark(packageDir, config, builtWasm, builtModule) {
   const manifest = validatePackageManifest(packageDir, { built: false });
   const metadata = normalizePackageMetadata(manifest);
   const runtime = config.runtime || {};
@@ -324,6 +327,12 @@ async function runRuntimeBenchmark(packageDir, config, builtWasm) {
   const fn = instance.exports[runtime.export];
   if (typeof fn !== "function") throw new Error(`missing runtime export ${runtime.export}`);
   const args = Array.isArray(runtime.args) ? runtime.args : [];
+  // SEC53-09: an argument to a parameter that lowers to Wasm i32 must be a boolean or a signed i32, or the timed calls would receive it changed.
+  const target = builtModule && (builtModule.functions || []).find((item) => item.exported && item.name === runtime.export);
+  // Arguments go to Wasm lanes: a borrowed slice is two i32 lanes, its pointer and its length (flattenParams in src/lower_wasm.js).
+  const lanes = target ? target.params.flatMap((param) => (param.type === "borrowed_slice" ? ["i32", "i32"] : [["i32", "bool", "ptr", "slice"].includes(param.type) ? "i32" : param.type])) : [];
+  const bad = args.findIndex((arg, index) => lanes[index] === "i32" && !(typeof arg === "boolean" || (Number.isInteger(arg) && arg >= -2147483648 && arg <= 2147483647)));
+  if (bad >= 0) throw new Error(`air.benchmark.argument_invalid: runtime.args[${bad}] must be a signed i32`);
   for (let index = 0; index < repeat; index += 1) fn(...args);
   return { repeat };
 }
