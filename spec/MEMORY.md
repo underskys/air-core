@@ -87,3 +87,4 @@ mat4.store_f32 %matrix, %ptr, %off
 ## Direction
 
 AIR v0.10 has internal `struct`, `array<T,N>`, `buffer<T,N>`, checked slice subviews, and bounded loops. The next memory step is a clearer stack/heap split and explicit borrow lifetime annotations.
+Historical: this section describes the legacy-v0.50 memory model. The typed-v0.53 memory model is specified in `docs/v0.53/TYPED_MEMORY.md`.

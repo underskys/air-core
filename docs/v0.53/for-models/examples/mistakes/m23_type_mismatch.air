@@ -1,0 +1,5 @@
+module demo.m23
+
+export func f(x: i64) -> i32 {
+  return %x
+}

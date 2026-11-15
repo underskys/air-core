@@ -1,0 +1,31 @@
+# AIR Core
+
+AIR is a verifier-first programming language and CLI for bounded, deterministic components, including AI-authored logic.
+
+Read first when writing AIR (the package and the repository carry it):
+- In the npm package: node_modules/@underskys/air-core/docs/v0.53/AIR_FOR_MODELS.md (global install: $(npm root -g)/@underskys/air-core/docs/v0.53/AIR_FOR_MODELS.md)
+- In the repository: docs/v0.53/AIR_FOR_MODELS.md (https://gitlab.com/fd.skyrealm/air-core/-/blob/main/docs/v0.53/AIR_FOR_MODELS.md)
+- Examples: docs/v0.53/for-models/examples/ (each compiles, or is refused with the code the page states)
+- Claude Code skill: skills/air/SKILL.md (copy the skills/air folder into .claude/skills/)
+- A copy for people may also be published at https://air-core.dev/for-models/
+
+Project facts:
+- Project name: AIR
+- npm package: @underskys/air-core
+- CLI: airc
+- Source extension: .air
+- Source profiles: legacy-v0.50 (the default), typed-v0.51, and typed-v0.53, a candidate profile selected with --source-profile typed-v0.53 --allow-candidate-profile
+- Check a typed-v0.53 file: airc check FILE --source-profile typed-v0.53 --allow-candidate-profile --lsp-json (stable air.* codes, line and repair hint as JSON)
+- Run an airc that is already installed: node_modules/.bin/airc in a project that has @underskys/air-core, airc from a global install, or node bin/airc.js in the repository. If none exists, the code is unchecked: ask the user to install @underskys/air-core. Never fetch or run a tool by a package name through a package runner.
+- AIR ABI 0.12 typed decisions is opt-in and may change before v1.0; AIR ABI 0.10 and 0.11 remain supported.
+- Reference backend: WebAssembly (Wasm)
+- The npm registry is the source of truth for published versions and dist-tags.
+
+AIR modules declare imports, emits, capabilities, effects, and bounded execution. The verifier checks that declared boundary. Hosts retain filesystem, network, UI, rendering, assets, hardware, credentials, and platform authority.
+
+AIR is unrelated to Adobe AIR.
+
+Links:
+- https://gitlab.com/fd.skyrealm/air-core
+- https://www.npmjs.com/package/@underskys/air-core
+- https://air-core.dev/

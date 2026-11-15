@@ -1,0 +1,11 @@
+module demo.m25
+
+enum Lane {
+  Slow = 0,
+  Fast = 1
+}
+
+export func f(big: bool) -> i32 {
+  %l: Lane = select.i32 %big, 1, 0
+  return 0
+}

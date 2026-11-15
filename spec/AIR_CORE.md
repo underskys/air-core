@@ -357,6 +357,7 @@ exports. Wasm build preflight rejects them deterministically with
 `air.abi.borrowed_slice_lowering_unavailable`. The scalar tuple ABI, executable
 memory-domain binding, and checked entry code belong to later v0.50 tasks.
 Legacy `slice` semantics are unchanged.
+Historical: this passage describes legacy-v0.50 borrowed slices. The typed-v0.53 memory model is specified in `docs/v0.53/TYPED_MEMORY.md`.
 
 ## Success Criteria
 

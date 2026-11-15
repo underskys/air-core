@@ -1,0 +1,7 @@
+module demo.useimport
+use "./09_import_lib.air" as m
+
+export func score(x: i32) -> i32<0..100> {
+  %c: i32<0..100> = call @m.clamp100(%x)
+  return %c
+}

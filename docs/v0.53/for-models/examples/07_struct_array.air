@@ -1,0 +1,20 @@
+module demo.box
+
+struct Box { w: i32, h: i32 }
+
+export func area_plus(w: i32, h: i32, extra: i32) -> i32 {
+  %b: Box = struct.new %w, %h
+  %a: i32 = call @area(%b)
+  %xs: array<i32,3> = array.new %a, %extra, 0
+  %first: i32 = array.get %xs, 0
+  %second: i32 = array.get %xs, 1
+  %s: i32 = i32.checked_add %first, %second
+  return %s
+}
+
+func area(b: Box) -> i32 {
+  %w: i32 = struct.get.w %b
+  %h: i32 = struct.get.h %b
+  %a: i32 = i32.checked_mul %w, %h
+  return %a
+}

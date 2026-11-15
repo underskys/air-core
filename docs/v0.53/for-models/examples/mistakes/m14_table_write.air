@@ -1,0 +1,8 @@
+module demo.m14
+
+table t: i32[2] = [1, 2]
+
+export func f() -> i32 {
+  table.set t, 0, 5
+  return 0
+}

@@ -1,0 +1,10 @@
+module demo.m12
+
+export func f(n: i32) -> i32 {
+  %t: i32 = loop.fold @g, 0, %n
+  return %t
+}
+
+func g(acc: i32) -> i32 {
+  return %acc
+}

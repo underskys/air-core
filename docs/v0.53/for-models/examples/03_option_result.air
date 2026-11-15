@@ -1,0 +1,56 @@
+module demo.parse
+
+error enum Why {
+  Negative = 1,
+  TooBig = 2
+}
+
+export func safe_percent(x: i32) -> i32 {
+  %r: result<i32,Why> = call @percent(%x)
+  %out: i32 = match %r {
+    ok(v) => %v
+    err(e) => -1
+  }
+  return %out
+}
+
+export func first_positive(a: i32, b: i32) -> i32 {
+  %o: option<i32> = call @pick(%a, %b)
+  %r: i32 = match %o {
+    some(v) => %v
+    none => 0
+  }
+  return %r
+}
+
+func percent(x: i32) -> result<i32,Why> {
+  %neg: bool = i32.lt_s %x, 0
+  %r: result<i32,Why> = if %neg {
+    yield err(Why.Negative)
+  } else {
+    %big: bool = i32.gt_s %x, 100
+    %inner: result<i32,Why> = if %big {
+      yield err(Why.TooBig)
+    } else {
+      yield ok(%x)
+    }
+    yield %inner
+  }
+  return %r
+}
+
+func pick(a: i32, b: i32) -> option<i32> {
+  %pa: bool = i32.gt_s %a, 0
+  %r: option<i32> = if %pa {
+    yield some(%a)
+  } else {
+    %pb: bool = i32.gt_s %b, 0
+    %s: option<i32> = if %pb {
+      yield some(%b)
+    } else {
+      yield none
+    }
+    yield %s
+  }
+  return %r
+}

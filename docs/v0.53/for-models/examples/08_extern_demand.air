@@ -1,0 +1,16 @@
+module demo.alert
+capabilities { output }
+demand { output.emit <= 1 }
+
+extern output.emit(output_id: i32, arg0: i32, arg1: i32, arg2: i32, arg3: i32) -> i32
+
+export func check(temp: i32) -> i32 {
+  %hot: bool = i32.gt_s %temp, 80
+  %r: i32 = if %hot {
+    %s: i32 = call @output.emit(7, %temp, 0, 0, 0)
+    yield %s
+  } else {
+    yield 0
+  }
+  return %r
+}

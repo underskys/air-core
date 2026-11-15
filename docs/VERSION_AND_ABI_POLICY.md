@@ -17,6 +17,8 @@ Project milestone versions do not automatically change AIR ABI or Host ABI.
 | Package schema version | `air.package.json` schema and package-check contract. | Package manifest spec. |
 | Report schema version | JSON report field names and deterministic output shape. | Report/conformance docs and tests. |
 | Manifest schema versions | Asset, GFX, audio, and other manifest schemas. | Individual manifest specs. |
+| Source profile id | One source language: `legacy-v0.50`, `typed-v0.51`, `typed-v0.53`. See "Source Profile Axis" below. | Source profile specs and the typed-v0.53 RFC. |
+| Host-adapter contract | The execution-host interface of typed-v0.53 borrowed-lane artifacts, named by their contract import (`typed-v0.53.v1`). See "Host-Adapter Contract Axis" below. | Typed memory docs (`docs/v0.53/TYPED_MEMORY.md`) and this policy. |
 
 These versions may move independently. A release may advance the project
 milestone while leaving AIR ABI and Host ABI unchanged.
@@ -31,7 +33,10 @@ milestone while leaving AIR ABI and Host ABI unchanged.
 
 ## Current ABI Baselines
 
-The current AIR ABI latest version remains `0.10`.
+The AIR ABI baseline is `0.10`. AIR ABI `0.11` is the borrowed-slices lane of
+legacy-v0.50 artifacts (`BORROWED_SLICES_AIR_ABI_VERSION` in `src/version.js`).
+typed-v0.53 artifacts with borrowed (memory-view) exports use the lane `0.13`.
+AIR ABI `0.12` remains a candidate. 0.53.0 changes none of `0.10` and `0.11`.
 
 The current Host ABI latest version is `0.11`, introduced for the bounded
 `output.emit(output_id:i32, arg0:i32, arg1:i32, arg2:i32, arg3:i32) -> i32`
@@ -44,6 +49,81 @@ report. It is not a statement that the project latest Host ABI is only that
 value. Project latest Host ABI is documented here and in active release docs.
 
 Do not infer that ABI versions should match project milestone numbers.
+
+## Source Profile Axis
+
+A source profile id pins one source language. It is a separate version axis,
+apart from the project milestone, the compiler/package version, AIR ABI, Host
+ABI, the Host Contract version, and package and report schema versions. A
+profile id pins:
+
+1. the grammar;
+2. the accepted and rejected program sets;
+3. the canonical formatter output;
+4. every stable diagnostic code and its meaning;
+5. the observable runtime behaviour of accepted programs, including failure
+   identities;
+6. the WorkBound cost table version that applies to it.
+
+The registered ids are `legacy-v0.50` (the default), `typed-v0.51` and
+`typed-v0.53`. In 0.53.0, `typed-v0.53` is a candidate profile: it is selected
+only together with `allowCandidateProfile: true` (CLI
+`--allow-candidate-profile`).
+
+A change to a frozen profile (`legacy-v0.50`, `typed-v0.51`) is valid only as an
+explicit correction record, of class `FAIL_CLOSED_NARROWING`,
+`IDENTITY_REFINEMENT` or `NORMATIVE_DEFECT_REPAIR`. No class may make a
+previously rejected program accepted: that is profile growth, and it needs a new
+profile id. `VERSIONING.md` states the axis and the classes for users.
+
+## Host-Adapter Contract Axis
+
+typed-v0.53 artifacts with borrowed (memory-view) exports import one AIR
+contract function, `air:contract/typed-v0.53.v1`. Their execution-host
+interface (the typed admission with a trusted record, the contract import and
+the owned-range guard) is versioned by that host-adapter contract id, not by a
+Host ABI number. Host ABI capability lanes `0.10` and `0.11` are unchanged.
+
+Bump rule:
+
+- A change to the required semantics of the contract import or of the typed
+  admission gets a new contract id. An existing id keeps its meaning.
+- A new contract id does not change a Host ABI number, and a Host ABI change
+  does not change a contract id.
+- A host supplies only the contract ids it implements. An artifact whose
+  contract id the host does not implement is refused at admission.
+
+## Release-Note Statements for 0.53.0
+
+These statements carry the AIR ABI and host decision of the typed-v0.53
+borrowed lane (the owner's ABI-3 H2) into the release documents:
+
+1. "`typed-v0.53` is a new opt-in canonical source profile. The default remains
+   `legacy-v0.50`."
+2. "typed-v0.53 artifacts with borrowed (memory-view) exports use a new AIR ABI
+   lane `0.13` and require the AIR contract import
+   `air:contract/typed-v0.53.v1`." "Host ABI capability lanes 0.10/0.11 are
+   unchanged; the host execution interface changed and is versioned by the
+   host-adapter contract `typed-v0.53.v1`." "AIR ABI 0.12 remains a candidate."
+3. "Hosts older than 0.53 cannot instantiate these artifacts; the engine refuses
+   (no AIR diagnostic is possible on shipped hosts), in every binding mode,
+   copied mode included."
+4. "Hosts that call exports directly must use the 0.53 admission helper with a
+   trusted record (in-process) or a digest they pin from a channel they trust.
+   The contract handshake is not authentication. The artifact rejects borrowed
+   ranges that overlap its own memory on every host. Digest pinning, external
+   mutation and reentrancy remain host duties."
+5. "typed-v0.53 protection requires the typed admission API with a trusted
+   record. The legacy API offers legacy guarantees for any bytes, including
+   stripped or relabelled typed-v0.53 bytes."
+6. "Legacy (0.50-0.52.1) artifacts behave as documented for 0.52.1, including the
+   disclosed unpinned-range residual (OPEN-42 legacy cell)."
+7. "The 0.53 realtime session refuses typed-v0.53 packages with
+   `air.assurance.profile_unsupported`; a typed realtime session is planned for
+   0.54."
+8. "Migration: rebuild from typed-v0.53 source with the 0.53 compiler and run
+   with the 0.53 adapter. Rollback: disable the profile; legacy artifacts are
+   unaffected."
 
 ## Project Milestone Version Policy
 

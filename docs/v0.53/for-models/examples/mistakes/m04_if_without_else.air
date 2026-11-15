@@ -1,0 +1,8 @@
+module demo.m04
+
+export func f(c: bool) -> i32 {
+  %r: i32 = if %c {
+    yield 1
+  }
+  return %r
+}

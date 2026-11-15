@@ -46,7 +46,7 @@ function normalizeSourceProfile(value = SOURCE_PROFILE_LEGACY, options = {}) {
   if (typeof value !== "string" || !SOURCE_PROFILES.includes(value)) {
     const label = typeof value === "string" ? `'${value}'` : "non-string value";
     const error = new AirError(
-      `air.source_profile.unsupported: ${label}; expected ${SOURCE_PROFILES.join(" or ")}`
+      `air.source_profile.unsupported: ${label}; expected ${SOURCE_PROFILES.join(" or ")}${typedV053Selectable() ? ", or typed-v0.53 with allowCandidateProfile: true (CLI --allow-candidate-profile)" : ""}`
     );
     error.code = "air.source_profile.unsupported";
     throw error;

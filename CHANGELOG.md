@@ -9,7 +9,14 @@ compact format:
 - Security
 - Breaking / Migration
 
-## v0.53.0 - Unreleased
+## v0.53.0
+
+Package `@underskys/air-core@0.53.0`, with the typed-v0.53 source profile as a
+candidate: it is selected only with `--source-profile typed-v0.53
+--allow-candidate-profile` (SDK: `allowCandidateProfile: true`). 0.52.0 and
+0.52.1 were never published; their entries below are part of 0.53.0. AIR ABI and
+Host ABI do not move. The release notes, `docs/RELEASE_NOTES_0_53_0.md`, state
+the ABI statements, the corrections and every known limit.
 
 ### Breaking / Migration
 
@@ -17,13 +24,27 @@ compact format:
 - The root's borrowed lane (`invokeBorrowedMemory`, `prepareBorrowedMemoryInvocation`) takes verified instances only; raw instances use `invokeRawBorrowedMemory` and `prepareRawBorrowedMemoryInvocation` from `@underskys/air-core/raw`. An export whose result is not exactly one `i32`, `f32` or `f64`, or whose Wasm parameters are not the lanes its descriptor entry names, is refused before it runs.
 - Conformance replay binds `metadata.wasm` to the deterministic lowering of the verified source, single-entry or linked, and refuses other bytes with `air.conformance.wasm_source_mismatch`. The benchmark runs only the bytes it built.
 - `run` and `runPackage` take `{ authority, facts }`: build the authority from host state with `hostAuthority({ package, grants, limits, adapters, hostFacts })` and pass only request facts. A request that carries the package descriptor, grants, limits or adapters is refused with `air.run.authority_unbranded`, and one that carries `quotaUsed`, `rateUsed`, `requiresRedaction` or a `hostFacts` key among its facts with `air.run.input_invalid`, before anything runs. Use `runHostConstructed`, today's single-object form, only when the host builds the whole request itself. `examples/tool_gate/request.js` now has `createToolGateAuthority(hostState)` and `toolGateRequestFacts(untrusted)`, and `createToolGateRequest()` with no arguments gives today's allowed run. The evidence bytes are unchanged.
-- `air.run` and `air.runHostConstructed` refuse an entry-point argument outside the signed i32 range (`air.run.argument_invalid`), where they passed it wrapped. Pass times and counts that fit, for example logical or relative times; Unix seconds fit until 2038-01-19.
-- `airc run-proof`, conformance replay (`createConformanceReplayReport`, `airc conformance`) and `airc benchmark` refuse an argument outside the signed i32 range for a parameter that is i32 in Wasm, where they passed it wrapped. At conformance replay and `airc benchmark` such an argument must be an integer or a boolean: a fraction, a string or `null`, which JavaScript converted before, is refused.
+- `air.run` and `air.runHostConstructed` refuse an entry-point argument outside the signed i32 range, where they passed it wrapped. The refusal is the message prefix `air.run.argument_invalid` inside `air.run.execution_failed`, not a registered code. Pass times and counts that fit, for example logical or relative times; Unix seconds fit until 2038-01-19.
+- `airc run-proof`, conformance replay (`createConformanceReplayReport`, `airc conformance`) and `airc benchmark` refuse an argument outside the signed i32 range for a parameter that is i32 in Wasm, where they passed it wrapped. At conformance replay and `airc benchmark` such an argument must be an integer or a boolean: a fraction, a string or `null`, which JavaScript converted before, is refused. `airc benchmark` reports such a refusal as the warning `air.benchmark.runtime_unavailable` and keeps the status `pass`, with no timed call; its `wasmExecutionMs` is then only the time to the refusal, and its limitations say "wasmExecutionMs unavailable because runtime execution could not complete"; check the diagnostics. `air.benchmark.argument_invalid` is that warning's message, not a registered code.
+- `package.json` has an `exports` map with three entries, `"."`, `"./package.json"` and `"./raw"`. A deep import by package name (for example `@underskys/air-core/src/sdk.js`) breaks on upgrade, and bundlers and TypeScript that honour `exports` resolve only the root and the two subpaths. The test-only builder-defect seam is not shipped. A root `lowerToWat` call with a typed-v0.53 AST and no opt-in gets `air.source_profile.candidate_disabled`.
+- Typed admission changes only for crafted artifacts: a funcref, externref or v128 result, or any non-numeric value type anywhere in the type section, refuses the whole artifact at admission; other multi-value results get a coded refusal at `invoke`; a non-function name is refused before any host call. No shape the typed compiler emits changes behaviour.
+- Packages: a link anywhere on a declared, imported, asset or legacy-format path is refused; a legacy-format path with ".." is refused; a FIFO or other non-regular asset is refused, where it used to hang the package check; package files over 4 MiB at the listed read sites are refused; an import is looked up in the package, never through the working directory; an import name with a backslash is refused in package mode; a name beginning "std." that is not a stdlib module name gets the package rule; the output-emit check fails with a code where it skipped a module silently.
+- A type nested more than 1,024 levels, in typed-v0.51 and legacy sources, is refused with a code instead of a crash or a hang. `audit`, `explain` and `format` refuse a typed-v0.51 AST with a code where they threw a raw `TypeError`, and also refuse a function-less typed-v0.51 module that returned output before.
+
+### Fixed
+
+- Entry-point arguments outside the signed i32 range are no longer passed wrapped (SEC53-03 R-5): fixed at `air.run` by SEC53-08 and at the four other call sites by SEC53-09.
+- CR-S6: a typed-v0.51 type nested more than 1,024 levels gets the nesting code at every depth (G-2); `lowerToWat(mod, { maxWatBytes })` refuses a WAT over its cap with `air.v052.work_limit_wat_bytes` (G-5); the typed-v0.51 CLI `--emit wasm` without a resolvable WABT gives `air.v052.toolchain_input_unavailable` (G-7); `auditModule`, `explainModule`, `formatModule` and `formatSource(..., legacy-v0.50)` refuse a typed-v0.51 AST with a code (O-2); a legacy-v0.50 type nested more than 1,024 levels gets the located nesting refusal.
+
+### Known limits
+
+Stated in full in `docs/RELEASE_NOTES_0_53_0.md`, each under its record's name, never as fixed:
+F7; `engines` (`>=22`); F-1 L1 to L5; SEC53-02 R-1, R-2, R-4, R-5 and R-7; SEC53-03 R-1 to R-4; SEC53-01 R-1 to R-9; SEC53-08 R-2 to R-4; SEC53-06 R-1 to R-6 and R-8, with the lexical nesting count, O-2 on function-less typed-v0.51 modules, the legacy cost slope and the stack margin; SEC53-06B R-8, its linear-bound line, its cost on large legacy modules and KNOWN_1 to KNOWN_4; SEC53-09 R-1 to R-5; `invokeRaw`'s lanes; the benchmark's warning with status `pass`; linked packages' exports; the bundle secret scan's N1 to N10; M()'s coverage in 0.53.0 with its caveats; and the packaged documentation's relative links that do not resolve inside the installed package.
 
 ## v0.52.1 - Bounded Soundness Maintenance
 
-First public release candidate of the 0.52 line; the 0.52.0 candidate below was
-never published. See `docs/RELEASE_NOTES_0_52_1.md`.
+Never published; its content is part of 0.53.0. The 0.52.0 candidate below was
+never published either. See `docs/RELEASE_NOTES_0_52_1.md`.
 
 ### Fixed
 

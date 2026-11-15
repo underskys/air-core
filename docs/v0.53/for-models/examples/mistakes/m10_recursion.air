@@ -1,0 +1,6 @@
+module demo.m10
+
+export func f(x: i32) -> i32 {
+  %r: i32 = call @f(%x)
+  return %r
+}

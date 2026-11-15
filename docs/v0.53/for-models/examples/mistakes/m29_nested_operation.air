@@ -1,0 +1,6 @@
+module demo.m29
+
+export func f(a: i32, b: i32) -> i32 {
+  %s: i32 = i32.checked_add %a, i32.checked_mul %b, 2
+  return %s
+}
