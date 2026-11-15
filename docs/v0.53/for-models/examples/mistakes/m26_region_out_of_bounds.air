@@ -1,0 +1,9 @@
+module demo.m26
+
+export func f(a: i32) -> i32 {
+  %p: ptr = alloc_region 8
+  store.i32 %p, 0, %a
+  %x: i32 = load.i32 %p, 8
+  free_region %p
+  return %x
+}

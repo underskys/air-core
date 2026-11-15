@@ -3,7 +3,20 @@
 This roadmap is intentionally modest for public alpha. It records near-term
 engineering direction, not a promise of dates or scope.
 
+## Current Package
+
+- `@underskys/air-core@0.53.0` is the current package. It adds the typed-v0.53
+  source profile as a candidate, selected only with `--allow-candidate-profile`;
+  `legacy-v0.50` stays the default.
+- 0.52.0 and 0.52.1 were never published; 0.53.0 contains their content. 0.51.0
+  is the last published line before 0.53.0.
+- AIR ABI `0.10` and `0.11` and Host ABI `0.10` and `0.11` are unchanged; AIR ABI
+  `0.12` remains a candidate.
+- What 0.53.0 ships and what goes to v0.54 is in `docs/FEATURE_STATUS_v0.53.md`.
+
 ## Current Public Alpha Focus
+
+The items below date from the 0.44 and 0.45 alphas and are kept as history.
 
 - Keep AIR Core small and reviewable.
 - Preserve AIR ABI `0.10`.

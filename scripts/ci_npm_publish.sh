@@ -11,8 +11,8 @@ fi
 
 DIST_TAG="${AIR_NPM_DIST_TAG:-alpha}"
 EXPECTED_NAME="${AIR_NPM_EXPECTED_NAME:-@underskys/air-core}"
-EXPECTED_VERSION="${AIR_NPM_EXPECTED_VERSION:-0.52.1}"
-EXPECTED_TAG="${AIR_NPM_EXPECTED_TAG:-v0.52.1}"
+EXPECTED_VERSION="${AIR_NPM_EXPECTED_VERSION:-0.53.0}"
+EXPECTED_TAG="${AIR_NPM_EXPECTED_TAG:-v0.53.0}"
 export EXPECTED_NAME EXPECTED_VERSION EXPECTED_TAG
 if ! printf '%s' "$DIST_TAG" | grep -Eq '^[A-Za-z0-9][A-Za-z0-9._-]*$'; then
   echo "ERROR: AIR_NPM_DIST_TAG has invalid npm dist-tag syntax: $DIST_TAG" >&2
@@ -64,6 +64,18 @@ npm pack --dry-run --json > npm-publish-dry-run.json
 npm pack --json > npm-publish-pack.json
 TARBALL="$(node -e 'const fs=require("fs"); const pack=JSON.parse(fs.readFileSync("npm-publish-pack.json","utf8"))[0]; process.stdout.write(pack.filename);')"
 test -f "$TARBALL"
+
+# P0-12 lineage (addendum 1 item 3): publish only the tarball whose sha256 equals the QA'd one, the very file checked here.
+EXPECTED_TARBALL_SHA256="${AIR_NPM_EXPECTED_TARBALL_SHA256:-}"
+if ! printf '%s' "$EXPECTED_TARBALL_SHA256" | grep -Eq '^[0-9a-f]{64}$'; then
+  echo "ERROR: AIR_NPM_EXPECTED_TARBALL_SHA256 must be the QA'd tarball's sha256 (64 lowercase hex characters); refusing to publish" >&2
+  exit 1
+fi
+ACTUAL_TARBALL_SHA256="$(node -e 'process.stdout.write(require("crypto").createHash("sha256").update(require("fs").readFileSync(process.argv[1])).digest("hex"))' "$TARBALL")"
+if [ "$ACTUAL_TARBALL_SHA256" != "$EXPECTED_TARBALL_SHA256" ]; then
+  echo "ERROR: ${TARBALL} has sha256 ${ACTUAL_TARBALL_SHA256}, not the QA'd ${EXPECTED_TARBALL_SHA256}; refusing to publish" >&2
+  exit 1
+fi
 
 npm publish "$TARBALL" --access public --tag "$DIST_TAG" --registry=https://registry.npmjs.org/
 

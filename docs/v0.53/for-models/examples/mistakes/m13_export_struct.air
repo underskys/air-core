@@ -1,0 +1,8 @@
+module demo.m13
+
+struct P { x: i32 }
+
+export func f(p: P) -> i32 {
+  %x: i32 = struct.get.x %p
+  return %x
+}

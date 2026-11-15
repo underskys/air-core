@@ -1,0 +1,9 @@
+module demo.m27
+
+export func f(x: i32) -> i32 {
+  return call @g(%x)
+}
+
+func g(x: i32) -> i32 {
+  return %x
+}

@@ -79,7 +79,7 @@ const OUT_EVENT_LABEL = ["output", "event"].join(".");
 const REPAIR_HINTS_BY_CODE = Object.freeze({
   ["air.api_gate." + "output_event_rejected"]: `Use bounded ${OUT_EMIT_LABEL} or command buffer output intents; ${OUT_EVENT_LABEL} is not accepted.`,
   "air.api_gate.raw_host_authority_rejected": "Move raw host access to a host adapter; AIR may emit bounded scalar intent only.",
-  "air.call.recursion_rejected": "Rewrite local recursion as a verifier-bounded loop.fold/loop.array/loop.buffer pattern, or keep recursive work host-owned outside AIR.",
+  "air.call.recursion_rejected": "Rewrite local recursion as a verifier-bounded loop (typed-v0.53: loop.fold; legacy-v0.50: loop.fold, loop.array or loop.buffer), or keep recursive work host-owned outside AIR.",
   "air.contract.precondition_unproven": "Add a simple scalar caller precondition, use a callee return postcondition, or pass a statically bounded value that proves the callee requirement.",
   "air.contract.precondition_violated": "Pass a value that satisfies the callee's declared scalar precondition.",
   "air.generated.output_handles_missing": "Run airc generate output-handles for the package or remove the generated output handles declaration.",
@@ -118,7 +118,7 @@ const REPAIR_HINTS_BY_CODE = Object.freeze({
   "air.decision.bool_lane_invalid": "A direct Wasm caller passed a bool lane other than 0 or 1; encode false as 0 and true as 1.",
   "air.decision.payload_lane_noncanonical": "A direct Wasm caller passed non-zero bits in an inactive option/result lane; write all-zero bits (raw bits for f32/f64) in every lane the tag makes inactive.",
   // typed-v0.53 P0-04 (slice text §4.1-§4.5; docs/v0.53/P0_04_CALLS_CFG.md).
-  "air.call.unknown_function": "Call a function declared in this module; imported and extern callees arrive with later slices.",
+  "air.call.unknown_function": "Call a function declared in this module; in typed-v0.53 also an imported export (call @alias.name), and in a call (not a loop.fold callback) a declared extern (call @family.name).",
   "air.call.result_unbound": "Bind the result of a non-void call (%r: T = call @f(...)); only a void callee is called as a statement.",
   "air.call.argument_count_mismatch": "Pass exactly one atom per parameter of the callee.",
   "air.control.unstructured_unsupported": "typed-v0.53 has no labels, br, br_if or phi; branch with a value if or a match whose blocks end with yield.",

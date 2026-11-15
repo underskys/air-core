@@ -104,14 +104,23 @@ node bin/airc.js report package examples/public/evidence_report --json
 
 The v0.52 typed-source candidate is explicit and does not replace legacy AIR.
 
-`@underskys/air-core@0.52.1` is bounded soundness maintenance of the 0.52
-line. It corrects loop work accounting, certificate totals, run admission,
+`@underskys/air-core@0.53.0` adds the typed-v0.53 source profile as a
+candidate: it is selected only with `--source-profile typed-v0.53
+--allow-candidate-profile`. See the
+[0.53.0 release notes](docs/RELEASE_NOTES_0_53_0.md). 0.52.0 and 0.52.1 were
+never published; 0.53.0 contains their content.
+
+For models, the package ships a page, `docs/v0.53/AIR_FOR_MODELS.md`, with its
+examples under `docs/v0.53/for-models/examples/`, a root `llms.txt` and a skill,
+`skills/air/SKILL.md`; in a project they are under
+`node_modules/@underskys/air-core/`.
+
+The 0.52.1 maintenance, now part of 0.53.0, corrects loop work accounting, certificate totals, run admission,
 region isolation (including linked package builds), borrowed views and
 tooling bounds. Effect budgets stay module-local, and a 0.52.1 borrowed-lane
 artifact on an older host is unprotected. See
 [0.52.1 release notes](docs/RELEASE_NOTES_0_52_1.md) for the mixed-version
-table and the duties of hosts that call exports directly. The 0.52.0 technical
-candidate was never published. In `typed-v0.51`, `const.i64 N` is accepted in
+table and the duties of hosts that call exports directly. In `typed-v0.51`, `const.i64 N` is accepted in
 typed initializer and return positions, not directly in arithmetic operands;
 bare i64 operands remain accepted. The formatter prints the exact bare decimal
 value. See [v0.52 release notes](docs/RELEASE_NOTES_0_52_0.md) for the
@@ -139,7 +148,7 @@ review artifacts. Those artifacts are for review workflow, not source of truth.
 Install an exact package version with:
 
 ```sh
-npm install -g @underskys/air-core@0.52.1
+npm install -g @underskys/air-core@0.53.0
 airc version --json
 ```
 
@@ -207,14 +216,15 @@ shipped as public Core package authority.
 | `@underskys/air-core@0.50.2` | public identity correction candidate | `0.10`, with opt-in `0.11` borrowed slices | `0.10` | `0.50` public surface | release gates pending | Aligns package, CLI, and public documentation versions; no language or ABI change. |
 | `@underskys/air-core@0.51.0` | published public release | `0.10` and `0.11` remain supported; `0.12` typed decisions is candidate-only | `0.10` and `0.11` unchanged | frozen `0.51` semantics | published package plus source conformance | The typed-decisions surface requires explicit `allowCandidateAbi012: true`; it is not a stable ABI release. |
 | `@underskys/air-core@0.52.0` | technical candidate, never published | `0.10` and `0.11` remain supported; `0.12` remains candidate-only | `0.10` and `0.11` unchanged | explicit source profiles and verified typed runtime | S0-S5 bounded QA accepted | Superseded by 0.52.1 before publication. |
-| `@underskys/air-core@0.52.1` | bounded soundness maintenance of the 0.52 line | `0.10` and `0.11` remain supported; `0.12` remains candidate-only | `0.10` and `0.11` unchanged | explicit source profiles, verified typed runtime, corrected resource and memory guarantees | regression vectors plus independent exact-SHA QA | Legacy source remains the default. Typed-v0.51 and the generic pure runtime are explicit candidate surfaces, not production effect authority. |
+| `@underskys/air-core@0.52.1` | bounded soundness maintenance of the 0.52 line, never published | `0.10` and `0.11` remain supported; `0.12` remains candidate-only | `0.10` and `0.11` unchanged | explicit source profiles, verified typed runtime, corrected resource and memory guarantees | regression vectors plus independent exact-SHA QA | Legacy source remains the default. Typed-v0.51 and the generic pure runtime are explicit candidate surfaces, not production effect authority. |
+| `@underskys/air-core@0.53.0` | current package; typed-v0.53 candidate profile | `0.10` and `0.11` unchanged; typed-v0.53 borrowed lane `0.13`; `0.12` remains candidate-only | `0.10` and `0.11` unchanged; host-adapter contract `typed-v0.53.v1` | explicit source profiles with typed-v0.53 as a candidate | regression vectors, the installed-package gate and independent exact-SHA QA | Legacy source remains the default; typed-v0.53 is selected only with `--allow-candidate-profile`. Contains the never-published 0.52.0 and 0.52.1. |
 
 Current active milestone:
 
-- This package: `@underskys/air-core@0.52.1`. The npm registry is the source
+- This package: `@underskys/air-core@0.53.0`. The npm registry is the source
   of truth for publication state and dist-tags; this file does not assert them.
 - Previous published line: `@underskys/air-core@0.51.0`.
-- Install path: `npm install -g @underskys/air-core@0.52.1`
+- Install path: `npm install -g @underskys/air-core@0.53.0`
 - AIR ABI compatibility: existing `0.10` and `0.11` modules remain supported.
   Typed decisions are a candidate lane, AIR ABI `0.12`, enabled only by the
   explicit `allowCandidateAbi012: true` option; it may change before `v1.0`.

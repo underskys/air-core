@@ -1,3 +1,5 @@
+Never published. Its content is part of 0.53.0 (RELEASE_NOTES_0_53_0.md)
+
 # AIR Core 0.52.1 — Bounded Soundness Maintenance
 
 Package: `@underskys/air-core@0.52.1`

@@ -1,0 +1,6 @@
+module demo.m01
+
+export func f(a: i32, b: i32) -> i32 {
+  %s: i32 = i32.add %a, %b
+  return %s
+}

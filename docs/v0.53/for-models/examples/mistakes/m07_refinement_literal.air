@@ -1,0 +1,6 @@
+module demo.m07
+
+export func f() -> i32<0..100> {
+  %r: i32<0..100> = 150
+  return %r
+}

@@ -1,0 +1,9 @@
+module demo.m06
+
+export func f(o: i32, c: bool) -> i32 {
+  %r: i32 = match %c {
+    true => i32.checked_add %o, 1
+    false => %o
+  }
+  return %r
+}

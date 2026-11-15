@@ -1,0 +1,12 @@
+module demo.scratch
+
+export func pair_sum(a: i32, b: i32) -> i32 {
+  %p: ptr = alloc_region 8
+  store.i32 %p, 0, %a
+  store.i32 %p, 4, %b
+  %x: i32 = load.i32 %p, 0
+  %y: i32 = load.i32 %p, 4
+  free_region %p
+  %s: i32 = i32.wrapping_add %x, %y
+  return %s
+}

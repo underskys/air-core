@@ -1,0 +1,14 @@
+module demo.m05
+
+enum Color {
+  Red = 0,
+  Green = 1
+}
+
+export func f(c: i32) -> i32 {
+  %k: Color = Color.Red
+  %r: i32 = match %k {
+    Color.Red => 1
+  }
+  return %r
+}

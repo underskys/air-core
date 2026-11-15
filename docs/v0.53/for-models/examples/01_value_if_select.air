@@ -1,0 +1,17 @@
+module demo.limits
+
+export func clamp(x: i32, lo: i32, hi: i32) -> i32 {
+  %below: bool = i32.lt_s %x, %lo
+  %r: i32 = if %below {
+    yield %lo
+  } else {
+    %above: bool = i32.gt_s %x, %hi
+    %v: i32 = select.i32 %above, %hi, %x
+    yield %v
+  }
+  return %r
+}
+
+export func add_fee(price: i64, fee: i64) -> i64 {
+  return i64.checked_add %price, %fee
+}

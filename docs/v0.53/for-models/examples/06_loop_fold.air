@@ -1,0 +1,17 @@
+module demo.folds
+work { iterations <= 64 }
+
+export func triangle() -> i32 {
+  %t: i32 = loop.fold @step, 0, 10
+  return %t
+}
+
+export func sum_to(n: i32) -> i32 {
+  %t: i32 = loop.fold @step, 0, %n max 64
+  return %t
+}
+
+func step(acc: i32, i: i32) -> i32 {
+  %next: i32 = i32.checked_add %acc, %i
+  return %next
+}

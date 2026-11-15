@@ -5,7 +5,7 @@ stages:
   - publish
 
 default:
-  image: node:22
+  image: node:22@sha256:e13726ca604184d7a91fcacab1fc09eefd642dc28e79ac34e85540dd93b78cfb
   cache:
     key: ${CI_COMMIT_REF_SLUG}
     paths:
@@ -23,8 +23,8 @@ before_script:
 variables:
   AIR_NPM_DIST_TAG: "latest"
   AIR_NPM_EXPECTED_NAME: "@underskys/air-core"
-  AIR_NPM_EXPECTED_VERSION: "0.52.1"
-  AIR_NPM_EXPECTED_TAG: "v0.52.1"
+  AIR_NPM_EXPECTED_VERSION: "0.53.0"
+  AIR_NPM_EXPECTED_TAG: "v0.53.0"
 
 test:
   stage: test
@@ -60,6 +60,8 @@ test:
 
 pack:smoke:
   stage: pack
+  variables:
+    GIT_DEPTH: "0"
   script:
     - node -e "const p=require('./package.json'); if (p.name !== process.env.AIR_NPM_EXPECTED_NAME || p.version !== process.env.AIR_NPM_EXPECTED_VERSION) { console.error(p); process.exit(1) }"
     - npm run check:public-package-surface
@@ -73,6 +75,7 @@ pack:smoke:
     - npm init -y
     - npm install "$CI_PROJECT_DIR/$(cat "$CI_PROJECT_DIR/npm-pack-file.txt")"
     - node "$CI_PROJECT_DIR/scripts/v053_installed_surface_gate.js" /tmp/air-core-smoke
+    - node "$CI_PROJECT_DIR/scripts/v053_public_reality_gate.js" --project /tmp/air-core-smoke --repo "$CI_PROJECT_DIR" --tarball "$CI_PROJECT_DIR/$(cat "$CI_PROJECT_DIR/npm-pack-file.txt")" --out "$CI_PROJECT_DIR/v053-public-reality-gate"
     - ./node_modules/.bin/airc version --json
     - ./node_modules/.bin/airc --help
   artifacts:
@@ -84,6 +87,7 @@ pack:smoke:
       - npm-pack-file.txt
       - npm-pack-sha256.txt
       - "*.tgz"
+      - v053-public-reality-gate/
   rules:
     - if: '$CI_COMMIT_BRANCH'
     - if: '$CI_COMMIT_TAG'
@@ -101,12 +105,15 @@ npm:auth:check:
 
 publish:npm:
   stage: publish
+  variables:
+    # P0-12 lineage (A3): the sha256 of the QA'd tarball, set by the owner at publish time; empty, the publish script refuses.
+    AIR_NPM_EXPECTED_TARBALL_SHA256: ""
   needs:
     - job: test
     - job: pack:smoke
       artifacts: true
   rules:
-    - if: '$CI_COMMIT_TAG == "v0.52.1"'
+    - if: '$CI_COMMIT_TAG == "v0.53.0"'
       when: manual
     - when: never
   script:

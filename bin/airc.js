@@ -744,7 +744,7 @@ async function main(argv) {
     mod = parseSource(source, file, { sourceProfile, ...candidate });
   } catch (error) {
     if (sourceProfile === SOURCE_PROFILE_LEGACY && !rest.includes("--source-profile") && error instanceof AirError) {
-      error.message += " (default profile: legacy-v0.50; typed sources require --source-profile typed-v0.51)";
+      error.message += " (default profile: legacy-v0.50; typed sources require --source-profile typed-v0.51, or --source-profile typed-v0.53 with --allow-candidate-profile)";
     }
     throw error;
   }
@@ -1381,8 +1381,9 @@ Commands:
   version  Print compiler/runtime ABI version
 
 Build options:
-  --source-profile legacy-v0.50|typed-v0.51
-           Select the versioned source grammar explicitly (default: legacy-v0.50)
+  --source-profile legacy-v0.50|typed-v0.51|typed-v0.53
+           Select the versioned source grammar explicitly (default: legacy-v0.50);
+           typed-v0.53 is a candidate profile and also needs --allow-candidate-profile
   --emit wat|wasm
   -o, --output <path>
 

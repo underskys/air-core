@@ -533,6 +533,7 @@ is_included() {
     evals/ai_authoring/expected/constraints.json) return 0 ;;
     evals/ai_authoring/reports/README.md) return 0 ;;
     stdlib/*.air|stdlib/**/*.air) return 0 ;;
+    llms.txt|docs/v0.53/for-models/*|docs/v0.53/for-models/**/*|skills/*|skills/**/*) return 0 ;;
     fixtures/v051/*|fixtures/v051/**/*|fixtures/v052/*|fixtures/v052/**/*) return 0 ;;
     fixtures/v050/*|fixtures/v050/**/*|fixtures/semantic_patch/*|fixtures/semantic_patch/**/*) return 0 ;;
     swift/AIRSwift/Package.swift|swift/AIRSwift/*.md|swift/AIRSwift/**/*.md|swift/AIRSwift/**/*.swift) return 0 ;;

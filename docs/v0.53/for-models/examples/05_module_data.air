@@ -1,0 +1,22 @@
+module demo.tiers
+
+const MAX_TIER: i32 = 4
+table tier_cost: i32[5] = [0, 10, 25, 50, 100]
+state spent: i32[1] = fill 0
+
+export func cost(tier: i32) -> i32 {
+  %low: bool = i32.lt_s %tier, 0
+  %t0: i32 = select.i32 %low, 0, %tier
+  %high: bool = i32.gt_s %t0, MAX_TIER
+  %t: i32 = select.i32 %high, MAX_TIER, %t0
+  %c: i32 = table.get tier_cost, %t
+  return %c
+}
+
+export func spend(tier: i32) -> i32 {
+  %c: i32 = call @cost(%tier)
+  %old: i32 = state.get spent, 0
+  %new: i32 = i32.checked_add %old, %c
+  state.set spent, 0, %new
+  return %new
+}

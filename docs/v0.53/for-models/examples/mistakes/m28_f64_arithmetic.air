@@ -1,0 +1,6 @@
+module demo.m28
+
+export func f(a: f64, b: f64) -> f64 {
+  %s: f64 = f64.add %a, %b
+  return %s
+}

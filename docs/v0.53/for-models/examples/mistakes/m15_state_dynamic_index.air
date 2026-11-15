@@ -1,0 +1,8 @@
+module demo.m15
+
+state s: i32[4] = fill 0
+
+export func f(i: i32) -> i32 {
+  %v: i32 = state.get s, %i
+  return %v
+}

@@ -1,0 +1,50 @@
+# id	file	mode	expected_exit	expected_code	expected_line
+# mode: build = airc build <file> --source-profile typed-v0.53 --allow-candidate-profile --emit wasm -o <scratch>
+#       verify = airc verify <file> --source-profile typed-v0.53 --allow-candidate-profile
+#       cli-* = the CLI case named in test/air_for_models.test.js
+# expected_code "-" means success (exit 0, no code); expected_line "-" means no line is checked.
+p01	01_value_if_select.air	build	0	-	-
+p02	02_enum_match.air	build	0	-	-
+p03	03_option_result.air	build	0	-	-
+p04	04_refinement.air	build	0	-	-
+p05	05_module_data.air	build	0	-	-
+p06	06_loop_fold.air	build	0	-	-
+p07	07_struct_array.air	build	0	-	-
+p08	08_extern_demand.air	build	0	-	-
+p09a	09_import_lib.air	build	0	-	-
+p09b	09_import_main.air	build	0	-	-
+p10	10_memory_region.air	build	0	-	-
+m01	mistakes/m01_unqualified_add.air	verify	1	air.numeric.operation_mode_required	4
+m02	mistakes/m02_label_branch.air	verify	1	air.control.unstructured_unsupported	4
+m03	mistakes/m03_unbound_if.air	verify	1	air.v051.typed_syntax_invalid	4
+m04	mistakes/m04_if_without_else.air	verify	1	air.control.yield_missing	4
+m05	mistakes/m05_match_not_exhaustive.air	verify	1	air.decision.match_nonexhaustive	10
+m06	mistakes/m06_operation_in_arm.air	verify	1	air.decision.match_arm_invalid	5
+m07	mistakes/m07_refinement_literal.air	verify	1	air.refinement.assignment_out_of_range	4
+m08	mistakes/m08_static_overflow.air	verify	1	air.numeric.checked_failure	4
+m09	mistakes/m09_unbound_call_result.air	verify	1	air.call.result_unbound	4
+m10	mistakes/m10_recursion.air	verify	1	air.call.recursion_rejected	4
+m11	mistakes/m11_while_loop.air	verify	1	air.loop.form_unsupported	4
+m12	mistakes/m12_fold_count_unbounded.air	verify	1	air.workbound.unknown_bound	4
+m13	mistakes/m13_export_struct.air	verify	1	air.abi.export_type_unsupported	5
+m14	mistakes/m14_table_write.air	verify	1	air.table.readonly	6
+m15	mistakes/m15_state_dynamic_index.air	verify	1	air.state.dynamic_bounds_required	6
+m16	mistakes/m16_extern_no_capability.air	verify	1	air.capability.required_missing	4
+m17	mistakes/m17_extern_no_demand.air	verify	1	air.effect.demand_missing	7
+m18	mistakes/m18_invented_host_import.air	verify	1	air.extern.unsupported	4
+m19	mistakes/m19_stdlib_import.air	verify	1	air.import.stdlib_unsupported	2
+m20	mistakes/m20_region_leak.air	verify	1	air.memory.region_leak	7
+m21	mistakes/m21_local_reassigned.air	verify	1	air.v051.local_duplicate	5
+m22	mistakes/m22_result_plain_enum.air	verify	1	air.decision.result_error_type_invalid	7
+m23	mistakes/m23_type_mismatch.air	verify	1	air.v051.typed_atom_type_mismatch	4
+m24	mistakes/m24_work_bound_exceeded.air	verify	1	air.workbound.assertion_exceeded	2
+m25	mistakes/m25_enum_as_integer.air	verify	1	air.v051.typed_atom_type_mismatch	9
+m26	mistakes/m26_region_out_of_bounds.air	verify	1	air.memory.region_bounds_static	6
+m27	mistakes/m27_return_call.air	verify	1	air.numeric.operation_invalid	4
+m28	mistakes/m28_f64_arithmetic.air	verify	1	air.numeric.operation_invalid	4
+m29	mistakes/m29_nested_operation.air	verify	1	air.numeric.operation_invalid	4
+c01	01_value_if_select.air	cli-no-candidate-flag	1	air.source_profile.candidate_disabled	-
+c02	01_value_if_select.air	cli-equals-form	1	air.source_profile.invalid_form	-
+c03	01_value_if_select.air	cli-explain	1	air.source_profile.command_unsupported	-
+c04	mistakes/m01_unqualified_add.air	cli-check-lsp-json	1	air.numeric.operation_mode_required	4
+c05	01_value_if_select.air	cli-fmt	0	-	-

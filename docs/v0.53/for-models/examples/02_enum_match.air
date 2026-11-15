@@ -1,0 +1,49 @@
+module demo.route
+
+enum Lane {
+  Slow = 0,
+  Fast = 1,
+  Blocked = 2
+}
+
+export func lane_score(code: i32) -> i32 {
+  %lane: Lane = call @classify(%code)
+  %score: i32 = match %lane {
+    Lane.Slow => 10
+    Lane.Fast => 30
+    Lane.Blocked => 0
+  }
+  return %score
+}
+
+export func boost(fast: bool, x: i32) -> i32 {
+  %lane: Lane = match %fast {
+    true => Lane.Fast
+    false => Lane.Slow
+  }
+  %r: i32 = match %lane {
+    Lane.Slow => %x
+    Lane.Fast => {
+      %d: i32 = i32.checked_mul %x, 2
+      yield %d
+    }
+    Lane.Blocked => 0
+  }
+  return %r
+}
+
+func classify(code: i32) -> Lane {
+  %neg: bool = i32.lt_s %code, 0
+  %r: Lane = if %neg {
+    yield Lane.Blocked
+  } else {
+    %big: bool = i32.ge_s %code, 100
+    %l: Lane = if %big {
+      yield Lane.Fast
+    } else {
+      yield Lane.Slow
+    }
+    yield %l
+  }
+  return %r
+}

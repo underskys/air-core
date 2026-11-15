@@ -36,7 +36,10 @@ const explicitFiles = [
   "CONTRIBUTING.md",
   "docs/PUBLIC_CLAIMS.md",
   "docs/RELEASE_NOTES_0_50_0.md",
-  "docs/RELEASE_NOTES_0_51_0.md"
+  "docs/RELEASE_NOTES_0_51_0.md",
+  "docs/v0.53/AIR_FOR_MODELS.md",
+  "llms.txt",
+  "skills/air/SKILL.md"
 ];
 
 function walk(dir) {
@@ -63,6 +66,10 @@ for (const rel of explicitFiles) {
   if (fs.existsSync(full)) files.add(toRel(full));
 }
 for (const full of walk(path.join(root, "docs", "public_release"))) {
+  files.add(toRel(full));
+}
+// P0-12 (OD-P12-4 (a)): the shipped typed docs.
+for (const full of walk(path.join(root, "docs", "v0.53"))) {
   files.add(toRel(full));
 }
 

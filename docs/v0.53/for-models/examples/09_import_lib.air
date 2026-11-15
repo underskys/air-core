@@ -1,0 +1,9 @@
+module demo.mathlib
+
+export func clamp100(x: i32) -> i32<0..100> {
+  %lo: bool = i32.lt_s %x, 0
+  %a: i32 = select.i32 %lo, 0, %x
+  %hi: bool = i32.gt_s %a, 100
+  %b: i32<0..100> = select.i32 %hi, 100, %a
+  return %b
+}
