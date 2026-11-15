@@ -1,3 +1,4 @@
+const linearRegex = require("./linear_regex");
 const crypto = require("crypto");
 const fs = require("fs");
 const path = require("path");
@@ -366,7 +367,7 @@ function stateConstantName(name) {
   return String(name || "")
     .replace(/([a-z0-9])([A-Z])/g, "$1_$2")
     .replace(/[^A-Za-z0-9]+/g, "_")
-    .replace(/^_+|_+$/g, "")
+    .replace(linearRegex.wrap(/^_+|_+$/g), "")
     .toUpperCase() || "UNNAMED";
 }
 

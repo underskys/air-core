@@ -1,3 +1,4 @@
+const linearRegex = require("./linear_regex");
 const crypto = require("crypto");
 const fs = require("fs");
 const path = require("path");
@@ -378,7 +379,7 @@ function wasmSafe(name) {
 }
 
 function sanitizeModuleName(name) {
-  const safe = String(name || "linked_package").replace(/[^A-Za-z0-9_]+/g, "_").replace(/^_+|_+$/g, "");
+  const safe = String(name || "linked_package").replace(/[^A-Za-z0-9_]+/g, "_").replace(linearRegex.wrap(/^_+|_+$/g), "");
   return /^[A-Za-z_]/.test(safe) ? safe : `_${safe}`;
 }
 

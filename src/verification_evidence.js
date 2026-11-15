@@ -1,3 +1,4 @@
+const linearRegex = require("./linear_regex");
 const crypto = require("crypto");
 const fs = require("fs");
 const path = require("path");
@@ -943,7 +944,7 @@ function firstFailingModule(diagnostics, errors, modules) {
   const diagnostic = (diagnostics || []).find((item) => item.severity === "fail" && (item.module || item.file));
   if (diagnostic) return diagnostic.module || diagnostic.file;
   for (const error of errors || []) {
-    const match = String(error).match(/\b([A-Za-z0-9_./-]+\.air)\b/);
+    const match = String(error).match(linearRegex.wrap(/\b([A-Za-z0-9_./-]+\.air)\b/));
     if (match) return match[1];
   }
   return modules.length === 1 ? modules[0].path : null;

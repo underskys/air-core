@@ -1,3 +1,4 @@
+const linearRegex = require("./linear_regex");
 const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
@@ -248,7 +249,7 @@ function sourceFingerprint(source) {
 function generatorRefsForSource(source) {
   const refs = [];
   for (const line of String(source).split(/\r?\n/)) {
-    const match = line.match(/^#\s*Generator:\s*(.+?)\s*$/);
+    const match = line.match(linearRegex.wrap(/^#\s*Generator:\s*(.+?)\s*$/));
     if (match) refs.push(match[1]);
   }
   return refs.sort();
@@ -257,7 +258,7 @@ function generatorRefsForSource(source) {
 function sourceRefsForSource(source) {
   const refs = [];
   for (const line of String(source).split(/\r?\n/)) {
-    const match = line.match(/^#\s*Source:\s*(.+?)\s*$/);
+    const match = line.match(linearRegex.wrap(/^#\s*Source:\s*(.+?)\s*$/));
     if (match) refs.push(match[1]);
   }
   return refs.sort();
@@ -322,7 +323,7 @@ function singularKind(kind) {
 }
 
 function safeIdent(value) {
-  const out = String(value).toLowerCase().replace(/[^a-z0-9_]+/g, "_").replace(/^_+|_+$/g, "");
+  const out = String(value).toLowerCase().replace(/[^a-z0-9_]+/g, "_").replace(linearRegex.wrap(/^_+|_+$/g), "");
   if (!out) return "unnamed";
   return /^[a-z_]/.test(out) ? out : `h_${out}`;
 }

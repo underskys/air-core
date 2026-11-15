@@ -1,3 +1,4 @@
+const linearRegex = require("./linear_regex");
 const crypto = require("crypto");
 const fs = require("fs");
 const {
@@ -509,7 +510,7 @@ function verifyV051TypedAtom(value, expected, locals, declarations, loc) {
     if (expected.canonical === "f32" && Number.isFinite(numeric) && Number.isFinite(Math.fround(numeric))) return expected;
     throw new VerificationError(`air.v051.typed_atom_type_mismatch: '${text}'`, loc);
   }
-  const option = text.match(/^option\.(none|some)<(.+)>\s*(.*)$/);
+  const option = text.match(linearRegex.wrap(/^option\.(none|some)<(.+)>\s*(.*)$/));
   if (option) {
     if (expected.kind !== "option") throw new VerificationError(`air.v051.typed_atom_type_mismatch: '${text}'`, loc);
     let payload;
@@ -523,7 +524,7 @@ function verifyV051TypedAtom(value, expected, locals, declarations, loc) {
     verifyV051TypedAtom(option[3], expected.payload, locals, declarations, loc);
     return expected;
   }
-  const result = text.match(/^result\.(ok|err)<(.+)>\s+(.+)$/);
+  const result = text.match(linearRegex.wrap(/^result\.(ok|err)<(.+)>\s+(.+)$/));
   if (result) {
     if (expected.kind !== "result") throw new VerificationError(`air.v051.typed_atom_type_mismatch: '${text}'`, loc);
     const parts = splitV051TypeArguments(result[2]);

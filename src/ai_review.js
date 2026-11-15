@@ -1,3 +1,4 @@
+const linearRegex = require("./linear_regex");
 const { normalizeDiagnostic } = require("./diagnostics");
 const { assuranceProfileUnsupported, isTypedV053Ast } = require("./errors");
 
@@ -487,7 +488,7 @@ function parseIndexedName(raw) {
   const parts = raw.split(":");
   const name = parts.pop();
   const scope = parts.join(":");
-  const match = name.match(/^(.+?)(?:_|)(\d+)(?:_|)([A-Za-z][A-Za-z0-9_]*)?$/);
+  const match = name.match(linearRegex.wrap(/^(.+?)(?:_|)(\d+)(?:_|)([A-Za-z][A-Za-z0-9_]*)?$/));
   if (!match) return null;
   return { scope, name, prefix: match[1].replace(/_$/, ""), index: Number(match[2]), suffix: match[3] || "" };
 }

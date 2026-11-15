@@ -1,3 +1,4 @@
+const linearRegex = require("./linear_regex");
 const LEGACY_CODE_RULES = Object.freeze([
   [/^large-function(?::|$)/, "air.review.large_function"],
   [/^entry-frame-budget(?::|$)/, "air.review.large_entry"],
@@ -338,7 +339,7 @@ function diagnosticHintsFromMessage(message) {
       severity: "error",
       fields: {
         cyclePath,
-        functions: cyclePath.split(/\s*->\s*/).map((name) => name.replace(/^@/, "")),
+        functions: cyclePath.split(linearRegex.wrap(/\s*->\s*/)).map((name) => name.replace(/^@/, "")),
         path: loc.file
       }
     });
@@ -561,7 +562,7 @@ function diagnosticHintsFromMessage(message) {
     });
   }
 
-  tablegroupMatch = text.match(/table '([^']+\.[^']+)' length ([0-9]+) does not match ([0-9]+) initializer value/);
+  tablegroupMatch = text.match(linearRegex.wrap(/table '([^']+\.[^']+)' length ([0-9]+) does not match ([0-9]+) initializer value/));
   if (tablegroupMatch) {
     const [group, field] = tablegroupMatch[1].split(".");
     return withLocation(loc, {
@@ -608,7 +609,7 @@ function diagnosticHintsFromMessage(message) {
     });
   }
 
-  let poolMatch = text.match(/(air\.pool\.[A-Za-z_]+):\s*(.*)$/);
+  let poolMatch = text.match(linearRegex.wrap(/(air\.pool\.[A-Za-z_]+):\s*(.*)$/));
   if (poolMatch) {
     return withLocation(loc, {
       legacyId: poolMatch[1].replace(/^air\./, "").replace(/\./g, "-"),
@@ -735,9 +736,9 @@ function budgetFields(match, loc) {
 
 function codeFromLegacyId(legacyId) {
   const id = String(legacyId || "unknown")
-    .replace(/:.+$/, "")
+    .replace(linearRegex.wrap(/:.+$/), "")
     .replace(/[^a-zA-Z0-9]+/g, "_")
-    .replace(/^_+|_+$/g, "")
+    .replace(linearRegex.wrap(/^_+|_+$/g), "")
     .toLowerCase();
   return `air.package.${id || "unknown"}`;
 }

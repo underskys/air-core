@@ -1,0 +1,636 @@
+{
+ "inventorySha256": "cc655413315e92ec747e115f0aac7cf2dc33afa829ad788a2b8d91922ea362cd",
+ "count": 70,
+ "sites": [
+  {
+   "site": "src/borrowed_slices.js:16",
+   "id": "src/borrowed_slices.js:16:28",
+   "file": "src/borrowed_slices.js",
+   "pattern": "^borrowed_slice\\s*<\\s*(.*?)\\s*>$",
+   "flags": "",
+   "ordinal": 0,
+   "group": 1
+  },
+  {
+   "site": "src/parser.js:28",
+   "id": "src/parser.js:28:36",
+   "file": "src/parser.js",
+   "pattern": "^capabilities\\s*\\{\\s*([^}]*)\\s*\\}$",
+   "flags": "",
+   "ordinal": 0,
+   "group": 1
+  },
+  {
+   "site": "src/parser.js:75",
+   "id": "src/parser.js:75:48",
+   "file": "src/parser.js",
+   "pattern": "^tablegroup\\s+([A-Za-z_][A-Za-z0-9_]*)\\s+len\\s+(.+)\\s*\\{$",
+   "flags": "",
+   "ordinal": 0,
+   "group": 1
+  },
+  {
+   "site": "src/parser.js:113",
+   "id": "src/parser.js:113:43",
+   "file": "src/parser.js",
+   "pattern": "^table\\s+([A-Za-z_][A-Za-z0-9_]*)\\s*:\\s*([A-Za-z0-9_]+)\\s*\\[\\s*([^\\]]+)\\s*\\]\\s*=\\s*\\[(.*)\\]$",
+   "flags": "",
+   "ordinal": 0,
+   "group": 1
+  },
+  {
+   "site": "src/parser.js:134",
+   "id": "src/parser.js:134:43",
+   "file": "src/parser.js",
+   "pattern": "^state\\s+([A-Za-z_][A-Za-z0-9_]*)\\s*:\\s*([A-Za-z0-9_]+)\\s*\\[\\s*([^\\]]+)\\s*\\]\\s*=\\s*(.+)$",
+   "flags": "",
+   "ordinal": 0,
+   "group": 1
+  },
+  {
+   "site": "src/parser.js:158",
+   "id": "src/parser.js:158:42",
+   "file": "src/parser.js",
+   "pattern": "^pool\\s+([A-Za-z_][A-Za-z0-9_]*)\\s+capacity\\s+(.+)\\s*\\{$",
+   "flags": "",
+   "ordinal": 0,
+   "group": 1
+  },
+  {
+   "site": "src/parser.js:172",
+   "id": "src/parser.js:172:39",
+   "file": "src/parser.js",
+   "pattern": "^effects\\s*\\{\\s*([^}]*)\\s*\\}$",
+   "flags": "",
+   "ordinal": 0,
+   "group": 1
+  },
+  {
+   "site": "src/parser.js:220",
+   "id": "src/parser.js:220:38",
+   "file": "src/parser.js",
+   "pattern": "^struct\\s+([A-Z][A-Za-z0-9_]*)\\s*\\{\\s*(.*)\\s*\\}$",
+   "flags": "",
+   "ordinal": 0,
+   "group": 1
+  },
+  {
+   "site": "src/parser.js:226",
+   "id": "src/parser.js:226:38",
+   "file": "src/parser.js",
+   "pattern": "^global\\s+([A-Za-z_][A-Za-z0-9_]*)\\s*:\\s*(.+?)\\s*=\\s*(const\\.[A-Za-z0-9_]+)\\s+(.+)$",
+   "flags": "",
+   "ordinal": 0,
+   "group": 1
+  },
+  {
+   "site": "src/parser.js:238",
+   "id": "src/parser.js:238:36",
+   "file": "src/parser.js",
+   "pattern": "^(export\\s+)?func\\s+([A-Za-z_][A-Za-z0-9_]*)\\(([^)]*)\\)\\s*->\\s*(.+)\\s*\\{$",
+   "flags": "",
+   "ordinal": 0,
+   "group": 1
+  },
+  {
+   "site": "src/parser.js:267",
+   "id": "src/parser.js:267:39",
+   "file": "src/parser.js",
+   "pattern": "^effects\\s*\\{\\s*([^}]*)\\s*\\}$",
+   "flags": "",
+   "ordinal": 1,
+   "group": 1
+  },
+  {
+   "site": "src/parser.js:348",
+   "id": "src/parser.js:348:42",
+   "file": "src/parser.js",
+   "pattern": "^capabilities\\s*\\{\\s*([^}]*)\\s*\\}$",
+   "flags": "",
+   "ordinal": 1,
+   "group": 1
+  },
+  {
+   "site": "src/parser.js:366",
+   "id": "src/parser.js:366:38",
+   "file": "src/parser.js",
+   "pattern": "^(export\\s+)?func\\s+([A-Za-z_][A-Za-z0-9_]*)\\s*\\((.*)\\)\\s*->\\s*(.+)\\s*\\{$",
+   "flags": "",
+   "ordinal": 0,
+   "group": 1
+  },
+  {
+   "site": "src/parser.js:427",
+   "id": "src/parser.js:427:36",
+   "file": "src/parser.js",
+   "pattern": "^%([A-Za-z_][A-Za-z0-9_]*)\\s*:\\s*(.+?)\\s*=\\s*match\\s+%([A-Za-z_][A-Za-z0-9_]*)\\s*\\{$",
+   "flags": "",
+   "ordinal": 0,
+   "group": 1
+  },
+  {
+   "site": "src/parser.js:439",
+   "id": "src/parser.js:439:30",
+   "file": "src/parser.js",
+   "pattern": "^%([A-Za-z_][A-Za-z0-9_]*)\\s*:\\s*(.+?)\\s*=\\s*(.+)$",
+   "flags": "",
+   "ordinal": 0,
+   "group": 1
+  },
+  {
+   "site": "src/parser.js:1025",
+   "id": "src/parser.js:1025:27",
+   "file": "src/parser.js",
+   "pattern": "^br_if\\s+([^,]+)\\s*,\\s*([A-Za-z_][A-Za-z0-9_]*)\\s*,\\s*([A-Za-z_][A-Za-z0-9_]*)$",
+   "flags": "",
+   "ordinal": 0,
+   "group": 1
+  },
+  {
+   "site": "src/parser.js:1507",
+   "id": "src/parser.js:1507:24",
+   "file": "src/parser.js",
+   "pattern": "^%([A-Za-z_][A-Za-z0-9_]*)\\s*:\\s*(.+?)\\s*=\\s*if\\s+(.+?)\\s*\\{$",
+   "flags": "",
+   "ordinal": 0,
+   "group": 1
+  },
+  {
+   "site": "src/parser.js:1508",
+   "id": "src/parser.js:1508:27",
+   "file": "src/parser.js",
+   "pattern": "^%([A-Za-z_][A-Za-z0-9_]*)\\s*:\\s*(.+?)\\s*=\\s*match\\s+%([A-Za-z_][A-Za-z0-9_]*)\\s*\\{$",
+   "flags": "",
+   "ordinal": 1,
+   "group": 1
+  },
+  {
+   "site": "src/parser.js:1564",
+   "id": "src/parser.js:1564:28",
+   "file": "src/parser.js",
+   "pattern": "^%[A-Za-z_][A-Za-z0-9_]*\\s*:\\s*.+?\\s*=\\s*(.+)$",
+   "flags": "",
+   "ordinal": 0,
+   "group": 1
+  },
+  {
+   "site": "src/parser.js:1674",
+   "id": "src/parser.js:1674:25",
+   "file": "src/parser.js",
+   "pattern": "^table[ \\t]+([A-Za-z_][A-Za-z0-9_]*)[ \\t]*:[ \\t]*([^[\\]=]+?)[ \\t]*\\[[ \\t]*(0|[1-9][0-9]*)[ \\t]*\\][ \\t]*=[ \\t]*\\[(.*)\\]$",
+   "flags": "",
+   "ordinal": 0,
+   "group": 1
+  },
+  {
+   "site": "src/parser.js:1808",
+   "id": "src/parser.js:1808:28",
+   "file": "src/parser.js",
+   "pattern": "^%[A-Za-z_][A-Za-z0-9_]*\\s*:\\s*.+?\\s*=\\s*(.+)$",
+   "flags": "",
+   "ordinal": 1,
+   "group": 1
+  },
+  {
+   "site": "src/parser.js:1954",
+   "id": "src/parser.js:1954:44",
+   "file": "src/parser.js",
+   "pattern": "^capabilities\\s*\\{\\s*([^}]*)\\s*\\}$",
+   "flags": "",
+   "ordinal": 2,
+   "group": 1
+  },
+  {
+   "site": "src/parser.js:2030",
+   "id": "src/parser.js:2030:40",
+   "file": "src/parser.js",
+   "pattern": "^(export\\s+)?func\\s+([A-Za-z_][A-Za-z0-9_]*)\\s*\\((.*)\\)\\s*->\\s*(.+)\\s*\\{$",
+   "flags": "",
+   "ordinal": 1,
+   "group": 1
+  },
+  {
+   "site": "src/parser.js:2226",
+   "id": "src/parser.js:2226:30",
+   "file": "src/parser.js",
+   "pattern": "^%([A-Za-z_][A-Za-z0-9_]*)\\s*:\\s*(.+?)\\s*=\\s*(.+)$",
+   "flags": "",
+   "ordinal": 1,
+   "group": 1
+  },
+  {
+   "site": "src/parser.js:472",
+   "id": "src/parser.js:472:28",
+   "file": "src/parser.js",
+   "pattern": "^(.+?)\\s*=>\\s*(.+?)\\s*[,;]?$",
+   "flags": "",
+   "ordinal": 0,
+   "group": 2
+  },
+  {
+   "site": "src/parser.js:1628",
+   "id": "src/parser.js:1628:26",
+   "file": "src/parser.js",
+   "pattern": "^extern\\s+(\\S+?)\\s*\\((.*)\\)\\s*->\\s*(.+)$",
+   "flags": "",
+   "ordinal": 0,
+   "group": 2
+  },
+  {
+   "site": "src/parser.js:2097",
+   "id": "src/parser.js:2097:35",
+   "file": "src/parser.js",
+   "pattern": "^(.+?)\\s*=>\\s*\\{$",
+   "flags": "",
+   "ordinal": 0,
+   "group": 2
+  },
+  {
+   "site": "src/parser.js:2111",
+   "id": "src/parser.js:2111:30",
+   "file": "src/parser.js",
+   "pattern": "^(.+?)\\s*=>\\s*(.+?)\\s*[,;]?$",
+   "flags": "",
+   "ordinal": 1,
+   "group": 2
+  },
+  {
+   "site": "src/migrate_v053.js:462",
+   "id": "src/migrate_v053.js:462:27",
+   "file": "src/migrate_v053.js",
+   "pattern": "^capabilities\\s*\\{\\s*([^}]*)\\s*\\}$",
+   "flags": "",
+   "ordinal": 0,
+   "group": 3
+  },
+  {
+   "site": "src/migrate_v053.js:507",
+   "id": "src/migrate_v053.js:507:17",
+   "file": "src/migrate_v053.js",
+   "pattern": "(-?[0-9]+(?:\\.[0-9]+)?)$",
+   "flags": "",
+   "ordinal": 0,
+   "group": 3
+  },
+  {
+   "site": "src/migrate_v053.js:693",
+   "id": "src/migrate_v053.js:693:25",
+   "file": "src/migrate_v053.js",
+   "pattern": "(?:call\\s+)?@[^\\s(]+\\(.*\\)$",
+   "flags": "",
+   "ordinal": 0,
+   "group": 3
+  },
+  {
+   "site": "src/parser.js:320",
+   "id": "src/parser.js:320:10",
+   "file": "src/parser.js",
+   "pattern": "^\\s*(?:error\\s+)?enum\\s+",
+   "flags": "m",
+   "ordinal": 0,
+   "group": 3
+  },
+  {
+   "site": "src/parser.js:321",
+   "id": "src/parser.js:321:5",
+   "file": "src/parser.js",
+   "pattern": "^\\s*(?:export\\s+)?func\\s+[A-Za-z_][A-Za-z0-9_]*\\s*\\([^)]*:\\s*[^)]",
+   "flags": "m",
+   "ordinal": 0,
+   "group": 3
+  },
+  {
+   "site": "src/parser.js:322",
+   "id": "src/parser.js:322:5",
+   "file": "src/parser.js",
+   "pattern": "^\\s*%[A-Za-z_][A-Za-z0-9_]*\\s*:\\s*.+?\\s*=\\s*match\\s+%[A-Za-z_][A-Za-z0-9_]*\\s*\\{$",
+   "flags": "m",
+   "ordinal": 0,
+   "group": 3
+  },
+  {
+   "site": "src/ai_review.js:490",
+   "id": "src/ai_review.js:490:28",
+   "file": "src/ai_review.js",
+   "pattern": "^(.+?)(?:_|)(\\d+)(?:_|)([A-Za-z][A-Za-z0-9_]*)?$",
+   "flags": "",
+   "ordinal": 0,
+   "group": 4
+  },
+  {
+   "site": "src/diagnostics.js:337",
+   "id": "src/diagnostics.js:337:36",
+   "file": "src/diagnostics.js",
+   "pattern": "\\s*->\\s*",
+   "flags": "",
+   "ordinal": 0,
+   "group": 4
+  },
+  {
+   "site": "src/diagnostics.js:560",
+   "id": "src/diagnostics.js:560:32",
+   "file": "src/diagnostics.js",
+   "pattern": "table '([^']+\\.[^']+)' length ([0-9]+) does not match ([0-9]+) initializer value",
+   "flags": "",
+   "ordinal": 0,
+   "group": 4
+  },
+  {
+   "site": "src/diagnostics.js:734",
+   "id": "src/diagnostics.js:734:14",
+   "file": "src/diagnostics.js",
+   "pattern": ":.+$",
+   "flags": "",
+   "ordinal": 0,
+   "group": 4
+  },
+  {
+   "site": "src/diagnostics.js:736",
+   "id": "src/diagnostics.js:736:14",
+   "file": "src/diagnostics.js",
+   "pattern": "^_+|_+$",
+   "flags": "g",
+   "ordinal": 0,
+   "group": 4
+  },
+  {
+   "site": "src/handle_generator.js:251",
+   "id": "src/handle_generator.js:251:30",
+   "file": "src/handle_generator.js",
+   "pattern": "^#\\s*Generator:\\s*(.+?)\\s*$",
+   "flags": "",
+   "ordinal": 0,
+   "group": 4
+  },
+  {
+   "site": "src/handle_generator.js:260",
+   "id": "src/handle_generator.js:260:30",
+   "file": "src/handle_generator.js",
+   "pattern": "^#\\s*Source:\\s*(.+?)\\s*$",
+   "flags": "",
+   "ordinal": 0,
+   "group": 4
+  },
+  {
+   "site": "src/handle_generator.js:325",
+   "id": "src/handle_generator.js:325:80",
+   "file": "src/handle_generator.js",
+   "pattern": "^_+|_+$",
+   "flags": "g",
+   "ordinal": 0,
+   "group": 4
+  },
+  {
+   "site": "src/link_symbols.js:132",
+   "id": "src/link_symbols.js:132:14",
+   "file": "src/link_symbols.js",
+   "pattern": "^_+|_+$",
+   "flags": "g",
+   "ordinal": 0,
+   "group": 4
+  },
+  {
+   "site": "src/linked_package.js:365",
+   "id": "src/linked_package.js:365:89",
+   "file": "src/linked_package.js",
+   "pattern": "^_+|_+$",
+   "flags": "g",
+   "ordinal": 0,
+   "group": 4
+  },
+  {
+   "site": "src/output_handle_generator.js:433",
+   "id": "src/output_handle_generator.js:433:14",
+   "file": "src/output_handle_generator.js",
+   "pattern": "^_+|_+$",
+   "flags": "g",
+   "ordinal": 0,
+   "group": 4
+  },
+  {
+   "site": "src/package_graph_ownership.js:450",
+   "id": "src/package_graph_ownership.js:450:79",
+   "file": "src/package_graph_ownership.js",
+   "pattern": "^-+|-+$",
+   "flags": "g",
+   "ordinal": 0,
+   "group": 4
+  },
+  {
+   "site": "src/state_handle_generator.js:369",
+   "id": "src/state_handle_generator.js:369:14",
+   "file": "src/state_handle_generator.js",
+   "pattern": "^_+|_+$",
+   "flags": "g",
+   "ordinal": 0,
+   "group": 4
+  },
+  {
+   "site": "src/structured_io_schema.js:495",
+   "id": "src/structured_io_schema.js:495:119",
+   "file": "src/structured_io_schema.js",
+   "pattern": "^_+|_+$",
+   "flags": "g",
+   "ordinal": 0,
+   "group": 4
+  },
+  {
+   "site": "src/verification_evidence.js:946",
+   "id": "src/verification_evidence.js:946:39",
+   "file": "src/verification_evidence.js",
+   "pattern": "\\b([A-Za-z0-9_./-]+\\.air)\\b",
+   "flags": "",
+   "ordinal": 0,
+   "group": 4
+  },
+  {
+   "site": "src/parser.js:58",
+   "id": "src/parser.js:58:37",
+   "file": "src/parser.js",
+   "pattern": "^const\\s+([A-Za-z_][A-Za-z0-9_]*)\\s*:\\s*([A-Za-z0-9_]+)\\s*=\\s*(.+)$",
+   "flags": "",
+   "ordinal": 0,
+   "group": 5
+  },
+  {
+   "site": "src/parser.js:133",
+   "id": "src/parser.js:133:37",
+   "file": "src/parser.js",
+   "pattern": "^state\\s+([A-Za-z_][A-Za-z0-9_]*)\\s*:\\s*([A-Za-z0-9_]+)\\s*\\[\\s*([0-9]+)\\s*\\]\\s*=\\s*fill\\s+(.+)$",
+   "flags": "",
+   "ordinal": 0,
+   "group": 5
+  },
+  {
+   "site": "src/parser.js:178",
+   "id": "src/parser.js:178:40",
+   "file": "src/parser.js",
+   "pattern": "^(requires|ensures)\\s+(.+)$",
+   "flags": "",
+   "ordinal": 0,
+   "group": 5
+  },
+  {
+   "site": "src/parser.js:192",
+   "id": "src/parser.js:192:42",
+   "file": "src/parser.js",
+   "pattern": "^extern\\s+([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)*)\\(([^)]*)\\)\\s*->\\s*(.+)$",
+   "flags": "",
+   "ordinal": 0,
+   "group": 5
+  },
+  {
+   "site": "src/parser.js:273",
+   "id": "src/parser.js:273:40",
+   "file": "src/parser.js",
+   "pattern": "^(requires|ensures)\\s+(.+)$",
+   "flags": "",
+   "ordinal": 1,
+   "group": 5
+  },
+  {
+   "site": "src/parser.js:451",
+   "id": "src/parser.js:451:33",
+   "file": "src/parser.js",
+   "pattern": "^return\\s+(.+)$",
+   "flags": "",
+   "ordinal": 0,
+   "group": 5
+  },
+  {
+   "site": "src/parser.js:598",
+   "id": "src/parser.js:598:30",
+   "file": "src/parser.js",
+   "pattern": "^([A-Za-z_][A-Za-z0-9_]*)\\s*:\\s*(.+)$",
+   "flags": "",
+   "ordinal": 1,
+   "group": 5
+  },
+  {
+   "site": "src/parser.js:731",
+   "id": "src/parser.js:731:35",
+   "file": "src/parser.js",
+   "pattern": "^([A-Za-z_][A-Za-z0-9_]*)\\s*:\\s*([A-Za-z0-9_]+)\\s*=\\s*(.+)$",
+   "flags": "",
+   "ordinal": 0,
+   "group": 5
+  },
+  {
+   "site": "src/parser.js:933",
+   "id": "src/parser.js:933:27",
+   "file": "src/parser.js",
+   "pattern": "^(%[A-Za-z_][A-Za-z0-9_]*)\\s*:\\s*(.+)$",
+   "flags": "",
+   "ordinal": 0,
+   "group": 5
+  },
+  {
+   "site": "src/parser.js:1019",
+   "id": "src/parser.js:1019:28",
+   "file": "src/parser.js",
+   "pattern": "^print\\s+(.+)$",
+   "flags": "",
+   "ordinal": 0,
+   "group": 5
+  },
+  {
+   "site": "src/parser.js:1022",
+   "id": "src/parser.js:1022:26",
+   "file": "src/parser.js",
+   "pattern": "^return(?:\\s+(.+))?$",
+   "flags": "",
+   "ordinal": 0,
+   "group": 5
+  },
+  {
+   "site": "src/parser.js:1037",
+   "id": "src/parser.js:1037:36",
+   "file": "src/parser.js",
+   "pattern": "^(tablegroup\\.get\\.(?:i32|bool))\\s+@([A-Za-z_][A-Za-z0-9_]*)\\.([A-Za-z_][A-Za-z0-9_]*)\\s*,\\s*(.+)$",
+   "flags": "",
+   "ordinal": 0,
+   "group": 5
+  },
+  {
+   "site": "src/parser.js:1064",
+   "id": "src/parser.js:1064:30",
+   "file": "src/parser.js",
+   "pattern": "^([A-Za-z0-9_.]+)(?:\\s+(.+))?$",
+   "flags": "",
+   "ordinal": 0,
+   "group": 5
+  },
+  {
+   "site": "src/parser.js:1565",
+   "id": "src/parser.js:1565:30",
+   "file": "src/parser.js",
+   "pattern": "^(?:yield|return)\\s+(.+)$",
+   "flags": "",
+   "ordinal": 0,
+   "group": 5
+  },
+  {
+   "site": "src/parser.js:1809",
+   "id": "src/parser.js:1809:30",
+   "file": "src/parser.js",
+   "pattern": "^(?:yield|return)\\s+(.+)$",
+   "flags": "",
+   "ordinal": 1,
+   "group": 5
+  },
+  {
+   "site": "src/parser.js:2165",
+   "id": "src/parser.js:2165:32",
+   "file": "src/parser.js",
+   "pattern": "^yield\\s+(.+)$",
+   "flags": "",
+   "ordinal": 0,
+   "group": 5
+  },
+  {
+   "site": "src/parser.js:2177",
+   "id": "src/parser.js:2177:33",
+   "file": "src/parser.js",
+   "pattern": "^return\\s+(.+)$",
+   "flags": "",
+   "ordinal": 1,
+   "group": 5
+  },
+  {
+   "site": "src/verifier.js:512",
+   "id": "src/verifier.js:512:29",
+   "file": "src/verifier.js",
+   "pattern": "^option\\.(none|some)<(.+)>\\s*(.*)$",
+   "flags": "",
+   "ordinal": 0,
+   "group": 5
+  },
+  {
+   "site": "src/verifier.js:526",
+   "id": "src/verifier.js:526:29",
+   "file": "src/verifier.js",
+   "pattern": "^result\\.(ok|err)<(.+)>\\s+(.+)$",
+   "flags": "",
+   "ordinal": 0,
+   "group": 5
+  },
+  {
+   "site": "src/diagnostics.js:607",
+   "id": "src/diagnostics.js:607:30",
+   "file": "src/diagnostics.js",
+   "pattern": "(air\\.pool\\.[A-Za-z_]+):\\s*(.*)$",
+   "flags": "",
+   "ordinal": 0,
+   "group": 4
+  },
+  {
+   "site": "src/parser.js:1053",
+   "id": "src/parser.js:1053:33",
+   "file": "src/parser.js",
+   "pattern": "^(pool\\.(?:get|set)\\.(?:i32|bool))\\s+@([A-Za-z_][A-Za-z0-9_]*)\\.([A-Za-z_][A-Za-z0-9_]*)(?:\\s*,\\s*(.*))?$",
+   "flags": "",
+   "ordinal": 0,
+   "group": 2
+  }
+ ]
+}

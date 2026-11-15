@@ -1,3 +1,4 @@
+const linearRegex = require("./linear_regex");
 const crypto = require("crypto");
 const { normalizeDiagnostic, sortDiagnostics } = require("./diagnostics");
 const { moduleIdForPath } = require("./link_symbols");
@@ -447,7 +448,7 @@ function sortedStrings(values) {
 }
 
 function safePackageId(value) {
-  return String(value || "package").replace(/[^A-Za-z0-9_.-]+/g, "-").replace(/^-+|-+$/g, "") || "package";
+  return String(value || "package").replace(/[^A-Za-z0-9_.-]+/g, "-").replace(linearRegex.wrap(/^-+|-+$/g), "") || "package";
 }
 
 function sanitizeMessage(message) {

@@ -1,3 +1,4 @@
+const linearRegex = require("./linear_regex");
 const { AirError, SOURCE_PROFILE_TYPED_V053 } = require("./errors");
 const { assertType, parseRefinementType } = require("./types");
 const { applyUseBundles } = require("./bundles");
@@ -29,7 +30,7 @@ function parseAir(source, file = "<input>", options = {}) {
         continue;
       }
 
-      const capsMatch = line.match(/^capabilities\s*\{\s*([^}]*)\s*\}$/);
+      const capsMatch = line.match(linearRegex.wrap(/^capabilities\s*\{\s*([^}]*)\s*\}$/));
       if (capsMatch) {
         for (const cap of splitComma(capsMatch[1])) {
           if (cap) {
@@ -59,7 +60,7 @@ function parseAir(source, file = "<input>", options = {}) {
         continue;
       }
 
-      const constMatch = line.match(/^const\s+([A-Za-z_][A-Za-z0-9_]*)\s*:\s*([A-Za-z0-9_]+)\s*=\s*(.+)$/);
+      const constMatch = line.match(linearRegex.wrap(/^const\s+([A-Za-z_][A-Za-z0-9_]*)\s*:\s*([A-Za-z0-9_]+)\s*=\s*(.+)$/));
       if (constMatch) {
         if (mod.constants.some((constant) => constant.name === constMatch[1])) {
           throw new AirError(`duplicate constant '${constMatch[1]}'`, loc);
@@ -76,7 +77,7 @@ function parseAir(source, file = "<input>", options = {}) {
       }
 
       const tablegroupMatch = line.match(/^tablegroup\s+([A-Za-z_][A-Za-z0-9_]*)\s+len\s+([0-9]+)\s*\{$/);
-      const tablegroupSyntaxMatch = line.match(/^tablegroup\s+([A-Za-z_][A-Za-z0-9_]*)\s+len\s+(.+)\s*\{$/);
+      const tablegroupSyntaxMatch = line.match(linearRegex.wrap(/^tablegroup\s+([A-Za-z_][A-Za-z0-9_]*)\s+len\s+(.+)\s*\{$/));
       if (tablegroupSyntaxMatch && !tablegroupMatch) {
         throw new AirError(`tablegroup '${tablegroupSyntaxMatch[1]}' length must be a fixed positive integer literal`, loc);
       }
@@ -114,7 +115,7 @@ function parseAir(source, file = "<input>", options = {}) {
       }
 
       const tableMatch = line.match(/^table\s+([A-Za-z_][A-Za-z0-9_]*)\s*:\s*([A-Za-z0-9_]+)\s*\[\s*([0-9]+)\s*\]\s*=\s*\[(.*)\]$/);
-      const tableSyntaxMatch = line.match(/^table\s+([A-Za-z_][A-Za-z0-9_]*)\s*:\s*([A-Za-z0-9_]+)\s*\[\s*([^\]]+)\s*\]\s*=\s*\[(.*)\]$/);
+      const tableSyntaxMatch = line.match(linearRegex.wrap(/^table\s+([A-Za-z_][A-Za-z0-9_]*)\s*:\s*([A-Za-z0-9_]+)\s*\[\s*([^\]]+)\s*\]\s*=\s*\[(.*)\]$/));
       if (tableSyntaxMatch && !tableMatch) {
         throw new AirError(`table '${tableSyntaxMatch[1]}' length must be a fixed positive integer literal`, loc);
       }
@@ -134,8 +135,8 @@ function parseAir(source, file = "<input>", options = {}) {
         continue;
       }
 
-      const stateMatch = line.match(/^state\s+([A-Za-z_][A-Za-z0-9_]*)\s*:\s*([A-Za-z0-9_]+)\s*\[\s*([0-9]+)\s*\]\s*=\s*fill\s+(.+)$/);
-      const stateSyntaxMatch = line.match(/^state\s+([A-Za-z_][A-Za-z0-9_]*)\s*:\s*([A-Za-z0-9_]+)\s*\[\s*([^\]]+)\s*\]\s*=\s*(.+)$/);
+      const stateMatch = line.match(linearRegex.wrap(/^state\s+([A-Za-z_][A-Za-z0-9_]*)\s*:\s*([A-Za-z0-9_]+)\s*\[\s*([0-9]+)\s*\]\s*=\s*fill\s+(.+)$/));
+      const stateSyntaxMatch = line.match(linearRegex.wrap(/^state\s+([A-Za-z_][A-Za-z0-9_]*)\s*:\s*([A-Za-z0-9_]+)\s*\[\s*([^\]]+)\s*\]\s*=\s*(.+)$/));
       if (stateSyntaxMatch && !stateMatch) {
         if (!/^[0-9]+$/.test(stateSyntaxMatch[3].trim())) {
           throw new AirError(`state '${stateSyntaxMatch[1]}' length must be a fixed positive integer literal`, loc);
@@ -159,7 +160,7 @@ function parseAir(source, file = "<input>", options = {}) {
       }
 
       const poolMatch = line.match(/^pool\s+([A-Za-z_][A-Za-z0-9_]*)\s+capacity\s+([0-9]+)\s*\{$/);
-      const poolSyntaxMatch = line.match(/^pool\s+([A-Za-z_][A-Za-z0-9_]*)\s+capacity\s+(.+)\s*\{$/);
+      const poolSyntaxMatch = line.match(linearRegex.wrap(/^pool\s+([A-Za-z_][A-Za-z0-9_]*)\s+capacity\s+(.+)\s*\{$/));
       if (poolSyntaxMatch && !poolMatch) {
         throw new AirError(`air.pool.dynamic_capacity_rejected: pool '${poolSyntaxMatch[1]}' capacity must be a fixed positive integer literal`, loc);
       }
@@ -173,13 +174,13 @@ function parseAir(source, file = "<input>", options = {}) {
         continue;
       }
 
-      const effectsMatch = line.match(/^effects\s*\{\s*([^}]*)\s*\}$/);
+      const effectsMatch = line.match(linearRegex.wrap(/^effects\s*\{\s*([^}]*)\s*\}$/));
       if (effectsMatch) {
         mod.effects.push(...parseEffectBudgets(effectsMatch[1], loc));
         continue;
       }
 
-      const contractMatch = line.match(/^(requires|ensures)\s+(.+)$/);
+      const contractMatch = line.match(linearRegex.wrap(/^(requires|ensures)\s+(.+)$/));
       if (contractMatch) {
         const condition = parseContract(contractMatch[2], loc);
         if (contractMatch[1] === "requires") mod.requires.push(condition);
@@ -193,7 +194,7 @@ function parseAir(source, file = "<input>", options = {}) {
       }
 
       const externMatch = line.match(/^extern\s+([A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*)\(([^)]*)\)\s*->\s*([A-Za-z0-9_]+)$/);
-      const externTypeMatch = line.match(/^extern\s+([A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*)\(([^)]*)\)\s*->\s*(.+)$/);
+      const externTypeMatch = line.match(linearRegex.wrap(/^extern\s+([A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*)\(([^)]*)\)\s*->\s*(.+)$/));
       if (externTypeMatch && !externMatch) {
         const params = parseParams(externTypeMatch[2], loc);
         const returnType = parseDeclaredType(externTypeMatch[3], loc);
@@ -221,13 +222,13 @@ function parseAir(source, file = "<input>", options = {}) {
         continue;
       }
 
-      const structMatch = line.match(/^struct\s+([A-Z][A-Za-z0-9_]*)\s*\{\s*(.*)\s*\}$/);
+      const structMatch = line.match(linearRegex.wrap(/^struct\s+([A-Z][A-Za-z0-9_]*)\s*\{\s*(.*)\s*\}$/));
       if (structMatch) {
         mod.structs.push({ name: structMatch[1], fields: parseFields(structMatch[2], loc), loc });
         continue;
       }
 
-      const globalMatch = line.match(/^global\s+([A-Za-z_][A-Za-z0-9_]*)\s*:\s*(.+?)\s*=\s*(const\.[A-Za-z0-9_]+)\s+(.+)$/);
+      const globalMatch = line.match(linearRegex.wrap(/^global\s+([A-Za-z_][A-Za-z0-9_]*)\s*:\s*(.+?)\s*=\s*(const\.[A-Za-z0-9_]+)\s+(.+)$/));
       if (globalMatch) {
         assertType(globalMatch[2], loc);
         mod.globals.push({
@@ -239,7 +240,7 @@ function parseAir(source, file = "<input>", options = {}) {
         continue;
       }
 
-      const funcMatch = line.match(/^(export\s+)?func\s+([A-Za-z_][A-Za-z0-9_]*)\(([^)]*)\)\s*->\s*(.+)\s*\{$/);
+      const funcMatch = line.match(linearRegex.wrap(/^(export\s+)?func\s+([A-Za-z_][A-Za-z0-9_]*)\(([^)]*)\)\s*->\s*(.+)\s*\{$/));
       if (funcMatch) {
         const params = parseParams(funcMatch[3], loc);
         const returnType = parseDeclaredType(funcMatch[4], loc);
@@ -268,13 +269,13 @@ function parseAir(source, file = "<input>", options = {}) {
       continue;
     }
 
-    const fnEffectsMatch = line.match(/^effects\s*\{\s*([^}]*)\s*\}$/);
+    const fnEffectsMatch = line.match(linearRegex.wrap(/^effects\s*\{\s*([^}]*)\s*\}$/));
     if (fnEffectsMatch && current.blocks.length === 0) {
       current.effects.push(...parseEffectBudgets(fnEffectsMatch[1], loc));
       continue;
     }
 
-    const fnContractMatch = line.match(/^(requires|ensures)\s+(.+)$/);
+    const fnContractMatch = line.match(linearRegex.wrap(/^(requires|ensures)\s+(.+)$/));
     if (fnContractMatch && current.blocks.length === 0) {
       const condition = parseContract(fnContractMatch[2], loc);
       if (fnContractMatch[1] === "requires") current.requires.push(condition);
@@ -321,9 +322,9 @@ function parseV051Air(source, file = "<input>", options = {}) {
 }
 
 function looksLikeV051TypedSource(source) {
-  return /^\s*(?:error\s+)?enum\s+/m.test(source) ||
-    /^\s*(?:export\s+)?func\s+[A-Za-z_][A-Za-z0-9_]*\s*\([^)]*:\s*[^)]/m.test(source) ||
-    /^\s*%[A-Za-z_][A-Za-z0-9_]*\s*:\s*.+?\s*=\s*match\s+%[A-Za-z_][A-Za-z0-9_]*\s*\{$/m.test(source) ||
+  return linearRegex.wrap(/^\s*(?:error\s+)?enum\s+/m).test(source) ||
+    linearRegex.wrap(/^\s*(?:export\s+)?func\s+[A-Za-z_][A-Za-z0-9_]*\s*\([^)]*:\s*[^)]/m).test(source) ||
+    linearRegex.wrap(/^\s*%[A-Za-z_][A-Za-z0-9_]*\s*:\s*.+?\s*=\s*match\s+%[A-Za-z_][A-Za-z0-9_]*\s*\{$/m).test(source) ||
     /\b(?:option|result)</.test(source);
 }
 
@@ -349,7 +350,7 @@ function parseV051TypedAir(source, file = "<input>") {
       mod.name = moduleMatch[1];
       continue;
     }
-    const capabilitiesMatch = line.match(/^capabilities\s*\{\s*([^}]*)\s*\}$/);
+    const capabilitiesMatch = line.match(linearRegex.wrap(/^capabilities\s*\{\s*([^}]*)\s*\}$/));
     if (capabilitiesMatch) {
       for (const capability of splitComma(capabilitiesMatch[1])) {
         if (capability) mod.capabilities.add(capability);
@@ -367,7 +368,7 @@ function parseV051TypedAir(source, file = "<input>") {
       index = parsed.endIndex;
       continue;
     }
-    const functionMatch = line.match(/^(export\s+)?func\s+([A-Za-z_][A-Za-z0-9_]*)\s*\((.*)\)\s*->\s*(.+)\s*\{$/);
+    const functionMatch = line.match(linearRegex.wrap(/^(export\s+)?func\s+([A-Za-z_][A-Za-z0-9_]*)\s*\((.*)\)\s*->\s*(.+)\s*\{$/));
     if (functionMatch) {
       const parsed = parseV051TypedFunction(lines, index, file, mod.name, functionMatch);
       if (mod.functions.some((item) => item.name === parsed.function.name)) {
@@ -428,7 +429,7 @@ function parseV051TypedFunction(lines, startIndex, file, moduleId, match) {
         endIndex: index
       };
     }
-    const matchHeader = line.match(/^%([A-Za-z_][A-Za-z0-9_]*)\s*:\s*(.+?)\s*=\s*match\s+%([A-Za-z_][A-Za-z0-9_]*)\s*\{$/);
+    const matchHeader = line.match(linearRegex.wrap(/^%([A-Za-z_][A-Za-z0-9_]*)\s*:\s*(.+?)\s*=\s*match\s+%([A-Za-z_][A-Za-z0-9_]*)\s*\{$/));
     if (matchHeader) {
       const parsed = parseV051TypedMatch(lines, index, file, {
         destination: matchHeader[1],
@@ -440,7 +441,7 @@ function parseV051TypedFunction(lines, startIndex, file, moduleId, match) {
       index = parsed.endIndex;
       continue;
     }
-    const local = line.match(/^%([A-Za-z_][A-Za-z0-9_]*)\s*:\s*(.+?)\s*=\s*(.+)$/);
+    const local = line.match(linearRegex.wrap(/^%([A-Za-z_][A-Za-z0-9_]*)\s*:\s*(.+?)\s*=\s*(.+)$/));
     if (local) {
       const type = parseV051TypedType(local[2], moduleId, false, statementLoc);
       statements.push({
@@ -452,7 +453,7 @@ function parseV051TypedFunction(lines, startIndex, file, moduleId, match) {
       });
       continue;
     }
-    const returned = line.match(/^return\s+(.+)$/);
+    const returned = line.match(linearRegex.wrap(/^return\s+(.+)$/));
     if (returned) {
       statements.push({
         kind: "return",
@@ -473,7 +474,7 @@ function parseV051TypedMatch(lines, startIndex, file, header) {
     const line = stripComment(lines[index]).trim();
     if (!line) continue;
     if (line === "}") return { statement: { arms, destination: header.destination, destinationType: header.destinationType, kind: "match", loc: { file, line: startIndex + 1 }, value: header.value }, endIndex: index };
-    const arm = line.match(/^(.+?)\s*=>\s*(.+?)\s*[,;]?$/);
+    const arm = line.match(linearRegex.wrap(/^(.+?)\s*=>\s*(.+?)\s*[,;]?$/));
     if (!arm) throw new AirError("air.decision.match_arm_invalid: match arms must use pattern => expression", loc);
     arms.push({
       expression: normalizeV051TypedInitializer(arm[2], header.destinationType, header.moduleId, loc),
@@ -621,7 +622,7 @@ function canonicalizeV051SourceTypeChecked(value, moduleId, allowVoid, loc) {
 function parseParams(text, loc) {
   if (!text.trim()) return [];
   return splitComma(text).map((part) => {
-    const match = part.match(/^([A-Za-z_][A-Za-z0-9_]*)\s*:\s*(.+)$/);
+    const match = part.match(linearRegex.wrap(/^([A-Za-z_][A-Za-z0-9_]*)\s*:\s*(.+)$/));
     if (!match) throw new AirError(`invalid parameter '${part}'`, loc);
     const type = parseDeclaredType(match[2], loc);
     return {
@@ -754,7 +755,7 @@ function parsePoolBlock(lines, startIndex, file, name, capacity, loc) {
       endIndex = i;
       break;
     }
-    const fieldMatch = line.match(/^([A-Za-z_][A-Za-z0-9_]*)\s*:\s*([A-Za-z0-9_]+)\s*=\s*(.+)$/);
+    const fieldMatch = line.match(linearRegex.wrap(/^([A-Za-z_][A-Za-z0-9_]*)\s*:\s*([A-Za-z0-9_]+)\s*=\s*(.+)$/));
     if (!fieldMatch) {
       throw new AirError(`air.pool.invalid: pool '${name}' field declaration is invalid`, fieldLoc);
     }
@@ -956,7 +957,7 @@ function parseInstruction(line, loc) {
 }
 
 function parseAssignment(line) {
-  const head = line.match(/^(%[A-Za-z_][A-Za-z0-9_]*)\s*:\s*(.+)$/);
+  const head = line.match(linearRegex.wrap(/^(%[A-Za-z_][A-Za-z0-9_]*)\s*:\s*(.+)$/));
   if (!head) return null;
   let angleDepth = 0;
   let inString = false;
@@ -1042,13 +1043,13 @@ function parseOp(text, loc, resultType = null) {
     return { op: "call", callee: standaloneCall[1], args: parseArgs(standaloneCall[2], loc), compact: "call" };
   }
 
-  const print = text.match(/^print\s+(.+)$/);
+  const print = text.match(linearRegex.wrap(/^print\s+(.+)$/));
   if (print) return { op: "print", args: parseArgs(print[1], loc) };
 
-  const ret = text.match(/^return(?:\s+(.+))?$/);
+  const ret = text.match(linearRegex.wrap(/^return(?:\s+(.+))?$/));
   if (ret) return { op: "return", args: ret[1] ? parseArgs(ret[1], loc) : [] };
 
-  const brIf = text.match(/^br_if\s+([^,]+)\s*,\s*([A-Za-z_][A-Za-z0-9_]*)\s*,\s*([A-Za-z_][A-Za-z0-9_]*)$/);
+  const brIf = text.match(linearRegex.wrap(/^br_if\s+([^,]+)\s*,\s*([A-Za-z_][A-Za-z0-9_]*)\s*,\s*([A-Za-z_][A-Za-z0-9_]*)$/));
   if (brIf) return { op: "br_if", args: [parseAtom(brIf[1].trim())], labels: [brIf[2], brIf[3]] };
   if (/^br_if\b/.test(text)) {
     throw new AirError("air.control.br_if_syntax_invalid: expected br_if <bool>, <then-label>, <else-label>", loc);
@@ -1060,7 +1061,7 @@ function parseOp(text, loc, resultType = null) {
     throw new AirError("air.control.br_syntax_invalid: expected br <label>", loc);
   }
 
-  const tablegroupGet = text.match(/^(tablegroup\.get\.(?:i32|bool))\s+@([A-Za-z_][A-Za-z0-9_]*)\.([A-Za-z_][A-Za-z0-9_]*)\s*,\s*(.+)$/);
+  const tablegroupGet = text.match(linearRegex.wrap(/^(tablegroup\.get\.(?:i32|bool))\s+@([A-Za-z_][A-Za-z0-9_]*)\.([A-Za-z_][A-Za-z0-9_]*)\s*,\s*(.+)$/));
   if (tablegroupGet) {
     return {
       op: tablegroupGet[1],
@@ -1076,7 +1077,7 @@ function parseOp(text, loc, resultType = null) {
     return { op: poolCapacity[1], args: [{ kind: "poolName", name: poolCapacity[2] }] };
   }
 
-  const poolAccess = text.match(/^(pool\.(?:get|set)\.(?:i32|bool))\s+@([A-Za-z_][A-Za-z0-9_]*)\.([A-Za-z_][A-Za-z0-9_]*)(?:\s*,\s*(.*))?$/);
+  const poolAccess = text.match(linearRegex.wrap(/^(pool\.(?:get|set)\.(?:i32|bool))\s+@([A-Za-z_][A-Za-z0-9_]*)\.([A-Za-z_][A-Za-z0-9_]*)(?:\s*,\s*(.*))?$/));
   if (poolAccess) {
     return {
       op: poolAccess[1],
@@ -1087,7 +1088,7 @@ function parseOp(text, loc, resultType = null) {
     };
   }
 
-  const generic = text.match(/^([A-Za-z0-9_.]+)(?:\s+(.+))?$/);
+  const generic = text.match(linearRegex.wrap(/^([A-Za-z0-9_.]+)(?:\s+(.+))?$/));
   if (!generic) throw new AirError(`invalid instruction '${text}'`, loc);
   return { op: generic[1], args: generic[2] ? parseArgs(generic[2], loc) : [] };
 }
@@ -1529,8 +1530,8 @@ function v053SyntaxError(message, loc) {
 const V053_CALL_FORM = /^call\s+@([A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*)\s*\((.*)\)$/;
 const V053_LABEL_LINE = /^[A-Za-z_][A-Za-z0-9_.]*:$/;
 const V053_BRANCH_LINE = /^br(?:_if)?(?:\s|$)/;
-const V053_IF_HEADER = /^%([A-Za-z_][A-Za-z0-9_]*)\s*:\s*(.+?)\s*=\s*if\s+(.+?)\s*\{$/;
-const V053_MATCH_HEADER = /^%([A-Za-z_][A-Za-z0-9_]*)\s*:\s*(.+?)\s*=\s*match\s+%([A-Za-z_][A-Za-z0-9_]*)\s*\{$/;
+const V053_IF_HEADER = linearRegex.wrap(/^%([A-Za-z_][A-Za-z0-9_]*)\s*:\s*(.+?)\s*=\s*if\s+(.+?)\s*\{$/);
+const V053_MATCH_HEADER = linearRegex.wrap(/^%([A-Za-z_][A-Za-z0-9_]*)\s*:\s*(.+?)\s*=\s*match\s+%([A-Za-z_][A-Za-z0-9_]*)\s*\{$/);
 
 function v053CallValue(match) {
   const args = match[2].trim() ? splitComma(match[2]).map((argument) => argument.trim()) : [];
@@ -1586,8 +1587,8 @@ function v053LoopFormError(line, loc) {
 }
 
 function v053RejectOtherLoopForm(line, loc) {
-  const local = line.match(/^%[A-Za-z_][A-Za-z0-9_]*\s*:\s*.+?\s*=\s*(.+)$/);
-  const operand = line.match(/^(?:yield|return)\s+(.+)$/);
+  const local = line.match(linearRegex.wrap(/^%[A-Za-z_][A-Za-z0-9_]*\s*:\s*.+?\s*=\s*(.+)$/));
+  const operand = line.match(linearRegex.wrap(/^(?:yield|return)\s+(.+)$/));
   const value = local ? local[1].trim() : operand ? operand[1].trim() : null;
   if (v053OtherLoopForm(line) || line.startsWith("for ") || line.startsWith("while ") || (value !== null && v053OtherLoopForm(value))) {
     throw v053LoopFormError(line, loc);
@@ -1650,7 +1651,7 @@ function v053WorkDeclaration(line, loc) {
 // line. The name has exactly one dot and no `:` (the contract namespace never
 // appears in source, V53-ABI-51); the types are parsed as typed-v0.53 types,
 // `void` only as the result. Registry admission is phase S (P10-R2).
-const V053_EXTERN_LINE = /^extern\s+(\S+?)\s*\((.*)\)\s*->\s*(.+)$/;
+const V053_EXTERN_LINE = linearRegex.wrap(/^extern\s+(\S+?)\s*\((.*)\)\s*->\s*(.+)$/);
 const V053_EXTERN_NAME = /^[a-z][a-z0-9_]*\.[a-z][a-z0-9_]*$/;
 
 function v053ExternDeclaration(line, moduleId, loc) {
@@ -1696,7 +1697,7 @@ function v053DemandDeclaration(line, loc) {
 // of literal strings, normalized as a local's literal is (`-0` is `0` for an
 // integer, `1` is `1.0` for a float), so a table adds a fixed number of intake
 // nodes whatever its length.
-const V053_TABLE_LINE = /^table[ \t]+([A-Za-z_][A-Za-z0-9_]*)[ \t]*:[ \t]*([^[\]=]+?)[ \t]*\[[ \t]*(0|[1-9][0-9]*)[ \t]*\][ \t]*=[ \t]*\[(.*)\]$/;
+const V053_TABLE_LINE = linearRegex.wrap(/^table[ \t]+([A-Za-z_][A-Za-z0-9_]*)[ \t]*:[ \t]*([^[\]=]+?)[ \t]*\[[ \t]*(0|[1-9][0-9]*)[ \t]*\][ \t]*=[ \t]*\[(.*)\]$/);
 const V053_TABLE_ELEMENTS = new Set(["i32", "i64", "f32", "f64", "bool"]);
 
 function v053TableDeclaration(line, loc) {
@@ -1830,8 +1831,8 @@ function v053MemoryStatement(line, loc) {
 // P6-R4: tables are read-only. A statement whose operation is `table.set`,
 // bound or not, with any operands, is refused at its line.
 function v053RejectTableSet(line, loc) {
-  const local = line.match(/^%[A-Za-z_][A-Za-z0-9_]*\s*:\s*.+?\s*=\s*(.+)$/);
-  const operand = line.match(/^(?:yield|return)\s+(.+)$/);
+  const local = line.match(linearRegex.wrap(/^%[A-Za-z_][A-Za-z0-9_]*\s*:\s*.+?\s*=\s*(.+)$/));
+  const operand = line.match(linearRegex.wrap(/^(?:yield|return)\s+(.+)$/));
   const value = local ? local[1].trim() : operand ? operand[1].trim() : line;
   if (/^table\.set(?:\s|$)/.test(value)) {
     throw new AirError(`air.table.readonly: '${line}' writes a table; typed-v0.53 tables are read-only (table.get only)`, loc);
@@ -1976,7 +1977,7 @@ function parseV053TypedAir(source, file = "<input>") {
         mod.name = moduleMatch[1];
         continue;
       }
-      const capabilitiesMatch = line.match(/^capabilities\s*\{\s*([^}]*)\s*\}$/);
+      const capabilitiesMatch = line.match(linearRegex.wrap(/^capabilities\s*\{\s*([^}]*)\s*\}$/));
       if (capabilitiesMatch) {
         for (const capability of splitComma(capabilitiesMatch[1])) {
           if (capability) mod.capabilities.add(capability);
@@ -2052,7 +2053,7 @@ function parseV053TypedAir(source, file = "<input>") {
         stack.push({ cases: [], isError: Boolean(enumMatch[1]), kind: "enum", loc, typeName: enumMatch[2] });
         continue;
       }
-      const functionMatch = line.match(/^(export\s+)?func\s+([A-Za-z_][A-Za-z0-9_]*)\s*\((.*)\)\s*->\s*(.+)\s*\{$/);
+      const functionMatch = line.match(linearRegex.wrap(/^(export\s+)?func\s+([A-Za-z_][A-Za-z0-9_]*)\s*\((.*)\)\s*->\s*(.+)\s*\{$/));
       if (functionMatch) {
         if (mod.functions.some((item) => item.name === functionMatch[2])) {
           throw new AirError(`air.v051.function_duplicate: duplicate function '${functionMatch[2]}'`, loc);
@@ -2119,7 +2120,7 @@ function parseV053TypedAir(source, file = "<input>") {
         continue;
       }
       // P4-R9: a block-bodied arm opens a block frame; its closing line is `}`.
-      const blockArm = line.match(/^(.+?)\s*=>\s*\{$/);
+      const blockArm = line.match(linearRegex.wrap(/^(.+?)\s*=>\s*\{$/));
       if (blockArm) {
         const block = { statements: [] };
         // The block is enumerable once, in `blocks` (P4-R17). The arm refers to the
@@ -2133,7 +2134,7 @@ function parseV053TypedAir(source, file = "<input>") {
         stack.push({ fn: frame.fn, kind: "block", openLoc: loc, owner: "arm", statement: frame.statement, statements: block.statements, yielded: false });
         continue;
       }
-      const arm = line.match(/^(.+?)\s*=>\s*(.+?)\s*[,;]?$/);
+      const arm = line.match(linearRegex.wrap(/^(.+?)\s*=>\s*(.+?)\s*[,;]?$/));
       if (!arm) throw new AirError("air.decision.match_arm_invalid: match arms must use pattern => expression", loc);
       if (v053OtherLoopForm(arm[2].trim())) throw v053LoopFormError(line, loc);
       frame.statement.arms.push({
@@ -2187,7 +2188,7 @@ function parseV053TypedAir(source, file = "<input>") {
     }
     // P4-R13: labels, br and br_if have no typed-v0.53 form.
     if (V053_LABEL_LINE.test(line) || V053_BRANCH_LINE.test(line)) throw v053UnstructuredError(line, loc);
-    const yielded = line.match(/^yield\s+(.+)$/);
+    const yielded = line.match(linearRegex.wrap(/^yield\s+(.+)$/));
     if (yielded || line === "yield") {
       if (!inBlock) throw v053SyntaxError("yield outside a block", loc);
       if (!yielded) throw v053SyntaxError("yield requires an atom", loc);
@@ -2199,7 +2200,7 @@ function parseV053TypedAir(source, file = "<input>") {
       frame.yielded = true;
       continue;
     }
-    const returned = line.match(/^return\s+(.+)$/);
+    const returned = line.match(linearRegex.wrap(/^return\s+(.+)$/));
     if (returned || line === "return") {
       if (inBlock) throw v053SyntaxError("return inside a block; a function has a single exit (R-CFG-2)", loc);
       if (!returned) {
@@ -2248,7 +2249,7 @@ function parseV053TypedAir(source, file = "<input>") {
       calls.push(statement);
       continue;
     }
-    const local = line.match(/^%([A-Za-z_][A-Za-z0-9_]*)\s*:\s*(.+?)\s*=\s*(.+)$/);
+    const local = line.match(linearRegex.wrap(/^%([A-Za-z_][A-Za-z0-9_]*)\s*:\s*(.+?)\s*=\s*(.+)$/));
     if (local) {
       const type = parseV053TypedType(local[2], mod.name, false, loc);
       const valueText = local[3].trim();

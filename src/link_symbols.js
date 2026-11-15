@@ -1,3 +1,4 @@
+const linearRegex = require("./linear_regex");
 const crypto = require("crypto");
 const path = require("path");
 
@@ -129,7 +130,7 @@ function sanitizeIdentifier(value, fallback) {
   const safe = String(value || "")
     .replace(/\.air$/i, "")
     .replace(/[^A-Za-z0-9_]+/g, "_")
-    .replace(/^_+|_+$/g, "");
+    .replace(linearRegex.wrap(/^_+|_+$/g), "");
   const withFallback = safe || fallback;
   return /^[0-9]/.test(withFallback) ? `_${withFallback}` : withFallback;
 }

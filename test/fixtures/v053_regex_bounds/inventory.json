@@ -1,0 +1,2899 @@
+{
+ "schema": "qa.sec53_06.superlinear_inventory/1",
+ "base": {
+  "public": "9e9a3783241964d2fc2244414d2392be85ebc759",
+  "scope": "every regular expression in src/ and bin/ (783: 782 literals and 1 constructed)"
+ },
+ "counts": {
+  "total": 86,
+  "byGroup": {
+   "1": 26,
+   "2": 5,
+   "3": 6,
+   "4": 16,
+   "5": 33
+  },
+  "open": 84,
+  "reachedFromSource": 48,
+  "notFromSource": 16,
+  "unresolved": 0
+ },
+ "limits": "see REPORT.md §4: classes the screens do not place",
+ "expressions": [
+  {
+   "site": "src/borrowed_slices.js:16",
+   "id": "src/borrowed_slices.js:16:28",
+   "function": "parseBorrowedSliceType",
+   "pattern": "^borrowed_slice\\s*<\\s*(.*?)\\s*>$",
+   "flags": "",
+   "foundBy": "QA R2 sweep (3e45cb6f…)",
+   "group": 1,
+   "groupName": "source text; hangs",
+   "shapeSEC5306R3": "S4",
+   "status": "open",
+   "regexAlone": {
+    "n6400": "> 15 s",
+    "n64000": "> 15 s"
+   },
+   "growth": "hang (killed at 15 s at 6,400)",
+   "worstShapes": [
+    {
+     "screen": "QA R2",
+     "shape": "`borrowed_slice<` + N × ` ` + `\\u0000`"
+    }
+   ],
+   "reach": {
+    "status": "reached end to end",
+    "profiles": "legacy",
+    "cli": "check (legacy), build (legacy)",
+    "endToEnd": "> 15 s / not run",
+    "evidence": "QA R2 logs/28_reach.jsonl, 30_anchor.jsonl, 34_e2e.jsonl"
+   }
+  },
+  {
+   "site": "src/parser.js:28",
+   "id": "src/parser.js:28:36",
+   "function": "parseAir",
+   "pattern": "^capabilities\\s*\\{\\s*([^}]*)\\s*\\}$",
+   "flags": "",
+   "foundBy": "QA R2 sweep (3e45cb6f…)",
+   "group": 1,
+   "groupName": "source text; hangs",
+   "shapeSEC5306R3": "S1",
+   "status": "open",
+   "regexAlone": {
+    "n6400": "> 15 s",
+    "n64000": "> 15 s"
+   },
+   "growth": "hang (killed at 15 s at 6,400)",
+   "worstShapes": [
+    {
+     "screen": "QA R2",
+     "shape": "`capabilities {` + N × ` ` + `\\u0000`"
+    }
+   ],
+   "reach": {
+    "status": "reached end to end",
+    "profiles": "legacy",
+    "cli": "check (legacy), build (legacy)",
+    "endToEnd": "> 15 s / not run",
+    "evidence": "QA R2 logs/28_reach.jsonl, 30_anchor.jsonl, 34_e2e.jsonl"
+   }
+  },
+  {
+   "site": "src/parser.js:75",
+   "id": "src/parser.js:75:48",
+   "function": "parseAir",
+   "pattern": "^tablegroup\\s+([A-Za-z_][A-Za-z0-9_]*)\\s+len\\s+(.+)\\s*\\{$",
+   "flags": "",
+   "foundBy": "QA R2 sweep (3e45cb6f…)",
+   "group": 1,
+   "groupName": "source text; hangs",
+   "shapeSEC5306R3": "S2",
+   "status": "open",
+   "regexAlone": {
+    "n6400": "> 15 s",
+    "n64000": "> 15 s"
+   },
+   "growth": "hang (killed at 15 s at 6,400)",
+   "worstShapes": [
+    {
+     "screen": "QA R2",
+     "shape": "`tablegroup AA len` + N × `\\t` + `\\u0000`"
+    }
+   ],
+   "reach": {
+    "status": "reached end to end",
+    "profiles": "legacy",
+    "cli": "check (legacy), build (legacy)",
+    "endToEnd": "> 15 s / not run",
+    "evidence": "QA R2 logs/28_reach.jsonl, 30_anchor.jsonl, 34_e2e.jsonl"
+   }
+  },
+  {
+   "site": "src/parser.js:113",
+   "id": "src/parser.js:113:43",
+   "function": "parseAir",
+   "pattern": "^table\\s+([A-Za-z_][A-Za-z0-9_]*)\\s*:\\s*([A-Za-z0-9_]+)\\s*\\[\\s*([^\\]]+)\\s*\\]\\s*=\\s*\\[(.*)\\]$",
+   "flags": "",
+   "foundBy": "QA R2 sweep (3e45cb6f…)",
+   "group": 1,
+   "groupName": "source text; hangs",
+   "shapeSEC5306R3": "S5",
+   "status": "open",
+   "regexAlone": {
+    "n6400": "> 15 s",
+    "n64000": "> 15 s"
+   },
+   "growth": "hang (killed at 15 s at 6,400)",
+   "worstShapes": [
+    {
+     "screen": "QA R2",
+     "shape": "`table AA : A [` + N × ` ` + `\\u0000`"
+    }
+   ],
+   "reach": {
+    "status": "reached end to end",
+    "profiles": "legacy",
+    "cli": "check (legacy), build (legacy)",
+    "endToEnd": "> 15 s / not run",
+    "evidence": "QA R2 logs/28_reach.jsonl, 30_anchor.jsonl, 34_e2e.jsonl"
+   }
+  },
+  {
+   "site": "src/parser.js:134",
+   "id": "src/parser.js:134:43",
+   "function": "parseAir",
+   "pattern": "^state\\s+([A-Za-z_][A-Za-z0-9_]*)\\s*:\\s*([A-Za-z0-9_]+)\\s*\\[\\s*([^\\]]+)\\s*\\]\\s*=\\s*(.+)$",
+   "flags": "",
+   "foundBy": "QA R2 sweep (3e45cb6f…)",
+   "group": 1,
+   "groupName": "source text; hangs",
+   "shapeSEC5306R3": "S5",
+   "status": "open",
+   "regexAlone": {
+    "n6400": "> 15 s",
+    "n64000": "> 15 s"
+   },
+   "growth": "hang (killed at 15 s at 6,400)",
+   "worstShapes": [
+    {
+     "screen": "QA R2",
+     "shape": "`state AA : A [` + N × ` ` + `\\u0000`"
+    }
+   ],
+   "reach": {
+    "status": "reached end to end",
+    "profiles": "legacy",
+    "cli": "check (legacy), build (legacy)",
+    "endToEnd": "> 15 s / not run",
+    "evidence": "QA R2 logs/28_reach.jsonl, 30_anchor.jsonl, 34_e2e.jsonl"
+   }
+  },
+  {
+   "site": "src/parser.js:158",
+   "id": "src/parser.js:158:42",
+   "function": "parseAir",
+   "pattern": "^pool\\s+([A-Za-z_][A-Za-z0-9_]*)\\s+capacity\\s+(.+)\\s*\\{$",
+   "flags": "",
+   "foundBy": "QA R2 sweep (3e45cb6f…)",
+   "group": 1,
+   "groupName": "source text; hangs",
+   "shapeSEC5306R3": "S2",
+   "status": "open",
+   "regexAlone": {
+    "n6400": "> 15 s",
+    "n64000": "> 15 s"
+   },
+   "growth": "hang (killed at 15 s at 6,400)",
+   "worstShapes": [
+    {
+     "screen": "QA R2",
+     "shape": "`pool AA capacity` + N × ` ` + `\\u0000`"
+    }
+   ],
+   "reach": {
+    "status": "reached end to end",
+    "profiles": "legacy",
+    "cli": "check (legacy), build (legacy)",
+    "endToEnd": "> 15 s / not run",
+    "evidence": "QA R2 logs/28_reach.jsonl, 30_anchor.jsonl, 34_e2e.jsonl"
+   }
+  },
+  {
+   "site": "src/parser.js:172",
+   "id": "src/parser.js:172:39",
+   "function": "parseAir",
+   "pattern": "^effects\\s*\\{\\s*([^}]*)\\s*\\}$",
+   "flags": "",
+   "foundBy": "QA R2 sweep (3e45cb6f…)",
+   "group": 1,
+   "groupName": "source text; hangs",
+   "shapeSEC5306R3": "S1",
+   "status": "open",
+   "regexAlone": {
+    "n6400": "> 15 s",
+    "n64000": "> 15 s"
+   },
+   "growth": "hang (killed at 15 s at 6,400)",
+   "worstShapes": [
+    {
+     "screen": "QA R2",
+     "shape": "`effects { ` + N × ` ` + `\\u0000`"
+    }
+   ],
+   "reach": {
+    "status": "reached end to end",
+    "profiles": "legacy",
+    "cli": "check (legacy), build (legacy)",
+    "endToEnd": "> 15 s / not run",
+    "evidence": "QA R2 logs/28_reach.jsonl, 30_anchor.jsonl, 34_e2e.jsonl"
+   }
+  },
+  {
+   "site": "src/parser.js:220",
+   "id": "src/parser.js:220:38",
+   "function": "parseAir",
+   "pattern": "^struct\\s+([A-Z][A-Za-z0-9_]*)\\s*\\{\\s*(.*)\\s*\\}$",
+   "flags": "",
+   "foundBy": "QA R2 sweep (3e45cb6f…)",
+   "group": 1,
+   "groupName": "source text; hangs",
+   "shapeSEC5306R3": "S4",
+   "status": "open",
+   "regexAlone": {
+    "n6400": "> 15 s",
+    "n64000": "> 15 s"
+   },
+   "growth": "hang (killed at 15 s at 6,400)",
+   "worstShapes": [
+    {
+     "screen": "QA R2",
+     "shape": "`struct AA {` + N × ` ` + `\\u0000`"
+    }
+   ],
+   "reach": {
+    "status": "reached end to end",
+    "profiles": "legacy",
+    "cli": "check (legacy), build (legacy)",
+    "endToEnd": "> 15 s / not run",
+    "evidence": "QA R2 logs/28_reach.jsonl, 30_anchor.jsonl, 34_e2e.jsonl"
+   }
+  },
+  {
+   "site": "src/parser.js:226",
+   "id": "src/parser.js:226:38",
+   "function": "parseAir",
+   "pattern": "^global\\s+([A-Za-z_][A-Za-z0-9_]*)\\s*:\\s*(.+?)\\s*=\\s*(const\\.[A-Za-z0-9_]+)\\s+(.+)$",
+   "flags": "",
+   "foundBy": "QA R2 sweep (3e45cb6f…)",
+   "group": 1,
+   "groupName": "source text; hangs",
+   "shapeSEC5306R3": "S3",
+   "status": "open",
+   "regexAlone": {
+    "n6400": "> 15 s",
+    "n64000": "> 15 s"
+   },
+   "growth": "hang (killed at 15 s at 6,400)",
+   "worstShapes": [
+    {
+     "screen": "QA R2",
+     "shape": "`global AA :` + N × ` ` + `!`"
+    }
+   ],
+   "reach": {
+    "status": "reached end to end",
+    "profiles": "legacy",
+    "cli": "check (legacy), build (legacy)",
+    "endToEnd": "> 15 s / not run",
+    "evidence": "QA R2 logs/28_reach.jsonl, 30_anchor.jsonl, 34_e2e.jsonl"
+   }
+  },
+  {
+   "site": "src/parser.js:238",
+   "id": "src/parser.js:238:36",
+   "function": "parseAir",
+   "pattern": "^(export\\s+)?func\\s+([A-Za-z_][A-Za-z0-9_]*)\\(([^)]*)\\)\\s*->\\s*(.+)\\s*\\{$",
+   "flags": "",
+   "foundBy": "QA R2 sweep (3e45cb6f…)",
+   "group": 1,
+   "groupName": "source text; hangs",
+   "shapeSEC5306R3": "S2",
+   "status": "open",
+   "regexAlone": {
+    "n6400": "> 15 s",
+    "n64000": "> 15 s"
+   },
+   "growth": "hang (killed at 15 s at 6,400)",
+   "worstShapes": [
+    {
+     "screen": "QA R2",
+     "shape": "`func f23() ->` + N × ` ` + `\\u0000`"
+    }
+   ],
+   "reach": {
+    "status": "reached end to end",
+    "profiles": "legacy",
+    "cli": "check (legacy), build (legacy)",
+    "endToEnd": "> 15 s / not run",
+    "evidence": "QA R2 logs/28_reach.jsonl, 30_anchor.jsonl, 34_e2e.jsonl"
+   }
+  },
+  {
+   "site": "src/parser.js:267",
+   "id": "src/parser.js:267:39",
+   "function": "parseAir",
+   "pattern": "^effects\\s*\\{\\s*([^}]*)\\s*\\}$",
+   "flags": "",
+   "foundBy": "QA R2 sweep (3e45cb6f…)",
+   "group": 1,
+   "groupName": "source text; hangs",
+   "shapeSEC5306R3": "S1",
+   "status": "open",
+   "regexAlone": {
+    "n6400": "> 15 s",
+    "n64000": "> 15 s"
+   },
+   "growth": "hang (killed at 15 s at 6,400)",
+   "worstShapes": [
+    {
+     "screen": "QA R2",
+     "shape": "`effects { ` + N × ` ` + `\\u0000`"
+    }
+   ],
+   "reach": {
+    "status": "reached end to end",
+    "profiles": "legacy",
+    "cli": "check (legacy), build (legacy)",
+    "endToEnd": "> 15 s / not run",
+    "evidence": "QA R2 logs/28_reach.jsonl, 30_anchor.jsonl, 34_e2e.jsonl"
+   }
+  },
+  {
+   "site": "src/parser.js:348",
+   "id": "src/parser.js:348:42",
+   "function": "parseV051TypedAir",
+   "pattern": "^capabilities\\s*\\{\\s*([^}]*)\\s*\\}$",
+   "flags": "",
+   "foundBy": "QA R2 sweep (3e45cb6f…)",
+   "group": 1,
+   "groupName": "source text; hangs",
+   "shapeSEC5306R3": "S1",
+   "status": "open",
+   "regexAlone": {
+    "n6400": "> 15 s",
+    "n64000": "> 15 s"
+   },
+   "growth": "hang (killed at 15 s at 6,400)",
+   "worstShapes": [
+    {
+     "screen": "QA R2",
+     "shape": "`capabilities {` + N × `\\t` + `\\u0000`"
+    }
+   ],
+   "reach": {
+    "status": "reached end to end",
+    "profiles": "typed-v0.51",
+    "cli": "verify (typed-v0.51), build (typed-v0.51)",
+    "endToEnd": "> 15 s / not run",
+    "evidence": "QA R2 logs/28_reach.jsonl, 30_anchor.jsonl, 34_e2e.jsonl"
+   }
+  },
+  {
+   "site": "src/parser.js:366",
+   "id": "src/parser.js:366:38",
+   "function": "parseV051TypedAir",
+   "pattern": "^(export\\s+)?func\\s+([A-Za-z_][A-Za-z0-9_]*)\\s*\\((.*)\\)\\s*->\\s*(.+)\\s*\\{$",
+   "flags": "",
+   "foundBy": "QA R2 sweep (3e45cb6f…)",
+   "group": 1,
+   "groupName": "source text; hangs",
+   "shapeSEC5306R3": "S2",
+   "status": "open",
+   "regexAlone": {
+    "n6400": "> 15 s",
+    "n64000": "> 15 s"
+   },
+   "growth": "hang (killed at 15 s at 6,400)",
+   "worstShapes": [
+    {
+     "screen": "QA R2",
+     "shape": "`export func f() ->` + N × ` ` + `\\u0000`"
+    }
+   ],
+   "reach": {
+    "status": "reached end to end",
+    "profiles": "typed-v0.51",
+    "cli": "verify (typed-v0.51), build (typed-v0.51)",
+    "endToEnd": "> 15 s / not run",
+    "evidence": "QA R2 logs/28_reach.jsonl, 30_anchor.jsonl, 34_e2e.jsonl"
+   }
+  },
+  {
+   "site": "src/parser.js:427",
+   "id": "src/parser.js:427:36",
+   "function": "parseV051TypedFunction",
+   "pattern": "^%([A-Za-z_][A-Za-z0-9_]*)\\s*:\\s*(.+?)\\s*=\\s*match\\s+%([A-Za-z_][A-Za-z0-9_]*)\\s*\\{$",
+   "flags": "",
+   "foundBy": "QA R2 sweep (3e45cb6f…)",
+   "group": 1,
+   "groupName": "source text; hangs",
+   "shapeSEC5306R3": "S3",
+   "status": "open",
+   "regexAlone": {
+    "n6400": "> 15 s",
+    "n64000": "> 15 s"
+   },
+   "growth": "hang (killed at 15 s at 6,400)",
+   "worstShapes": [
+    {
+     "screen": "QA R2",
+     "shape": "`%w:` + N × `\\t` + ` i32 = %x`"
+    }
+   ],
+   "reach": {
+    "status": "reached end to end",
+    "profiles": "typed-v0.51",
+    "cli": "verify (typed-v0.51), build (typed-v0.51)",
+    "endToEnd": "> 15 s / not run",
+    "evidence": "QA R2 logs/28_reach.jsonl, 30_anchor.jsonl, 34_e2e.jsonl"
+   }
+  },
+  {
+   "site": "src/parser.js:439",
+   "id": "src/parser.js:439:30",
+   "function": "parseV051TypedFunction",
+   "pattern": "^%([A-Za-z_][A-Za-z0-9_]*)\\s*:\\s*(.+?)\\s*=\\s*(.+)$",
+   "flags": "",
+   "foundBy": "QA R2 sweep (3e45cb6f…)",
+   "group": 1,
+   "groupName": "source text; hangs",
+   "shapeSEC5306R3": "S3",
+   "status": "open",
+   "regexAlone": {
+    "n6400": "> 15 s",
+    "n64000": "> 15 s"
+   },
+   "growth": "hang (killed at 15 s at 6,400)",
+   "worstShapes": [
+    {
+     "screen": "QA R2",
+     "shape": "`%x:` + N × `\\t` + `\\u0000`"
+    }
+   ],
+   "reach": {
+    "status": "reached end to end",
+    "profiles": "typed-v0.51",
+    "cli": "verify (typed-v0.51), build (typed-v0.51)",
+    "endToEnd": "> 15 s / not run",
+    "evidence": "QA R2 logs/28_reach.jsonl, 30_anchor.jsonl, 34_e2e.jsonl"
+   }
+  },
+  {
+   "site": "src/parser.js:582",
+   "id": "src/parser.js:582:30",
+   "function": "canonicalizeV051SourceType",
+   "pattern": "^option\\s*<\\s*(.+)\\s*>$",
+   "flags": "",
+   "foundBy": "QA R2 sweep (3e45cb6f…)",
+   "group": 1,
+   "groupName": "source text; hangs",
+   "shapeSEC5306R3": null,
+   "status": "replaced by SEC53-06 §4's draft",
+   "regexAlone": {
+    "n6400": "> 15 s",
+    "n64000": "> 15 s"
+   },
+   "growth": "hang (killed at 15 s at 6,400)",
+   "worstShapes": [
+    {
+     "screen": "QA R2",
+     "shape": "`option<` + N × ` ` + `\\u0000`"
+    }
+   ],
+   "reach": {
+    "status": "reached end to end",
+    "profiles": "typed-v0.51, typed-v0.53",
+    "cli": "verify (typed-v0.51), build (typed-v0.51), check (typed-v0.53), build (typed-v0.53)",
+    "endToEnd": "> 15 s / not run",
+    "evidence": "QA R2 logs/28_reach.jsonl, 30_anchor.jsonl, 34_e2e.jsonl"
+   }
+  },
+  {
+   "site": "src/parser.js:584",
+   "id": "src/parser.js:584:30",
+   "function": "canonicalizeV051SourceType",
+   "pattern": "^result\\s*<\\s*(.+)\\s*>$",
+   "flags": "",
+   "foundBy": "QA R2 sweep (3e45cb6f…)",
+   "group": 1,
+   "groupName": "source text; hangs",
+   "shapeSEC5306R3": null,
+   "status": "replaced by SEC53-06 §4's draft",
+   "regexAlone": {
+    "n6400": "> 15 s",
+    "n64000": "> 15 s"
+   },
+   "growth": "hang (killed at 15 s at 6,400)",
+   "worstShapes": [
+    {
+     "screen": "QA R2",
+     "shape": "`result<` + N × ` ` + `\\u0000`"
+    }
+   ],
+   "reach": {
+    "status": "reached end to end",
+    "profiles": "typed-v0.51, typed-v0.53",
+    "cli": "verify (typed-v0.51), build (typed-v0.51), check (typed-v0.53), build (typed-v0.53)",
+    "endToEnd": "> 15 s / not run",
+    "evidence": "QA R2 logs/28_reach.jsonl, 30_anchor.jsonl, 34_e2e.jsonl"
+   }
+  },
+  {
+   "site": "src/parser.js:1025",
+   "id": "src/parser.js:1025:27",
+   "function": "parseOp",
+   "pattern": "^br_if\\s+([^,]+)\\s*,\\s*([A-Za-z_][A-Za-z0-9_]*)\\s*,\\s*([A-Za-z_][A-Za-z0-9_]*)$",
+   "flags": "",
+   "foundBy": "QA R2 sweep (3e45cb6f…)",
+   "group": 1,
+   "groupName": "source text; hangs",
+   "shapeSEC5306R3": "S5",
+   "status": "open",
+   "regexAlone": {
+    "n6400": "> 15 s",
+    "n64000": "> 15 s"
+   },
+   "growth": "hang (killed at 15 s at 6,400)",
+   "worstShapes": [
+    {
+     "screen": "QA R2",
+     "shape": "`br_if` + N × `\\t` + `\\u0000`"
+    }
+   ],
+   "reach": {
+    "status": "reached end to end",
+    "profiles": "legacy",
+    "cli": "check (legacy), build (legacy)",
+    "endToEnd": "> 15 s / not run",
+    "evidence": "QA R2 logs/28_reach.jsonl, 30_anchor.jsonl, 34_e2e.jsonl"
+   }
+  },
+  {
+   "site": "src/parser.js:1507",
+   "id": "src/parser.js:1507:24",
+   "function": "<top>",
+   "pattern": "^%([A-Za-z_][A-Za-z0-9_]*)\\s*:\\s*(.+?)\\s*=\\s*if\\s+(.+?)\\s*\\{$",
+   "flags": "",
+   "foundBy": "QA R2 sweep (3e45cb6f…)",
+   "group": 1,
+   "groupName": "source text; hangs",
+   "shapeSEC5306R3": "S3",
+   "status": "open",
+   "regexAlone": {
+    "n6400": "> 15 s",
+    "n64000": "> 15 s"
+   },
+   "growth": "hang (killed at 15 s at 6,400)",
+   "worstShapes": [
+    {
+     "screen": "QA R2",
+     "shape": "`%r8:` + N × `\\t` + `\\u0000`"
+    }
+   ],
+   "reach": {
+    "status": "reached end to end",
+    "profiles": "typed-v0.53",
+    "cli": "check (typed-v0.53), build (typed-v0.53)",
+    "endToEnd": "> 15 s / not run",
+    "evidence": "QA R2 logs/28_reach.jsonl, 30_anchor.jsonl, 34_e2e.jsonl"
+   }
+  },
+  {
+   "site": "src/parser.js:1508",
+   "id": "src/parser.js:1508:27",
+   "function": "<top>",
+   "pattern": "^%([A-Za-z_][A-Za-z0-9_]*)\\s*:\\s*(.+?)\\s*=\\s*match\\s+%([A-Za-z_][A-Za-z0-9_]*)\\s*\\{$",
+   "flags": "",
+   "foundBy": "QA R2 sweep (3e45cb6f…)",
+   "group": 1,
+   "groupName": "source text; hangs",
+   "shapeSEC5306R3": "S3",
+   "status": "open",
+   "regexAlone": {
+    "n6400": "> 15 s",
+    "n64000": "> 15 s"
+   },
+   "growth": "hang (killed at 15 s at 6,400)",
+   "worstShapes": [
+    {
+     "screen": "QA R2",
+     "shape": "`%w:` + N × ` ` + ` i32 = %x`"
+    }
+   ],
+   "reach": {
+    "status": "reached end to end",
+    "profiles": "typed-v0.53",
+    "cli": "check (typed-v0.53), build (typed-v0.53)",
+    "endToEnd": "> 15 s / not run",
+    "evidence": "QA R2 logs/28_reach.jsonl, 30_anchor.jsonl, 34_e2e.jsonl"
+   }
+  },
+  {
+   "site": "src/parser.js:1564",
+   "id": "src/parser.js:1564:28",
+   "function": "v053RejectOtherLoopForm",
+   "pattern": "^%[A-Za-z_][A-Za-z0-9_]*\\s*:\\s*.+?\\s*=\\s*(.+)$",
+   "flags": "",
+   "foundBy": "QA R2 sweep (3e45cb6f…)",
+   "group": 1,
+   "groupName": "source text; hangs",
+   "shapeSEC5306R3": "S3",
+   "status": "open",
+   "regexAlone": {
+    "n6400": "> 15 s",
+    "n64000": "> 15 s"
+   },
+   "growth": "hang (killed at 15 s at 6,400)",
+   "worstShapes": [
+    {
+     "screen": "QA R2",
+     "shape": "`%x:` + N × ` ` + `\\u0000`"
+    }
+   ],
+   "reach": {
+    "status": "reached end to end",
+    "profiles": "typed-v0.53",
+    "cli": "check (typed-v0.53), build (typed-v0.53)",
+    "endToEnd": "> 15 s / not run",
+    "evidence": "QA R2 logs/28_reach.jsonl, 30_anchor.jsonl, 34_e2e.jsonl"
+   }
+  },
+  {
+   "site": "src/parser.js:1674",
+   "id": "src/parser.js:1674:25",
+   "function": "<top>",
+   "pattern": "^table[ \\t]+([A-Za-z_][A-Za-z0-9_]*)[ \\t]*:[ \\t]*([^[\\]=]+?)[ \\t]*\\[[ \\t]*(0|[1-9][0-9]*)[ \\t]*\\][ \\t]*=[ \\t]*\\[(.*)\\]$",
+   "flags": "",
+   "foundBy": "QA R2 sweep (3e45cb6f…)",
+   "group": 1,
+   "groupName": "source text; hangs",
+   "shapeSEC5306R3": "S5",
+   "status": "open",
+   "regexAlone": {
+    "n6400": "> 15 s",
+    "n64000": "> 15 s"
+   },
+   "growth": "hang (killed at 15 s at 6,400)",
+   "worstShapes": [
+    {
+     "screen": "QA R2",
+     "shape": "`table z:` + N × ` ` + `\\u0000`"
+    }
+   ],
+   "reach": {
+    "status": "reached end to end",
+    "profiles": "typed-v0.53",
+    "cli": "check (typed-v0.53), build (typed-v0.53)",
+    "endToEnd": "> 15 s / not run",
+    "evidence": "QA R2 logs/28_reach.jsonl, 30_anchor.jsonl, 34_e2e.jsonl"
+   }
+  },
+  {
+   "site": "src/parser.js:1808",
+   "id": "src/parser.js:1808:28",
+   "function": "v053RejectTableSet",
+   "pattern": "^%[A-Za-z_][A-Za-z0-9_]*\\s*:\\s*.+?\\s*=\\s*(.+)$",
+   "flags": "",
+   "foundBy": "QA R2 sweep (3e45cb6f…)",
+   "group": 1,
+   "groupName": "source text; hangs",
+   "shapeSEC5306R3": "S3",
+   "status": "open",
+   "regexAlone": {
+    "n6400": "> 15 s",
+    "n64000": "> 15 s"
+   },
+   "growth": "hang (killed at 15 s at 6,400)",
+   "worstShapes": [
+    {
+     "screen": "QA R2",
+     "shape": "`%x:` + N × ` ` + `\\u0000`"
+    }
+   ],
+   "reach": {
+    "status": "reached end to end",
+    "profiles": "typed-v0.53",
+    "cli": "check (typed-v0.53), build (typed-v0.53)",
+    "endToEnd": "> 15 s / not run",
+    "evidence": "QA R2 logs/28_reach.jsonl, 30_anchor.jsonl, 34_e2e.jsonl"
+   }
+  },
+  {
+   "site": "src/parser.js:1954",
+   "id": "src/parser.js:1954:44",
+   "function": "parseV053TypedAir",
+   "pattern": "^capabilities\\s*\\{\\s*([^}]*)\\s*\\}$",
+   "flags": "",
+   "foundBy": "QA R2 sweep (3e45cb6f…)",
+   "group": 1,
+   "groupName": "source text; hangs",
+   "shapeSEC5306R3": "S1",
+   "status": "open",
+   "regexAlone": {
+    "n6400": "> 15 s",
+    "n64000": "> 15 s"
+   },
+   "growth": "hang (killed at 15 s at 6,400)",
+   "worstShapes": [
+    {
+     "screen": "QA R2",
+     "shape": "`capabilities {` + N × ` ` + `\\u0000`"
+    }
+   ],
+   "reach": {
+    "status": "reached end to end",
+    "profiles": "typed-v0.53",
+    "cli": "check (typed-v0.53), build (typed-v0.53)",
+    "endToEnd": "> 15 s / not run",
+    "evidence": "QA R2 logs/28_reach.jsonl, 30_anchor.jsonl, 34_e2e.jsonl"
+   }
+  },
+  {
+   "site": "src/parser.js:2030",
+   "id": "src/parser.js:2030:40",
+   "function": "parseV053TypedAir",
+   "pattern": "^(export\\s+)?func\\s+([A-Za-z_][A-Za-z0-9_]*)\\s*\\((.*)\\)\\s*->\\s*(.+)\\s*\\{$",
+   "flags": "",
+   "foundBy": "QA R2 sweep (3e45cb6f…)",
+   "group": 1,
+   "groupName": "source text; hangs",
+   "shapeSEC5306R3": "S2",
+   "status": "open",
+   "regexAlone": {
+    "n6400": "> 15 s",
+    "n64000": "> 15 s"
+   },
+   "growth": "hang (killed at 15 s at 6,400)",
+   "worstShapes": [
+    {
+     "screen": "QA R2",
+     "shape": "`export func f() ->` + N × ` ` + `\\u0000`"
+    }
+   ],
+   "reach": {
+    "status": "reached end to end",
+    "profiles": "typed-v0.53",
+    "cli": "check (typed-v0.53), build (typed-v0.53)",
+    "endToEnd": "> 15 s / not run",
+    "evidence": "QA R2 logs/28_reach.jsonl, 30_anchor.jsonl, 34_e2e.jsonl"
+   }
+  },
+  {
+   "site": "src/parser.js:2226",
+   "id": "src/parser.js:2226:30",
+   "function": "parseV053TypedAir",
+   "pattern": "^%([A-Za-z_][A-Za-z0-9_]*)\\s*:\\s*(.+?)\\s*=\\s*(.+)$",
+   "flags": "",
+   "foundBy": "QA R2 sweep (3e45cb6f…)",
+   "group": 1,
+   "groupName": "source text; hangs",
+   "shapeSEC5306R3": "S3",
+   "status": "open",
+   "regexAlone": {
+    "n6400": "> 15 s",
+    "n64000": "> 15 s"
+   },
+   "growth": "hang (killed at 15 s at 6,400)",
+   "worstShapes": [
+    {
+     "screen": "QA R2",
+     "shape": "`%x:` + N × ` ` + `\\u0000`"
+    }
+   ],
+   "reach": {
+    "status": "reached end to end",
+    "profiles": "typed-v0.53",
+    "cli": "check (typed-v0.53), build (typed-v0.53)",
+    "endToEnd": "> 15 s / not run",
+    "evidence": "QA R2 logs/28_reach.jsonl, 30_anchor.jsonl, 34_e2e.jsonl"
+   }
+  },
+  {
+   "site": "src/parser.js:472",
+   "id": "src/parser.js:472:28",
+   "function": "parseV051TypedMatch",
+   "pattern": "^(.+?)\\s*=>\\s*(.+?)\\s*[,;]?$",
+   "flags": "",
+   "foundBy": "QA R2 sweep (3e45cb6f…)",
+   "group": 2,
+   "groupName": "source text; quadratic",
+   "shapeSEC5306R3": "S6",
+   "status": "open",
+   "regexAlone": {
+    "n6400": "32 ms",
+    "n64000": "2.8 s"
+   },
+   "growth": "quadratic",
+   "worstShapes": [
+    {
+     "screen": "QA R2",
+     "shape": "`E.C2 => 2` + N × ` ` + `\\u0000`"
+    }
+   ],
+   "reach": {
+    "status": "reached end to end",
+    "profiles": "typed-v0.51",
+    "cli": "verify (typed-v0.51), build (typed-v0.51)",
+    "endToEnd": "27 ms / 2.8 s",
+    "evidence": "QA R2 logs/28_reach.jsonl, 30_anchor.jsonl, 34_e2e.jsonl"
+   }
+  },
+  {
+   "site": "src/parser.js:1628",
+   "id": "src/parser.js:1628:26",
+   "function": "<top>",
+   "pattern": "^extern\\s+(\\S+?)\\s*\\((.*)\\)\\s*->\\s*(.+)$",
+   "flags": "",
+   "foundBy": "QA R2 sweep (3e45cb6f…)",
+   "group": 2,
+   "groupName": "source text; quadratic",
+   "shapeSEC5306R3": "S6",
+   "status": "open",
+   "regexAlone": {
+    "n6400": "40 ms",
+    "n64000": "2.5 s"
+   },
+   "growth": "quadratic",
+   "worstShapes": [
+    {
+     "screen": "QA R2",
+     "shape": "`extern audio.play_tone` + N × `(` + `\\u0000`"
+    }
+   ],
+   "reach": {
+    "status": "reached end to end",
+    "profiles": "typed-v0.53",
+    "cli": "check (typed-v0.53), build (typed-v0.53)",
+    "endToEnd": "37 ms / 2.9 s",
+    "evidence": "QA R2 logs/28_reach.jsonl, 30_anchor.jsonl, 34_e2e.jsonl"
+   }
+  },
+  {
+   "site": "src/parser.js:2097",
+   "id": "src/parser.js:2097:35",
+   "function": "parseV053TypedAir",
+   "pattern": "^(.+?)\\s*=>\\s*\\{$",
+   "flags": "",
+   "foundBy": "QA R2 sweep (3e45cb6f…)",
+   "group": 2,
+   "groupName": "source text; quadratic",
+   "shapeSEC5306R3": "S6",
+   "status": "open",
+   "regexAlone": {
+    "n6400": "51 ms",
+    "n64000": "4.6 s"
+   },
+   "growth": "quadratic",
+   "worstShapes": [
+    {
+     "screen": "QA R2",
+     "shape": "`% ` + N × `\\t` + `=> 2,`"
+    }
+   ],
+   "reach": {
+    "status": "reached end to end",
+    "profiles": "typed-v0.53",
+    "cli": "check (typed-v0.53), build (typed-v0.53)",
+    "endToEnd": "67 ms / 6.6 s",
+    "evidence": "QA R2 logs/28_reach.jsonl, 30_anchor.jsonl, 34_e2e.jsonl"
+   }
+  },
+  {
+   "site": "src/parser.js:2111",
+   "id": "src/parser.js:2111:30",
+   "function": "parseV053TypedAir",
+   "pattern": "^(.+?)\\s*=>\\s*(.+?)\\s*[,;]?$",
+   "flags": "",
+   "foundBy": "QA R2 sweep (3e45cb6f…)",
+   "group": 2,
+   "groupName": "source text; quadratic",
+   "shapeSEC5306R3": "S6",
+   "status": "open",
+   "regexAlone": {
+    "n6400": "30 ms",
+    "n64000": "2.3 s"
+   },
+   "growth": "quadratic",
+   "worstShapes": [
+    {
+     "screen": "QA R2",
+     "shape": "`ok(item) => %item,` + N × ` ` + `\\u0000`"
+    }
+   ],
+   "reach": {
+    "status": "reached end to end",
+    "profiles": "typed-v0.53",
+    "cli": "check (typed-v0.53), build (typed-v0.53)",
+    "endToEnd": "83 ms / 6.6 s",
+    "evidence": "QA R2 logs/28_reach.jsonl, 30_anchor.jsonl, 34_e2e.jsonl"
+   }
+  },
+  {
+   "site": "src/migrate_v053.js:462",
+   "id": "src/migrate_v053.js:462:27",
+   "function": "<top>",
+   "pattern": "^capabilities\\s*\\{\\s*([^}]*)\\s*\\}$",
+   "flags": "",
+   "foundBy": "QA R2 sweep (3e45cb6f…)",
+   "group": 3,
+   "groupName": "other public entries (parseV051Air / typed package validation, airc migrate)",
+   "shapeSEC5306R3": "S1",
+   "status": "open",
+   "regexAlone": {
+    "n6400": "> 15 s",
+    "n64000": "> 15 s"
+   },
+   "growth": "hang (killed at 15 s at 6,400)",
+   "worstShapes": [
+    {
+     "screen": "QA R2",
+     "shape": "`capabilities {` + N × ` ` + `\\u0000`"
+    }
+   ],
+   "reach": {
+    "status": "reached end to end",
+    "entry": "`airc migrate` (`bin/airc.js:1010-1013`)",
+    "endToEnd": "`airc migrate`: 3.9 s at 1,600; killed at 15 s at 6,400 and 64,000",
+    "evidence": "QA R2 §4 Group 3"
+   }
+  },
+  {
+   "site": "src/migrate_v053.js:507",
+   "id": "src/migrate_v053.js:507:17",
+   "function": "contractBound",
+   "pattern": "(-?[0-9]+(?:\\.[0-9]+)?)$",
+   "flags": "",
+   "foundBy": "QA R2 sweep (3e45cb6f…)",
+   "group": 3,
+   "groupName": "other public entries (parseV051Air / typed package validation, airc migrate)",
+   "shapeSEC5306R3": "S8",
+   "status": "open",
+   "regexAlone": {
+    "n6400": "103 ms",
+    "n64000": "9.7 s"
+   },
+   "growth": "quadratic",
+   "worstShapes": [
+    {
+     "screen": "QA R2",
+     "shape": "`requires param` + N × `0` + `\\u0000`"
+    }
+   ],
+   "reach": {
+    "status": "entry by reading; expression measured alone",
+    "entry": "`airc migrate`",
+    "endToEnd": "not run end to end",
+    "evidence": "QA R2 §4 Group 3"
+   }
+  },
+  {
+   "site": "src/migrate_v053.js:693",
+   "id": "src/migrate_v053.js:693:25",
+   "function": "instructionLines",
+   "pattern": "(?:call\\s+)?@[^\\s(]+\\(.*\\)$",
+   "flags": "",
+   "foundBy": "QA R2 sweep (3e45cb6f…)",
+   "group": 3,
+   "groupName": "other public entries (parseV051Air / typed package validation, airc migrate)",
+   "shapeSEC5306R3": "S8",
+   "status": "open",
+   "regexAlone": {
+    "n6400": "82 ms",
+    "n64000": "7.4 s"
+   },
+   "growth": "quadratic",
+   "worstShapes": [
+    {
+     "screen": "QA R2",
+     "shape": "`@ui` + N × `@` + `\\u0000`"
+    }
+   ],
+   "reach": {
+    "status": "entry by reading; expression measured alone",
+    "entry": "`airc migrate`",
+    "endToEnd": "not run end to end",
+    "evidence": "QA R2 §4 Group 3"
+   }
+  },
+  {
+   "site": "src/parser.js:320",
+   "id": "src/parser.js:320:10",
+   "function": "looksLikeV051TypedSource",
+   "pattern": "^\\s*(?:error\\s+)?enum\\s+",
+   "flags": "m",
+   "foundBy": "QA R2 sweep (3e45cb6f…)",
+   "group": 3,
+   "groupName": "other public entries (parseV051Air / typed package validation, airc migrate)",
+   "shapeSEC5306R3": "S7",
+   "status": "open",
+   "regexAlone": {
+    "n6400": "42 ms",
+    "n64000": "3.5 s"
+   },
+   "growth": "quadratic",
+   "worstShapes": [
+    {
+     "screen": "QA R2",
+     "shape": "`module example\\nfunc f(value: i32)` + N × `\\n` + ` -> i32 {\\n  return unkno…`"
+    }
+   ],
+   "reach": {
+    "status": "entry by reading; expression measured alone",
+    "entry": "`parseV051Air` (SDK export) on the whole source; typed package validation (`typed_interface.js:334`)",
+    "endToEnd": "not run end to end",
+    "evidence": "QA R2 §4 Group 3"
+   }
+  },
+  {
+   "site": "src/parser.js:321",
+   "id": "src/parser.js:321:5",
+   "function": "looksLikeV051TypedSource",
+   "pattern": "^\\s*(?:export\\s+)?func\\s+[A-Za-z_][A-Za-z0-9_]*\\s*\\([^)]*:\\s*[^)]",
+   "flags": "m",
+   "foundBy": "QA R2 sweep (3e45cb6f…)",
+   "group": 3,
+   "groupName": "other public entries (parseV051Air / typed package validation, airc migrate)",
+   "shapeSEC5306R3": "S7",
+   "status": "open",
+   "regexAlone": {
+    "n6400": "43 ms",
+    "n64000": "3.4 s"
+   },
+   "growth": "quadratic",
+   "worstShapes": [
+    {
+     "screen": "QA R2",
+     "shape": "`module example\\nfunc f(value` + N × `\\n` + `!`"
+    }
+   ],
+   "reach": {
+    "status": "entry by reading; expression measured alone",
+    "entry": "the same",
+    "endToEnd": "not run end to end",
+    "evidence": "QA R2 §4 Group 3"
+   }
+  },
+  {
+   "site": "src/parser.js:322",
+   "id": "src/parser.js:322:5",
+   "function": "looksLikeV051TypedSource",
+   "pattern": "^\\s*%[A-Za-z_][A-Za-z0-9_]*\\s*:\\s*.+?\\s*=\\s*match\\s+%[A-Za-z_][A-Za-z0-9_]*\\s*\\{$",
+   "flags": "m",
+   "foundBy": "QA R2 sweep (3e45cb6f…)",
+   "group": 3,
+   "groupName": "other public entries (parseV051Air / typed package validation, airc migrate)",
+   "shapeSEC5306R3": "S7",
+   "status": "open",
+   "regexAlone": {
+    "n6400": "34 ms",
+    "n64000": "2.7 s"
+   },
+   "growth": "quadratic",
+   "worstShapes": [
+    {
+     "screen": "QA R2",
+     "shape": "`module exact\\ncapabilities { ` + N × `\\n` + `\\u0000`"
+    }
+   ],
+   "reach": {
+    "status": "reached end to end",
+    "entry": "the same",
+    "endToEnd": "`parseV051Air`: 0.58 s at 1,600; killed at 15 s at 6,400 and 64,000",
+    "evidence": "QA R2 §4 Group 3"
+   }
+  },
+  {
+   "site": "src/ai_review.js:490",
+   "id": "src/ai_review.js:490:28",
+   "function": "parseIndexedName",
+   "pattern": "^(.+?)(?:_|)(\\d+)(?:_|)([A-Za-z][A-Za-z0-9_]*)?$",
+   "flags": "",
+   "foundBy": "QA R2 sweep (3e45cb6f…)",
+   "group": 4,
+   "groupName": "package files, names, messages",
+   "shapeSEC5306R3": "S10",
+   "status": "open",
+   "regexAlone": {
+    "n6400": "40 ms",
+    "n64000": "5.3 s"
+   },
+   "growth": "quadratic",
+   "worstShapes": [
+    {
+     "screen": "QA R2",
+     "shape": "`` + N × `0` + `\\u0000`"
+    }
+   ],
+   "reach": {
+    "status": "by reading",
+    "input": "names in AI review (`:356`)",
+    "evidence": "QA R2 §4 Group 4"
+   }
+  },
+  {
+   "site": "src/diagnostics.js:337",
+   "id": "src/diagnostics.js:337:36",
+   "function": "diagnosticHintsFromMessage",
+   "pattern": "\\s*->\\s*",
+   "flags": "",
+   "foundBy": "QA R2 sweep (3e45cb6f…)",
+   "group": 4,
+   "groupName": "package files, names, messages",
+   "shapeSEC5306R3": "S10",
+   "status": "open",
+   "regexAlone": {
+    "n6400": "59 ms",
+    "n64000": "6.3 s"
+   },
+   "growth": "quadratic",
+   "worstShapes": [
+    {
+     "screen": "QA R2",
+     "shape": "`` + N × ` ` + `\\u0000`"
+    }
+   ],
+   "reach": {
+    "status": "by reading",
+    "input": "diagnostic messages: a module cycle path (`diagnosticHintsFromMessage`)",
+    "evidence": "QA R2 §4 Group 4"
+   }
+  },
+  {
+   "site": "src/diagnostics.js:560",
+   "id": "src/diagnostics.js:560:32",
+   "function": "diagnosticHintsFromMessage",
+   "pattern": "table '([^']+\\.[^']+)' length ([0-9]+) does not match ([0-9]+) initializer value",
+   "flags": "",
+   "foundBy": "QA R2 sweep (3e45cb6f…)",
+   "group": 4,
+   "groupName": "package files, names, messages",
+   "shapeSEC5306R3": "S10",
+   "status": "open",
+   "regexAlone": {
+    "n6400": "33 ms",
+    "n64000": "3.9 s"
+   },
+   "growth": "quadratic",
+   "worstShapes": [
+    {
+     "screen": "QA R2",
+     "shape": "`table '` + N × `.` + `!`"
+    }
+   ],
+   "reach": {
+    "status": "by reading",
+    "input": "diagnostic messages (`diagnosticHintsFromMessage`)",
+    "evidence": "QA R2 §4 Group 4"
+   }
+  },
+  {
+   "site": "src/diagnostics.js:734",
+   "id": "src/diagnostics.js:734:14",
+   "function": "codeFromLegacyId",
+   "pattern": ":.+$",
+   "flags": "",
+   "foundBy": "QA R2 sweep (3e45cb6f…)",
+   "group": 4,
+   "groupName": "package files, names, messages",
+   "shapeSEC5306R3": "S10",
+   "status": "open",
+   "regexAlone": {
+    "n6400": "42 ms",
+    "n64000": "5.9 s"
+   },
+   "growth": "quadratic",
+   "worstShapes": [
+    {
+     "screen": "QA R2",
+     "shape": "`…ion_summary.structured.rowset.json` + N × `:` + `\\n`"
+    }
+   ],
+   "reach": {
+    "status": "by reading",
+    "input": "legacy diagnostic ids (internal constants)",
+    "evidence": "QA R2 §4 Group 4"
+   }
+  },
+  {
+   "site": "src/diagnostics.js:736",
+   "id": "src/diagnostics.js:736:14",
+   "function": "codeFromLegacyId",
+   "pattern": "^_+|_+$",
+   "flags": "g",
+   "foundBy": "QA R2 sweep (3e45cb6f…)",
+   "group": 4,
+   "groupName": "package files, names, messages",
+   "shapeSEC5306R3": "S9",
+   "status": "open",
+   "regexAlone": {
+    "n6400": "67 ms",
+    "n64000": "6.3 s"
+   },
+   "growth": "quadratic",
+   "worstShapes": [
+    {
+     "screen": "QA R2",
+     "shape": "`output_emit` + N × `_` + `\\u0000`"
+    }
+   ],
+   "reach": {
+    "status": "by reading",
+    "input": "legacy diagnostic ids (internal constants)",
+    "evidence": "QA R2 §4 Group 4"
+   }
+  },
+  {
+   "site": "src/handle_generator.js:251",
+   "id": "src/handle_generator.js:251:30",
+   "function": "generatorRefsForSource",
+   "pattern": "^#\\s*Generator:\\s*(.+?)\\s*$",
+   "flags": "",
+   "foundBy": "QA R2 sweep (3e45cb6f…)",
+   "group": 4,
+   "groupName": "package files, names, messages",
+   "shapeSEC5306R3": "S10",
+   "status": "open",
+   "regexAlone": {
+    "n6400": "91 ms",
+    "n64000": "7.5 s"
+   },
+   "growth": "quadratic",
+   "worstShapes": [
+    {
+     "screen": "QA R2",
+     "shape": "`# Generator: a ` + N × ` ` + `\\u0000`"
+    }
+   ],
+   "reach": {
+    "status": "by reading",
+    "input": "a package's generated handle file (`checkGeneratedHandleModules`, `sdk.js:477`, `:760`)",
+    "evidence": "QA R2 §4 Group 4"
+   }
+  },
+  {
+   "site": "src/handle_generator.js:260",
+   "id": "src/handle_generator.js:260:30",
+   "function": "sourceRefsForSource",
+   "pattern": "^#\\s*Source:\\s*(.+?)\\s*$",
+   "flags": "",
+   "foundBy": "QA R2 sweep (3e45cb6f…)",
+   "group": 4,
+   "groupName": "package files, names, messages",
+   "shapeSEC5306R3": "S10",
+   "status": "open",
+   "regexAlone": {
+    "n6400": "107 ms",
+    "n64000": "10.1 s"
+   },
+   "growth": "quadratic",
+   "worstShapes": [
+    {
+     "screen": "QA R2",
+     "shape": "`# Source: a` + N × `\\t` + `!`"
+    }
+   ],
+   "reach": {
+    "status": "by reading",
+    "input": "the same",
+    "evidence": "QA R2 §4 Group 4"
+   }
+  },
+  {
+   "site": "src/handle_generator.js:325",
+   "id": "src/handle_generator.js:325:80",
+   "function": "safeIdent",
+   "pattern": "^_+|_+$",
+   "flags": "g",
+   "foundBy": "QA R2 sweep (3e45cb6f…)",
+   "group": 4,
+   "groupName": "package files, names, messages",
+   "shapeSEC5306R3": "S9",
+   "status": "open",
+   "regexAlone": {
+    "n6400": "105 ms",
+    "n64000": "9.1 s"
+   },
+   "growth": "quadratic",
+   "worstShapes": [
+    {
+     "screen": "QA R2",
+     "shape": "`output_emit` + N × `_` + `\\u0000`"
+    }
+   ],
+   "reach": {
+    "status": "by reading",
+    "input": "generated identifiers (`safeIdent`)",
+    "evidence": "QA R2 §4 Group 4"
+   }
+  },
+  {
+   "site": "src/link_symbols.js:132",
+   "id": "src/link_symbols.js:132:14",
+   "function": "sanitizeIdentifier",
+   "pattern": "^_+|_+$",
+   "flags": "g",
+   "foundBy": "QA R2 sweep (3e45cb6f…)",
+   "group": 4,
+   "groupName": "package files, names, messages",
+   "shapeSEC5306R3": "S9",
+   "status": "open",
+   "regexAlone": {
+    "n6400": "78 ms",
+    "n64000": "7.8 s"
+   },
+   "growth": "quadratic",
+   "worstShapes": [
+    {
+     "screen": "QA R2",
+     "shape": "`requires_human_approval` + N × `_` + `\\u0000`"
+    }
+   ],
+   "reach": {
+    "status": "by reading",
+    "input": "module file names and source symbol names (`link_symbols.js:40`, `:56`)",
+    "evidence": "QA R2 §4 Group 4"
+   }
+  },
+  {
+   "site": "src/linked_package.js:365",
+   "id": "src/linked_package.js:365:89",
+   "function": "sanitizeModuleName",
+   "pattern": "^_+|_+$",
+   "flags": "g",
+   "foundBy": "QA R2 sweep (3e45cb6f…)",
+   "group": 4,
+   "groupName": "package files, names, messages",
+   "shapeSEC5306R3": "S9",
+   "status": "open",
+   "regexAlone": {
+    "n6400": "88 ms",
+    "n64000": "10.5 s"
+   },
+   "growth": "quadratic",
+   "worstShapes": [
+    {
+     "screen": "QA R2",
+     "shape": "`same` + N × `_` + `!`"
+    }
+   ],
+   "reach": {
+    "status": "by reading",
+    "input": "the package manifest's name (`linked_package.js:81`)",
+    "evidence": "QA R2 §4 Group 4"
+   }
+  },
+  {
+   "site": "src/output_handle_generator.js:433",
+   "id": "src/output_handle_generator.js:433:14",
+   "function": "outputHandleName",
+   "pattern": "^_+|_+$",
+   "flags": "g",
+   "foundBy": "QA R2 sweep (3e45cb6f…)",
+   "group": 4,
+   "groupName": "package files, names, messages",
+   "shapeSEC5306R3": "S9",
+   "status": "open",
+   "regexAlone": {
+    "n6400": "35 ms",
+    "n64000": "2.8 s"
+   },
+   "growth": "quadratic",
+   "worstShapes": [
+    {
+     "screen": "QA R2",
+     "shape": "`module_graph` + N × `_` + `\\u0000`"
+    }
+   ],
+   "reach": {
+    "status": "by reading",
+    "input": "output names (`:207`)",
+    "evidence": "QA R2 §4 Group 4"
+   }
+  },
+  {
+   "site": "src/package_graph_ownership.js:450",
+   "id": "src/package_graph_ownership.js:450:79",
+   "function": "safePackageId",
+   "pattern": "^-+|-+$",
+   "flags": "g",
+   "foundBy": "QA R2 sweep (3e45cb6f…)",
+   "group": 4,
+   "groupName": "package files, names, messages",
+   "shapeSEC5306R3": "S9",
+   "status": "open",
+   "regexAlone": {
+    "n6400": "63 ms",
+    "n64000": "3.4 s"
+   },
+   "growth": "quadratic",
+   "worstShapes": [
+    {
+     "screen": "QA R2",
+     "shape": "`review-policy-generated-stale-` + N × `-` + `waiver-package`"
+    }
+   ],
+   "reach": {
+    "status": "by reading",
+    "input": "the package id (`:24`)",
+    "evidence": "QA R2 §4 Group 4"
+   }
+  },
+  {
+   "site": "src/state_handle_generator.js:369",
+   "id": "src/state_handle_generator.js:369:14",
+   "function": "stateConstantName",
+   "pattern": "^_+|_+$",
+   "flags": "g",
+   "foundBy": "QA R2 sweep (3e45cb6f…)",
+   "group": 4,
+   "groupName": "package files, names, messages",
+   "shapeSEC5306R3": "S9",
+   "status": "open",
+   "regexAlone": {
+    "n6400": "19 ms",
+    "n64000": "1.6 s"
+   },
+   "growth": "quadratic",
+   "worstShapes": [
+    {
+     "screen": "QA R2",
+     "shape": "`resource_certificate` + N × `_` + `\\u0000`"
+    }
+   ],
+   "reach": {
+    "status": "by reading",
+    "input": "state names from source (`:217`)",
+    "evidence": "QA R2 §4 Group 4"
+   }
+  },
+  {
+   "site": "src/structured_io_schema.js:495",
+   "id": "src/structured_io_schema.js:495:119",
+   "function": "safeConst",
+   "pattern": "^_+|_+$",
+   "flags": "g",
+   "foundBy": "QA R2 sweep (3e45cb6f…)",
+   "group": 4,
+   "groupName": "package files, names, messages",
+   "shapeSEC5306R3": "S9",
+   "status": "open",
+   "regexAlone": {
+    "n6400": "19 ms",
+    "n64000": "1.6 s"
+   },
+   "growth": "quadratic",
+   "worstShapes": [
+    {
+     "screen": "QA R2",
+     "shape": "`add_two` + N × `_` + `\\u0000`"
+    }
+   ],
+   "reach": {
+    "status": "by reading",
+    "input": "structured-IO schema names (`safeConst`)",
+    "evidence": "QA R2 §4 Group 4"
+   }
+  },
+  {
+   "site": "src/verification_evidence.js:946",
+   "id": "src/verification_evidence.js:946:39",
+   "function": "firstFailingModule",
+   "pattern": "\\b([A-Za-z0-9_./-]+\\.air)\\b",
+   "flags": "",
+   "foundBy": "QA R2 sweep (3e45cb6f…)",
+   "group": 4,
+   "groupName": "package files, names, messages",
+   "shapeSEC5306R3": "S10",
+   "status": "open",
+   "regexAlone": {
+    "n6400": "31 ms",
+    "n64000": "3.0 s"
+   },
+   "growth": "quadratic",
+   "worstShapes": [
+    {
+     "screen": "QA R2",
+     "shape": "`outputs` + N × `/i` + `/incident_policy.command…`"
+    }
+   ],
+   "reach": {
+    "status": "by reading",
+    "input": "an error's text, which can quote file names (`firstFailingModule`)",
+    "evidence": "QA R2 §4 Group 4"
+   }
+  },
+  {
+   "site": "src/lower_wasm.js:532",
+   "id": "src/lower_wasm.js:532:36",
+   "function": "emitV051TypedExpression",
+   "pattern": "^result\\.(ok|err)<(.+)>\\s+(.+)$",
+   "flags": "",
+   "foundBy": "QA R2 sweep (3e45cb6f…)",
+   "group": 5,
+   "groupName": "inputs a parsed source line cannot give it (QA R2), corrected by QA's R3 delta review and this addendum",
+   "shapeSEC5306R3": null,
+   "status": "open",
+   "regexAlone": {
+    "n6400": "97 ms",
+    "n64000": "9.8 s"
+   },
+   "growth": "quadratic",
+   "worstShapes": [
+    {
+     "screen": "QA R2",
+     "shape": "`result.ok<a> ` + N × `\\t` + `\\n`"
+    },
+    {
+     "screen": "QA R3 delta, mid-line terminator",
+     "example": "\"result.ok<ops.policy::Admission,ops.policy::PolicyError>       x\\r%admission\"",
+     "ms_n1024_2048_4096": [
+      1.07,
+      7.61,
+      33.06
+     ]
+    }
+   ],
+   "reach": {
+    "status": "not reachable from source text with the screened classes (by reading)",
+    "why": "as lower_wasm.js:521",
+    "evidence": "addendum REPORT §3"
+   }
+  },
+  {
+   "site": "src/parser.js:58",
+   "id": "src/parser.js:58:37",
+   "function": "parseAir",
+   "pattern": "^const\\s+([A-Za-z_][A-Za-z0-9_]*)\\s*:\\s*([A-Za-z0-9_]+)\\s*=\\s*(.+)$",
+   "flags": "",
+   "foundBy": "QA R2 sweep (3e45cb6f…)",
+   "group": 5,
+   "groupName": "inputs a parsed source line cannot give it (QA R2), corrected by QA's R3 delta review and this addendum",
+   "shapeSEC5306R3": null,
+   "status": "open",
+   "regexAlone": {
+    "n6400": "47 ms",
+    "n64000": "4.2 s"
+   },
+   "growth": "quadratic",
+   "worstShapes": [
+    {
+     "screen": "QA R2",
+     "shape": "`const AA : A = ` + N × ` ` + `\\n`"
+    },
+    {
+     "screen": "QA R3 delta, mid-line terminator",
+     "example": "\"const AA : A =      x\\u2028y\"",
+     "ms_n1024_2048_4096": [
+      1.23,
+      3.28,
+      25.76
+     ]
+    }
+   ],
+   "reach": {
+    "status": "reached end to end (mid-line terminator)",
+    "profile": "legacy",
+    "placement": "top",
+    "parse": {
+     "n6400": "0.02 s",
+     "n64000": "1.28 s"
+    },
+    "evidence": "QA R3 delta logs/21_g5_e2e.jsonl"
+   }
+  },
+  {
+   "site": "src/parser.js:133",
+   "id": "src/parser.js:133:37",
+   "function": "parseAir",
+   "pattern": "^state\\s+([A-Za-z_][A-Za-z0-9_]*)\\s*:\\s*([A-Za-z0-9_]+)\\s*\\[\\s*([0-9]+)\\s*\\]\\s*=\\s*fill\\s+(.+)$",
+   "flags": "",
+   "foundBy": "QA R2 sweep (3e45cb6f…)",
+   "group": 5,
+   "groupName": "inputs a parsed source line cannot give it (QA R2), corrected by QA's R3 delta review and this addendum",
+   "shapeSEC5306R3": null,
+   "status": "open",
+   "regexAlone": {
+    "n6400": "95 ms",
+    "n64000": "> 15 s"
+   },
+   "growth": "quadratic",
+   "worstShapes": [
+    {
+     "screen": "QA R2",
+     "shape": "`state AA : A [ 0 ] = fill ` + N × ` ` + `\\n`"
+    },
+    {
+     "screen": "QA R3 delta, mid-line terminator",
+     "example": "\"state AA : A [ 0 ] = fill      x\\ry\"",
+     "ms_n1024_2048_4096": [
+      1.29,
+      4.8,
+      22.55
+     ]
+    }
+   ],
+   "reach": {
+    "status": "reached end to end (mid-line terminator)",
+    "profile": "legacy",
+    "placement": "top",
+    "parse": {
+     "n6400": "0.02 s",
+     "n64000": "1.43 s"
+    },
+    "evidence": "QA R3 delta logs/21_g5_e2e.jsonl"
+   }
+  },
+  {
+   "site": "src/parser.js:178",
+   "id": "src/parser.js:178:40",
+   "function": "parseAir",
+   "pattern": "^(requires|ensures)\\s+(.+)$",
+   "flags": "",
+   "foundBy": "QA R2 sweep (3e45cb6f…)",
+   "group": 5,
+   "groupName": "inputs a parsed source line cannot give it (QA R2), corrected by QA's R3 delta review and this addendum",
+   "shapeSEC5306R3": null,
+   "status": "open",
+   "regexAlone": {
+    "n6400": "51 ms",
+    "n64000": "3.1 s"
+   },
+   "growth": "quadratic",
+   "worstShapes": [
+    {
+     "screen": "QA R2",
+     "shape": "`requires` + N × `\\t` + `\\n`"
+    },
+    {
+     "screen": "QA R3 delta, mid-line terminator",
+     "example": "\"requires\\t\\t\\t\\t\\t\\tx\\ry\"",
+     "ms_n1024_2048_4096": [
+      1.34,
+      3.99,
+      25.32
+     ]
+    }
+   ],
+   "reach": {
+    "status": "reached end to end (mid-line terminator)",
+    "profile": "legacy",
+    "placement": "top",
+    "parse": {
+     "n6400": "0.02 s",
+     "n64000": "1.41 s"
+    },
+    "evidence": "QA R3 delta logs/21_g5_e2e.jsonl"
+   }
+  },
+  {
+   "site": "src/parser.js:192",
+   "id": "src/parser.js:192:42",
+   "function": "parseAir",
+   "pattern": "^extern\\s+([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)*)\\(([^)]*)\\)\\s*->\\s*(.+)$",
+   "flags": "",
+   "foundBy": "QA R2 sweep (3e45cb6f…)",
+   "group": 5,
+   "groupName": "inputs a parsed source line cannot give it (QA R2), corrected by QA's R3 delta review and this addendum",
+   "shapeSEC5306R3": null,
+   "status": "open",
+   "regexAlone": {
+    "n6400": "34 ms",
+    "n64000": "2.9 s"
+   },
+   "growth": "quadratic",
+   "worstShapes": [
+    {
+     "screen": "QA R2",
+     "shape": "`extern AA.AA(a) ->` + N × ` ` + `\\n`"
+    },
+    {
+     "screen": "QA R3 delta, mid-line terminator",
+     "example": "\"extern input.pointer_down() ->      x\\ry\"",
+     "ms_n1024_2048_4096": [
+      1.88,
+      5.28,
+      24.69
+     ]
+    }
+   ],
+   "reach": {
+    "status": "reached end to end (mid-line terminator)",
+    "profile": "legacy",
+    "placement": "top",
+    "parse": {
+     "n6400": "0.02 s",
+     "n64000": "1.47 s"
+    },
+    "evidence": "QA R3 delta logs/21_g5_e2e.jsonl"
+   }
+  },
+  {
+   "site": "src/parser.js:273",
+   "id": "src/parser.js:273:40",
+   "function": "parseAir",
+   "pattern": "^(requires|ensures)\\s+(.+)$",
+   "flags": "",
+   "foundBy": "QA R2 sweep (3e45cb6f…)",
+   "group": 5,
+   "groupName": "inputs a parsed source line cannot give it (QA R2), corrected by QA's R3 delta review and this addendum",
+   "shapeSEC5306R3": null,
+   "status": "open",
+   "regexAlone": {
+    "n6400": "26 ms",
+    "n64000": "2.7 s"
+   },
+   "growth": "quadratic",
+   "worstShapes": [
+    {
+     "screen": "QA R2",
+     "shape": "`requires ` + N × ` ` + `\\n`"
+    },
+    {
+     "screen": "QA R3 delta, mid-line terminator",
+     "example": "\"requires       x\\ry\"",
+     "ms_n1024_2048_4096": [
+      1.04,
+      5.21,
+      20.9
+     ]
+    }
+   ],
+   "reach": {
+    "status": "reached end to end (mid-line terminator)",
+    "profile": "legacy",
+    "placement": "body",
+    "parse": {
+     "n6400": "0.04 s",
+     "n64000": "2.92 s"
+    },
+    "evidence": "QA R3 delta logs/21_g5_e2e.jsonl"
+   }
+  },
+  {
+   "site": "src/parser.js:411",
+   "id": "src/parser.js:411:34",
+   "function": "parseV051TypedFunction",
+   "pattern": "^([A-Za-z_][A-Za-z0-9_]*)\\s*:\\s*(.+)$",
+   "flags": "",
+   "foundBy": "QA R2 sweep (3e45cb6f…)",
+   "group": 5,
+   "groupName": "inputs a parsed source line cannot give it (QA R2), corrected by QA's R3 delta review and this addendum",
+   "shapeSEC5306R3": null,
+   "status": "open",
+   "regexAlone": {
+    "n6400": "32 ms",
+    "n64000": "2.8 s"
+   },
+   "growth": "quadratic",
+   "worstShapes": [
+    {
+     "screen": "QA R2",
+     "shape": "`AA : ` + N × ` ` + `\\n`"
+    },
+    {
+     "screen": "QA R3 delta, mid-line terminator",
+     "example": "\"p44:      x\\u2028y\"",
+     "ms_n1024_2048_4096": [
+      1.42,
+      4.92,
+      37.21
+     ]
+    }
+   ],
+   "reach": {
+    "status": "not reachable from source text with the screened classes (by reading)",
+    "why": "parameter parts of :366's `\\((.*)\\)` capture (split and trimmed by splitComma)",
+    "evidence": "addendum REPORT §3"
+   }
+  },
+  {
+   "site": "src/parser.js:451",
+   "id": "src/parser.js:451:33",
+   "function": "parseV051TypedFunction",
+   "pattern": "^return\\s+(.+)$",
+   "flags": "",
+   "foundBy": "QA R2 sweep (3e45cb6f…)",
+   "group": 5,
+   "groupName": "inputs a parsed source line cannot give it (QA R2), corrected by QA's R3 delta review and this addendum",
+   "shapeSEC5306R3": null,
+   "status": "open",
+   "regexAlone": {
+    "n6400": "29 ms",
+    "n64000": "2.0 s"
+   },
+   "growth": "quadratic",
+   "worstShapes": [
+    {
+     "screen": "QA R2",
+     "shape": "`return` + N × ` ` + `\\n`"
+    },
+    {
+     "screen": "QA R3 delta, mid-line terminator",
+     "example": "\"return \\t\\t\\t\\t\\t\\tx\\ry\"",
+     "ms_n1024_2048_4096": [
+      1.71,
+      8.89,
+      25.12
+     ]
+    }
+   ],
+   "reach": {
+    "status": "reached end to end (mid-line terminator)",
+    "profile": "typed-v0.51",
+    "placement": "body",
+    "parse": {
+     "n6400": "0.02 s",
+     "n64000": "1.46 s"
+    },
+    "evidence": "QA R3 delta logs/21_g5_e2e.jsonl"
+   }
+  },
+  {
+   "site": "src/parser.js:503",
+   "id": "src/parser.js:503:39",
+   "function": "normalizeV051TypedInitializer",
+   "pattern": "^(i64\\.checked_(?:add|sub|mul|div_s|rem_s|neg)|i64\\.(?:eq|ne|lt_s|le_s|gt_s|ge_s)|i64\\.to_i32_checked|i32\\.to_i64|f32\\.to_f64|f64\\.to_f32_checked)\\s+(.+)$",
+   "flags": "",
+   "foundBy": "QA R2 sweep (3e45cb6f…)",
+   "group": 5,
+   "groupName": "inputs a parsed source line cannot give it (QA R2), corrected by QA's R3 delta review and this addendum",
+   "shapeSEC5306R3": null,
+   "status": "open",
+   "regexAlone": {
+    "n6400": "25 ms",
+    "n64000": "1.9 s"
+   },
+   "growth": "quadratic",
+   "worstShapes": [
+    {
+     "screen": "QA R2",
+     "shape": "`i64.checked_rem_s` + N × `\\t` + `\\n`"
+    },
+    {
+     "screen": "QA R3 delta, mid-line terminator",
+     "example": "\"i64.checked_neg      x\\u2029y\"",
+     "ms_n1024_2048_4096": [
+      1.06,
+      2.93,
+      15.95
+     ]
+    }
+   ],
+   "reach": {
+    "status": "not reachable from source text with the screened classes (by reading)",
+    "why": "normalizeV051TypedInitializer: values from :439 `(.+)$`, :451 `(.+)$`, :472 `(.+?)`",
+    "evidence": "addendum REPORT §3"
+   }
+  },
+  {
+   "site": "src/parser.js:521",
+   "id": "src/parser.js:521:29",
+   "function": "normalizeV051TypedInitializer",
+   "pattern": "^option\\.some<(.+)>\\s+(.+)$",
+   "flags": "",
+   "foundBy": "QA R2 sweep (3e45cb6f…)",
+   "group": 5,
+   "groupName": "inputs a parsed source line cannot give it (QA R2), corrected by QA's R3 delta review and this addendum",
+   "shapeSEC5306R3": null,
+   "status": "open",
+   "regexAlone": {
+    "n6400": "23 ms",
+    "n64000": "2.0 s"
+   },
+   "growth": "quadratic",
+   "worstShapes": [
+    {
+     "screen": "QA R2",
+     "shape": "`option.some<i32>` + N × `\\t` + `\\n`"
+    },
+    {
+     "screen": "QA R3 delta, mid-line terminator",
+     "example": "\"option.some<i32>\\t\\t\\t\\t\\t\\tx\\r %value\"",
+     "ms_n1024_2048_4096": [
+      0.88,
+      5.34,
+      34.6
+     ]
+    }
+   ],
+   "reach": {
+    "status": "not reachable from source text with the screened classes (by reading)",
+    "why": "normalizeV051TypedInitializer: as :503",
+    "evidence": "addendum REPORT §3"
+   }
+  },
+  {
+   "site": "src/parser.js:534",
+   "id": "src/parser.js:534:36",
+   "function": "normalizeV051TypedInitializer",
+   "pattern": "^result\\.(ok|err)<(.+)>\\s+(.+)$",
+   "flags": "",
+   "foundBy": "QA R2 sweep (3e45cb6f…)",
+   "group": 5,
+   "groupName": "inputs a parsed source line cannot give it (QA R2), corrected by QA's R3 delta review and this addendum",
+   "shapeSEC5306R3": null,
+   "status": "open",
+   "regexAlone": {
+    "n6400": "31 ms",
+    "n64000": "2.1 s"
+   },
+   "growth": "quadratic",
+   "worstShapes": [
+    {
+     "screen": "QA R2",
+     "shape": "`result.ok<a>` + N × ` ` + `\\n`"
+    },
+    {
+     "screen": "QA R3 delta, mid-line terminator",
+     "example": "\"result.err<i32,ParseError>      x\\r %error\"",
+     "ms_n1024_2048_4096": [
+      1.17,
+      4.09,
+      16.63
+     ]
+    }
+   ],
+   "reach": {
+    "status": "not reachable from source text with the screened classes (by reading)",
+    "why": "normalizeV051TypedInitializer: as :503",
+    "evidence": "addendum REPORT §3"
+   }
+  },
+  {
+   "site": "src/parser.js:598",
+   "id": "src/parser.js:598:30",
+   "function": "parseParams",
+   "pattern": "^([A-Za-z_][A-Za-z0-9_]*)\\s*:\\s*(.+)$",
+   "flags": "",
+   "foundBy": "QA R2 sweep (3e45cb6f…)",
+   "group": 5,
+   "groupName": "inputs a parsed source line cannot give it (QA R2), corrected by QA's R3 delta review and this addendum",
+   "shapeSEC5306R3": null,
+   "status": "open",
+   "regexAlone": {
+    "n6400": "33 ms",
+    "n64000": "2.2 s"
+   },
+   "growth": "quadratic",
+   "worstShapes": [
+    {
+     "screen": "QA R2",
+     "shape": "`state:` + N × ` ` + `\\n`"
+    },
+    {
+     "screen": "QA R3 delta, mid-line terminator",
+     "example": "\"has_traceroute: \\t\\t\\t\\t\\t\\tx\\u2028y\"",
+     "ms_n1024_2048_4096": [
+      2.39,
+      8.03,
+      37.58
+     ]
+    }
+   ],
+   "reach": {
+    "status": "reached end to end (mid-line terminator)",
+    "profile": "legacy",
+    "placement": "legacy func parameter (funcMatch[3] is [^)]*)",
+    "parse": {
+     "n6400": "0.03 s",
+     "n64000": "3.08 s"
+    },
+    "regexTimeAtSite64000": "src/parser.js:598 3063 ms",
+    "evidence": "addendum logs/12_reach_placements.jsonl"
+   }
+  },
+  {
+   "site": "src/parser.js:612",
+   "id": "src/parser.js:612:30",
+   "function": "parseFields",
+   "pattern": "^([A-Za-z_][A-Za-z0-9_]*)\\s*:\\s*(.+)$",
+   "flags": "",
+   "foundBy": "QA R2 sweep (3e45cb6f…)",
+   "group": 5,
+   "groupName": "inputs a parsed source line cannot give it (QA R2), corrected by QA's R3 delta review and this addendum",
+   "shapeSEC5306R3": null,
+   "status": "open",
+   "regexAlone": {
+    "n6400": "22 ms",
+    "n64000": "1.8 s"
+   },
+   "growth": "quadratic",
+   "worstShapes": [
+    {
+     "screen": "QA R2",
+     "shape": "`AA : ` + N × ` ` + `\\n`"
+    },
+    {
+     "screen": "QA R3 delta, mid-line terminator",
+     "example": "\"has_traceroute:       x\\ry\"",
+     "ms_n1024_2048_4096": [
+      3.11,
+      10.03,
+      47.94
+     ]
+    }
+   ],
+   "reach": {
+    "status": "not reachable from source text with the screened classes (by reading)",
+    "why": "struct field parts of :220's `\\{\\s*(.*)\\s*\\}$` capture (trimmed by splitComma)",
+    "evidence": "addendum REPORT §3"
+   }
+  },
+  {
+   "site": "src/parser.js:731",
+   "id": "src/parser.js:731:35",
+   "function": "parsePoolBlock",
+   "pattern": "^([A-Za-z_][A-Za-z0-9_]*)\\s*:\\s*([A-Za-z0-9_]+)\\s*=\\s*(.+)$",
+   "flags": "",
+   "foundBy": "QA R2 sweep (3e45cb6f…)",
+   "group": 5,
+   "groupName": "inputs a parsed source line cannot give it (QA R2), corrected by QA's R3 delta review and this addendum",
+   "shapeSEC5306R3": null,
+   "status": "open",
+   "regexAlone": {
+    "n6400": "22 ms",
+    "n64000": "1.9 s"
+   },
+   "growth": "quadratic",
+   "worstShapes": [
+    {
+     "screen": "QA R2",
+     "shape": "`active:bool =` + N × ` ` + `\\n`"
+    },
+    {
+     "screen": "QA R3 delta, mid-line terminator",
+     "example": "\"owner:i32 =\\t\\t\\t\\t\\t\\tx\\r 0\"",
+     "ms_n1024_2048_4096": [
+      1.15,
+      3.85,
+      35.44
+     ]
+    }
+   ],
+   "reach": {
+    "status": "reached end to end (mid-line terminator)",
+    "profile": "legacy",
+    "placement": "legacy pool field line",
+    "parse": {
+     "n6400": "0.04 s",
+     "n64000": "2.69 s"
+    },
+    "regexTimeAtSite64000": "src/parser.js:731 2674 ms",
+    "evidence": "addendum logs/12_reach_placements.jsonl"
+   }
+  },
+  {
+   "site": "src/parser.js:933",
+   "id": "src/parser.js:933:27",
+   "function": "parseAssignment",
+   "pattern": "^(%[A-Za-z_][A-Za-z0-9_]*)\\s*:\\s*(.+)$",
+   "flags": "",
+   "foundBy": "QA R2 sweep (3e45cb6f…)",
+   "group": 5,
+   "groupName": "inputs a parsed source line cannot give it (QA R2), corrected by QA's R3 delta review and this addendum",
+   "shapeSEC5306R3": null,
+   "status": "open",
+   "regexAlone": {
+    "n6400": "23 ms",
+    "n64000": "2.1 s"
+   },
+   "growth": "quadratic",
+   "worstShapes": [
+    {
+     "screen": "QA R2",
+     "shape": "`%AA : ` + N × ` ` + `\\n`"
+    },
+    {
+     "screen": "QA R3 delta, mid-line terminator",
+     "example": "\"%two:      x\\ry\"",
+     "ms_n1024_2048_4096": [
+      1,
+      5.8,
+      101.02
+     ]
+    }
+   ],
+   "reach": {
+    "status": "reached end to end (mid-line terminator)",
+    "profile": "legacy",
+    "placement": "body",
+    "parse": {
+     "n6400": "0.02 s",
+     "n64000": "1.49 s"
+    },
+    "evidence": "QA R3 delta logs/21_g5_e2e.jsonl"
+   }
+  },
+  {
+   "site": "src/parser.js:1019",
+   "id": "src/parser.js:1019:28",
+   "function": "parseOp",
+   "pattern": "^print\\s+(.+)$",
+   "flags": "",
+   "foundBy": "QA R2 sweep (3e45cb6f…)",
+   "group": 5,
+   "groupName": "inputs a parsed source line cannot give it (QA R2), corrected by QA's R3 delta review and this addendum",
+   "shapeSEC5306R3": null,
+   "status": "open",
+   "regexAlone": {
+    "n6400": "27 ms",
+    "n64000": "2.7 s"
+   },
+   "growth": "quadratic",
+   "worstShapes": [
+    {
+     "screen": "QA R2",
+     "shape": "`print ` + N × `\\t` + `\\n`"
+    },
+    {
+     "screen": "QA R3 delta, mid-line terminator",
+     "example": "\"print      x\\ry\"",
+     "ms_n1024_2048_4096": [
+      1.82,
+      5.54,
+      16.29
+     ]
+    }
+   ],
+   "reach": {
+    "status": "reached end to end (mid-line terminator)",
+    "profile": "legacy",
+    "placement": "body",
+    "parse": {
+     "n6400": "0.04 s",
+     "n64000": "3.36 s"
+    },
+    "evidence": "QA R3 delta logs/21_g5_e2e.jsonl"
+   }
+  },
+  {
+   "site": "src/parser.js:1022",
+   "id": "src/parser.js:1022:26",
+   "function": "parseOp",
+   "pattern": "^return(?:\\s+(.+))?$",
+   "flags": "",
+   "foundBy": "QA R2 sweep (3e45cb6f…)",
+   "group": 5,
+   "groupName": "inputs a parsed source line cannot give it (QA R2), corrected by QA's R3 delta review and this addendum",
+   "shapeSEC5306R3": null,
+   "status": "open",
+   "regexAlone": {
+    "n6400": "24 ms",
+    "n64000": "1.9 s"
+   },
+   "growth": "quadratic",
+   "worstShapes": [
+    {
+     "screen": "QA R2",
+     "shape": "`return` + N × ` ` + `\\n`"
+    },
+    {
+     "screen": "QA R3 delta, mid-line terminator",
+     "example": "\"return      x\\u2029y\"",
+     "ms_n1024_2048_4096": [
+      0.99,
+      3.46,
+      14.81
+     ]
+    }
+   ],
+   "reach": {
+    "status": "reached end to end (mid-line terminator)",
+    "profile": "legacy",
+    "placement": "body",
+    "parse": {
+     "n6400": "0.04 s",
+     "n64000": "4.18 s"
+    },
+    "evidence": "QA R3 delta logs/21_g5_e2e.jsonl"
+   }
+  },
+  {
+   "site": "src/parser.js:1037",
+   "id": "src/parser.js:1037:36",
+   "function": "parseOp",
+   "pattern": "^(tablegroup\\.get\\.(?:i32|bool))\\s+@([A-Za-z_][A-Za-z0-9_]*)\\.([A-Za-z_][A-Za-z0-9_]*)\\s*,\\s*(.+)$",
+   "flags": "",
+   "foundBy": "QA R2 sweep (3e45cb6f…)",
+   "group": 5,
+   "groupName": "inputs a parsed source line cannot give it (QA R2), corrected by QA's R3 delta review and this addendum",
+   "shapeSEC5306R3": null,
+   "status": "open",
+   "regexAlone": {
+    "n6400": "23 ms",
+    "n64000": "2.0 s"
+   },
+   "growth": "quadratic",
+   "worstShapes": [
+    {
+     "screen": "QA R2",
+     "shape": "`tablegroup.get.i32 @AA.AA ,` + N × ` ` + `\\n`"
+    },
+    {
+     "screen": "QA R3 delta, mid-line terminator",
+     "example": "\"tablegroup.get.i32 @AA.AA ,\\t\\t\\t\\t\\t\\tx\\u2029y\"",
+     "ms_n1024_2048_4096": [
+      0.97,
+      2.52,
+      13.11
+     ]
+    }
+   ],
+   "reach": {
+    "status": "reached end to end (mid-line terminator)",
+    "profile": "legacy",
+    "placement": "body",
+    "parse": {
+     "n6400": "0.02 s",
+     "n64000": "1.40 s"
+    },
+    "evidence": "QA R3 delta logs/21_g5_e2e.jsonl"
+   }
+  },
+  {
+   "site": "src/parser.js:1064",
+   "id": "src/parser.js:1064:30",
+   "function": "parseOp",
+   "pattern": "^([A-Za-z0-9_.]+)(?:\\s+(.+))?$",
+   "flags": "",
+   "foundBy": "QA R2 sweep (3e45cb6f…)",
+   "group": 5,
+   "groupName": "inputs a parsed source line cannot give it (QA R2), corrected by QA's R3 delta review and this addendum",
+   "shapeSEC5306R3": null,
+   "status": "open",
+   "regexAlone": {
+    "n6400": "25 ms",
+    "n64000": "2.1 s"
+   },
+   "growth": "quadratic",
+   "worstShapes": [
+    {
+     "screen": "QA R2",
+     "shape": "`vec3.new` + N × ` ` + `\\n`"
+    },
+    {
+     "screen": "QA R3 delta, mid-line terminator",
+     "example": "\"i32.add      x\\u2028y\"",
+     "ms_n1024_2048_4096": [
+      1.04,
+      4.01,
+      43.23
+     ]
+    }
+   ],
+   "reach": {
+    "status": "reached end to end (mid-line terminator)",
+    "profile": "legacy",
+    "placement": "body",
+    "parse": {
+     "n6400": "0.02 s",
+     "n64000": "1.56 s"
+    },
+    "evidence": "QA R3 delta logs/21_g5_e2e.jsonl"
+   }
+  },
+  {
+   "site": "src/parser.js:1083",
+   "id": "src/parser.js:1083:28",
+   "function": "parseAliasOp",
+   "pattern": "^([A-Za-z_][A-Za-z0-9_]*)(?:\\s+(.+))?$",
+   "flags": "",
+   "foundBy": "QA R2 sweep (3e45cb6f…)",
+   "group": 5,
+   "groupName": "inputs a parsed source line cannot give it (QA R2), corrected by QA's R3 delta review and this addendum",
+   "shapeSEC5306R3": null,
+   "status": "open",
+   "regexAlone": {
+    "n6400": "24 ms",
+    "n64000": "2.0 s"
+   },
+   "growth": "quadratic",
+   "worstShapes": [
+    {
+     "screen": "QA R2",
+     "shape": "`AA` + N × `\\t` + `\\n`"
+    },
+    {
+     "screen": "QA R3 delta, mid-line terminator",
+     "example": "\"AA \\t\\t\\t\\t\\t\\tx\\ry\"",
+     "ms_n1024_2048_4096": [
+      0.92,
+      3.44,
+      37.82
+     ]
+    }
+   ],
+   "reach": {
+    "status": "not reachable from source text with the screened classes (by reading)",
+    "why": "parseAliasOp: only with a result type, on the body of :933's `(.+)$` capture, trimmed",
+    "evidence": "addendum REPORT §3"
+   }
+  },
+  {
+   "site": "src/parser.js:1216",
+   "id": "src/parser.js:1216:29",
+   "function": "<top>",
+   "pattern": "^([a-z][a-z0-9_]*(?:\\.[a-z0-9_]+)*)\\s+(.+)$",
+   "flags": "",
+   "foundBy": "QA R2 sweep (3e45cb6f…)",
+   "group": 5,
+   "groupName": "inputs a parsed source line cannot give it (QA R2), corrected by QA's R3 delta review and this addendum",
+   "shapeSEC5306R3": null,
+   "status": "open",
+   "regexAlone": {
+    "n6400": "28 ms",
+    "n64000": "2.2 s"
+   },
+   "growth": "quadratic",
+   "worstShapes": [
+    {
+     "screen": "QA R2",
+     "shape": "`select.i32` + N × ` ` + `\\n`"
+    },
+    {
+     "screen": "QA R3 delta, mid-line terminator",
+     "example": "\"i32.wrapping_add       x\\u2029y\"",
+     "ms_n1024_2048_4096": [
+      1.01,
+      5.46,
+      73.74
+     ]
+    }
+   ],
+   "reach": {
+    "status": "not reachable from source text with the screened classes (by reading)",
+    "why": "V053_OPERATION_FORM in normalizeV053Value: values from yield/return `(.+)$`, :2111 `(.+?)`, :2226 `(.+)$`, V053_CALL_FORM `\\((.*)\\)$`",
+    "evidence": "addendum REPORT §3"
+   }
+  },
+  {
+   "site": "src/parser.js:1453",
+   "id": "src/parser.js:1453:29",
+   "function": "normalizeV053Value",
+   "pattern": "^option\\.some<(.+)>\\s+(.+)$",
+   "flags": "",
+   "foundBy": "QA R2 sweep (3e45cb6f…)",
+   "group": 5,
+   "groupName": "inputs a parsed source line cannot give it (QA R2), corrected by QA's R3 delta review and this addendum",
+   "shapeSEC5306R3": null,
+   "status": "open",
+   "regexAlone": {
+    "n6400": "26 ms",
+    "n64000": "1.9 s"
+   },
+   "growth": "quadratic",
+   "worstShapes": [
+    {
+     "screen": "QA R2",
+     "shape": "`option.some<bool>` + N × ` ` + `\\n`"
+    },
+    {
+     "screen": "QA R3 delta, mid-line terminator",
+     "example": "\"option.some<i32>      x\\ry\"",
+     "ms_n1024_2048_4096": [
+      0.96,
+      3.35,
+      43
+     ]
+    }
+   ],
+   "reach": {
+    "status": "not reachable from source text with the screened classes (by reading)",
+    "why": "normalizeV053Value: as :1216",
+    "evidence": "addendum REPORT §3"
+   }
+  },
+  {
+   "site": "src/parser.js:1469",
+   "id": "src/parser.js:1469:36",
+   "function": "normalizeV053Value",
+   "pattern": "^result\\.(ok|err)<(.+)>\\s+(.+)$",
+   "flags": "",
+   "foundBy": "QA R2 sweep (3e45cb6f…)",
+   "group": 5,
+   "groupName": "inputs a parsed source line cannot give it (QA R2), corrected by QA's R3 delta review and this addendum",
+   "shapeSEC5306R3": null,
+   "status": "open",
+   "regexAlone": {
+    "n6400": "26 ms",
+    "n64000": "2.1 s"
+   },
+   "growth": "quadratic",
+   "worstShapes": [
+    {
+     "screen": "QA R2",
+     "shape": "`result.ok<a> ` + N × ` ` + `\\n`"
+    },
+    {
+     "screen": "QA R3 delta, mid-line terminator",
+     "example": "\"result.err<i32,ParseError>      x\\u2029y\"",
+     "ms_n1024_2048_4096": [
+      0.89,
+      2.86,
+      10.79
+     ]
+    }
+   ],
+   "reach": {
+    "status": "not reachable from source text with the screened classes (by reading)",
+    "why": "normalizeV053Value: as :1216",
+    "evidence": "addendum REPORT §3"
+   }
+  },
+  {
+   "site": "src/parser.js:1565",
+   "id": "src/parser.js:1565:30",
+   "function": "v053RejectOtherLoopForm",
+   "pattern": "^(?:yield|return)\\s+(.+)$",
+   "flags": "",
+   "foundBy": "QA R2 sweep (3e45cb6f…)",
+   "group": 5,
+   "groupName": "inputs a parsed source line cannot give it (QA R2), corrected by QA's R3 delta review and this addendum",
+   "shapeSEC5306R3": null,
+   "status": "open",
+   "regexAlone": {
+    "n6400": "27 ms",
+    "n64000": "2.5 s"
+   },
+   "growth": "quadratic",
+   "worstShapes": [
+    {
+     "screen": "QA R2",
+     "shape": "`yield ` + N × ` ` + `\\n`"
+    },
+    {
+     "screen": "QA R3 delta, mid-line terminator",
+     "example": "\"yield\\t\\t\\t\\t\\t\\tx\\r a\"",
+     "ms_n1024_2048_4096": [
+      0.74,
+      2.74,
+      10.62
+     ]
+    }
+   ],
+   "reach": {
+    "status": "reached end to end (mid-line terminator), on another site's placement line",
+    "profile": "typed-v0.53",
+    "placement": "typed-v0.53 function body return line",
+    "parse": {
+     "n6400": "0.10 s",
+     "n64000": "8.44 s"
+    },
+    "regexTimeAtSite64000": "src/parser.js:1565 2512 ms",
+    "evidence": "addendum logs/12_reach_placements.jsonl"
+   }
+  },
+  {
+   "site": "src/parser.js:1636",
+   "id": "src/parser.js:1636:34",
+   "function": "v053ExternDeclaration",
+   "pattern": "^([A-Za-z_][A-Za-z0-9_]*)\\s*:\\s*(.+)$",
+   "flags": "",
+   "foundBy": "QA R2 sweep (3e45cb6f…)",
+   "group": 5,
+   "groupName": "inputs a parsed source line cannot give it (QA R2), corrected by QA's R3 delta review and this addendum",
+   "shapeSEC5306R3": null,
+   "status": "open",
+   "regexAlone": {
+    "n6400": "25 ms",
+    "n64000": "2.0 s"
+   },
+   "growth": "quadratic",
+   "worstShapes": [
+    {
+     "screen": "QA R2",
+     "shape": "`AA : ` + N × ` ` + `\\n`"
+    },
+    {
+     "screen": "QA R3 delta, mid-line terminator",
+     "example": "\"radius:\\t\\t\\t\\t\\t\\tx\\u2029y\"",
+     "ms_n1024_2048_4096": [
+      0.86,
+      2.25,
+      13.4
+     ]
+    }
+   ],
+   "reach": {
+    "status": "not reachable from source text with the screened classes (by reading)",
+    "why": "extern parameter parts of :1628's `\\((.*)\\)` capture",
+    "evidence": "addendum REPORT §3"
+   }
+  },
+  {
+   "site": "src/parser.js:1809",
+   "id": "src/parser.js:1809:30",
+   "function": "v053RejectTableSet",
+   "pattern": "^(?:yield|return)\\s+(.+)$",
+   "flags": "",
+   "foundBy": "QA R2 sweep (3e45cb6f…)",
+   "group": 5,
+   "groupName": "inputs a parsed source line cannot give it (QA R2), corrected by QA's R3 delta review and this addendum",
+   "shapeSEC5306R3": null,
+   "status": "open",
+   "regexAlone": {
+    "n6400": "30 ms",
+    "n64000": "1.9 s"
+   },
+   "growth": "quadratic",
+   "worstShapes": [
+    {
+     "screen": "QA R2",
+     "shape": "`yield ` + N × ` ` + `\\n`"
+    },
+    {
+     "screen": "QA R3 delta, mid-line terminator",
+     "example": "\"yield      x\\u2028y\"",
+     "ms_n1024_2048_4096": [
+      0.74,
+      2.67,
+      10.37
+     ]
+    }
+   ],
+   "reach": {
+    "status": "reached end to end (mid-line terminator), on another site's placement line",
+    "profile": "typed-v0.53",
+    "placement": "typed-v0.53 function body return line",
+    "parse": {
+     "n6400": "0.10 s",
+     "n64000": "8.44 s"
+    },
+    "regexTimeAtSite64000": "src/parser.js:1809 2394 ms",
+    "evidence": "addendum logs/12_reach_placements.jsonl"
+   }
+  },
+  {
+   "site": "src/parser.js:2048",
+   "id": "src/parser.js:2048:40",
+   "function": "parseV053TypedAir",
+   "pattern": "^([A-Za-z_][A-Za-z0-9_]*)\\s*:\\s*(.+)$",
+   "flags": "",
+   "foundBy": "QA R2 sweep (3e45cb6f…)",
+   "group": 5,
+   "groupName": "inputs a parsed source line cannot give it (QA R2), corrected by QA's R3 delta review and this addendum",
+   "shapeSEC5306R3": null,
+   "status": "open",
+   "regexAlone": {
+    "n6400": "39 ms",
+    "n64000": "2.1 s"
+   },
+   "growth": "quadratic",
+   "worstShapes": [
+    {
+     "screen": "QA R2",
+     "shape": "`AA : ` + N × ` ` + `\\n`"
+    },
+    {
+     "screen": "QA R3 delta, mid-line terminator",
+     "example": "\"depth:      x\\u2028y\"",
+     "ms_n1024_2048_4096": [
+      0.88,
+      3.65,
+      49.73
+     ]
+    }
+   ],
+   "reach": {
+    "status": "not reachable from source text with the screened classes (by reading)",
+    "why": "parameter parts of :2030's `\\((.*)\\)` capture",
+    "evidence": "addendum REPORT §3"
+   }
+  },
+  {
+   "site": "src/parser.js:2165",
+   "id": "src/parser.js:2165:32",
+   "function": "parseV053TypedAir",
+   "pattern": "^yield\\s+(.+)$",
+   "flags": "",
+   "foundBy": "QA R2 sweep (3e45cb6f…)",
+   "group": 5,
+   "groupName": "inputs a parsed source line cannot give it (QA R2), corrected by QA's R3 delta review and this addendum",
+   "shapeSEC5306R3": null,
+   "status": "open",
+   "regexAlone": {
+    "n6400": "22 ms",
+    "n64000": "2.1 s"
+   },
+   "growth": "quadratic",
+   "worstShapes": [
+    {
+     "screen": "QA R2",
+     "shape": "`yield ` + N × ` ` + `\\n`"
+    },
+    {
+     "screen": "QA R3 delta, mid-line terminator",
+     "example": "\"yield       x\\u2029y\"",
+     "ms_n1024_2048_4096": [
+      0.99,
+      3.08,
+      13.25
+     ]
+    }
+   ],
+   "reach": {
+    "status": "reached end to end (mid-line terminator)",
+    "profile": "typed-v0.53",
+    "placement": "body",
+    "parse": {
+     "n6400": "0.06 s",
+     "n64000": "4.43 s"
+    },
+    "evidence": "QA R3 delta logs/21_g5_e2e.jsonl"
+   }
+  },
+  {
+   "site": "src/parser.js:2177",
+   "id": "src/parser.js:2177:33",
+   "function": "parseV053TypedAir",
+   "pattern": "^return\\s+(.+)$",
+   "flags": "",
+   "foundBy": "QA R2 sweep (3e45cb6f…)",
+   "group": 5,
+   "groupName": "inputs a parsed source line cannot give it (QA R2), corrected by QA's R3 delta review and this addendum",
+   "shapeSEC5306R3": null,
+   "status": "open",
+   "regexAlone": {
+    "n6400": "29 ms",
+    "n64000": "2.4 s"
+   },
+   "growth": "quadratic",
+   "worstShapes": [
+    {
+     "screen": "QA R2",
+     "shape": "`return ` + N × `\\t` + `\\n`"
+    },
+    {
+     "screen": "QA R3 delta, mid-line terminator",
+     "example": "\"return      x\\ry\"",
+     "ms_n1024_2048_4096": [
+      1.05,
+      5.06,
+      14.69
+     ]
+    }
+   ],
+   "reach": {
+    "status": "reached end to end (mid-line terminator)",
+    "profile": "typed-v0.53",
+    "placement": "typed-v0.53 function body return line",
+    "parse": {
+     "n6400": "0.10 s",
+     "n64000": "8.44 s"
+    },
+    "regexTimeAtSite64000": "src/parser.js:2177 3521 ms",
+    "evidence": "addendum logs/12_reach_placements.jsonl"
+   }
+  },
+  {
+   "site": "src/verifier.js:512",
+   "id": "src/verifier.js:512:29",
+   "function": "verifyV051TypedAtom",
+   "pattern": "^option\\.(none|some)<(.+)>\\s*(.*)$",
+   "flags": "",
+   "foundBy": "QA R2 sweep, second pass (3e45cb6f…)",
+   "group": 5,
+   "groupName": "inputs a parsed source line cannot give it (QA R2), corrected by QA's R3 delta review and this addendum",
+   "shapeSEC5306R3": null,
+   "status": "open",
+   "regexAlone": {
+    "n6400": "26 ms",
+    "n64000": "1.5 s"
+   },
+   "growth": "quadratic",
+   "worstShapes": [
+    {
+     "screen": "QA R3 delta, mid-line terminator",
+     "example": "\"option.none<a>       x\\ry\"",
+     "ms_n1024_2048_4096": [
+      1.4,
+      7.39,
+      22.39
+     ]
+    }
+   ],
+   "reach": {
+    "status": "not reachable from source text with the screened classes (by reading)",
+    "why": "atoms of a typed-v0.51 AST, built by the normalizers above; a caller-built AST passed to verifySource is not placed",
+    "evidence": "addendum REPORT §3"
+   }
+  },
+  {
+   "site": "src/verifier.js:526",
+   "id": "src/verifier.js:526:29",
+   "function": "verifyV051TypedAtom",
+   "pattern": "^result\\.(ok|err)<(.+)>\\s+(.+)$",
+   "flags": "",
+   "foundBy": "QA R2 sweep (3e45cb6f…)",
+   "group": 5,
+   "groupName": "inputs a parsed source line cannot give it (QA R2), corrected by QA's R3 delta review and this addendum",
+   "shapeSEC5306R3": null,
+   "status": "open",
+   "regexAlone": {
+    "n6400": "20 ms",
+    "n64000": "1.7 s"
+   },
+   "growth": "quadratic",
+   "worstShapes": [
+    {
+     "screen": "QA R2",
+     "shape": "`result.err<i32,ParseError>` + N × ` ` + `\\n`"
+    },
+    {
+     "screen": "QA R3 delta, mid-line terminator",
+     "example": "\"result.err<i32,ParseError>      x\\ry\"",
+     "ms_n1024_2048_4096": [
+      2.31,
+      6.66,
+      19.04
+     ]
+    }
+   ],
+   "reach": {
+    "status": "not reachable from source text with the screened classes (by reading)",
+    "why": "as :512",
+    "evidence": "addendum REPORT §3"
+   }
+  },
+  {
+   "site": "src/diagnostics.js:607",
+   "id": "src/diagnostics.js:607:30",
+   "function": "diagnosticHintsFromMessage",
+   "pattern": "(air\\.pool\\.[A-Za-z_]+):\\s*(.*)$",
+   "flags": "",
+   "foundBy": "QA addendum 2026-11-10, mid-line terminator screen of the 701",
+   "group": 4,
+   "groupName": "package files, names, messages",
+   "shapeSEC5306R3": null,
+   "status": "open",
+   "regexAlone": {
+    "n6400": "25 ms",
+    "n64000": "2.32 s"
+   },
+   "growth": "quadratic",
+   "worstShapes": [
+    {
+     "screen": "addendum, mid-line terminator",
+     "kind": "A",
+     "example": "air.pool.A: \\t\\t\\t\\t\\t\\tx\\u2028y",
+     "ms_n1024_2048_4096": [
+      1.2,
+      4.05,
+      16.79
+     ]
+    }
+   ],
+   "reach": {
+    "status": "reached end to end (mid-line terminator)",
+    "entry": "airc check's LSP diagnostics (createFileLspDiagnostics) of a legacy parse error that quotes the line",
+    "placement": "airc check's LSP diagnostics of a legacy parse error that quotes the line",
+    "parse": {
+     "n6400": "0.05 s",
+     "n64000": "2.52 s"
+    },
+    "regexTimeAtSite64000": "src/diagnostics.js:607 2495 ms",
+    "evidence": "addendum logs/12_reach_placements.jsonl"
+   }
+  },
+  {
+   "site": "src/lower_wasm.js:521",
+   "id": "src/lower_wasm.js:521:36",
+   "function": "emitV051TypedExpression",
+   "pattern": "^option\\.(none|some)<(.+)>\\s*(.*)$",
+   "flags": "",
+   "foundBy": "QA addendum 2026-11-10, mid-line terminator screen of the 701",
+   "group": 5,
+   "groupName": "inputs a parsed source line cannot give it (QA R2), corrected by QA's R3 delta review and this addendum",
+   "shapeSEC5306R3": null,
+   "status": "open",
+   "regexAlone": {
+    "n6400": "44 ms",
+    "n64000": "2.55 s"
+   },
+   "growth": "quadratic",
+   "worstShapes": [
+    {
+     "screen": "addendum, mid-line terminator",
+     "kind": "A",
+     "example": "option.none<a>      x\\ry",
+     "ms_n1024_2048_4096": [
+      1.51,
+      4.72,
+      30.06
+     ]
+    }
+   ],
+   "reach": {
+    "status": "not reachable from source text with the screened classes (by reading)",
+    "why": "atoms of a typed-v0.51 AST at lowering; a caller-built AST passed to lowerToWat is not placed",
+    "evidence": "addendum REPORT §3"
+   }
+  },
+  {
+   "site": "src/parser.js:1053",
+   "id": "src/parser.js:1053:33",
+   "function": "parseOp",
+   "pattern": "^(pool\\.(?:get|set)\\.(?:i32|bool))\\s+@([A-Za-z_][A-Za-z0-9_]*)\\.([A-Za-z_][A-Za-z0-9_]*)(?:\\s*,\\s*(.*))?$",
+   "flags": "",
+   "foundBy": "QA addendum 2026-11-10, mid-line terminator screen of the 701",
+   "group": 2,
+   "groupName": "source text; quadratic",
+   "shapeSEC5306R3": null,
+   "status": "open",
+   "regexAlone": {
+    "n6400": "30 ms",
+    "n64000": "2.94 s"
+   },
+   "growth": "quadratic",
+   "worstShapes": [
+    {
+     "screen": "addendum, mid-line terminator",
+     "kind": "A+rest",
+     "example": "pool.get.i32 @AA.AA ,       x\\ra",
+     "ms_n1024_2048_4096": [
+      2.3,
+      7.49,
+      39.22
+     ]
+    }
+   ],
+   "reach": {
+    "status": "reached end to end (mid-line terminator)",
+    "entry": "parseSource (legacy)",
+    "placement": "legacy pool.set line, the screened shape (pump right after the first comma), in context: test/fixtures/pools/projectile_pool_basic/main.air:19",
+    "parse": {
+     "n6400": "0.04 s",
+     "n64000": "3.76 s"
+    },
+    "regexTimeAtSite64000": "src/parser.js:1053 3740 ms",
+    "evidence": "addendum logs/12_reach_placements.jsonl"
+   }
+  },
+  {
+   "site": "src/parser.js:1403",
+   "id": "src/parser.js:1403:30",
+   "function": "normalizeV053Carrier",
+   "pattern": "^const\\.(i32|i64|f32|f64|bool)(?:\\s+(.*))?$",
+   "flags": "",
+   "foundBy": "QA addendum 2026-11-10, mid-line terminator screen of the 701",
+   "group": 5,
+   "groupName": "inputs a parsed source line cannot give it (QA R2), corrected by QA's R3 delta review and this addendum",
+   "shapeSEC5306R3": null,
+   "status": "open",
+   "regexAlone": {
+    "n6400": "31 ms",
+    "n64000": "2.71 s"
+   },
+   "growth": "quadratic",
+   "worstShapes": [
+    {
+     "screen": "addendum, mid-line terminator",
+     "kind": "A",
+     "example": "const.i32      x\\ry",
+     "ms_n1024_2048_4096": [
+      1.67,
+      5.83,
+      29.49
+     ]
+    }
+   ],
+   "reach": {
+    "status": "not reachable from source text with the screened classes (by reading)",
+    "why": "normalizeV053Carrier, called only by normalizeV053Value: as :1216",
+    "evidence": "addendum REPORT §3"
+   }
+  }
+ ]
+}

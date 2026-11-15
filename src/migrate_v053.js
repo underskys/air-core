@@ -1,4 +1,5 @@
 "use strict";
+const linearRegex = require("./linear_regex");
 
 // typed-v0.53 P0-11: M(), the deterministic legacy-v0.50 -> typed-v0.53
 // migration, increment I3 (slice text R4.8; card AIR-0053-P0-11-0001;
@@ -459,7 +460,7 @@ function moduleLines(text) {
   return out;
 }
 
-const CAPABILITIES_LINE = /^capabilities\s*\{\s*([^}]*)\s*\}$/;
+const CAPABILITIES_LINE = linearRegex.wrap(/^capabilities\s*\{\s*([^}]*)\s*\}$/);
 
 function hostCallsOf(ast) {
   const externs = new Set(ast.externs.map((ex) => ex.name));
@@ -504,7 +505,7 @@ function typeConstruct(typeName) {
 
 // P11-R30: read the bound's spelling, never legacy's rounded Number.
 function contractBound(contract, lines) {
-  const match = /(-?[0-9]+(?:\.[0-9]+)?)$/.exec(lines[contract.loc.line - 1]);
+  const match = linearRegex.wrap(/(-?[0-9]+(?:\.[0-9]+)?)$/).exec(lines[contract.loc.line - 1]);
   if (!match || match[1].includes(".")) return null;
   const bound = BigInt(match[1]);
   return bound >= I32_MIN && bound <= I32_MAX ? bound : null;
@@ -690,7 +691,7 @@ class FunctionMapper {
       const typed = `call @${ins.callee}(${args.join(", ")})`;
       const host = this.hostCalls.has(ins.callee);
       if (ins.compact === "call" || host) {
-        const written = /(?:call\s+)?@[^\s(]+\(.*\)$/.exec(this.sourceLines[ins.loc.line - 1])[0];
+        const written = linearRegex.wrap(/(?:call\s+)?@[^\s(]+\(.*\)$/).exec(this.sourceLines[ins.loc.line - 1])[0];
         this.entries.push(entry(ins.loc.line, "call", written, typed, host ? "P11-R36" : "P11-R9", host ? "EXACT_ON_SUCCESS" : "EXACT"));
       }
       return [ins.result ? `${ins.result}: ${declaredOf(ins)} = ${typed}` : typed];

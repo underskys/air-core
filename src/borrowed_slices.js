@@ -1,3 +1,4 @@
+const linearRegex = require("./linear_regex");
 const crypto = require("crypto");
 const { BORROWED_SLICES_AIR_ABI_VERSION } = require("./version");
 
@@ -13,7 +14,7 @@ function parseBorrowedSliceType(type, loc = null) {
   const text = String(type || "").trim();
   if (!/^borrowed_slice\b/.test(text)) return null;
 
-  const outer = text.match(/^borrowed_slice\s*<\s*(.*?)\s*>$/);
+  const outer = text.match(linearRegex.wrap(/^borrowed_slice\s*<\s*(.*?)\s*>$/));
   if (!outer) {
     borrowedFail(
       "syntax_invalid",

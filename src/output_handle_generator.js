@@ -1,3 +1,4 @@
+const linearRegex = require("./linear_regex");
 const crypto = require("crypto");
 const fs = require("fs");
 const path = require("path");
@@ -430,7 +431,7 @@ function outputHandleName(name) {
   const suffix = String(name || "")
     .replace(/([a-z0-9])([A-Z])/g, "$1_$2")
     .replace(/[^A-Za-z0-9]+/g, "_")
-    .replace(/^_+|_+$/g, "")
+    .replace(linearRegex.wrap(/^_+|_+$/g), "")
     .toUpperCase() || "UNNAMED";
   return `OUTPUT_${/^[0-9]/.test(suffix) ? `ID_${suffix}` : suffix}`;
 }
