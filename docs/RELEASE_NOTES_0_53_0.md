@@ -115,6 +115,21 @@ The `CHANGELOG.md` section of 0.53.0 lists every breaking change. In short:
   the message prefix of the refusal inside `air.run.execution_failed`, and
   `air.benchmark.argument_invalid` is the message of the warning
   `air.benchmark.runtime_unavailable`.
+- **f32 arguments (SEC53-10).** Typed `invoke`, the borrowed lane, the verified
+  session, conformance replay and `airc benchmark` refuse an `f32` argument that
+  binary32 does not hold exactly (for example 0.1 or 1e39), where it ran on the
+  rounded value. NaN, -0 and the infinities pass; the session keeps refusing
+  NaN and the infinities.
+- **Legacy imports outside the input's folder (SEC53-10, OD-S10-4 (b)).** A
+  legacy-v0.50 file built, verified or migrated on its own reads a `use` target
+  only inside its own folder. An import by `..`, by an absolute path, by a
+  `std.` name with path segments, or through a symbolic link below that folder
+  is refused with `air.package.path_uncontained` before anything of it is read.
+  A FIFO, a device or a file above 4 MiB inside the folder is refused with
+  `air.package.file_invalid`, where it used to hang or be read (`airc migrate`
+  keeps its `air.cli.file_read_failed` line). Imports inside the folder, also
+  through a linked ancestor folder, work as before. A project that imports
+  outside its folder moves to a package layout, where SEC53-01's rules apply.
 
 ## Corrections
 
@@ -136,6 +151,11 @@ These are fixed in 0.53.0, not limits:
     `TypeError` (O-2);
   - a legacy-v0.50 type nested more than 1,024 levels gets the located nesting
     refusal, where it overflowed the stack.
+- **P0-13 part B's three findings,** fixed by SEC53-10: an `f32` argument run on
+  its rounded value (F-B7-1); a raw `TypeError` from a typed-v0.53 `state.set`
+  whose operands hold CR, U+2028 or U+2029, now `air.v051.typed_syntax_invalid`
+  (F-B1-1); and reads, and echoes, of files outside the input's folder by
+  `airc migrate` and legacy single-file commands (F-B8-1).
 
 ## Known limits
 
@@ -188,7 +208,10 @@ Each under its record's name. None of them is fixed in 0.53.0.
 - **SEC53-01 R-6:** the typed closure loader keeps its own rule, and reads by path
   after its walk.
 - **SEC53-01 R-7:** the migration's import check is "a bounded mitigation, not
-  global import security closure".
+  global import security closure". Since SEC53-10 the migration and
+  every legacy single-file command read an import only inside the input's
+  folder, admitted as a package's imports are; the look's bounds stay that
+  mitigation for the files inside it.
 - **SEC53-01 R-8:** the walk and the read check each path from the root again,
   one name at a time; a folder swapped and swapped back between two checks is
   not caught.
@@ -238,8 +261,9 @@ Each under its record's name. None of them is fixed in 0.53.0.
   object that holds one also throws.
 - **SEC53-06B KNOWN_3:** there is no program-size guard.
 - **SEC53-06B KNOWN_4:** the cost is permanent: every call allocates.
-- **SEC53-09 R-1:** an argument to an `f32` or `f64` parameter keeps today's
-  JavaScript conversion, a string included. An `i64` parameter keeps today's
+- **SEC53-09 R-1:** an argument to an `f64` parameter keeps today's
+  JavaScript conversion, a string included; since SEC53-10 an `f32` argument
+  must be a number binary32 holds exactly. An `i64` parameter keeps today's
   `TypeError`.
 - **SEC53-09 R-2:** a step or benchmark with fewer arguments than parameters
   passes `undefined`, which an `i32` parameter reads as 0; extra arguments are
@@ -250,10 +274,41 @@ Each under its record's name. None of them is fixed in 0.53.0.
   message's `i32` contract, whatever the export's parameter types.
 - **SEC53-09 R-5:** `invokeV051TypedExport` also passes arguments unchecked;
   nothing in `src/` or `bin/` calls it.
+- **SEC53-10 S10-F-R1:** `invokeRaw` passes lanes as JavaScript converts them
+  (ToInt32 for `i32`, ToFloat32 for `f32`), by contract.
+- **SEC53-10 S10-F-R2:** `invokeV051TypedExport` stays unchecked (SEC53-09 R-5).
+- **SEC53-10 S10-F-R3:** at conformance replay and `airc benchmark` an `f64`
+  lane keeps JavaScript's conversion, a string included, and an `i64` lane its
+  `TypeError`.
+- **SEC53-10 S10-F-R4:** a NaN argument enters as the engine's NaN; its payload
+  and sign are not claimed.
+- **SEC53-10 S10-F-R5:** legacy host-import results keep JavaScript's
+  conversion; typed results stay under R-EFF-13.
+- **SEC53-10 S10-B-R1:** CR, U+2028 and U+2029 stay whitespace wherever a
+  typed-v0.53 line that parses today takes them as such.
+- **SEC53-10 S10-B-R2:** the LSP's framing (P0-13 F-B1-2) is unchanged.
+- **SEC53-10 S10-B-R3:** legacy-v0.50's raw `TypeError`s and uncoded lowering
+  refusals (P0-13 F-O-1, F-O-2) are unchanged.
+- **SEC53-10 S10-M-R1:** a legacy file whose imports leave its folder, by `..`,
+  by an absolute path, by a `std.` name with path segments, or through a
+  symbolic link, no longer builds, verifies or migrates as a single file: move
+  it into a package layout. Outside users of such layouts are unknown.
+- **SEC53-10 S10-M-R2:** inside the folder, SEC53-01's limits apply: a hard link
+  to an outside file is read (R-3), content changed in place is read as it is
+  (R-2), a folder swapped and swapped back is not caught (R-8), and a swap can
+  make an open reach a device node, refused unread (R-9).
+- **SEC53-10 S10-M-R3:** OD-P11-22 (c)'s carried items stay for files inside
+  the folder: aggregate and repeated-read growth, and untested special regular
+  files.
+- **SEC53-10 S10-M-R4:** a legacy program whose imports leave its folder gets
+  no migration record; M() refused it anyway for its `use` line.
 - **`invokeRaw`:** "The typed admission's `invokeRaw(entrypoint, lanes)` passes
   lanes as JavaScript converts them for Wasm (ToInt32 for an i32 lane); give
   each lane in the signed i32 range. Typed `invoke` refuses an out-of-range
   argument."
+  For an `f32` lane JavaScript applies ToFloat32; since SEC53-10 typed
+  `invoke` refuses an `f32` argument that binary32 does not hold exactly (NaN
+  and the infinities pass).
 - **The benchmark's warning:** "The runtime benchmark reports a refused argument
   as the warning `air.benchmark.runtime_unavailable` with status `pass`: read
   the diagnostics, not only the status."
@@ -276,7 +331,10 @@ Each under its record's name. None of them is fixed in 0.53.0.
   refusals in 0.53.0. Over a host import, void exports run through `invokeRaw`;
   typed `invoke` refuses void, i64 results and i64 parameters before any host
   call. M() judges one file at its path, not a package: a module legacy accepts
-  only inside its package is `legacy_invalid` there. The four caveats of every
+  only inside its package is `legacy_invalid` there. Since SEC53-10 M() reads a `use`
+  target only inside the input's folder: an import outside it, by `..`, by an
+  absolute path, by a `std.` name with path segments, or through a symbolic
+  link, is refused with `air.package.path_uncontained` and no record. The four caveats of every
   budget mapping apply:
   - keeping N while changing `cpu.instructions` to typed `steps` changes the
     metric;

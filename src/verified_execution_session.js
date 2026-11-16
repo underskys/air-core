@@ -445,7 +445,12 @@ function normalizeScalarArguments(value, entry) {
       if (!Number.isInteger(item) || item < -2147483648 || item > 2147483647) {
         sessionFail("air.realtime.argument_invalid", `arguments.${param.name} must be signed i32`);
       }
-    } else if (!["f32", "f64"].includes(param.type) || typeof item !== "number" || !Number.isFinite(item)) {
+    } else if (param.type === "f32") {
+      // SEC53-10 (F-B7-1, OD-S10-1 (a)): a finite number binary32 holds exactly; f64 keeps the finite-number rule.
+      if (typeof item !== "number" || !Number.isFinite(item) || !Object.is(Math.fround(item), item)) {
+        sessionFail("air.realtime.argument_invalid", `arguments.${param.name} must be a finite f32 value binary32 holds exactly`);
+      }
+    } else if (param.type !== "f64" || typeof item !== "number" || !Number.isFinite(item)) {
       sessionFail("air.realtime.argument_invalid", `arguments.${param.name} has unsupported scalar type`);
     }
     out[param.name] = item;

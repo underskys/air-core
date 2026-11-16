@@ -15,7 +15,9 @@ const path = require("path");
 const { BUNDLES, applyUseBundles } = require("./bundles");
 const { BOUNDED_FILE_MAX_BYTES } = require("./bounded_file");
 const { HOST_SIGNATURES } = require("./host_abi");
-const { resolveSourceImports } = require("./imports");
+const { AirError } = require("./errors");
+const { admitSingleFileImport, resolveSourceImports, singleFileImportTarget } = require("./imports");
+const { FILE_CHANGED: PACKAGE_FILE_CHANGED, FILE_INVALID: PACKAGE_FILE_INVALID, PATH_UNCONTAINED: PACKAGE_PATH_UNCONTAINED } = require("./package_paths");
 const { parseAir, parseV051TypedAir } = require("./parser");
 const { formatSource, parseSource, verifySource } = require("./source_profile");
 const { typedV053 } = require("./verifier");
@@ -201,9 +203,29 @@ function isTypedSource(text, file) {
   }
 }
 
-// A Node I/O error says nothing about the program (P11-R2 step 4): no record.
+// A Node I/O error says nothing about the program (P11-R2 step 4): no record. SEC53-10 (spec R3 section 4): nor does an import
+// inside the input's folder that SEC53-01's admission or descriptor read refuses (non-regular, oversize, unreadable, changed).
 function isImportReadFailure(error) {
-  return Boolean(error && (error.syscall !== undefined || ["ERR_STRING_TOO_LONG", "ERR_FS_FILE_TOO_LARGE"].includes(error.code)));
+  return Boolean(error && (error.syscall !== undefined || ["ERR_STRING_TOO_LONG", "ERR_FS_FILE_TOO_LARGE", PACKAGE_FILE_INVALID, PACKAGE_FILE_CHANGED].includes(error.code)));
+}
+
+// SEC53-10 (OD-S10-3 (a), OD-S10-4 (b)): an import outside the input's folder R (by `..`, an absolute path, a std. name with path
+// segments, or a symbolic link below R), whether M()'s look or either pass's resolver finds it, is M()'s own refusal: one line at
+// the input's `use` line that reaches the import, and no record.
+function containmentRefusal(graph, error, label) {
+  const importing = error.importingFile || (error.loc && error.loc.file ? path.resolve(error.loc.file) : graph.file);
+  const own = importing === graph.file ? (Number.isInteger(error.useLine) ? error.useLine : error.loc && error.loc.line) : null;
+  const line = Number.isInteger(own) ? own : useLineReaching(graph, importing);
+  const name = error.importName === undefined ? "" : error.importName;
+  const refusal = new AirError(`${PACKAGE_PATH_UNCONTAINED}: AIR import '${name}' leaves the input's folder`, { file: label, line });
+  refusal.code = PACKAGE_PATH_UNCONTAINED;
+  return refusal;
+}
+
+// M()'s look refusal of one `use`, carrying where it was found.
+function lookRefusal(error, name, nodeFile, line) {
+  if (error && typeof error === "object") Object.assign(error, { importName: name, importingFile: nodeFile, useLine: line });
+  return error;
 }
 
 function rethrowIoFailure(error) {
@@ -230,9 +252,11 @@ function inspectImport(file) {
 // observing parse function, and gives the files read, each module's own AST (a
 // merged function is not the input's own, P11-R5) and the `use` graph. Legacy's
 // plain parse stays the authority on the verdict. The look precedes its reads.
-function observeLegacyImports(text, file) {
+function observeLegacyImports(text, file, label) {
   const stdlibDir = path.resolve(__dirname, "..", "stdlib");
-  const graph = { absolute: new Set(), file, nodes: new Map(), reads: new Set(), stdlibPrefix: `${stdlibDir}${path.sep}` };
+  // SEC53-10: R is the input's folder as given (lexical), and `bytes` the bytes the resolver read for each file.
+  const graph = { absolute: new Set(), bytes: new Map(), file, nodes: new Map(), reads: new Set(), root: path.dirname(file), stdlibPrefix: `${stdlibDir}${path.sep}` };
+  const onImportRead = (readFile, bytes) => graph.bytes.set(readFile, bytes);
   const observe = (source, nodeFile, options = {}) => {
     graph.reads.add(nodeFile);
     const ast = parseAir(source, nodeFile, { ...options, resolveSourceImports: false });
@@ -240,21 +264,40 @@ function observeLegacyImports(text, file) {
     const useLocs = new Set(ast.uses.map((use) => use.loc));
     const externs = ast.externs.filter((item) => !useLocs.has(item.loc));
     ast.externs = externs;
+    // SEC53-10 (spec R3 section 4, M()'s look): steps 1 and 2 for every `use`, before any file-system call and before a target
+    // is inspected: a std. name outside the identifier pattern, then a non-std target outside R.
     const uses = ast.uses.map((use) => {
       if (use.kind !== "source") return { line: use.loc.line, name: use.name, target: null };
-      const target = use.name.startsWith("std.")
-        ? path.join(stdlibDir, `${use.name.slice("std.".length)}.air`)
-        : path.resolve(path.dirname(nodeFile), use.name);
+      let target;
+      try {
+        target = singleFileImportTarget(use.name, nodeFile, graph.root, stdlibDir);
+      } catch (error) {
+        throw lookRefusal(error, use.name, nodeFile, use.loc.line);
+      }
       if (!use.name.startsWith("std.") && (path.isAbsolute(use.name) || graph.absolute.has(nodeFile))) graph.absolute.add(target);
       return { line: use.loc.line, name: use.name, target };
     });
     graph.nodes.set(nodeFile, { ast, externs: externs.slice(), file: nodeFile, text: source, uses });
-    for (const use of uses) if (use.target) inspectImport(use.target);
-    return applyUseBundles(resolveSourceImports(ast, observe, { ...options, file: nodeFile }));
+    // Step 3, SEC53-01's admission below R (a link: containment; a non-regular file: the I/O failure), then step 4,
+    // inspectImport's bound and readability, on every target the admission does not refuse, a missing one included.
+    for (const use of uses) {
+      if (!use.target) continue;
+      if (!use.name.startsWith("std.")) {
+        try {
+          admitSingleFileImport(use.name, use.target, graph.root);
+        } catch (error) {
+          throw lookRefusal(error, use.name, nodeFile, use.line);
+        }
+      }
+      inspectImport(use.target);
+    }
+    return applyUseBundles(resolveSourceImports(ast, observe, { ...options, file: nodeFile, onImportRead }));
   };
   try {
     observe(text, file, {});
   } catch (error) {
+    // SEC53-10: an import refusal is caught by its code, before rethrowIoFailure (a PackagePathError has no syscall).
+    if (error && error.code === PACKAGE_PATH_UNCONTAINED) throw containmentRefusal(graph, error, label);
     rethrowIoFailure(error);
     // The authority's refusal is reported; the graph holds what was read by then.
   }
@@ -276,7 +319,8 @@ function importKey(graph, absoluteFile) {
 
 function importsOf(graph) {
   const byKey = new Map();
-  for (const file of graph.reads) byKey.set(importKey(graph, file), sha256(fs.readFileSync(file)));
+  // SEC53-10: the bytes the resolver read (admitted and read through one descriptor), not a second read by path.
+  for (const file of graph.reads) byKey.set(importKey(graph, file), sha256(graph.bytes.get(file)));
   return [...byKey.keys()].sort(compareCodeUnits).map((key) => ({ path: key, sha256: byKey.get(key) }));
 }
 
@@ -934,7 +978,8 @@ function checkedOutput(typedText) {
 function migrateV053(source, options = {}) {
   const bytes = Buffer.isBuffer(source) ? source : Buffer.from(String(source), "utf8");
   const text = bytes.toString("utf8");
-  const file = path.resolve(options.path === undefined ? "<input>" : String(options.path));
+  const label = options.path === undefined ? "<input>" : String(options.path);
+  const file = path.resolve(label);
   const moduleId = options.moduleId === undefined || options.moduleId === null ? null : String(options.moduleId);
   const common = {
     from: "legacy-v0.50",
@@ -956,7 +1001,7 @@ function migrateV053(source, options = {}) {
 
   if (isTypedSource(text, file)) return rejected({ construct: "source-profile", line: 1, origin: null, reason: "not_admitted" });
 
-  const graph = observeLegacyImports(text, file);
+  const graph = observeLegacyImports(text, file, label);
   let ast;
   let refusal = null;
   try {
@@ -964,6 +1009,8 @@ function migrateV053(source, options = {}) {
     const library = !ast.functions.some((fn) => fn.name === "main" || fn.exported);
     verifySource(ast, { library });
   } catch (error) {
+    // SEC53-10: an import refusal is caught by its code, before it could become legacyRefusal's REJECTED record.
+    if (error && error.code === PACKAGE_PATH_UNCONTAINED) throw containmentRefusal(graph, error, label);
     rethrowIoFailure(error);
     refusal = error;
   }

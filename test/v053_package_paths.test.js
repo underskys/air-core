@@ -645,7 +645,9 @@ const ROWS = {
     const swapped = await replay(true);
     const staticLink = await replay(false);
     return {
-      ok: swapped.swapped && swapped.text.includes(UNCONTAINED) && !swapped.text.includes("outside_lib") && staticLink.mismatches.length > 0 && !staticLink.text.includes("outside_lib"),
+      // SEC53-10 (spec R3 L-X1): SEC53-01's package-mode wording too, which the single-file branch never prints, so a mutant that
+      // drops packageRoot here is caught again (M18-conformance_replay).
+      ok: swapped.swapped && swapped.text.includes(UNCONTAINED) && swapped.text.includes("is or passes through a symbolic link") && !swapped.text.includes("outside_lib") && staticLink.mismatches.length > 0 && !staticLink.text.includes("outside_lib"),
       detail: { staticLink: staticLink.mismatches, swapped: swapped.mismatches }
     };
   },
@@ -717,7 +719,8 @@ const ROWS = {
     };
     try {
       const traced = await outsideReads([ctx.outside], async () => JSON.stringify(await ctx.S("src/conformance_replay.js").createConformanceReplayReport(b, { profile: "cli", trace: path.join(b, "traces", "pass.json") })));
-      const coded = traced.value.includes(UNCONTAINED);
+      // SEC53-10 (spec R3 L-X1): SEC53-01's package-mode wording too (M18-conformance_replay_binding).
+      const coded = traced.value.includes(UNCONTAINED) && traced.value.includes("is or passes through a symbolic link");
       return { ok: swapped && traced.reads.length === 0 && coded && !OUTSIDE_NAME.test(traced.value), coded, outsideReads: traced.reads.length };
     } finally {
       pp.readAdmittedPackageFile = wrapped;

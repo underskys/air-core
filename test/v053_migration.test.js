@@ -8,7 +8,11 @@
 // with its erratum 1 for N34's long_path row (AIR_V053_P0_11_SLICE_RFC_R4_8_ERRATUM_1_2026_11_07/),
 // never from M(). The vectors' packages and the
 // corpus are checked in under fixtures/v053/migration/, pinned by
-// FIXTURES_TREE_SHA256 (the slice text's own digests). The corpus's values come
+// FIXTURES_TREE_SHA256 (the slice text's own digests). SEC53-10 (specification R3,
+// AIR_V053_SEC53_10_PART_B_FIXES_SPEC_R3_2026_11_16, d5b2dc78...; OD-S10-4 (b)) reopens P0-11 for
+// V53-MIG-N14 (v) and N34's dangling_link, nul_byte, link_loop, dev_zero and dev_null rows: an import
+// outside the input's folder is refused, so their expectations come from SEC53-10, not R4.8, and
+// FIXTURES_TREE_SHA256 pins the tree with them. The corpus's values come
 // from the evaluator below, which interprets the legacy I3 subset with
 // typed-v0.53's normative semantics and shares no code with src/migrate_v053.js
 // or the lowerer (P11-R17, OD-P11-5 (a)). witness.json is read, never produced
@@ -36,7 +40,8 @@ const FIXTURES = path.join(ROOT, "fixtures", "v053", "migration");
 const GATED = Object.freeze({ allowCandidateProfile: true, sourceProfile: "typed-v0.53" });
 const CODE = "air.migration.unsupported_construct";
 // sha256 over the sorted lines "<sha256>  <path>" of the slice text's SHA256SUMS `fixtures/` rows.
-const FIXTURES_TREE_SHA256 = "9c001019ef43119073d587c56acf91869f01214e109884705297830dbfcd60a3";
+// SEC53-10: recomputed from the changed tree (N14 (v)'s expected.cli.txt for its expected.record.json, N34's five rows, MANIFEST.tsv).
+const FIXTURES_TREE_SHA256 = "ead3cc3a5c6aaf22ddaec8a4fe157f80f7375abe973ded5b2d0a0f258a54ec35";
 const CORPUS_SHA256 = "c6d429dd62c9c189109613d0a3d5e2ebbf2c68ec90f2286a0c3428477dfdb7bb";
 const WITNESS_SHA256 = "e4f6c5feaa3f847a83751b75401139a96afe133db225315101e83fb3015401d6";
 const H52_DEV = "94001cd1c822ccd914874c85543aa99e91d6ae4e";
@@ -484,6 +489,10 @@ async function sectionClosureCli() {
       if (outcome === "read-failure") {
         assert.equal(out.stderr, "air.cli.file_read_failed: import file could not be read\n");
         assert.equal(fs.existsSync(at("out.json")), false);
+      } else if (outcome === "containment") {
+        // SEC53-10 (OD-S10-4 (b)): the one containment line at the input's `use` line; no record.
+        assert.equal(out.stderr, `input.air:2: air.package.path_uncontained: AIR import '${JSON.parse(message)}' leaves the input's folder\n`);
+        assert.equal(fs.existsSync(at("out.json")), false);
       } else {
         const record = fs.readFileSync(at("out.json"), "utf8");
         const r = JSON.parse(record).rejection;
@@ -500,17 +509,24 @@ async function sectionClosureCli() {
     const dir = fs.mkdtempSync(path.join(scratch, "io-vector-"));
     const pkg = pkgOf(prefix);
     fs.cpSync(pkg.dir, dir, { recursive: true });
+    // SEC53-10: each CLI row's exit, stdout and stderr come from its expected.cli.txt; N32's setup is N32's two rows' only.
+    const expected = Object.fromEntries(fs.readFileSync(path.join(dir, "expected.cli.txt"), "utf8").split("\n").filter(Boolean).map((line) => {
+      const at = line.indexOf(":");
+      return [line.slice(0, at), line.slice(at + 1).replace(/^ /, "")];
+    }));
+    const n32 = id.startsWith("V53-MIG-N32");
     const locked = path.join(dir, "lock.air");
-    if (id.includes("(ii)")) fs.chmodSync(locked, 0);
-    else fs.mkdirSync(path.join(dir, "adir"));
+    if (n32 && id.includes("(ii)")) fs.chmodSync(locked, 0);
+    else if (n32) fs.mkdirSync(path.join(dir, "adir"));
     try {
       const out = runCli(["migrate", "input.air", "-o", "out.air", "--record", "out.json"], dir);
-      assert.equal(out.status, 1);
-      assert.equal(out.stdout, "");
-      assert.equal(out.stderr, "air.cli.file_read_failed: import file could not be read\n");
+      assert.equal(String(out.status), expected.exit);
+      assert.equal(out.stdout, expected.stdout === "" ? "" : `${expected.stdout}\n`);
+      assert.equal(out.stderr, `${expected.stderr}\n`);
+      assert.equal(expected.files, "none");
       assert.equal(fs.existsSync(path.join(dir, "out.air")), false);
       assert.equal(fs.existsSync(path.join(dir, "out.json")), false);
-    } finally { if (id.includes("(ii)")) fs.chmodSync(locked, 0o600); }
+    } finally { if (n32 && id.includes("(ii)")) fs.chmodSync(locked, 0o600); }
   });
 }
 
@@ -1141,16 +1157,21 @@ async function sectionRules() {
     assert.equal(reached.line, 2, "the smallest `use` line that reaches the file");
     assert.deepEqual(reached.origin, { construct: "legacy-invalid", file: "leaf.air", line: 6 });
 
-    // `..` above the input's folder stays a path from that folder.
+    // SEC53-10 (OD-S10-4 (b); its rows M-N10, M-N11): an import above the input's folder, or an absolute one into a sibling
+    // folder, is refused with the containment line at the input's `use` line, and no record.
+    const contained = (input, spelled) => assert.throws(() => migrateV053(fs.readFileSync(input), { path: input }), (error) =>
+      error.code === "air.package.path_uncontained" && error.message === `${input}:2: air.package.path_uncontained: AIR import '${spelled}' leaves the input's folder`);
     write("up/lib.air", leaf("lib"));
     const above = write("up/deep/er/top.air", importer(['use "../../lib.air" as l']));
-    assert.deepEqual(JSON.parse(migrateV053(fs.readFileSync(above), { path: above }).record).imports.map((item) => item.path), ["../../lib.air"]);
+    contained(above, "../../lib.air");
 
-    // An absolute `use` keeps its path, and so does what that file brings in (P11-R3).
+    // An absolute `use` keeps its path, and so does what that file brings in (P11-R3), inside the input's folder (M-P3).
     const absolute = write("abs/lib.air", 'module lib\nuse "./inner.air" as i\ncapabilities { }\n\nfunc g(x: i32) -> i32 {\nentry:\n  %y:i32 = @i.g(%x)\n  return %y\n}\n');
     const inner = write("abs/inner.air", leaf("inner"));
-    const viaAbsolute = write("abs/top/in.air", importer([`use "${absolute}" as l`]));
+    const viaAbsolute = write("abs/in.air", importer([`use "${absolute}" as l`]));
     assert.deepEqual(JSON.parse(migrateV053(fs.readFileSync(viaAbsolute), { path: viaAbsolute }).record).imports.map((item) => item.path), [absolute, inner].sort());
+    const sibling = write("abs/top/in.air", importer([`use "${absolute}" as l`]));
+    contained(sibling, absolute);
 
     // A cycle is a legacy refusal with its location; nothing of the host reaches the record.
     write("cyc/a.air", 'module a\nuse "./b.air" as b\ncapabilities { }\n\nfunc g(x: i32) -> i32 {\nentry:\n  return %x\n}\n');
@@ -1162,10 +1183,11 @@ async function sectionRules() {
     assert.deepEqual(cycled.rejection.origin, { construct: "legacy-invalid", file: "b.air", line: 2 });
     assert(!cycled.rejection.legacy_message.includes(dir), "no host path in the message");
 
-    // An import that is a folder is an I/O failure: no record (P11-R2 step 4), and the CLI exits 1.
+    // An import that is a folder is an I/O failure: no record (P11-R2 step 4), and the CLI exits 1. SEC53-10: SEC53-01's admission
+    // in M()'s look refuses it as air.package.file_invalid, which isImportReadFailure counts as the I/O failure (it has no syscall).
     fs.mkdirSync(path.join(dir, "io", "adir"), { recursive: true });
     const io = write("io/top.air", importer(['use "./adir" as l']));
-    assert.throws(() => migrateV053(fs.readFileSync(io), { path: io }), (error) => error.syscall !== undefined);
+    assert.throws(() => migrateV053(fs.readFileSync(io), { path: io }), (error) => isImportReadFailure(error) && error.code === "air.package.file_invalid");
     const recordFile = path.join(dir, "io", "record.json");
     const cli = runCli(["migrate", io, "--record", recordFile]);
     assert.equal(cli.status, 1);

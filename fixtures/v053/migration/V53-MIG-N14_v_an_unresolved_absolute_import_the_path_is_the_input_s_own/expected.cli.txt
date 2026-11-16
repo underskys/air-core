@@ -1,0 +1,5 @@
+setup: none
+exit: 1
+stdout:
+stderr: input.air:2: air.package.path_uncontained: AIR import '/nonexistent/air-migration/missing.air' leaves the input's folder
+files: none

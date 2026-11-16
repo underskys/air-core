@@ -119,13 +119,20 @@ empty, no output is written, and stderr holds the refusal lines followed by the 
 source line has no `:null` suffix. M() judges one file at its path, not a package: a module legacy accepts only inside its package is
 `legacy_invalid` here, with legacy's single-file message.
 
+Before any look, M() refuses an import outside the input's folder, at any depth: one whose path leaves the folder by `..` or as an
+absolute path, a `std.` name with path segments, or a path through a symbolic link below the folder. It writes one line,
+`<input>:<line>: air.package.path_uncontained: AIR import '<spelled>' leaves the input's folder`, with the input's `use` line that
+reaches the import, then exits 1 with empty stdout, no output and no record; nothing of the import is looked at or read. Legacy-v0.50's
+single-file commands refuse it the same way (SEC53-10, OD-S10-4 (b)). A project that imports outside its folder moves to a package
+layout. Inside the folder, imports are admitted as a package's are (no symbolic link below the folder, a regular file within 4 MiB).
+
 Before legacy reads imports, M() looks at every import named by the current file. Only ENOENT, ENOTDIR and a NUL-path
 ERR_INVALID_ARG_VALUE are confirmed absence and lead to legacy's recorded refusal. Other lookup/read failures, unreadable files,
 non-regular files (including FIFOs/devices) and regular files above 4 MiB yield exactly:
 `air.cli.file_read_failed: import file could not be read`, exit 1, empty stdout, no output and no record. The shared predicate also covers
 Node's ERR_STRING_TOO_LONG and ERR_FS_FILE_TOO_LARGE errors. At exactly 4 MiB, regular readable imports reach legacy parsing.
-This is a bounded mitigation, not global import security closure: TOCTOU, aggregate/repeated reads, special regular files and the unchanged
-legacy reader remain carried.
+This is a bounded mitigation, not global import security closure: TOCTOU, aggregate/repeated reads, special regular files and SEC53-01's
+limits inside the folder remain carried.
 
 The record is written first. A failed `--record` or `-o` writes one coded line, `air.cli.file_write_failed: record file could not be written`
 or `air.cli.file_write_failed: output file could not be written`, and exits 1 with empty stdout. No stack, host path, refusal lines or JSON

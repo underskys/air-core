@@ -352,8 +352,9 @@ function normalizeScalarArguments(value, entry) {
         bindingFail("air.borrow.argument_invalid", `arguments.${param.name} must be a signed i32`);
       }
     } else if (param.type === "f32") {
-      if (typeof item !== "number") {
-        bindingFail("air.borrow.argument_invalid", `arguments.${param.name} must be a number`);
+      // SEC53-10 (F-B7-1, OD-S10-1 (a)): R-EFF-13's test, a number binary32 holds exactly (NaN as a class, -0 kept, the infinities).
+      if (typeof item !== "number" || !(Number.isNaN(item) || Object.is(Math.fround(item), item))) {
+        bindingFail("air.borrow.argument_invalid", `arguments.${param.name} must be an f32 value: a number binary32 holds exactly`);
       }
     } else {
       bindingFail("air.borrow.argument_invalid", `scalar type '${param.type}' is unsupported by this binding`);
@@ -1407,7 +1408,10 @@ function normalizeTypedScalarArguments(value, entry) {
         bindingFail("air.borrow.argument_invalid", `arguments.${param.name} must be a signed i32`);
       }
     } else if (param.type === "f32") {
-      if (typeof item !== "number") bindingFail("air.borrow.argument_invalid", `arguments.${param.name} must be a number`);
+      // SEC53-10 (F-B7-1, OD-S10-1 (a)): R-EFF-13's test, a number binary32 holds exactly (NaN as a class, -0 kept, the infinities).
+      if (typeof item !== "number" || !(Number.isNaN(item) || Object.is(Math.fround(item), item))) {
+        bindingFail("air.borrow.argument_invalid", `arguments.${param.name} must be an f32 value: a number binary32 holds exactly`);
+      }
     } else {
       bindingFail("air.borrow.argument_invalid", `scalar type '${param.type}' is unsupported by the typed admission`);
     }

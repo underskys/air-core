@@ -331,8 +331,10 @@ async function runRuntimeBenchmark(packageDir, config, builtWasm, builtModule) {
   const target = builtModule && (builtModule.functions || []).find((item) => item.exported && item.name === runtime.export);
   // Arguments go to Wasm lanes: a borrowed slice is two i32 lanes, its pointer and its length (flattenParams in src/lower_wasm.js).
   const lanes = target ? target.params.flatMap((param) => (param.type === "borrowed_slice" ? ["i32", "i32"] : [["i32", "bool", "ptr", "slice"].includes(param.type) ? "i32" : param.type])) : [];
-  const bad = args.findIndex((arg, index) => lanes[index] === "i32" && !(typeof arg === "boolean" || (Number.isInteger(arg) && arg >= -2147483648 && arg <= 2147483647)));
-  if (bad >= 0) throw new Error(`air.benchmark.argument_invalid: runtime.args[${bad}] must be a signed i32`);
+  // SEC53-10 (F-B7-1, OD-S10-1 (a)): an argument to an f32 lane must be a number binary32 holds exactly (R-EFF-13's test).
+  const bad = args.findIndex((arg, index) => (lanes[index] === "i32" && !(typeof arg === "boolean" || (Number.isInteger(arg) && arg >= -2147483648 && arg <= 2147483647))) ||
+    (lanes[index] === "f32" && !(typeof arg === "number" && (Number.isNaN(arg) || Object.is(Math.fround(arg), arg)))));
+  if (bad >= 0) throw new Error(lanes[bad] === "f32" ? `air.benchmark.argument_invalid: runtime.args[${bad}] must be an f32 value binary32 holds exactly` : `air.benchmark.argument_invalid: runtime.args[${bad}] must be a signed i32`);
   for (let index = 0; index < repeat; index += 1) fn(...args);
   return { repeat };
 }

@@ -2174,7 +2174,13 @@ function parseV053TypedAir(source, file = "<input>") {
     if (inBlock && frame.yielded) throw v053SyntaxError(`statement after the block's yield '${line}'`, loc);
     // P0-07 (P7-R7): `state.set` is the one statement without a result binding.
     if (/^state\.set(?:\s|$)/.test(line)) {
-      const statement = { kind: "state_set", loc, value: v053StateValue(line) };
+      // SEC53-10 (F-B1-1, spec R3 section 3): a state.set whose operands the form cannot read (a CR, U+2028 or U+2029 inside
+      // them) is refused with the code here; no statement with a null value is built.
+      const value = v053StateValue(line);
+      if (value === null) {
+        throw v053SyntaxError("a state.set statement is written state.set <cell>, <index>, <value> on one line: its operands hold a line terminator (CR, U+2028 or U+2029)", loc);
+      }
+      const statement = { kind: "state_set", loc, value };
       frame.statements.push(statement);
       stateSets.push(statement);
       continue;
