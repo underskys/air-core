@@ -1,5 +1,7 @@
 # Cleanup Candidates
 
+Historical reference; see the [current roadmap](../../ROADMAP.md).
+
 Status: audit/classification only. No files were deleted or moved while
 creating this inventory.
 

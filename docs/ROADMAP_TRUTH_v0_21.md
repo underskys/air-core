@@ -1,5 +1,7 @@
 # AIR v0.21 Roadmap Truth
 
+Historical reference; see the [current roadmap](../ROADMAP.md).
+
 Status: public-claims alignment
 
 This document aligns v0.21+ roadmap language with current implementation

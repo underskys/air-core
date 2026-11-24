@@ -1,8 +1,9 @@
 const fs = require("fs");
 const path = require("path");
+const os = require("os");
 
-const EXPECTED_PROD = "/Users/sky/DEV/air-core";
-const EXPECTED_DEV = "/Users/sky/DEV/airlang";
+const EXPECTED_PROD = path.join(os.homedir(), "DEV", "air-core");
+const EXPECTED_DEV = path.join(os.homedir(), "DEV", "airlang");
 const EXPECTED_PACKAGE = "@underskys/air-core";
 
 const cwd = process.cwd();

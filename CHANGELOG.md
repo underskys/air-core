@@ -9,6 +9,20 @@ compact format:
 - Security
 - Breaking / Migration
 
+## v0.54.0
+
+Released on GitHub only; not published to npm, where 0.53.0 remains current.
+
+### Added
+
+- The public pure execution contract, threat model, norms table and open
+  decisions. See the [release notes](docs/RELEASE_NOTES_0_54_0.md).
+
+### Changed
+
+- Repository documentation and the roadmap pointer. No runtime, source
+  profile, AIR ABI or Host ABI change.
+
 ## v0.53.0
 
 Package `@underskys/air-core@0.53.0`, with the typed-v0.53 source profile as a

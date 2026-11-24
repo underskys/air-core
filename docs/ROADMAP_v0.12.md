@@ -1,5 +1,7 @@
 # AIR v0.12 Roadmap
 
+Historical reference; see the [current roadmap](../ROADMAP.md).
+
 Status: draft
 
 Version target: v0.12

@@ -1,6 +1,6 @@
 # AIR for models: typed-v0.53 in one page
 
-For AIR 0.53 and the typed-v0.53 source profile. This page ships in the
+For AIR 0.54 and the typed-v0.53 source profile. This page ships in the
 npm package and the repository at `docs/v0.53/AIR_FOR_MODELS.md`; its
 examples are in `docs/v0.53/for-models/examples/`. The repository test
 `test/air_for_models.test.js` checks that every code listed here exists and
@@ -16,7 +16,7 @@ static indexes, and refuses what it cannot prove with a stable `air.*` code.
 The host keeps all authority (files, network, UI, devices). The backend is
 WebAssembly. legacy-v0.50 is still the CLI default: always pass the
 typed-v0.53 flags below (two words, `--source-profile typed-v0.53`).
-In AIR 0.53, typed-v0.53 is a candidate profile: it is selected only
+In AIR 0.54, typed-v0.53 is a candidate profile: it is selected only
 together with `--allow-candidate-profile`.
 
 ## 2. The commands you need

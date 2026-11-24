@@ -23,6 +23,11 @@ const banned = [
 ];
 
 const explicitFiles = [
+  "docs/RELEASE_NOTES_0_54_0.md",
+  "docs/v0.54/n54-01/CONTRACT.md",
+  "docs/v0.54/n54-01/THREAT_MODEL.md",
+  "docs/v0.54/n54-01/NORMS_TABLE.md",
+  "docs/v0.54/n54-01/OPEN_DECISIONS.md",
   "README.md",
   "SHOWCASE.md",
   "WHY_AIR.md",

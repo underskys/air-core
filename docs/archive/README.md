@@ -2,7 +2,7 @@
 
 Archived docs are historical. They are not active release guidance.
 
-For current v0.13 work, use:
+Historical v0.13 references:
 
 - [Feature Status v0.13](../FEATURE_STATUS_v0.13.md)
 - [Release Plan v0.13](../V0_13_RELEASE_PLAN.md)

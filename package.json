@@ -1,6 +1,6 @@
 {
   "name": "@underskys/air-core",
-  "version": "0.53.0",
+  "version": "0.54.0",
   "description": "Verifier-first programming language and CLI for AI-authored deterministic components that hosts can compose into tools, games, simulations, robotics policies, and 3D scenes.",
   "license": "Apache-2.0",
   "author": {
@@ -66,7 +66,12 @@
     "stdlib/",
     "test/fixtures/conformance_policy/",
     "test/fixtures/conformance_state/",
-    "test/fixtures/profiles/"
+    "test/fixtures/profiles/",
+    "docs/RELEASE_NOTES_0_54_0.md",
+    "docs/v0.54/n54-01/CONTRACT.md",
+    "docs/v0.54/n54-01/THREAT_MODEL.md",
+    "docs/v0.54/n54-01/NORMS_TABLE.md",
+    "docs/v0.54/n54-01/OPEN_DECISIONS.md"
   ],
   "scripts": {
     "pretest": "node test/v052_source_profile_cli.test.js",
